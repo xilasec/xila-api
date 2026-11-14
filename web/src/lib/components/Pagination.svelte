@@ -1,7 +1,7 @@
 <script>
 	// A minimal prev/next pager driven by the API's {limit, offset, count, has_more}.
-	import { t } from '$lib/i18n.js';
-	import { fmtNumber } from '$lib/format.js';
+	import { t } from '#lib/i18n.js';
+	import { fmtNumber } from '#lib/format.js';
 	let { limit = 50, offset = 0, count = 0, hasMore = false, onchange } = $props();
 </script>
 

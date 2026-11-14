@@ -4,15 +4,15 @@
 	// assessment or a fix. The exact prompt is shown before anything is sent;
 	// answers are recorded proposals that change nothing until a person accepts
 	// them. Model output is untrusted and rendered as plain text only.
-	import { api, ApiError, errorMessage } from '$lib/api.js';
-	import { notify } from '$lib/stores.js';
-	import { fmtDate, fmtNumber, prettyStatus } from '$lib/format.js';
-	import { t, labelOf } from '$lib/i18n.js';
+	import { api, ApiError, errorMessage } from '#lib/api.js';
+	import { notify } from '#lib/stores.js';
+	import { fmtDate, fmtNumber, prettyStatus } from '#lib/format.js';
+	import { t, labelOf } from '#lib/i18n.js';
 
 	/** @type {{ finding: any, onchange: (f: any) => void, onrevision?: () => void }} */
 	let { finding, onchange, onrevision = () => {} } = $props();
 
-	/** @type {Record<string, import('$lib/i18n.js').MessageKey>} */
+	/** @type {Record<string, import('#lib/i18n.js').MessageKey>} */
 	const KINDS = {
 		false_positive: 'ai.kind.false_positive',
 		exploitability: 'ai.kind.exploitability',
@@ -21,7 +21,7 @@
 	/** @param {string} k */
 	const kindLabel = (k) => (KINDS[k] ? $t(KINDS[k]) : k);
 	/** @param {string} s */
-	const stateLabel = (s) => (['proposed', 'accepted', 'rejected', 'superseded', 'invalid'].includes(s) ? $t(/** @type {import('$lib/i18n.js').MessageKey} */ ('ai.state.' + s)) : s);
+	const stateLabel = (s) => (['proposed', 'accepted', 'rejected', 'superseded', 'invalid'].includes(s) ? $t(/** @type {import('#lib/i18n.js').MessageKey} */ ('ai.state.' + s)) : s);
 	/** @type {Record<string, string>} */
 	const STATE_CLASS = {
 		proposed: 'badge-info',

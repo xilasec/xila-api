@@ -3,9 +3,9 @@
 	// applies (definitions from the admin's Custom fields page) and, for editors,
 	// edits them in one save. The server validates the type, enum options and who
 	// a user field may name; its 400 message is shown as is.
-	import { api, errorMessage } from '$lib/api.js';
-	import { notify } from '$lib/stores.js';
-	import { t } from '$lib/i18n.js';
+	import { api, errorMessage } from '#lib/api.js';
+	import { notify } from '#lib/stores.js';
+	import { t } from '#lib/i18n.js';
 
 	/** @type {{ kind: 'projects' | 'assets' | 'findings', id: string, projectId: string, values?: Record<string, any>, canEdit?: boolean, onsaved?: (values: Record<string, any>) => void }} */
 	let { kind, id, projectId, values = {}, canEdit = false, onsaved = () => {} } = $props();

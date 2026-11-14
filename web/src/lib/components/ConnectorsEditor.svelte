@@ -3,17 +3,17 @@
 	// write-only: the API only says whether one is stored, and leaving the field
 	// blank on save keeps it (changing the URL needs a new one). Adding, editing,
 	// testing and removing need project owner; "Pull now" needs editor.
-	import { api, ApiError, errorMessage } from '$lib/api.js';
-	import { notify } from '$lib/stores.js';
-	import { fmtDate } from '$lib/format.js';
-	import { t } from '$lib/i18n.js';
-	import Field from '$lib/components/Field.svelte';
-	import State from '$lib/components/State.svelte';
+	import { api, ApiError, errorMessage } from '#lib/api.js';
+	import { notify } from '#lib/stores.js';
+	import { fmtDate } from '#lib/format.js';
+	import { t } from '#lib/i18n.js';
+	import Field from '#lib/components/Field.svelte';
+	import State from '#lib/components/State.svelte';
 
 	/** @type {{ projectId: string, onpulled?: () => void }} */
 	let { projectId, onpulled = () => {} } = $props();
 
-	/** @typedef {import('$lib/i18n.js').MessageKey} MessageKey */
+	/** @typedef {import('#lib/i18n.js').MessageKey} MessageKey */
 	/** @type {{ id: string, label: string, url: string, remote: MessageKey, remoteHint: MessageKey, tokenHint: MessageKey }[]} */
 	const KINDS = [
 		{

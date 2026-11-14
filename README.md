@@ -2193,7 +2193,7 @@ one database and truncate between tests, so packages must not run in parallel.
 The UI supports English and German. The language follows the browser
 (`navigator.language`) until the user picks one in the header (stored in the
 browser). Dates and numbers follow it too, and `<html lang>` is set. Every page
-is translated. A new page is added to `TRANSLATED_ROUTES` (`$lib/i18n.js`) only once
+is translated. A new page is added to `TRANSLATED_ROUTES` (`#lib/i18n.js`) only once
 all of it is translated. Until then it renders entirely in English, so no page is
 half-translated. Some text stays in English by design: the API reference's rendered
 OpenAPI content (served verbatim from the spec), identifiers and example values
@@ -2204,7 +2204,7 @@ Messages live in `web/src/lib/i18n/en.js` (the source) and `de.js`. `t(key, para
 interpolates `{name}` and picks `one|other` plurals by `count`. `pnpm check` fails
 on a missing or extra key, or on a placeholder or plural form that differs from the
 English. To add a language, create a catalogue typed like `de.js`, add an entry to
-`LOCALES`, and add an import to `CATALOGUES` (`$lib/i18n.js`).
+`LOCALES`, and add an import to `CATALOGUES` (`#lib/i18n.js`).
 
 ## AI agents (MCP)
 

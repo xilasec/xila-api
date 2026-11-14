@@ -1,6 +1,6 @@
 <script>
-	import { notify } from '$lib/stores.js';
-	import { t } from '$lib/i18n.js';
+	import { notify } from '#lib/stores.js';
+	import { t } from '#lib/i18n.js';
 
 	/**
 	 * Export dropdown (CSV / Excel) for the listing on screen.

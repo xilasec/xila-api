@@ -3,11 +3,11 @@
 	// scanner "manual" and runs the normal pipeline: triage rules, dedup, SLA,
 	// alerts. Picking a template copies its write-up into the form, so what is
 	// submitted is exactly what's on screen.
-	import { api, errorMessage } from '$lib/api.js';
-	import { notify, features, isOn } from '$lib/stores.js';
-	import { SEVERITIES, CATEGORIES } from '$lib/format.js';
-	import { t, labelOf } from '$lib/i18n.js';
-	import Field from '$lib/components/Field.svelte';
+	import { api, errorMessage } from '#lib/api.js';
+	import { notify, features, isOn } from '#lib/stores.js';
+	import { SEVERITIES, CATEGORIES } from '#lib/format.js';
+	import { t, labelOf } from '#lib/i18n.js';
+	import Field from '#lib/components/Field.svelte';
 
 	/** @type {{ projectId: string, engagements?: any[], engagementId?: string, oncreated?: (f: any) => void }} */
 	let { projectId, engagements = [], engagementId = '', oncreated = () => {} } = $props();

@@ -1,12 +1,12 @@
 <script>
 	import { onMount } from 'svelte';
-	import { api, errorMessage } from '$lib/api.js';
-	import { notify, me, features, isOn } from '$lib/stores.js';
-	import { t } from '$lib/i18n.js';
-	import { fmtDate, fmtDateOnly } from '$lib/format.js';
-	import State from '$lib/components/State.svelte';
+	import { api, errorMessage } from '#lib/api.js';
+	import { notify, me, features, isOn } from '#lib/stores.js';
+	import { t } from '#lib/i18n.js';
+	import { fmtDate, fmtDateOnly } from '#lib/format.js';
+	import State from '#lib/components/State.svelte';
 
-	/** @typedef {import('$lib/stores.js').User} User */
+	/** @typedef {import('#lib/stores.js').User} User */
 	let users = $state(/** @type {User[]} */ ([]));
 	let loading = $state(true);
 	let busy = $state('');

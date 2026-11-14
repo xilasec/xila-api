@@ -1,12 +1,12 @@
 <script>
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { untrack } from 'svelte';
-	import { api, ApiError } from '$lib/api.js';
-	import { fmtDate } from '$lib/format.js';
-	import { t } from '$lib/i18n.js';
-	import State from '$lib/components/State.svelte';
+	import { api, ApiError } from '#lib/api.js';
+	import { fmtDate } from '#lib/format.js';
+	import { t } from '#lib/i18n.js';
+	import State from '#lib/components/State.svelte';
 
-	const vulnId = $derived(decodeURIComponent($page.params.id ?? ''));
+	const vulnId = $derived(decodeURIComponent(page.params.id ?? ''));
 	let artifacts = $state(/** @type {any[]} */ ([]));
 	let loading = $state(true);
 	let error = $state('');

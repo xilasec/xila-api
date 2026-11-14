@@ -633,15 +633,14 @@ Xila uses NVD CPE matching).
 - ✅ 9.7 Parsers: Nancy, CloudSploit, Arachni, SpotBugs, Fortify (FPR or FVDL),
   Steampipe/Powerpipe benchmarks (including summary-only exports, from a real MIT
   sample). Syft JSON is an SBOM format, not a scanner (`sbom.Parse`).
-- ⏸ 9.8 SvelteKit 3 remains deferred (decision, November 2026). The one change
-  every Svelte ≥ 5.57 bump needs is done: no parenthesised snippet parameters
-  remain. Other fixes from the trial migration: JSDoc casts that the codemod's printer
-  moves (`(e.target).checked` → `(e.target.checked)`), `$lib` left inside JSDoc
-  `import()` types, and the `cookie` override in `pnpm-workspace.yaml` (kit 3
-  needs cookie v2). Staying on 2.x leaves two Low advisories fixed only in 3.0.0.
-  Neither is reachable here: GHSA-pfhg-q3qv-9q6r (redirect via `use:enhance` forms,
-  which are unused) and GHSA-27mw-82g8-phjj (cache-control XSS in prerendered pages;
-  there are none, since the SPA is static files served by Go).
+- ✅ 9.8 SvelteKit 3 (November 2026): config lives in `vite.config.js`, `$lib` is
+  `#lib` (package.json `imports`), `$app/stores` is `$app/state`, shallow routing
+  uses `goto(…, { shallow: true, replace: true })`, TypeScript 6. The codemod
+  (`sv migrate sveltekit-3`) was used only for the config, tsconfig and import
+  rewrites: its printer reformats whole files and moves JSDoc casts
+  (`(e.target).checked` → `(e.target.checked)`, snippet parameters), so the rest
+  was done as text edits. The `cookie` override is gone (kit 3 depends on cookie
+  v2). This also clears the two Low advisories fixed only in 3.0.0.
 - ✅ 9.9 UI hygiene: svelte-check at 0 errors and 0 warnings.
 - ✅ 9.10 Onboarding: `xila-api demo-seed` (idempotent; refuses production
   without `--force`; creates the first admin only on an empty instance, with a

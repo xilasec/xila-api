@@ -8,11 +8,12 @@
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",
-    "check": "node scripts/check-i18n.mjs && node scripts/check-types.mjs"
+    "prepare": "svelte-kit sync || echo ''",
+    "check": "svelte-kit sync && node scripts/check-i18n.mjs && node scripts/check-types.mjs"
   },
   "devDependencies": {
-    "@sveltejs/adapter-static": "^3.0.11",
-    "@sveltejs/kit": "^2.70.4",
+    "@sveltejs/adapter-static": "^4.0.0",
+    "@sveltejs/kit": "^3.2.0",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "@tailwindcss/vite": "^4.3.5",
     "daisyui": "^5.7.50",
@@ -22,5 +23,9 @@
     "tailwindcss": "^4.3.5",
     "typescript": "^6.0.3",
     "vite": "^8.3.8"
+  },
+  "imports": {
+    "#lib": "./src/lib/index.js",
+    "#lib/*": "./src/lib/*"
   }
 }

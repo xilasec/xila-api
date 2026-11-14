@@ -1,14 +1,14 @@
 <script>
 	// Every EU CRA Article 14 reporting case the caller can see (all for an
 	// admin), most urgent first, with live deadline timers.
-	import { api, errorMessage } from '$lib/api.js';
-	import { me, notify } from '$lib/stores.js';
-	import { t } from '$lib/i18n.js';
-	import { fmtDate } from '$lib/format.js';
-	import { CRA_STATES, stateLabel, stateClass, deadlineClass, deadlineLabel, countdown, nextDeadline } from '$lib/cra.js';
-	import State from '$lib/components/State.svelte';
-	import Pagination from '$lib/components/Pagination.svelte';
-	import CraCaseDetail from '$lib/components/CraCaseDetail.svelte';
+	import { api, errorMessage } from '#lib/api.js';
+	import { me, notify } from '#lib/stores.js';
+	import { t } from '#lib/i18n.js';
+	import { fmtDate } from '#lib/format.js';
+	import { CRA_STATES, stateLabel, stateClass, deadlineClass, deadlineLabel, countdown, nextDeadline } from '#lib/cra.js';
+	import State from '#lib/components/State.svelte';
+	import Pagination from '#lib/components/Pagination.svelte';
+	import CraCaseDetail from '#lib/components/CraCaseDetail.svelte';
 
 	const LIMIT = 50;
 	let loading = $state(true);

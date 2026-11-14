@@ -1,7 +1,7 @@
 <script>
-	import { api, errorMessage } from '$lib/api.js';
-	import { notify } from '$lib/stores.js';
-	import { t } from '$lib/i18n.js';
+	import { api, errorMessage } from '#lib/api.js';
+	import { notify } from '#lib/stores.js';
+	import { t } from '#lib/i18n.js';
 
 	/**
 	 * Report dropdown: open the printable HTML report, or open it straight into

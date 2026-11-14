@@ -2,11 +2,11 @@
 	// PSIRT (admin): CSAF 2.0 security advisories about our own products.
 	// Draft → publish (each republish bumps the version) → withdraw.
 	import { onMount } from 'svelte';
-	import { api, errorMessage } from '$lib/api.js';
-	import { notify } from '$lib/stores.js';
-	import { t } from '$lib/i18n.js';
-	import State from '$lib/components/State.svelte';
-	import Field from '$lib/components/Field.svelte';
+	import { api, errorMessage } from '#lib/api.js';
+	import { notify } from '#lib/stores.js';
+	import { t } from '#lib/i18n.js';
+	import State from '#lib/components/State.svelte';
+	import Field from '#lib/components/Field.svelte';
 
 	let loading = $state(true);
 	let error = $state('');
@@ -126,7 +126,7 @@
 
 	/** @param {string} s */
 	const tone = (s) => (s === 'published' ? 'badge-success' : s === 'withdrawn' ? 'badge-ghost' : 'badge-warning');
-	/** @type {Record<string, import('$lib/i18n.js').MessageKey>} */
+	/** @type {Record<string, import('#lib/i18n.js').MessageKey>} */
 	const STATE_LABEL = { draft: 'psirt.stateDraft', published: 'psirt.statePublished', withdrawn: 'psirt.stateWithdrawn' };
 	/** @param {string} s */
 	const stateLabel = (s) => $t(STATE_LABEL[s] ?? 'psirt.stateDraft');

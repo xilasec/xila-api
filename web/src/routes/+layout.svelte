@@ -1,12 +1,12 @@
 <script>
 	import '../app.css';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { token, toast, me, loadMe, features, loadFeatures, isOn } from '$lib/stores.js';
-	import { api } from '$lib/api.js';
-	import CommandPalette from '$lib/components/CommandPalette.svelte';
-	import { locale, contentLocale, routeLocale, translate, LOCALES } from '$lib/i18n.js';
+	import { token, toast, me, loadMe, features, loadFeatures, isOn } from '#lib/stores.js';
+	import { api } from '#lib/api.js';
+	import CommandPalette from '#lib/components/CommandPalette.svelte';
+	import { locale, contentLocale, routeLocale, translate, LOCALES } from '#lib/i18n.js';
 
 	let { children } = $props();
 
@@ -14,9 +14,9 @@
 
 	// The shell speaks the user's language; the page does too unless it is one
 	// of the pages still English-only (then all of it is English).
-	/** @param {import('$lib/i18n.js').MessageKey} key */
+	/** @param {import('#lib/i18n.js').MessageKey} key */
 	const ts = (key) => translate($locale, key);
-	let pageLocale = $derived(routeLocale($page.route.id, $locale));
+	let pageLocale = $derived(routeLocale(page.route.id, $locale));
 	$effect.pre(() => {
 		contentLocale.set(pageLocale);
 		document.documentElement.lang = pageLocale;
@@ -69,7 +69,7 @@
 	// Redirect to login when unauthenticated. The reset page is public: it
 	// carries its own credential (the link's token).
 	$effect(() => {
-		const path = $page.url.pathname;
+		const path = page.url.pathname;
 		if (!$token && path !== '/login' && path !== '/reset-password') goto('/login');
 		if ($token && path === '/login') goto('/');
 	});
@@ -79,11 +79,11 @@
 	/** @type {Record<string, string>} */
 	const pageFeature = { '/remediation': 'remediation', '/cra': 'cra', '/custom-fields': 'custom_fields', '/psirt': 'psirt' };
 	let offFeature = $derived.by(() => {
-		const f = pageFeature[$page.url.pathname];
+		const f = pageFeature[page.url.pathname];
 		return f && !isOn($features, f) ? f : '';
 	});
 
-	/** @type {{ href: string, key: import('$lib/i18n.js').MessageKey }[]} */
+	/** @type {{ href: string, key: import('#lib/i18n.js').MessageKey }[]} */
 	const baseNav = [
 		{ href: '/', key: 'nav.projects' },
 		{ href: '/findings', key: 'nav.findings' },
@@ -103,7 +103,7 @@
 	// Instance admins get the triage-rule policy, user management and SSO pages:
 	// flat in the mobile menu, grouped under one "Admin" menu on wider screens
 	// so the bar fits.
-	/** @type {{ href: string, key: import('$lib/i18n.js').MessageKey }[]} */
+	/** @type {{ href: string, key: import('#lib/i18n.js').MessageKey }[]} */
 	const adminNav = [
 		{ href: '/triage-rules', key: 'nav.triageRules' },
 		{ href: '/custom-fields', key: 'nav.customFields' },
@@ -121,7 +121,7 @@
 	/** @param {{ href: string }} i */
 	const shown = (i) => !pageFeature[i.href] || isOn($features, pageFeature[i.href]);
 	let navItems = $derived(($me?.is_admin ? [...baseNav, ...adminNav] : baseNav).filter(shown));
-	let onAdminPage = $derived(adminNav.some((i) => $page.url.pathname === i.href));
+	let onAdminPage = $derived(adminNav.some((i) => page.url.pathname === i.href));
 </script>
 
 <div class="min-h-screen bg-base-200">
@@ -137,9 +137,9 @@
 					</button>
 					<ul class="dropdown-content menu menu-sm mt-2 w-52 rounded-box bg-base-100 p-2 shadow-lg z-40">
 						{#each navItems as item}
-							<li><a href={item.href} class:active={$page.url.pathname === item.href} onclick={(e) => e.currentTarget.blur()}>{ts(item.key)}</a></li>
+							<li><a href={item.href} class:active={page.url.pathname === item.href} onclick={(e) => e.currentTarget.blur()}>{ts(item.key)}</a></li>
 						{/each}
-						<li><a href="/account" class:active={$page.url.pathname === '/account'} onclick={(e) => e.currentTarget.blur()}>{ts('nav.account')}</a></li>
+						<li><a href="/account" class:active={page.url.pathname === '/account'} onclick={(e) => e.currentTarget.blur()}>{ts('nav.account')}</a></li>
 					</ul>
 				</div>
 				<a href="/" class="btn btn-ghost text-xl gap-2">
@@ -150,7 +150,7 @@
 						<a
 							href={item.href}
 							class="btn btn-ghost btn-sm font-normal"
-							class:btn-active={$page.url.pathname === item.href}>{ts(item.key)}</a
+							class:btn-active={page.url.pathname === item.href}>{ts(item.key)}</a
 						>
 					{/each}
 					{#if $me?.is_admin}
@@ -158,7 +158,7 @@
 							<button tabindex="0" class="btn btn-ghost btn-sm font-normal" class:btn-active={onAdminPage}>{ts('nav.admin')} ▾</button>
 							<ul class="dropdown-content menu menu-sm mt-1 w-44 rounded-box bg-base-100 p-2 shadow-lg z-40">
 								{#each adminNav.filter(shown) as item}
-									<li><a href={item.href} class:active={$page.url.pathname === item.href} onclick={(e) => e.currentTarget.blur()}>{ts(item.key)}</a></li>
+									<li><a href={item.href} class:active={page.url.pathname === item.href} onclick={(e) => e.currentTarget.blur()}>{ts(item.key)}</a></li>
 								{/each}
 							</ul>
 						</div>

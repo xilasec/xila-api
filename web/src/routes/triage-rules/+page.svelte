@@ -1,12 +1,12 @@
 <script>
 	import { onMount } from 'svelte';
-	import { api, errorMessage } from '$lib/api.js';
-	import { notify } from '$lib/stores.js';
-	import { t, labelOf } from '$lib/i18n.js';
-	import State from '$lib/components/State.svelte';
-	import Field from '$lib/components/Field.svelte';
-	import Badge from '$lib/components/Badge.svelte';
-	import { fmtDate } from '$lib/format.js';
+	import { api, errorMessage } from '#lib/api.js';
+	import { notify } from '#lib/stores.js';
+	import { t, labelOf } from '#lib/i18n.js';
+	import State from '#lib/components/State.svelte';
+	import Field from '#lib/components/Field.svelte';
+	import Badge from '#lib/components/Badge.svelte';
+	import { fmtDate } from '#lib/format.js';
 
 	let rules = $state(/** @type {any[]} */ ([]));
 	let loading = $state(true);
@@ -19,7 +19,7 @@
 	const CATEGORIES = ['', 'sast', 'dast', 'sca', 'secret', 'container', 'iac', 'license', 'cloud', 'kubernetes'];
 	const SEVERITIES = ['info', 'low', 'medium', 'high', 'critical'];
 	const CRITICALITIES = ['low', 'medium', 'high', 'critical'];
-	/** @type {{ id: string, label: import('$lib/i18n.js').MessageKey }[]} */
+	/** @type {{ id: string, label: import('#lib/i18n.js').MessageKey }[]} */
 	const ACTIONS = [
 		{ id: 'false_positive', label: 'triagerules.actFalsePositive' },
 		{ id: 'risk_accepted', label: 'triagerules.actRiskAccepted' },
@@ -187,7 +187,7 @@
 
 	/** @type {Record<string, string>} */
 	const approvalTone = { pending: 'badge-warning', approved: 'badge-success', rejected: 'badge-error' };
-	/** @type {Record<string, import('$lib/i18n.js').MessageKey>} */
+	/** @type {Record<string, import('#lib/i18n.js').MessageKey>} */
 	const approvalLabel = { pending: 'triagerules.approvalPending', approved: 'triagerules.approvalApproved', rejected: 'triagerules.approvalRejected' };
 
 	/** @param {any} r */
@@ -208,7 +208,7 @@
 		if (r.expression) parts.push(`⟨${r.expression}⟩`);
 		return parts.length ? parts.join(' · ') : $t('triagerules.anyFinding');
 	};
-	/** @type {Record<string, import('$lib/i18n.js').MessageKey>} */
+	/** @type {Record<string, import('#lib/i18n.js').MessageKey>} */
 	const ACTION_LABEL = Object.fromEntries(ACTIONS.map((a) => [a.id, a.label]));
 	/** @param {any} r */
 	const actionLabel = (r) =>

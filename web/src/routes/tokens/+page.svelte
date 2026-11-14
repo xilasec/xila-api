@@ -1,11 +1,11 @@
 <script>
 	import { onMount } from 'svelte';
-	import { api, ApiError, errorMessage } from '$lib/api.js';
-	import { notify } from '$lib/stores.js';
-	import { t } from '$lib/i18n.js';
-	import { fmtDate } from '$lib/format.js';
-	import State from '$lib/components/State.svelte';
-	import Field from '$lib/components/Field.svelte';
+	import { api, ApiError, errorMessage } from '#lib/api.js';
+	import { notify } from '#lib/stores.js';
+	import { t } from '#lib/i18n.js';
+	import { fmtDate } from '#lib/format.js';
+	import State from '#lib/components/State.svelte';
+	import Field from '#lib/components/Field.svelte';
 
 	let loading = $state(true);
 	let error = $state('');

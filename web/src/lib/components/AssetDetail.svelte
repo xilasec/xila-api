@@ -2,20 +2,20 @@
 	// One asset's exposure, relationships and blast radius. Editing needs editor
 	// on the asset's project (the server enforces it); relation targets can be
 	// any asset the caller can see, in any project.
-	import { api, errorMessage } from '$lib/api.js';
-	import { notify } from '$lib/stores.js';
-	import { t } from '$lib/i18n.js';
-	import Badge from '$lib/components/Badge.svelte';
-	import ExposureBadge from '$lib/components/ExposureBadge.svelte';
-	import Field from '$lib/components/Field.svelte';
-	import State from '$lib/components/State.svelte';
-	import CustomFieldsEditor from '$lib/components/CustomFieldsEditor.svelte';
+	import { api, errorMessage } from '#lib/api.js';
+	import { notify } from '#lib/stores.js';
+	import { t } from '#lib/i18n.js';
+	import Badge from '#lib/components/Badge.svelte';
+	import ExposureBadge from '#lib/components/ExposureBadge.svelte';
+	import Field from '#lib/components/Field.svelte';
+	import State from '#lib/components/State.svelte';
+	import CustomFieldsEditor from '#lib/components/CustomFieldsEditor.svelte';
 
 	/** @type {{ asset: any, onchanged?: (a: any) => void }} */
 	let { asset, onchanged = () => {} } = $props();
 
 	const EXPOSURES = ['', 'internet', 'internal', 'isolated'];
-	/** @type {Record<string, import('$lib/i18n.js').MessageKey>} */
+	/** @type {Record<string, import('#lib/i18n.js').MessageKey>} */
 	const KIND_LABEL_KEY = { built_from: 'asset.kindBuiltFrom', deployed_as: 'asset.kindDeployedAs', depends_on: 'asset.kindDependsOn' };
 	const KIND_LABEL = $derived(Object.fromEntries(Object.entries(KIND_LABEL_KEY).map(([k, key]) => [k, $t(key)])));
 

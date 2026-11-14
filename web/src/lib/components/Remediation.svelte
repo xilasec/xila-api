@@ -3,18 +3,18 @@
 	// them (upgrade, base-image rebuild, IaC rule, file, config), each with an
 	// owner, a due date and a status. With projectId it covers one project and
 	// lists the proposals waiting to be accepted; without, every visible project.
-	import { api, errorMessage } from '$lib/api.js';
-	import { notify } from '$lib/stores.js';
-	import { t } from '$lib/i18n.js';
-	import { fmtDateOnly } from '$lib/format.js';
-	import Badge from '$lib/components/Badge.svelte';
-	import State from '$lib/components/State.svelte';
-	import Pagination from '$lib/components/Pagination.svelte';
+	import { api, errorMessage } from '#lib/api.js';
+	import { notify } from '#lib/stores.js';
+	import { t } from '#lib/i18n.js';
+	import { fmtDateOnly } from '#lib/format.js';
+	import Badge from '#lib/components/Badge.svelte';
+	import State from '#lib/components/State.svelte';
+	import Pagination from '#lib/components/Pagination.svelte';
 
 	/** @type {{ projectId?: string }} */
 	let { projectId = '' } = $props();
 
-	/** @typedef {import('$lib/i18n.js').MessageKey} MessageKey */
+	/** @typedef {import('#lib/i18n.js').MessageKey} MessageKey */
 	const SEVS = ['critical', 'high', 'medium', 'low'];
 	const STATUSES = ['open', 'in_progress', 'done', 'wont_do'];
 	/** @type {Record<string, MessageKey>} */

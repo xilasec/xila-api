@@ -1,21 +1,21 @@
 <script>
 	import { onMount, untrack } from 'svelte';
-	import ExploitBadge from '$lib/components/ExploitBadge.svelte';
-	import { page } from '$app/stores';
-	import { goto, replaceState } from '$app/navigation';
-	import { api, ApiError, errorMessage } from '$lib/api.js';
-	import { notify, me } from '$lib/stores.js';
-	import { handleListKey, createListCursor, isExceptionStatus, scrollCursorIntoView } from '$lib/keyboard.js';
-	import TriageDialog from '$lib/components/TriageDialog.svelte';
-	import KeyboardHelp from '$lib/components/KeyboardHelp.svelte';
-	import StatusCell from '$lib/components/StatusCell.svelte';
-	import { SEVERITIES, STATUSES, CATEGORIES, SLA_STATUSES, severityAccent, kevCatalogs, fmtNumber } from '$lib/format.js';
-	import { t, labelOf } from '$lib/i18n.js';
-	import Badge from '$lib/components/Badge.svelte';
-	import SlaBadge from '$lib/components/SlaBadge.svelte';
-	import State from '$lib/components/State.svelte';
-	import Pagination from '$lib/components/Pagination.svelte';
-	import ExportMenu from '$lib/components/ExportMenu.svelte';
+	import ExploitBadge from '#lib/components/ExploitBadge.svelte';
+	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
+	import { api, ApiError, errorMessage } from '#lib/api.js';
+	import { notify, me } from '#lib/stores.js';
+	import { handleListKey, createListCursor, isExceptionStatus, scrollCursorIntoView } from '#lib/keyboard.js';
+	import TriageDialog from '#lib/components/TriageDialog.svelte';
+	import KeyboardHelp from '#lib/components/KeyboardHelp.svelte';
+	import StatusCell from '#lib/components/StatusCell.svelte';
+	import { SEVERITIES, STATUSES, CATEGORIES, SLA_STATUSES, severityAccent, kevCatalogs, fmtNumber } from '#lib/format.js';
+	import { t, labelOf } from '#lib/i18n.js';
+	import Badge from '#lib/components/Badge.svelte';
+	import SlaBadge from '#lib/components/SlaBadge.svelte';
+	import State from '#lib/components/State.svelte';
+	import Pagination from '#lib/components/Pagination.svelte';
+	import ExportMenu from '#lib/components/ExportMenu.svelte';
 
 	const LIMIT = 50;
 
@@ -52,7 +52,7 @@
 	});
 
 	// Seed filters from the URL so dashboard links (?category=cloud, ?kev=true) work.
-	const p = $page.url.searchParams;
+	const p = page.url.searchParams;
 	let filters = $state({
 		severity: p.get('severity') ?? '',
 		status: p.get('status') ?? '',
@@ -111,11 +111,11 @@
 		if (filters.include_duplicates) params.set('include_duplicates', 'true');
 		if (filters.all_versions) params.set('all_versions', 'true');
 		if (cf.key && cf.value) params.set('cf.' + cf.key, cf.value);
-		replaceState('?' + params.toString(), {});
+		goto('?' + params.toString(), { shallow: true, replace: true });
 	}
 
 	// Quick-triage actions available for a finding, given its current state.
-	/** @type {{ status: string, label: import('$lib/i18n.js').MessageKey, title: import('$lib/i18n.js').MessageKey }[]} */
+	/** @type {{ status: string, label: import('#lib/i18n.js').MessageKey, title: import('#lib/i18n.js').MessageKey }[]} */
 	const OPEN_ACTIONS = [
 		{ status: 'false_positive', label: 'findings.actFP', title: 'findings.actFPTitle' },
 		{ status: 'risk_accepted', label: 'findings.actAccept', title: 'findings.actAcceptTitle' },
@@ -334,7 +334,7 @@
 		}
 	}
 
-	// Keymap (see $lib/keyboard.js): triage keys act on the selection if any,
+	// Keymap (see #lib/keyboard.js): triage keys act on the selection if any,
 	// else on the highlighted row.
 	/** @param {KeyboardEvent} e */
 	function onkeydown(e) {

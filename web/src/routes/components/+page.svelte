@@ -1,21 +1,21 @@
 <script>
 	import { onMount } from 'svelte';
-	import { page } from '$app/stores';
-	import { goto, replaceState } from '$app/navigation';
-	import { api, errorMessage } from '$lib/api.js';
-	import { notify } from '$lib/stores.js';
-	import { t } from '$lib/i18n.js';
-	import { fmtDate } from '$lib/format.js';
-	import State from '$lib/components/State.svelte';
-	import VulnBadge from '$lib/components/VulnBadge.svelte';
-	import ExportMenu from '$lib/components/ExportMenu.svelte';
-	import LicenseBadge from '$lib/components/LicenseBadge.svelte';
-	import OutdatedBadge from '$lib/components/OutdatedBadge.svelte';
-	import IntegrityBadge from '$lib/components/IntegrityBadge.svelte';
-	import AIBadge from '$lib/components/AIBadge.svelte';
+	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
+	import { api, errorMessage } from '#lib/api.js';
+	import { notify } from '#lib/stores.js';
+	import { t } from '#lib/i18n.js';
+	import { fmtDate } from '#lib/format.js';
+	import State from '#lib/components/State.svelte';
+	import VulnBadge from '#lib/components/VulnBadge.svelte';
+	import ExportMenu from '#lib/components/ExportMenu.svelte';
+	import LicenseBadge from '#lib/components/LicenseBadge.svelte';
+	import OutdatedBadge from '#lib/components/OutdatedBadge.svelte';
+	import IntegrityBadge from '#lib/components/IntegrityBadge.svelte';
+	import AIBadge from '#lib/components/AIBadge.svelte';
 
 	// Seed the query from the URL so a reload / shared link restores the search.
-	const sp = $page.url.searchParams;
+	const sp = page.url.searchParams;
 	let q = $state({
 		name: sp.get('name') ?? '',
 		contains: sp.get('contains') ?? '',
@@ -40,7 +40,7 @@
 		const params = new URLSearchParams();
 		for (const k of /** @type {const} */ (['name', 'contains', 'version', 'purl', 'vulnerable', 'outdated', 'integrity', 'kind', 'license', 'license_category'])) if (q[k]) params.set(k, q[k]);
 		if (q.latest) params.set('latest', 'true');
-		replaceState('?' + params.toString(), {});
+		goto('?' + params.toString(), { shallow: true, replace: true });
 	}
 
 	// The search as API filters — what's listed, and what Export downloads.
@@ -63,7 +63,7 @@
 	/** @param {SubmitEvent} [e] */
 	async function search(e) {
 		// A user search updates the URL; the initial one runs from the URL, before
-		// the router is ready for replaceState (which throws during onMount).
+		// the router is ready for a shallow goto (which throws during onMount).
 		if (e) {
 			e.preventDefault();
 			syncURL();

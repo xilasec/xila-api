@@ -1,8 +1,8 @@
 <script>
 	import { onMount } from 'svelte';
-	import { errorMessage } from '$lib/api.js';
-	import { t } from '$lib/i18n.js';
-	import State from '$lib/components/State.svelte';
+	import { errorMessage } from '#lib/api.js';
+	import { t } from '#lib/i18n.js';
+	import State from '#lib/components/State.svelte';
 
 	let spec = $state(/** @type {any} */ (null));
 	let loading = $state(true);

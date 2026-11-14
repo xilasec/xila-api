@@ -2,8 +2,8 @@
 	// Reason + optional expiry for an exception status (false positive, accept
 	// risk, won't fix). `open()` resolves to the PATCH/bulk options, or null when
 	// the user cancels — callers never apply an exception without one.
-	import { t, labelOf } from '$lib/i18n.js';
-	import { releaseFocus } from '$lib/keyboard.js';
+	import { t, labelOf } from '#lib/i18n.js';
+	import { releaseFocus } from '#lib/keyboard.js';
 
 	/** @typedef {{ reason: string, expires_at?: string }} TriageOptions */
 

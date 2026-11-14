@@ -1,17 +1,17 @@
 <script>
 	import { onMount } from 'svelte';
-	import { page } from '$app/stores';
-	import { replaceState } from '$app/navigation';
-	import { api, errorMessage } from '$lib/api.js';
-	import { me, notify } from '$lib/stores.js';
-	import { t, labelOf } from '$lib/i18n.js';
-	import State from '$lib/components/State.svelte';
-	import Field from '$lib/components/Field.svelte';
-	import Pagination from '$lib/components/Pagination.svelte';
-	import { fmtDate } from '$lib/format.js';
+	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
+	import { api, errorMessage } from '#lib/api.js';
+	import { me, notify } from '#lib/stores.js';
+	import { t, labelOf } from '#lib/i18n.js';
+	import State from '#lib/components/State.svelte';
+	import Field from '#lib/components/Field.svelte';
+	import Pagination from '#lib/components/Pagination.svelte';
+	import { fmtDate } from '#lib/format.js';
 
 	const LIMIT = 50;
-	const sp = $page.url.searchParams;
+	const sp = page.url.searchParams;
 
 	let tab = $state(sp.get('tab') === 'groups' ? 'groups' : 'catalog');
 
@@ -47,7 +47,7 @@
 		if (tab === 'groups') params.set('tab', 'groups');
 		for (const k of /** @type {const} */ (['q', 'category', 'osi'])) if (q[k]) params.set(k, q[k]);
 		if (detail) params.set('id', detail.id);
-		replaceState('?' + params.toString(), {});
+		goto('?' + params.toString(), { shallow: true, replace: true });
 	}
 
 	/** @param {SubmitEvent} e */
@@ -149,7 +149,7 @@
 		if (t === 'groups' && groups.length === 0 && builtin.length === 0) loadGroups();
 	}
 
-	// Initial load runs from the URL; no replaceState here (the router isn't ready).
+	// Initial load runs from the URL; no shallow goto here (the router isn't ready).
 	onMount(() => {
 		loadCatalog(0);
 		if (tab === 'groups') loadGroups();

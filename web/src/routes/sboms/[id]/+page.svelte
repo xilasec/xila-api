@@ -1,28 +1,28 @@
 <script>
 	import { untrack } from 'svelte';
-	import { page } from '$app/stores';
-	import { replaceState } from '$app/navigation';
-	import { api, ApiError, errorMessage } from '$lib/api.js';
-	import { notify } from '$lib/stores.js';
-	import { fmtDate, fmtNumber, severityClass } from '$lib/format.js';
-	import { t } from '$lib/i18n.js';
-	import Badge from '$lib/components/Badge.svelte';
-	import State from '$lib/components/State.svelte';
-	import Pagination from '$lib/components/Pagination.svelte';
-	import VulnBadge from '$lib/components/VulnBadge.svelte';
-	import ExportMenu from '$lib/components/ExportMenu.svelte';
-	import LicenseBadge from '$lib/components/LicenseBadge.svelte';
-	import OutdatedBadge from '$lib/components/OutdatedBadge.svelte';
-	import IntegrityBadge from '$lib/components/IntegrityBadge.svelte';
-	import AIBadge from '$lib/components/AIBadge.svelte';
+	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
+	import { api, ApiError, errorMessage } from '#lib/api.js';
+	import { notify } from '#lib/stores.js';
+	import { fmtDate, fmtNumber, severityClass } from '#lib/format.js';
+	import { t } from '#lib/i18n.js';
+	import Badge from '#lib/components/Badge.svelte';
+	import State from '#lib/components/State.svelte';
+	import Pagination from '#lib/components/Pagination.svelte';
+	import VulnBadge from '#lib/components/VulnBadge.svelte';
+	import ExportMenu from '#lib/components/ExportMenu.svelte';
+	import LicenseBadge from '#lib/components/LicenseBadge.svelte';
+	import OutdatedBadge from '#lib/components/OutdatedBadge.svelte';
+	import IntegrityBadge from '#lib/components/IntegrityBadge.svelte';
+	import AIBadge from '#lib/components/AIBadge.svelte';
 
-	const id = $derived($page.params.id ?? '');
+	const id = $derived(page.params.id ?? '');
 	const TABS = ['vulnerabilities', 'components', 'services', 'changes', 'graph'];
 
 	let sbom = $state(/** @type {any} */ (null));
 	let history = $state(/** @type {any[]} */ ([])); // snapshots of the same artifact, newest first
 	let error = $state('');
-	let tab = $state(/** @type {string} */ (TABS.includes($page.url.searchParams.get('tab') ?? '') ? $page.url.searchParams.get('tab') : 'vulnerabilities'));
+	let tab = $state(/** @type {string} */ (TABS.includes(page.url.searchParams.get('tab') ?? '') ? page.url.searchParams.get('tab') : 'vulnerabilities'));
 	let loading = $state(false);
 	let downloading = $state(false);
 	let bomSpec = $state('1.6');
@@ -61,7 +61,7 @@
 	/** @param {string} f */
 	const flowArrow = (f) => (FLOW[f] ?? FLOW.unknown)[0];
 	/** @param {string} f */
-	const flowTitle = (f) => $t(/** @type {import('$lib/i18n.js').MessageKey} */ ((FLOW[f] ?? FLOW.unknown)[1]));
+	const flowTitle = (f) => $t(/** @type {import('#lib/i18n.js').MessageKey} */ ((FLOW[f] ?? FLOW.unknown)[1]));
 	/** @param {boolean | null | undefined} b */
 	const yesNo = (b) => (b === true ? $t('sbomp.yes') : b === false ? $t('sbomp.no') : $t('sbomp.unstated'));
 	const serviceNames = $derived(new Map((services?.services ?? []).filter((/** @type {any} */ s) => s.bom_ref).map((/** @type {any} */ s) => [s.bom_ref, s.name])));
@@ -73,7 +73,7 @@
 	const label = (s) => s.version || fmtDate(s.created_at);
 	/** @param {string} c */
 	const changeLabel = (c) =>
-		['added', 'removed', 'upgraded', 'downgraded', 'changed'].includes(c) ? $t(/** @type {import('$lib/i18n.js').MessageKey} */ ('sbomp.change.' + c)) : c;
+		['added', 'removed', 'upgraded', 'downgraded', 'changed'].includes(c) ? $t(/** @type {import('#lib/i18n.js').MessageKey} */ ('sbomp.change.' + c)) : c;
 
 	async function load() {
 		error = '';
@@ -98,7 +98,7 @@
 	/** @param {string} name @param {boolean} [syncURL] */
 	async function openTab(name, syncURL = true) {
 		tab = name;
-		if (syncURL) replaceState(`?tab=${name}`, {});
+		if (syncURL) goto(`?tab=${name}`, { shallow: true, replace: true });
 		loading = true;
 		try {
 			if (name === 'vulnerabilities' && !vulns) vulns = (await api.sbomVulnerabilities(id)).vulnerabilities ?? [];
@@ -287,7 +287,7 @@
 
 	<div role="tablist" class="tabs tabs-bordered mb-4">
 		{#each TABS as tb (tb)}
-			<button role="tab" class="tab" class:tab-active={tab === tb} onclick={() => openTab(tb)}>{$t(/** @type {import('$lib/i18n.js').MessageKey} */ ('sbomp.tab.' + tb))}</button>
+			<button role="tab" class="tab" class:tab-active={tab === tb} onclick={() => openTab(tb)}>{$t(/** @type {import('#lib/i18n.js').MessageKey} */ ('sbomp.tab.' + tb))}</button>
 		{/each}
 	</div>
 

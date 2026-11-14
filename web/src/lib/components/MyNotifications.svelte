@@ -3,14 +3,14 @@
 	// them and on projects they watch, by email and/or a personal Slack / Teams
 	// webhook. The webhook URL is write-only (shown as "set").
 	import { onMount } from 'svelte';
-	import { api, errorMessage } from '$lib/api.js';
-	import { notify } from '$lib/stores.js';
-	import { SEVERITIES } from '$lib/format.js';
-	import { EVENT_TYPES } from '$lib/channels.js';
-	import { fmtDate } from '$lib/format.js';
-	import { t, labelOf } from '$lib/i18n.js';
+	import { api, errorMessage } from '#lib/api.js';
+	import { notify } from '#lib/stores.js';
+	import { SEVERITIES } from '#lib/format.js';
+	import { EVENT_TYPES } from '#lib/channels.js';
+	import { fmtDate } from '#lib/format.js';
+	import { t, labelOf } from '#lib/i18n.js';
 
-	/** @type {{ id: string, key: import('$lib/i18n.js').MessageKey }[]} */
+	/** @type {{ id: string, key: import('#lib/i18n.js').MessageKey }[]} */
 	const METHODS = [
 		{ id: 'email', key: 'mynotif.emailMethod' },
 		{ id: 'slack', key: 'mynotif.slackMethod' },

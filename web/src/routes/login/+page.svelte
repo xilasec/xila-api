@@ -1,13 +1,13 @@
 <script>
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
-	import { api, ApiError } from '$lib/api.js';
-	import { token } from '$lib/stores.js';
-	import { t, locale, LOCALES } from '$lib/i18n.js';
+	import { page } from '$app/state';
+	import { api, ApiError } from '#lib/api.js';
+	import { token } from '#lib/stores.js';
+	import { t, locale, LOCALES } from '#lib/i18n.js';
 
 	// Why an SSO login bounced back here (/login?error=<code>).
-	/** @type {Record<string, import('$lib/i18n.js').MessageKey>} */
+	/** @type {Record<string, import('#lib/i18n.js').MessageKey>} */
 	const ssoErrors = {
 		sso_failed: 'login.sso_failed',
 		sso_no_account: 'login.sso_no_account',
@@ -30,7 +30,7 @@
 	let config = $state(/** @type {AuthConfig | null} */ (null));
 	let ownerLogin = $state(false); // reveals the password form when it is disabled (break-glass)
 
-	let ssoError = $derived($page.url.searchParams.get('error'));
+	let ssoError = $derived(page.url.searchParams.get('error'));
 	let providers = $derived(config?.providers ?? []);
 	let passwordForm = $derived(config === null || config.password_login_enabled || config.directory_login || ownerLogin);
 

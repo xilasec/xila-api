@@ -1,22 +1,22 @@
 <script>
 	import { onMount } from 'svelte';
-	import { page } from '$app/stores';
-	import { goto, replaceState } from '$app/navigation';
-	import { api, ApiError } from '$lib/api.js';
-	import { t } from '$lib/i18n.js';
-	import { fmtDate, prettyStatus } from '$lib/format.js';
-	import Badge from '$lib/components/Badge.svelte';
-	import State from '$lib/components/State.svelte';
+	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
+	import { api, ApiError } from '#lib/api.js';
+	import { t } from '#lib/i18n.js';
+	import { fmtDate, prettyStatus } from '#lib/format.js';
+	import Badge from '#lib/components/Badge.svelte';
+	import State from '#lib/components/State.svelte';
 
 	let loading = $state(true);
 	let error = $state('');
 	let findings = $state(/** @type {any[]} */ ([]));
 	let projects = $state(/** @type {any[]} */ ([]));
-	let days = $state(Number($page.url.searchParams.get('days')) || 30);
+	let days = $state(Number(page.url.searchParams.get('days')) || 30);
 
 	// Persist the window in the URL, then reload — so a refresh keeps it.
 	function applyDays() {
-		replaceState('?days=' + days, {});
+		goto('?days=' + days, { shallow: true, replace: true });
 		load();
 	}
 

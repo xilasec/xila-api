@@ -1,7 +1,7 @@
 <script>
 	// A component's resolved license: the normalized SPDX expression with a badge
 	// per ScanCode category, or the raw string marked "unresolved".
-	import { t, labelOf } from '$lib/i18n.js';
+	import { t, labelOf } from '#lib/i18n.js';
 
 	/** @type {{ c: { license?: string, license_expression?: string, license_ids?: string[], license_categories?: string[], license_resolved?: boolean|null } }} */
 	let { c } = $props();

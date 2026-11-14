@@ -703,8 +703,14 @@ and `internal/server/smoke_test.go` (missing smoke wiring causes a nil panic in 
   the error count exceeds `web/.svelte-check-baseline` (now `0`). Type new UI
   code with JSDoc (`$state(/** @type {any[]} */ ([]))`, typed `$props()`,
   `errorMessage(err)`, `instanceof ApiError`). Route params are
-  `string | undefined`, so narrow them (`$page.params.id ?? ''`). Do not add
+  `string | undefined`, so narrow them (`page.params.id ?? ''`). Do not add
   `@ts-ignore` or raise the baseline.
+- SvelteKit 3: import UI modules as `#lib/…` with the file extension (package.json
+  `imports`), read `page` from `$app/state` (no `$` prefix), keep config in the
+  `sveltekit()` options in `web/vite.config.js`, and change the URL without
+  navigating via `goto(url, { shallow: true, replace: true })`. Don't run `sv
+  migrate` codemods over the tree: their printer reformats whole files and moves
+  JSDoc casts.
 - Helm chart (`deploy/helm/xila`): new env settings need no chart change
   (users pass them via `config` / `secrets.extra`). Update the chart when a
   setting is a *secret* that should be generated, or the app needs a new port,

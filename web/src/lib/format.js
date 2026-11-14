@@ -1,5 +1,5 @@
 // Presentation helpers: badge colors and date/number formatting. Dates and
-// numbers follow the page's locale ($lib/i18n.js); the layout remounts the
+// numbers follow the page's locale (#lib/i18n.js); the layout remounts the
 // page when it changes, so these plain functions need not be reactive.
 import { activeLocale } from './i18n.js';
 

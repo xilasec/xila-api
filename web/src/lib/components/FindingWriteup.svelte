@@ -4,15 +4,15 @@
 	// reports and by imports that carry them (DefectDojo, SecObserve). Only a
 	// manual finding's write-up is editable: a scanner's text belongs to the
 	// scanner and would be overwritten by its next report anyway.
-	import { api, ApiError, errorMessage } from '$lib/api.js';
-	import { notify } from '$lib/stores.js';
-	import Field from '$lib/components/Field.svelte';
-	import { t } from '$lib/i18n.js';
+	import { api, ApiError, errorMessage } from '#lib/api.js';
+	import { notify } from '#lib/stores.js';
+	import Field from '#lib/components/Field.svelte';
+	import { t } from '#lib/i18n.js';
 
 	/** @type {{ finding: any, onsaved?: (f: any) => void }} */
 	let { finding, onsaved = () => {} } = $props();
 
-	/** @type {[string, import('$lib/i18n.js').MessageKey][]} */
+	/** @type {[string, import('#lib/i18n.js').MessageKey][]} */
 	const SECTIONS = [
 		['steps_to_reproduce', 'writeup.steps'],
 		['impact', 'writeup.impact'],

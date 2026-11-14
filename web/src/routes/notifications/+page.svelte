@@ -1,13 +1,13 @@
 <script>
 	import { onMount } from 'svelte';
-	import { api, ApiError, errorMessage } from '$lib/api.js';
-	import { notify } from '$lib/stores.js';
-	import { fmtDate } from '$lib/format.js';
-	import { CHANNEL_TYPES, EVENT_TYPES, channelHint, channelPlaceholder, channelInputType, defaultRules, describeRules } from '$lib/channels.js';
-	import State from '$lib/components/State.svelte';
-	import Field from '$lib/components/Field.svelte';
-	import ChannelRules from '$lib/components/ChannelRules.svelte';
-	import { t, labelOf, contentLocale } from '$lib/i18n.js';
+	import { api, ApiError, errorMessage } from '#lib/api.js';
+	import { notify } from '#lib/stores.js';
+	import { fmtDate } from '#lib/format.js';
+	import { CHANNEL_TYPES, EVENT_TYPES, channelHint, channelPlaceholder, channelInputType, defaultRules, describeRules } from '#lib/channels.js';
+	import State from '#lib/components/State.svelte';
+	import Field from '#lib/components/Field.svelte';
+	import ChannelRules from '#lib/components/ChannelRules.svelte';
+	import { t, labelOf, contentLocale } from '#lib/i18n.js';
 
 	let loading = $state(true);
 	let error = $state('');

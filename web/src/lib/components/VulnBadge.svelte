@@ -1,8 +1,8 @@
 <script>
 	// Whether a component (exact version, in its snapshot) is known vulnerable:
 	// "clean", or the count coloured by the worst severity, with the ids on hover.
-	import { severityClass } from '$lib/format.js';
-	import { t } from '$lib/i18n.js';
+	import { severityClass } from '#lib/format.js';
+	import { t } from '#lib/i18n.js';
 
 	let { count = 0, severity = null, kev = false, vulns = [], compact = false } = $props();
 	const size = $derived(compact ? 'badge-xs' : 'badge-sm');

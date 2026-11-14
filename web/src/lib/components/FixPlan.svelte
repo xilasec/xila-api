@@ -2,12 +2,12 @@
 	// Fix-first plan: upgrades ranked by the risk they remove ("upgrade
 	// log4j-core 2.14.1 → 2.16.0 closes 2 findings"). With projectId it covers
 	// one project; without, every project the caller can see.
-	import { api, errorMessage } from '$lib/api.js';
-	import { notify } from '$lib/stores.js';
-	import { t } from '$lib/i18n.js';
-	import Badge from '$lib/components/Badge.svelte';
-	import State from '$lib/components/State.svelte';
-	import Pagination from '$lib/components/Pagination.svelte';
+	import { api, errorMessage } from '#lib/api.js';
+	import { notify } from '#lib/stores.js';
+	import { t } from '#lib/i18n.js';
+	import Badge from '#lib/components/Badge.svelte';
+	import State from '#lib/components/State.svelte';
+	import Pagination from '#lib/components/Pagination.svelte';
 
 	/** @type {{ projectId?: string }} */
 	let { projectId = '' } = $props();

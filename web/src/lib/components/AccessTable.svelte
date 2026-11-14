@@ -1,12 +1,12 @@
 <script>
 	// Access entries (GET /permissions, /projects/{id}/access): principal,
 	// project, effective role, and each grant with its source.
-	import { t, labelOf } from '$lib/i18n.js';
+	import { t, labelOf } from '#lib/i18n.js';
 
 	/** @type {{ entries: any[], showPrincipal?: boolean, showProject?: boolean }} */
 	let { entries, showPrincipal = true, showProject = true } = $props();
 
-	/** @type {Record<string, import('$lib/i18n.js').MessageKey>} */
+	/** @type {Record<string, import('#lib/i18n.js').MessageKey>} */
 	const KIND = { project: 'access.kind.project', team: 'access.kind.team', org_admin: 'access.kind.org_admin', instance_admin: 'access.kind.instance_admin' };
 	/** @type {Record<string, string>} */
 	const ROLE_TONE = { admin: 'badge-error', owner: 'badge-warning', editor: 'badge-info', viewer: 'badge-ghost' };

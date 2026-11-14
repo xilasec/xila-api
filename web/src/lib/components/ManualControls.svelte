@@ -2,10 +2,10 @@
 	// A framework's manual controls for one project: what is attested (how,
 	// by whom, until when) and what is still to attest. Attesting needs editor
 	// on the project; the server enforces it.
-	import { api, errorMessage } from '$lib/api.js';
-	import { notify } from '$lib/stores.js';
-	import { t } from '$lib/i18n.js';
-	import Field from '$lib/components/Field.svelte';
+	import { api, errorMessage } from '#lib/api.js';
+	import { notify } from '#lib/stores.js';
+	import { t } from '#lib/i18n.js';
+	import Field from '#lib/components/Field.svelte';
 
 	/** @type {{ projectId: string, framework: any, onchanged: () => void }} */
 	let { projectId, framework, onchanged } = $props();
