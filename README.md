@@ -61,15 +61,26 @@ internal/server/         Fiber app, middleware, routes
 
 ## Run the full stack
 
-Brings up the API, PostgreSQL, an OpenTelemetry Collector, and Jaeger:
+Brings up the API with every feature on, plus PostgreSQL, an OpenTelemetry
+Collector, Jaeger and Mailpit:
 
 ```bash
 make up          # docker compose up --build -d
 make logs        # tail the API logs
 ```
 
-- App (UI + API):  http://localhost:8080 (the image bundles the web UI and the API into one binary)
-- Jaeger UI:        http://localhost:16686 (search for service `xila-api`)
+- App (UI + API): http://localhost:8080. The first account you register is the owner.
+- Mailpit: http://localhost:8025 catches every email (password resets, email
+  alerts, summaries).
+- Jaeger: http://localhost:16686 (search for service `xila-api`).
+- Prometheus metrics: http://localhost:9090/metrics.
+
+Two-factor, MCP, PSIRT publishing with the public CSAF directory, CRA reporting
+and SSO providers work out of the box with fixed development secrets. Features
+that need your own credentials turn on when you set them in your shell or a `.env`
+next to the compose file: AI triage (`AI_TRIAGE_ENABLED=true` with `AI_API_KEY`,
+`AI_MODEL`, `AI_BASE_URL`), NVD (`NVD_ENABLED=true`, `NVD_API_KEY`), VulnCheck
+(`VULNCHECK_API_TOKEN`) and GitHub advisories (`VULNMATCH_GITHUB_TOKEN`).
 
 The SvelteKit + daisyUI UI in [`web/`](web/README.md) is compiled and embedded
 into the Go binary (`make bundle`, or the Docker build), so `make up` serves
@@ -2548,16 +2559,20 @@ Behind a load balancer, set `TRUSTED_PROXIES` so client IP and scheme come from
 `X-Forwarded-*`. The connection pool and HTTP timeouts can be tuned through environment variables (`DB_MAX_CONNS`,
 `DB_CONNECT_TIMEOUT`, `HTTP_READ_TIMEOUT`, `HTTP_BODY_LIMIT_MB`, …).
 
-The `docker-compose.prod.yml` stack sets all of this up and fails at startup if
-`DB_PASSWORD` or `JWT_SECRET` is unset:
+The `docker-compose.prod.yml` stack sets all of this up. It passes every setting
+in `.env` to the app and fails at startup if `DB_PASSWORD`, `JWT_SECRET`,
+`INTEGRATION_SECRET_KEY` or `PUBLIC_URL` is unset:
 
 ```bash
-cp .env.example .env       # set at least DB_PASSWORD and JWT_SECRET
+cp .env.example .env       # set DB_PASSWORD, JWT_SECRET, INTEGRATION_SECRET_KEY, PUBLIC_URL
 make up-prod               # docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-It runs with `APP_ENV=production`, keeps Postgres off the host network, and reads all
-secrets and tuning from the environment. Production checklist: a strong `JWT_SECRET`,
+Starting from `.env.example`, every feature that needs no credentials is on
+(two-factor, MCP, metrics on the unpublished port 9090, advisory matching,
+enrichment, exploit intel, registry metadata). Email, PSIRT publishing, the CRA
+manufacturer identity, AI triage and the paid feeds need your values in `.env`.
+It runs with `APP_ENV=production` and keeps Postgres off the host network. Production checklist: a strong `JWT_SECRET`,
 `DB_SSLMODE=require` plus a real DB password (a managed Postgres is preferred), TLS
 terminated in front of the app (so `Secure` cookies work), and
 `OIDC_REDIRECT_URL` / `PUBLIC_URL` on `https://` if SSO is enabled. The image is distroless and

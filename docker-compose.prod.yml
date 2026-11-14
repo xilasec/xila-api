@@ -1,15 +1,21 @@
-# Production-oriented stack: the hardened single-binary API (UI embedded) + Postgres.
-# Secrets come from the environment or a .env file; required ones FAIL FAST if unset
-# (mirroring the app's own APP_ENV=production validation).
+# Production stack: the hardened single-binary API (UI embedded) + Postgres.
 #
-#   cp .env.example .env         # then set at least DB_PASSWORD, JWT_SECRET and
-#                                # INTEGRATION_SECRET_KEY (openssl rand -base64 32)
+#   cp .env.example .env    # then set DB_PASSWORD, JWT_SECRET, INTEGRATION_SECRET_KEY
+#                           # (openssl rand -base64 32 for each) and PUBLIC_URL
 #   docker compose -f docker-compose.prod.yml up -d --build
 #
-# Run behind a TLS-terminating reverse proxy (nginx/Caddy/ALB); set TRUSTED_PROXIES
-# to its address so client IPs are accurate, and CORS_ALLOWED_ORIGINS if the UI is
-# served from another host. For real deployments prefer a managed Postgres with TLS
-# (DB_HOST + DB_SSLMODE=require) over this bundled container.
+# Every setting in .env reaches the app, so .env.example is the full reference.
+# With it as a starting point every feature that needs no credentials is on:
+# two-factor, MCP, metrics (internal port 9090), advisory matching, enrichment,
+# exploit intel and registry metadata. Add your own values to turn on email
+# (SMTP_*), PSIRT publishing (PSIRT_*), CRA reporting identity (CRA_*), AI triage
+# (AI_*), NVD, VulnCheck and GitHub advisories. SSO providers are added on the SSO
+# page. Required values fail fast if unset.
+#
+# Run behind a TLS-terminating reverse proxy (nginx, Caddy, a cloud load balancer)
+# and set TRUSTED_PROXIES to its address so client IPs are accurate. For real
+# deployments prefer a managed Postgres with TLS (DB_HOST + DB_SSLMODE=require)
+# over the bundled container.
 services:
   postgres:
     image: postgres:18-alpine
@@ -20,7 +26,7 @@ services:
     command: ["postgres", "-c", "random_page_cost=1.1"]
     environment:
       POSTGRES_USER: ${DB_USER:-xila}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required in production}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       POSTGRES_DB: ${DB_NAME:-xila}
     volumes:
       - pgdata:/var/lib/postgresql
@@ -35,47 +41,40 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-    # Deliberately not published to the host — only the api service reaches it.
+    # Not published to the host: only the api service reaches it.
 
   api:
     build: .
     restart: unless-stopped
+    # Every setting from .env (see .env.example). Optional, so the stack also
+    # runs from plain environment variables.
+    env_file:
+      - path: .env
+        required: false
+    # These win over .env: they describe this stack, or must be set.
     environment:
       APP_ENV: production
+      HTTP_HOST: 0.0.0.0
       HTTP_PORT: "8080"
       DB_HOST: postgres
       DB_PORT: "5432"
       DB_USER: ${DB_USER:-xila}
-      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required in production}
       DB_NAME: ${DB_NAME:-xila}
       # Private compose network; use a managed DB with DB_SSLMODE=require in real prod.
       DB_SSLMODE: ${DB_SSLMODE:-disable}
-      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required in production}
-      # Seals two-factor secrets and integration tokens. Keep it stable: changing
-      # it makes stored secrets unreadable.
-      INTEGRATION_SECRET_KEY: ${INTEGRATION_SECRET_KEY:?INTEGRATION_SECRET_KEY is required in production (openssl rand -base64 32)}
-      JWT_TTL: ${JWT_TTL:-24h}
-      # Hardening (safe prod defaults; override as needed).
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
-      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required (openssl rand -base64 32)}
+      # Seals two-factor secrets, tracker/connector tokens and SSO provider
+      # secrets. Keep it stable: changing it makes stored secrets unreadable.
+      INTEGRATION_SECRET_KEY: ${INTEGRATION_SECRET_KEY:?INTEGRATION_SECRET_KEY is required (openssl rand -base64 32)}
+      # The external https:// origin users reach. SSO, password-reset emails and
+      # links in issues are built from it.
+      PUBLIC_URL: ${PUBLIC_URL:?PUBLIC_URL is required (e.g. https://xila.example.com)}
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
-      # Connection pool tuning (optional).
-      DB_MAX_CONNS: ${DB_MAX_CONNS:-20}
-      DB_MIN_CONNS: ${DB_MIN_CONNS:-2}
-      # Telemetry: off unless you point it at a collector.
-      OTEL_ENABLED: ${OTEL_ENABLED:-false}
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
-      OTEL_EXPORTER_OTLP_INSECURE: ${OTEL_EXPORTER_OTLP_INSECURE:-false}
-      # Single Sign-On (optional).
-      OIDC_ENABLED: ${OIDC_ENABLED:-false}
-      OIDC_ISSUER: ${OIDC_ISSUER:-}
-      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
-      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
-      OIDC_REDIRECT_URL: ${OIDC_REDIRECT_URL:-}
-      OIDC_PROVIDER_NAME: ${OIDC_PROVIDER_NAME:-SSO}
     ports:
       # Bind to the reverse proxy's interface (HTTP_BIND, default localhost);
-      # set HTTP_BIND=0.0.0.0 only if the proxy runs on another host.
+      # set HTTP_BIND=0.0.0.0 only if the proxy runs on another host. The metrics
+      # port (9090) is deliberately not published.
       - "${HTTP_BIND:-127.0.0.1}:${HTTP_PORT:-8080}:8080"
     cap_drop: [ALL]
     security_opt:

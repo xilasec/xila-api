@@ -6,7 +6,7 @@ of your own project. Both start the same way.
 ## 1. Start the stack
 
 ```bash
-make up          # docker compose up --build -d: API + Postgres + OTel collector + Jaeger
+make up          # docker compose up --build -d: API (all features on) + Postgres + OTel collector + Jaeger + Mailpit
 ```
 
 The app (UI + API) is at <http://localhost:8080>. The first account you
