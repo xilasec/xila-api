@@ -1,8 +1,8 @@
 # Xila API clients
 
 Generated from the API's OpenAPI description (`internal/apidoc/openapi.yaml`) by
-`make clients`; CI (`make clients-check`) fails when they are out of date. Method
-and type names come from each operation's `operationId` — renaming one is a
+`make clients`. CI (`make clients-check`) fails when they are out of date. Method
+and type names come from each operation's `operationId`, so renaming one is a
 breaking change for client users.
 
 | Client | Package | Generator |
@@ -32,3 +32,4 @@ import { createXilaClient } from '@xilasec/client';
 const xila = createXilaClient({ baseUrl: 'https://xila.example.com/api/v1', token });
 const { data } = await xila.GET('/projects/{projectID}/findings', { params: { path: { projectID } } });
 ```
+

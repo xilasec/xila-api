@@ -28,10 +28,10 @@ web/pnpm-lock.yaml). The following data is bundled in this repository, and the
 first three are embedded in the xila-api binary:
 
 - SPDX License List data (internal/license/data/catalog.json),
-  https://github.com/spdx/license-list-data — CC0-1.0.
+  https://github.com/spdx/license-list-data, CC0-1.0.
 
 - ScanCode LicenseDB license categories (internal/license/data/catalog.json),
-  https://scancode-licensedb.aboutcode.org — Copyright (c) nexB Inc. and
+  https://scancode-licensedb.aboutcode.org, Copyright (c) nexB Inc. and
   others, licensed CC-BY-4.0 (https://creativecommons.org/licenses/by/4.0/).
   The data was reduced to license keys and their categories.
 

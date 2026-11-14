@@ -1,6 +1,6 @@
 # Scanning in CI
 
-Two ready-made templates run the scanners for you, upload every report to Xila
+Two ready-made templates run the scanners, upload every report to Xila,
 and enforce the security gate once at the end:
 
 | Template | Path |
@@ -9,8 +9,8 @@ and enforce the security gate once at the end:
 | GitLab CI include | `ci/gitlab/xila-scan.gitlab-ci.yml` |
 
 Each scanner runs from its official container image at a pinned tag. A scanner
-that exits non-zero because it *found* something never fails the job — the
-**gate** decides (exit 1 on policy violations). A scanner that produces no
+that exits non-zero because it found something does not fail the job. The
+gate decides (exit 1 on policy violations). A scanner that produces no
 report at all is an error.
 
 If you already produce reports yourself, the repo-root action (`uses:
@@ -31,44 +31,44 @@ uploads one report.
 | `opengrep` / `.xila-opengrep` | release binary v1.33.1 (checksum-pinned) | JSON (semgrep format) | `opengrep --format semgrep` |
 | `kics` / `.xila-kics` | `checkmarx/kics:v2.2.1` (digest-pinned) | JSON | `kics` |
 
-Findings are tracked **per branch**: uploads and the gate use the PR / MR source
+Findings are tracked per branch. Uploads and the gate use the PR / MR source
 branch (GitHub `github.head_ref || github.ref_name`, GitLab
 `CI_MERGE_REQUEST_SOURCE_BRANCH_NAME` else `CI_COMMIT_REF_NAME`) plus the commit
-SHA, so a pull request never closes or changes the default branch's findings.
+SHA, so a pull request does not close or change the default branch's findings.
 
 ## Secrets
 
-The recommended setup stores **no Xila secret at all**: see
+The recommended setup stores no Xila secret at all. See
 [Keyless: workload identity federation](#keyless-workload-identity-federation).
-If you use an API token instead, never put it in YAML. Create a
-**project-scoped Xila API token** (or a service-account key) and store it as:
+**If you use an API token instead, do not put it in YAML.** Create a
+project-scoped Xila API token (or a service-account key) and store it as:
 
-- GitHub: a repository (or organization) **secret** `XILA_TOKEN`; the URL and
-  project id can be secrets or **variables** (`vars.XILA_URL`, `vars.XILA_PROJECT`).
-- GitLab: **Settings › CI/CD › Variables** — `XILA_TOKEN` *masked* (and
+- GitHub: a repository (or organization) secret `XILA_TOKEN`. The URL and
+  project id can be secrets or variables (`vars.XILA_URL`, `vars.XILA_PROJECT`).
+- GitLab: Settings › CI/CD › Variables: `XILA_TOKEN` *masked* (and
   *protected* if only protected branches should upload), `XILA_URL`, `XILA_PROJECT`.
 
 ## Keyless: workload identity federation
 
 With no `token` input / `XILA_TOKEN`, the CLI exchanges the job's own OIDC
 identity token for a short-lived Xila session (OAuth 2.0 token exchange,
-RFC 8693, at `POST /api/v1/auth/token`). Nothing long-lived is stored in the CI
-system, and nothing leaks if a log does.
+RFC 8693, at `POST /api/v1/auth/token`). No long-lived secret is stored in the CI
+system, so a leaked log exposes nothing reusable.
 
-A Xila admin sets it up once, under **Admin › Service accounts**:
+A Xila admin sets it up once, under Admin › Service accounts:
 
-1. **Service account** — e.g. `ci-web`. Grant it a role like anyone else, by its
+1. Service account: e.g. `ci-web`. Grant it a role like any other user, by its
    email `ci-web@service-accounts.invalid`, on the project's (or team's) members
-   page: `editor` is enough to upload and gate.
-2. **Trusted issuer** — the platform's OIDC issuer and the audience your jobs
+   page. `editor` is enough to upload and gate.
+2. Trusted issuer: the platform's OIDC issuer and the audience your jobs
    request:
    - GitHub Actions: `https://token.actions.githubusercontent.com`
    - GitLab.com: `https://gitlab.com` (self-managed: your GitLab URL)
-   - Audience: by convention the Xila URL — the templates request it by default.
-3. **Binding** — claim conditions → the service account, optionally confined to
-   one project. Every condition must hold; values are exact or globs (`*` within
+   - Audience: by convention the Xila URL. The templates request it by default.
+3. Binding: claim conditions → the service account, optionally confined to
+   one project. All conditions must hold. Values are exact or globs (`*` within
    one `/` segment, `**` across). At least one condition must pin *which*
-   workload (`repository`, `repository_owner`, `project_path`, `sub`, …): GitHub
+   workload (`repository`, `repository_owner`, `project_path`, `sub`, …). GitHub
    and GitLab.com sign tokens for every repository on the platform, so a
    binding on `ref` alone would admit anyone's pipeline. Examples:
 
@@ -79,7 +79,7 @@ A Xila admin sets it up once, under **Admin › Service accounts**:
    | GitLab, protected refs | `project_path=acme/web`, `ref_protected=true` |
    | Kubernetes | `sub=system:serviceaccount:ci:scanner` |
 
-GitHub Actions — the job needs `id-token: write`:
+GitHub Actions: the job needs `id-token: write`.
 
 ```yaml
 permissions:
@@ -95,15 +95,15 @@ permissions:
           # no token: the job's OIDC token (audience = url) is exchanged
 ```
 
-GitLab CI — leave `XILA_TOKEN` unset. `.xila-upload` and `.xila-gate` already
+GitLab CI: leave `XILA_TOKEN` unset. `.xila-upload` and `.xila-gate` already
 declare `id_tokens: XILA_ID_TOKEN` with `aud: $XILA_OIDC_AUDIENCE` (default
 `$XILA_URL`).
 
-Anywhere else, pass the identity token explicitly: `xila upload --oidc-token
+On other platforms, pass the identity token explicitly: `xila upload --oidc-token
 "$TOKEN" …` (or `XILA_OIDC_TOKEN`). A refused exchange exits `2` with the
 server's reason (`no binding matches the token's claims`, `the token's issuer is
 not trusted`, …). The session lasts `FEDERATION_TOKEN_TTL` (15 minutes by
-default, at most 1 hour); suspending the service account ends it at once.
+default, at most 1 hour). Suspending the service account ends it immediately.
 
 ## GitHub Actions
 
@@ -134,12 +134,12 @@ jobs:
           new-only: ${{ github.event_name == 'pull_request' }}
 ```
 
-Scanning a built image: add `trivy-image` to `scanners` and set `image:` (the
-Docker socket is mounted, so a locally built tag works).
+To scan a built image, add `trivy-image` to `scanners` and set `image:`. The
+Docker socket is mounted, so a locally built tag works.
 
 | Input | Default | Meaning |
 |---|---|---|
-| `url`, `project` | — (required) | Xila instance, project id |
+| `url`, `project` | - (required) | Xila instance, project id |
 | `token` | `""` | API token; empty = keyless federation (needs `id-token: write`) |
 | `oidc-audience` | the `url` input | audience requested for the GitHub OIDC token |
 | `scanners` | `trivy-fs,gitleaks,semgrep` | comma list of the scanners above |
@@ -152,13 +152,13 @@ Docker socket is mounted, so a locally built tag works).
 | `github-token` | `${{ github.token }}` | token that writes the comment / check run |
 | `version` | `latest` | xila CLI ref for `go install` |
 
-The PR comment is posted by the last upload, so it lists the new findings of the
-last scanner in the list and no gate verdict; the gate's verdict is the job's
-status. The check run (if enabled) is posted by the `Xila security gate` step
-instead, so its conclusion always matches the gate verdict — it just has no
-scan to pin annotations to in this multi-scanner flow (the single-scanner
-repo-root `action.yml` posts a check run per upload, with annotations). A
-complete worked file is `ci/github/example-workflow.yml`.
+The last upload posts the PR comment, so the comment lists the new findings of
+the last scanner in the list and has no gate verdict. The job's status is the
+gate verdict. If enabled, the check run is posted by the `Xila security gate`
+step instead, so its conclusion matches the gate verdict. In this
+multi-scanner flow it has no scan to pin annotations to. (The single-scanner
+repo-root `action.yml` posts a check run per upload, with annotations.) A
+complete example is in `ci/github/example-workflow.yml`.
 
 ## GitLab CI
 
@@ -189,13 +189,13 @@ xila-gate:
 ```
 
 Pin the include to a tag or commit instead of `main` for reproducible pipelines.
-All jobs default to `stage: test`; ordering comes from `needs:`, so override
-`stage:` freely. `.xila-upload` uploads every report found in `xila-reports/`
-and keeps the built CLI as an artifact that `.xila-gate` reuses.
+All jobs default to `stage: test`. Ordering comes from `needs:`, so you can
+override `stage:` as needed. `.xila-upload` uploads every report found in
+`xila-reports/` and keeps the built CLI as an artifact that `.xila-gate` reuses.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `XILA_URL`, `XILA_PROJECT` | — (CI/CD variables) | Xila instance, project id |
+| `XILA_URL`, `XILA_PROJECT` | - (CI/CD variables) | Xila instance, project id |
 | `XILA_TOKEN` | unset | API token; unset = keyless federation with the job's `XILA_ID_TOKEN` |
 | `XILA_OIDC_AUDIENCE` | `$XILA_URL` | audience of the `XILA_ID_TOKEN` the upload and gate jobs request |
 | `XILA_GATE` | `true` | wait for processing; `.xila-gate` is a no-op when not `true` |
@@ -206,10 +206,11 @@ and keeps the built CLI as an artifact that `.xila-gate` reuses.
 
 ## Required permissions
 
-- **Xila**: a service account bound to the job (keyless), or an API token,
-  with `editor` on the project (a project-scoped token or binding is enough).
-- **GitHub**: `contents: read`; `id-token: write` for keyless federation;
+- Xila: a service account bound to the job (keyless), or an API token,
+  with `editor` on the project. A project-scoped token or binding is enough.
+- GitHub: `contents: read`; `id-token: write` for keyless federation;
   `pull-requests: write` only for the comment; `checks: write` only for the
   check run.
-- **Runner**: Docker (GitHub: the action runs `docker run`, so Linux runners);
-  GitLab: any Docker executor.
+- Runner: Docker. On GitHub the action runs `docker run`, so it needs Linux
+  runners. On GitLab, any Docker executor works.
+
