@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS sbom_components;
+DROP TABLE IF EXISTS sboms;

@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Posture.Name}} evidence — {{.Project.Name}}</title>
+<style>
+	:root { --ink: #1f2937; --muted: #6b7280; --line: #e5e7eb; --bg: #f9fafb; --ok: #15803d; --bad: #b91c1c; --manual: #92400e; }
+	* { box-sizing: border-box; }
+	html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+	body { margin: 0; font: 13px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--ink); background: #fff; }
+	main { max-width: 1040px; margin: 0 auto; padding: 32px 28px 48px; }
+	header { border-bottom: 3px solid var(--ink); padding-bottom: 12px; margin-bottom: 20px; }
+	.brand { font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-size: 11px; }
+	h1 { font-size: 24px; margin: 4px 0 6px; }
+	h2 { font-size: 16px; margin: 0 0 10px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
+	.meta { color: var(--muted); font-size: 12px; }
+	.meta span + span::before { content: " · "; }
+	section { margin: 22px 0; }
+	.kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+	.kpi { border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; background: var(--bg); }
+	.kpi .v { font-size: 22px; font-weight: 700; }
+	.kpi .l { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+	.kpi.bad .v { color: var(--bad); }
+	table { width: 100%; border-collapse: collapse; }
+	th, td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+	th { font-size: 11px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); font-weight: 600; }
+	td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+	.st { display: inline-block; padding: 1px 6px; border-radius: 3px; color: #fff; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+	.st-passing, .st-attested { background: var(--ok); } .st-failing { background: var(--bad); } .st-manual { background: var(--manual); }
+	.st-met { background: var(--ok); } .st-late, .st-missed { background: var(--bad); } .st-due_soon { background: var(--manual); }
+	.st-pending, .st-not_started, .st-waived { background: var(--muted); }
+	.small { font-size: 11px; color: var(--muted); }
+	.box { border: 1px dashed var(--line); padding: 8px 10px; min-height: 36px; }
+	ul.f { margin: 4px 0 0; padding-left: 16px; } ul.f li { margin: 1px 0; }
+	.note { white-space: pre-wrap; }
+	.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+	footer { margin-top: 32px; border-top: 1px solid var(--line); padding-top: 8px; color: var(--muted); font-size: 11px; }
+	@page { size: A4; margin: 14mm 12mm; }
+	@media print { body { font-size: 10.5px; } main { max-width: none; padding: 0; } section { break-inside: avoid; } section.long { break-inside: auto; } tr { break-inside: avoid; } thead { display: table-header-group; } }
+</style>
+</head>
+<body>
+<main>
+<header>
+	<div class="brand">{{.Posture.Name}} — evidence report</div>
+	<h1>{{.Project.Name}}</h1>
+	<div class="meta">
+		<span>Generated {{date .GeneratedAt}}</span>
+		<span>{{.Project.Slug}}</span>
+		<span>Default branch <strong>{{if .Branch}}{{.Branch}}{{else}}—{{end}}</strong></span>
+		<span>Business criticality: {{.Project.BusinessCriticality}}</span>
+		{{- with .Project.RepoURL}}<span>{{.}}</span>{{end}}
+	</div>
+	<div class="meta"><span>{{.Posture.Name}} ({{.Posture.Version}})</span><span>Figures cover the default branch; cross-tool duplicates counted once</span></div>
+</header>
+
+<section>
+	<div class="kpis">
+		<div class="kpi{{if .Posture.FailingControls}} bad{{end}}"><div class="v">{{.Posture.PassingControls}}/{{.Posture.TotalControls}}</div><div class="l">Controls met ({{score .Posture.Score}}%)</div></div>
+		<div class="kpi"><div class="v">{{.Posture.AttestedControls}}</div><div class="l">Attested</div></div>
+		<div class="kpi"><div class="v">{{.Posture.ManualControls}}</div><div class="l">To attest</div></div>
+		<div class="kpi{{if .Overview.KEVOpen}} bad{{end}}"><div class="v">{{.Overview.KEVOpen}}</div><div class="l">Known exploited open</div></div>
+		<div class="kpi{{if .Overview.SLA.Breached}} bad{{end}}"><div class="v">{{.Overview.SLA.Breached}}</div><div class="l">Past remediation SLA</div></div>
+	</div>
+</section>
+
+<section class="long">
+	<h2>Measured controls</h2>
+	<p class="small">Each control is judged on the default branch's open findings (cross-tool duplicates counted once) and project facts. A failing control lists the open findings behind it, highest priority first.</p>
+	<table>
+		<thead><tr><th>Ref.</th><th>Control</th><th>Status</th><th style="width:38%">Evidence</th></tr></thead>
+		<tbody>
+		{{- range .Measured}}
+		<tr>
+			<td><strong>{{.Code}}</strong></td>
+			<td>{{.Title}}<div class="small">{{.Description}}</div></td>
+			<td><span class="st st-{{.Status}}">{{.Status}}</span></td>
+			<td class="small">{{.Evidence}}
+				{{- if .Findings}}
+				<ul class="f">
+				{{- range .Findings}}
+					<li><strong>{{.Severity}}</strong> {{.Title}} <span>({{.Scanner}}{{with .RuleID}} {{.}}{{end}}{{with .CWE}} · CWE-{{.}}{{end}}{{with .FilePath}} · {{.}}{{end}})</span></li>
+				{{- end}}
+				{{- if .More}}<li>… and {{.More}} more</li>{{end}}
+				</ul>
+				{{- end}}
+			</td>
+		</tr>
+		{{- else}}
+		<tr><td colspan="4" class="small">This framework has no measured controls.</td></tr>
+		{{- end}}
+		</tbody>
+	</table>
+</section>
+
+<section class="cols">
+	<div>
+		<h2>Software bill of materials</h2>
+		{{- if .Inventory.SBOMs}}
+		<table>
+			<thead><tr><th>Artifact</th><th>Version</th><th>Format</th><th class="n">Components</th><th>Uploaded</th></tr></thead>
+			<tbody>
+			{{- range .Inventory.SBOMs}}
+			<tr><td>{{if .Artifact}}{{.Artifact}}{{else}}—{{end}}</td><td>{{.Version}}</td><td>{{.Format}}</td><td class="n">{{.Components}}</td><td>{{day .CreatedAt}}</td></tr>
+			{{- end}}
+			</tbody>
+		</table>
+		<p class="small">{{.Inventory.WithPurl}} of {{.Inventory.Components}} components identified by package URL ·
+			{{.Inventory.WithHash}} with hashes ({{.Inventory.IntegrityMismatch}} contradicting their registry) ·
+			{{.Inventory.LicenseResolved}} with a resolved license.</p>
+		{{- else}}
+		<p class="small">No SBOM uploaded for the default branch.</p>
+		{{- end}}
+	</div>
+	<div>
+		<h2>Vulnerability handling</h2>
+		<table>
+			<thead><tr><th>Severity</th><th class="n">Open</th><th class="n">Mean time to remediate</th></tr></thead>
+			<tbody>
+			{{- $o := .Overview}}
+			{{- range .Severities}}
+			<tr><td>{{.}}</td><td class="n">{{open $o.OpenBySeverity .}}</td><td class="n">{{days $o.SLA.MTTRDays .}}</td></tr>
+			{{- end}}
+			</tbody>
+		</table>
+		<p class="small">Remediated within SLA, last {{.Overview.SLA.WindowDays}} days: {{.Overview.SLA.Met}} of
+			{{.Overview.SLA.Met}}+{{.Overview.SLA.Missed}} ({{pct .Overview.SLA.Compliance}}) ·
+			{{.Overview.SLA.Breached}} open past SLA · {{.Overview.SLA.DueSoon}} due soon.</p>
+		<p class="small">Documented analysis: {{.Analysis.VEXStatements}} VEX statement(s), {{.Analysis.Assessments}} finding assessment(s).</p>
+	</div>
+</section>
+
+{{- if .CRA}}
+<section class="long">
+	<h2>Reporting of actively exploited vulnerabilities (Art. 14)</h2>
+	{{- if .Product.InScope}}
+	<p class="small">Product{{with .Product.Name}} <strong>{{.}}</strong>{{end}}{{with .Product.Version}} {{.}}{{end}} is declared as made available on the EU market{{with .Product.MemberStates}} ({{range $i, $m := .}}{{if $i}}, {{end}}{{$m}}{{end}}){{end}}.
+		Each actively exploited vulnerability opens a case: early warning within 24 h and vulnerability notification within 72 h of awareness, final report within 14 days of a corrective measure.
+		{{len .Cases}} case(s), {{.CasesCompliant}} with every due submission on time.</p>
+	{{- else}}
+	<p class="small">The project is not declared as a product with digital elements made available on the EU market; no Article 14 reporting cases are opened for it.{{if .Cases}} Cases opened while it was in scope are listed below.{{end}}</p>
+	{{- end}}
+	{{- if .Cases}}
+	<table>
+		<thead><tr><th>Vulnerability</th><th>State</th><th>Aware</th><th>Early warning (24 h)</th><th>Notification (72 h)</th><th>Final report (14 d)</th></tr></thead>
+		<tbody>
+		{{- range .Cases}}
+		<tr>
+			<td><strong>{{.VulnID}}</strong><div class="small">{{.Title}} · {{.Trigger}}</div></td>
+			<td>{{human .State}}{{with .DismissedReason}}<div class="small">{{.}}</div>{{end}}</td>
+			<td class="small">{{date .AwareAt}}</td>
+			{{- range .Deadlines}}
+			<td class="small"><span class="st st-{{.Status}}">{{human .Status}}</span><div>due {{stamp .DueAt}}</div>{{if .SentAt}}<div>sent {{stamp .SentAt}}</div>{{end}}</td>
+			{{- end}}
+		</tr>
+		{{- end}}
+		</tbody>
+	</table>
+	{{- end}}
+</section>
+{{- end}}
+
+{{- if .Attested}}
+<section class="long">
+	<h2>Attested controls</h2>
+	<p class="small">Requirements no scan can measure, recorded as met by the project team.</p>
+	<table>
+		<thead><tr><th>Ref.</th><th>Control</th><th style="width:44%">How it is met</th><th>Attested</th></tr></thead>
+		<tbody>
+		{{- range .Attested}}
+		<tr>
+			<td><strong>{{.Code}}</strong></td>
+			<td>{{.Title}}</td>
+			{{- with .Attestation}}
+			<td class="small"><div class="note">{{.Note}}</div>{{with .EvidenceURL}}<div>Evidence: <a href="{{.}}">{{.}}</a></div>{{end}}</td>
+			<td class="small">{{.AttestedBy}}<div>{{date .AttestedAt}}</div>{{if .ExpiresAt}}<div>valid until {{stamp .ExpiresAt}}</div>{{end}}</td>
+			{{- end}}
+		</tr>
+		{{- end}}
+		</tbody>
+	</table>
+</section>
+{{- end}}
+
+<section class="long">
+	<h2>Requirements for attestation</h2>
+	{{- if .ToAttest}}
+	<p class="small">Process requirements no scan can measure. Record how each is met and by whom (Compliance tab → attest).</p>
+	<table>
+		<thead><tr><th>Ref.</th><th>Requirement</th><th style="width:40%">How it is met / evidence</th></tr></thead>
+		<tbody>
+		{{- range .ToAttest}}
+		<tr><td><strong>{{.Code}}</strong></td><td>{{.Title}}<div class="small">{{.Description}}</div></td>
+			<td>{{with .Evidence}}<div class="small">{{.}}</div>{{end}}<div class="box"></div></td></tr>
+		{{- end}}
+		</tbody>
+	</table>
+	{{- else}}
+	<p class="small">Every manual requirement is attested.</p>
+	{{- end}}
+</section>
+
+<footer>Generated by Xila on {{date .GeneratedAt}} from the project's findings, SBOMs, VEX/assessment records and attestations. Measured statuses reflect the evidence Xila holds; they support, and do not replace, an assessment against {{.Posture.Name}} {{.Posture.Version}}{{if .CRA}} or the manufacturer's conformity assessment under Regulation (EU) 2024/2847{{end}}.</footer>
+</main>
+</body>
+</html>

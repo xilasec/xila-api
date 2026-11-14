@@ -1,0 +1,89 @@
+# Production-oriented stack: the hardened single-binary API (UI embedded) + Postgres.
+# Secrets come from the environment or a .env file; required ones FAIL FAST if unset
+# (mirroring the app's own APP_ENV=production validation).
+#
+#   cp .env.example .env         # then set at least DB_PASSWORD and JWT_SECRET
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Run behind a TLS-terminating reverse proxy (nginx/Caddy/ALB); set TRUSTED_PROXIES
+# to its address so client IPs are accurate, and CORS_ALLOWED_ORIGINS if the UI is
+# served from another host. For real deployments prefer a managed Postgres with TLS
+# (DB_HOST + DB_SSLMODE=require) over this bundled container.
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    # SSD-era planner costs: the stock random_page_cost (4) models spinning disks
+    # and picks whole-table scans over index scans that are 3–6× faster on SSDs
+    # (docs/SCALE.md). On a database you run yourself, set it there.
+    command: ["postgres", "-c", "random_page_cost=1.1"]
+    environment:
+      POSTGRES_USER: ${DB_USER:-xila}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required in production}
+      POSTGRES_DB: ${DB_NAME:-xila}
+    volumes:
+      - pgdata:/var/lib/postgresql
+    # Only what the entrypoint needs to initialise and own its data directory.
+    cap_drop: [ALL]
+    # kics-scan ignore-line
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-xila} -d ${DB_NAME:-xila}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # Deliberately not published to the host — only the api service reaches it.
+
+  api:
+    build: .
+    restart: unless-stopped
+    environment:
+      APP_ENV: production
+      HTTP_PORT: "8080"
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: ${DB_USER:-xila}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required in production}
+      DB_NAME: ${DB_NAME:-xila}
+      # Private compose network; use a managed DB with DB_SSLMODE=require in real prod.
+      DB_SSLMODE: ${DB_SSLMODE:-disable}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required in production}
+      JWT_TTL: ${JWT_TTL:-24h}
+      # Hardening (safe prod defaults; override as needed).
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      # Connection pool tuning (optional).
+      DB_MAX_CONNS: ${DB_MAX_CONNS:-20}
+      DB_MIN_CONNS: ${DB_MIN_CONNS:-2}
+      # Telemetry: off unless you point it at a collector.
+      OTEL_ENABLED: ${OTEL_ENABLED:-false}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_INSECURE: ${OTEL_EXPORTER_OTLP_INSECURE:-false}
+      # Single Sign-On (optional).
+      OIDC_ENABLED: ${OIDC_ENABLED:-false}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_REDIRECT_URL: ${OIDC_REDIRECT_URL:-}
+      OIDC_PROVIDER_NAME: ${OIDC_PROVIDER_NAME:-SSO}
+    ports:
+      # Bind to the reverse proxy's interface (HTTP_BIND, default localhost);
+      # set HTTP_BIND=0.0.0.0 only if the proxy runs on another host.
+      - "${HTTP_BIND:-127.0.0.1}:${HTTP_PORT:-8080}:8080"
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "/xila-api", "healthcheck"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:

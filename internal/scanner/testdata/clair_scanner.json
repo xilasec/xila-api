@@ -1,0 +1,30 @@
+{
+ "image": "default-docker-3rdparty.bahnhub.tech.rz.db.de:443/ubuntu:bionic-20190912.1",
+ "unapproved": [
+  "CVE-2019-13050",
+  "CVE-2019-5094",
+  "CVE-2018-1000654"
+ ],
+ "vulnerabilities": [
+  {
+   "featurename": "systemd",
+   "featureversion": "237-3ubuntu10.29",
+   "vulnerability": "CVE-2018-20839",
+   "namespace": "ubuntu:18.04",
+   "description": "systemd 242 changes the VT1 mode upon a logout, which allows attackers to read cleartext passwords in certain circumstances, such as watching a shutdown, or using Ctrl-Alt-F1 and Ctrl-Alt-F2. This occurs because the KDGKBMODE (aka current keyboard mode) check is mishandled.",
+   "link": "http://people.ubuntu.com/~ubuntu-security/cve/CVE-2018-20839",
+   "severity": "Medium",
+   "fixedby": ""
+  },
+  {
+   "featurename": "e2fsprogs",
+   "featureversion": "1.44.1-1ubuntu1.1",
+   "vulnerability": "CVE-2019-5094",
+   "namespace": "ubuntu:18.04",
+   "description": "An exploitable code execution vulnerability exists in the quota file functionality of E2fsprogs 1.45.3. A specially crafted ext4 partition can cause an out-of-bounds write on the heap, resulting in code execution. An attacker can corrupt a partition to trigger this vulnerability.",
+   "link": "http://people.ubuntu.com/~ubuntu-security/cve/CVE-2019-5094",
+   "severity": "Medium",
+   "fixedby": "1.44.1-1ubuntu1.2"
+  }
+ ]
+}

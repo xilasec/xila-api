@@ -1,0 +1,34 @@
+Xila {{ .Values.image.tag | default .Chart.AppVersion }} is deploying as "{{ include "xila.fullname" . }}" in namespace {{ .Release.Namespace }}.
+
+{{- $url := include "xila.publicUrl" . }}
+{{- if $url }}
+
+Open: {{ $url }}
+{{- else }}
+
+Reach it locally:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "xila.fullname" . }} 8080:{{ .Values.service.port }}
+  open http://localhost:8080
+{{- end }}
+
+IMPORTANT: the FIRST account registered becomes the instance owner (admin).
+Register yours right after the pods are ready, before exposing the service.
+
+Check it:   helm test {{ .Release.Name }} -n {{ .Release.Namespace }}
+{{- if .Values.postgresql.enabled }}
+
+Database: the bundled single-instance PostgreSQL ({{ include "xila.pg.fullname" . }}) —
+fine for evaluation, but it has no backups or HA. For production set
+postgresql.enabled=false and point `database` at a managed PostgreSQL 15+.
+{{- end }}
+{{- if not .Values.existingSecret }}
+
+Secrets were generated into Secret/{{ include "xila.fullname" . }} and are kept on uninstall.
+Back up INTEGRATION_SECRET_KEY: without it, stored issue-tracker and connector
+tokens can't be decrypted.
+{{- end }}
+{{- if and (eq .Values.appEnv "production") .Values.ingress.enabled (not .Values.trustedProxies) }}
+
+Tip: set trustedProxies to your ingress controller's pod CIDR so client IPs in
+logs and rate limits are accurate.
+{{- end }}

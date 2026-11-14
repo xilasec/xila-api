@@ -1,0 +1,30 @@
+[
+ {
+  "feed": "vulnerabilities",
+  "feedGroup": "debian:9",
+  "fix": "None",
+  "package": "apt-1.4.9",
+  "packageCpe": "None",
+  "packageName": "apt",
+  "packagePath": "None",
+  "packageType": "dpkg",
+  "packageVersion": "1.4.9",
+  "severity": "Negligible",
+  "url": "https://security-tracker.debian.org/tracker/CVE-2011-3374",
+  "vuln": "CVE-2011-3374"
+ },
+ {
+  "feed": "vulnerabilities",
+  "feedGroup": "debian:9",
+  "fix": "232-25+deb9u10",
+  "package": "libsystemd0-232-25+deb9u9",
+  "packageCpe": "None",
+  "packageName": "libsystemd0",
+  "packagePath": "None",
+  "packageType": "dpkg",
+  "packageVersion": "232-25+deb9u9",
+  "severity": "High",
+  "url": "https://security-tracker.debian.org/tracker/CVE-2018-15686",
+  "vuln": "CVE-2018-15686"
+ }
+]

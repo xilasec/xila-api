@@ -1,0 +1,2 @@
+DROP INDEX IF EXISTS idx_findings_purl;
+ALTER TABLE findings DROP COLUMN IF EXISTS purl;

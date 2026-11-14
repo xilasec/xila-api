@@ -1,0 +1,28 @@
+# Example: copy to .github/workflows/xila.yml in your repository and replace
+# `uses: ./ci/github/scan` with `uses: xilasec/xila-api/ci/github/scan@<ref>`.
+name: Xila scan
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write # the PR comment
+
+jobs:
+  xila:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          fetch-depth: 0 # gitleaks scans the git history
+
+      - uses: ./ci/github/scan
+        with:
+          url: ${{ vars.XILA_URL }}
+          token: ${{ secrets.XILA_TOKEN }}
+          project: ${{ vars.XILA_PROJECT }}
+          scanners: trivy-fs,gitleaks,semgrep
+          new-only: ${{ github.event_name == 'pull_request' }}

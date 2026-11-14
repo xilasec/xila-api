@@ -1,0 +1,36 @@
+[
+ {
+  "id": "3",
+  "version": "1.5",
+  "text": "Control Plane Configuration",
+  "node_type": "node",
+  "tests": [
+   {
+    "section": "3.1",
+    "pass": 0,
+    "fail": 1,
+    "warn": 0,
+    "info": 0,
+    "desc": "Authentication and Authorization",
+    "results": [
+     {
+      "test_number": "3.1.1",
+      "test_desc": "Client certificate authentication should not be used for users(Manual)",
+      "audit": "Review user access to the cluster and ensure that users are not making use of Kubernetes client certificate authentication.",
+      "AuditConfig": "",
+      "type": "",
+      "remediation": "Alternative mechanisms provided by Kubernetes such as the use of OIDC should beimplemented in place of client certificates.",
+      "test_info": [
+       "Alternative mechanisms provided by Kubernetes such as the use of OIDC should beimplemented in place of client certificates."
+      ],
+      "status": "FAIL",
+      "actual_value": "",
+      "scored": false,
+      "IsMultiple": false,
+      "expected_result": ""
+     }
+    ]
+   }
+  ]
+ }
+]

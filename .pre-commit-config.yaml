@@ -1,0 +1,38 @@
+# Security gates before every commit: `make hooks` (or `pre-commit install`):
+# grype, opengrep, KICS and gitleaks.
+# Each hook calls scripts/security-scan.sh — the same scan CI runs — and only
+# when files it cares about are staged. CI re-runs all three on every push and
+# nightly (new CVEs appear in code nobody touched), so a hook skipped with
+# --no-verify still can't reach main. See docs/SECURITY_SCANNING.md.
+repos:
+  - repo: local
+    hooks:
+      - id: grype
+        name: grype (vulnerable dependencies)
+        entry: scripts/security-scan.sh grype
+        language: script
+        pass_filenames: false
+        files: (^|/)(go\.mod|go\.sum|package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|\.grype\.yaml)$
+
+      - id: opengrep
+        name: opengrep (SAST)
+        entry: scripts/security-scan.sh opengrep
+        language: script
+        # Staged source only; the ignore list (.semgrepignore) still applies.
+        files: \.(go|js|mjs|ts|svelte|ya?ml|sh|html)$|(^|/)Dockerfile$
+        exclude: (^|/)testdata/|_test\.go$
+        require_serial: true
+
+      - id: kics
+        name: kics (infrastructure as code)
+        entry: scripts/security-scan.sh kics
+        language: script
+        pass_filenames: false
+        files: (^|/)(Dockerfile|docker-compose[^/]*\.ya?ml|action\.yml)$|^(deploy/|\.github/workflows/|ci/)
+
+      - id: gitleaks
+        name: gitleaks (secrets in staged changes)
+        entry: scripts/security-scan.sh gitleaks --staged
+        language: script
+        pass_filenames: false
+        always_run: true

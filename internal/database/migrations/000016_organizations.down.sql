@@ -1,0 +1,3 @@
+ALTER TABLE teams DROP COLUMN IF EXISTS org_id;
+DROP TABLE IF EXISTS org_members;
+DROP TABLE IF EXISTS organizations;

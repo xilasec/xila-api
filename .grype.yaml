@@ -1,0 +1,13 @@
+# Grype policy for this repository — used by `make security`, the pre-commit
+# hook and CI (scripts/security-scan.sh). The gate: any High or Critical
+# vulnerability that HAS a fix fails. Unfixable ones are reported, not gated:
+# there is nothing to upgrade to. Accepting a fixable one needs an `ignore`
+# entry below with a reason and, ideally, an expiry date in the comment.
+only-fixed: true
+fail-on-severity: high
+exclude:
+  - "./web/node_modules/**"
+  - "./web/build/**"
+  - "./**/testdata/**"
+  - "./web/.svelte-kit/**"
+ignore: []

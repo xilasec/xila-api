@@ -1,0 +1,103 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    # SSD-era planner costs: the stock random_page_cost (4) models spinning disks
+    # and picks whole-table scans over index scans that are 3–6× faster on SSDs
+    # (docs/SCALE.md). On a database you run yourself, set it there.
+    command: ["postgres", "-c", "random_page_cost=1.1"]
+    environment:
+      POSTGRES_USER: xila
+      POSTGRES_PASSWORD: xila
+      POSTGRES_DB: xila
+    ports:
+      # Bound to localhost: a dev database must not be reachable from the LAN.
+      - "127.0.0.1:5432:5432"
+    # Only what the entrypoint needs to initialise and own its data directory.
+    cap_drop: [ALL]
+    # kics-scan ignore-line
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      # Postgres 18+ stores data in a version-specific subdirectory, so the
+      # volume is mounted at the parent (not /var/lib/postgresql/data).
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xila -d xila"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Traces UI at http://localhost:16686
+  jaeger:
+    image: jaegertracing/all-in-one:1.60
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "127.0.0.1:16686:16686"
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:14269/"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Receives OTLP from the API; forwards traces to Jaeger, logs/metrics to stdout.
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.109.0
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - "127.0.0.1:4317:4317" # OTLP gRPC
+      - "127.0.0.1:4318:4318" # OTLP HTTP
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    # The contrib image is distroless (no shell / wget), so there is nothing to
+    # probe with; liveness is "process running".
+    healthcheck:
+      # kics-scan ignore-line
+      disable: true
+    depends_on:
+      - jaeger
+
+  # One image: the Go binary with the web UI embedded. Serves UI + API on :8080.
+  api:
+    build: .
+    environment:
+      APP_ENV: development
+      HTTP_HOST: 0.0.0.0
+      HTTP_PORT: "8080"
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: xila
+      DB_PASSWORD: xila
+      DB_NAME: xila
+      DB_SSLMODE: disable
+      JWT_SECRET: change-me-in-production
+      JWT_TTL: 24h
+      OTEL_ENABLED: "true"
+      OTEL_SERVICE_NAME: xila-api
+      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4317
+      OTEL_EXPORTER_OTLP_INSECURE: "true"
+    ports:
+      - "127.0.0.1:8080:8080"
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "/xila-api", "healthcheck"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      postgres:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+
+volumes:
+  pgdata:

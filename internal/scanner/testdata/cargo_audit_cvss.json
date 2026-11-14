@@ -1,0 +1,193 @@
+{
+  "database": {
+    "advisory-count": 1098,
+    "last-commit": "be6e70abbbc6be4aa1b768b234766d087731da2d",
+    "last-updated": "2026-05-27T17:33:53+02:00"
+  },
+  "lockfile": {
+    "dependency-count": 176
+  },
+  "settings": {
+    "target_arch": [],
+    "target_os": [],
+    "severity": null,
+    "ignore": [],
+    "informational_warnings": [
+      "unmaintained",
+      "unsound",
+      "notice"
+    ]
+  },
+  "vulnerabilities": {
+    "found": true,
+    "count": 3,
+    "list": [
+      {
+        "advisory": {
+          "id": "RUSTSEC-2026-0047",
+          "package": "aws-lc-sys",
+          "title": "PKCS7_verify Signature Validation Bypass in AWS-LC",
+          "description": "Improper signature validation in `PKCS7_verify()` in AWS-LC allows an\nunauthenticated user to bypass signature verification when processing PKCS7\nobjects with Authenticated Attributes.\n\nCustomers of AWS services do not need to take action. `aws-lc-sys` contains\ncode from AWS-LC. Applications using `aws-lc-sys` should upgrade to the most\nrecent release of `aws-lc-sys`.\n\nThere is no workaround; applications using `aws-lc-sys` should upgrade to the \nmost recent release of `aws-lc-sys`.",
+          "date": "2026-03-02",
+          "aliases": [
+            "CVE-2026-3338",
+            "GHSA-hfpc-8r3f-gw53",
+            "GHSA-jchq-39cv-q4wj"
+          ],
+          "related": [],
+          "collection": "crates",
+          "categories": [
+            "crypto-failure"
+          ],
+          "keywords": [
+            "pkcs7",
+            "signature-verification",
+            "bypass"
+          ],
+          "cvss": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N",
+          "informational": null,
+          "references": [
+            "https://github.com/aws/aws-lc-rs/security/advisories/GHSA-hfpc-8r3f-gw53"
+          ],
+          "source": null,
+          "url": "https://aws.amazon.com/security/security-bulletins/2026-005-AWS",
+          "withdrawn": null,
+          "license": "CC0-1.0",
+          "expect-deleted": false
+        },
+        "versions": {
+          "patched": [
+            ">=0.38.0"
+          ],
+          "unaffected": [
+            "<0.24.0"
+          ]
+        },
+        "affected": null,
+        "package": {
+          "name": "aws-lc-sys",
+          "version": "0.36.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "43a442ece363113bd4bd4c8b18977a7798dd4d3c3383f34fb61936960e8f4ad8",
+          "dependencies": [
+            {
+              "name": "cc",
+              "version": "1.2.53",
+              "source": "registry+https://github.com/rust-lang/crates.io-index"
+            }
+          ],
+          "replace": null
+        }
+      },
+      {
+        "advisory": {
+          "id": "RUSTSEC-2026-0044",
+          "package": "aws-lc-sys",
+          "title": "AWS-LC X.509 Name Constraints Bypass via Wildcard/Unicode CN",
+          "description": "A logic error in CN (Common Name) validation allows certificates with\nwildcard or raw UTF-8 Unicode CN values to bypass name constraints\nenforcement. The `cn2dnsid` function does not recognize these CN patterns\nas valid DNS identifiers, causing `NAME_CONSTRAINTS_check_CN` to skip\nvalidation. However, `X509_check_host` accepts these CN values when no\ndNSName SAN is present, allowing certificates to bypass name constraints\nwhile still being used for hostname verification.\n\nCustomers of AWS services do not need to take action. Applications using\n`aws-lc-sys` should upgrade to the most recent release of `aws-lc-sys`.\n\n## Workarounds\n\nApplications that set `X509_CHECK_FLAG_NEVER_CHECK_SUBJECT` to disable CN\nfallback are not affected. Applications that only encounter certificates\nwith dNSName SANs (standard for public WebPKI) are also not affected.\n\nOtherwise, there is no workaround and applications using `aws-lc-sys` should\nupgrade to the most recent releases of `aws-lc-sys`.",
+          "date": "2026-03-19",
+          "aliases": [
+            "GHSA-394x-vwmw-crm3"
+          ],
+          "related": [],
+          "collection": "crates",
+          "categories": [
+            "crypto-failure"
+          ],
+          "keywords": [
+            "x509",
+            "name-constraints",
+            "bypass"
+          ],
+          "cvss": null,
+          "informational": null,
+          "references": [
+            "https://github.com/aws/aws-lc-rs/security/advisories/GHSA-394x-vwmw-crm3"
+          ],
+          "source": null,
+          "url": null,
+          "withdrawn": null,
+          "license": "CC0-1.0",
+          "expect-deleted": false
+        },
+        "versions": {
+          "patched": [
+            ">=0.39.0"
+          ],
+          "unaffected": [
+            "<0.32.0"
+          ]
+        },
+        "affected": null,
+        "package": {
+          "name": "aws-lc-sys",
+          "version": "0.36.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "43a442ece363113bd4bd4c8b18977a7798dd4d3c3383f34fb61936960e8f4ad8",
+          "dependencies": [
+            {
+              "name": "cc",
+              "version": "1.2.53",
+              "source": "registry+https://github.com/rust-lang/crates.io-index"
+            }
+          ],
+          "replace": null
+        }
+      },
+      {
+        "advisory": {
+          "id": "RUSTSEC-2026-0141",
+          "package": "lettre",
+          "title": "TLS hostname verification disabled when using Boring TLS backend",
+          "description": "An inverted-boolean bug in lettre's `boring-tls` integration silently\ndisables TLS hostname verification for callers using the default (strict)\nconfiguration. An on-path attacker presenting any chain-valid certificate\nfor any domain can intercept SMTP submission, including PLAIN/LOGIN\ncredentials and message contents, against any lettre user built with the\n`boring-tls` feature. Other TLS backends (`native-tls`, `rustls`) are\nunaffected.\n\nThe bug was introduced in v0.10.1 and persists through v0.11.21 (latest).",
+          "date": "2026-05-14",
+          "aliases": [
+            "GHSA-4pj9-g833-qx53"
+          ],
+          "related": [],
+          "collection": "crates",
+          "categories": [
+            "crypto-failure"
+          ],
+          "keywords": [
+            "tls",
+            "smtp",
+            "mitm"
+          ],
+          "cvss": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:H/VI:H/VA:N/SC:L/SI:L/SA:N",
+          "informational": null,
+          "references": [],
+          "source": null,
+          "url": "https://github.com/lettre/lettre/security/advisories/GHSA-4pj9-g833-qx53",
+          "withdrawn": null,
+          "license": "CC0-1.0",
+          "expect-deleted": false
+        },
+        "versions": {
+          "patched": [
+            ">=0.11.22"
+          ],
+          "unaffected": [
+            "<0.10.1"
+          ]
+        },
+        "affected": null,
+        "package": {
+          "name": "lettre",
+          "version": "0.11.19",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "9e13e10e8818f8b2a60f52cb127041d388b89f3a96a62be9ceaffa22262fef7f",
+          "dependencies": [
+            {
+              "name": "base64",
+              "version": "0.22.1",
+              "source": "registry+https://github.com/rust-lang/crates.io-index"
+            }
+          ],
+          "replace": null
+        }
+      }
+    ]
+  },
+  "warnings": {}
+}

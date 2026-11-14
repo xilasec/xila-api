@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rdf:RDF xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns="http://purl.org/rss/1.0/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:sec="http://jvn.jp/rss/mod_sec/" xmlns:sy="http://purl.org/rss/1.0/modules/syndication/" xsi:schemaLocation="http://purl.org/rss/1.0/ https://jvndb.jvn.jp/schema/jvnrss_2.0.xsd" xml:lang="ja">
+  <channel rdf:about="https://jvndb.jvn.jp/en/rss/years/jvndb_2024.rdf">
+    <title>JVNDB RSS Feed - 2024 Years Entry</title>
+    <link>https://jvndb.jvn.jp/en/</link>
+    <description>JVN iPedia Yearly Entry</description>
+    <dc:creator></dc:creator>
+    <dc:date>2026-11-08T09:16:46+09:00</dc:date>
+    <dcterms:modified>2026-11-08T09:16:46+09:00</dcterms:modified>
+    <items>
+      <rdf:Seq>
+        <rdf:li rdf:resource="https://jvndb.jvn.jp/en/contents/2024/JVNDB-2020-013805.html"/>
+        <rdf:li rdf:resource="https://jvndb.jvn.jp/en/contents/2024/JVNDB-2024-000011.html"/>
+        <rdf:li rdf:resource="https://jvndb.jvn.jp/en/contents/2024/JVNDB-2024-015471.html"/>
+      </rdf:Seq>
+    </items>
+  </channel>
+  <item rdf:about="https://jvndb.jvn.jp/en/contents/2024/JVNDB-2020-013805.html">
+    <title>Zeroshell vulnerable to OS command injection</title>
+    <link>https://jvndb.jvn.jp/en/contents/2024/JVNDB-2020-013805.html</link>
+    <description>The web interface of Zeroshell, Linux distribution provided by Zeroshell.org, contains an OS command injection vulnerability (CWE-78).&#13;
+&#13;
+Hirukawa Norihiko of MYT Consulting Inc. reported this vulnerability to IPA.&#13;
+JPCERT/CC coordinated with the developer under Information Security Early Warning Partnership.</description>
+    <sec:identifier>JVNDB-2020-013805</sec:identifier>
+    <sec:references source="JVN" id="JVN#44033918">https://jvn.jp/en/jp/JVN44033918/index.html</sec:references>
+    <sec:references source="CVE" id="CVE-2020-29390">https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2020-29390</sec:references>
+    <sec:references source="NVD" id="CVE-2020-29390">https://nvd.nist.gov/vuln/detail/CVE-2020-29390</sec:references>
+    <sec:references source="Related document" id="Zeroshell 3.6.0/3.7.0 Net Services - Remote Code Execution">https://www.exploit-db.com/exploits/41040</sec:references>
+    <sec:references title="OS Command Injection(CWE-78)" id="CWE-78">https://www.ipa.go.jp/en/security/vulnerabilities/cwe.html</sec:references>
+    <sec:cpe version="2.2" vendor="Zeroshell.org" product="Zeroshell">cpe:/o:zeroshell:zeroshell</sec:cpe>
+    <sec:cvss version="2.0" score="7.5" type="Base" severity="High" vector="AV:N/AC:L/Au:N/C:P/I:P/A:P"/>
+    <sec:cvss version="3.0" score="9.8" type="Base" severity="Critical" vector="CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"/>
+    <dc:date>2024-02-07T13:38+09:00</dc:date>
+    <dcterms:issued>2024-02-07T13:38+09:00</dcterms:issued>
+    <dcterms:modified>2024-02-07T13:38+09:00</dcterms:modified>
+  </item>
+  <item rdf:about="https://jvndb.jvn.jp/en/contents/2024/JVNDB-2024-000011.html">
+    <title>Multiple vulnerabilities in a-blog cms</title>
+    <link>https://jvndb.jvn.jp/en/contents/2024/JVNDB-2024-000011.html</link>
+    <description>a-blog cms provided by appleple inc. contains multiple vulnerabilities listed below.&lt;ul&gt;&lt;li&gt;Improper input validation (CWE-20) - CVE-2024-23180&lt;/li&gt;&lt;li&gt;Cross-site scripting (CWE-79) - CVE-2024-23181&lt;/li&gt;&lt;li&gt;Relative path traversal (CWE-23) - CVE-2024-23182&lt;/li&gt;&lt;li&gt;Cross-site scripting (CWE-79) - CVE-2024-23183&lt;/li&gt;&lt;li&gt;Improper input validation (CWE-20) - CVE-2024-23348&lt;/li&gt;&lt;li&gt;Cross-site scripting (CWE-79) - CVE-2024-23782&lt;/li&gt;&lt;/ul&gt;&#13;
+&#13;
+&#13;
+CVE-2024-23180&#13;
+Naoya Miyaguchi reported this vulnerability to IPA.&#13;
+JPCERT/CC coordinated with the developer under Information Security Early Warning Partnership.&#13;
+&#13;
+CVE-2024-23181&#13;
+Kentaro Ishii of GMO Cybersecurity by Ierae, Inc. reported this vulnerability to IPA.&#13;
+JPCERT/CC coordinated with the developer under Information Security Early Warning Partnership.&#13;
+&#13;
+CVE-2024-23182, CVE-2024-23183&#13;
+Yuji Tounai of Mitsui Bussan Secure Directions, Inc. reported these vulnerabilities to IPA.&#13;
+JPCERT/CC coordinated with the developer under Information Security Early Warning Partnership.&#13;
+&#13;
+CVE-2024-23348, CVE-2024-23782&#13;
+Yuta Morioka of Information Science College reported this vulnerability to IPA.&#13;
+JPCERT/CC coordinated with the developer under Information Security Early Warning Partnership.</description>
+    <sec:identifier>JVNDB-2024-000011</sec:identifier>
+    <sec:references source="JVN" id="JVN#34565930">https://jvn.jp/en/jp/JVN34565930/index.html</sec:references>
+    <sec:references source="CVE" id="CVE-2024-23180">https://www.cve.org/CVERecord?id=CVE-2024-23180</sec:references>
+    <sec:references source="CVE" id="CVE-2024-23181">https://www.cve.org/CVERecord?id=CVE-2024-23181</sec:references>
+    <sec:references source="CVE" id="CVE-2024-23182">https://www.cve.org/CVERecord?id=CVE-2024-23182</sec:references>
+    <sec:references source="CVE" id="CVE-2024-23183">https://www.cve.org/CVERecord?id=CVE-2024-23183</sec:references>
+    <sec:references source="CVE" id="CVE-2024-23348">https://www.cve.org/CVERecord?id=CVE-2024-23348</sec:references>
+    <sec:references source="CVE" id="CVE-2024-23782">https://www.cve.org/CVERecord?id=CVE-2024-23782</sec:references>
+    <sec:references source="NVD" id="CVE-2024-23180">https://nvd.nist.gov/vuln/detail/CVE-2024-23180</sec:references>
+    <sec:references source="NVD" id="CVE-2024-23181">https://nvd.nist.gov/vuln/detail/CVE-2024-23181</sec:references>
+    <sec:references source="NVD" id="CVE-2024-23182">https://nvd.nist.gov/vuln/detail/CVE-2024-23182</sec:references>
+    <sec:references source="NVD" id="CVE-2024-23183">https://nvd.nist.gov/vuln/detail/CVE-2024-23183</sec:references>
+    <sec:references source="NVD" id="CVE-2024-23348">https://nvd.nist.gov/vuln/detail/CVE-2024-23348</sec:references>
+    <sec:references source="NVD" id="CVE-2024-23782">https://nvd.nist.gov/vuln/detail/CVE-2024-23782</sec:references>
+    <sec:references title="Improper Input Validation(CWE-20)" id="CWE-20">https://www.ipa.go.jp/en/security/vulnerabilities/cwe.html</sec:references>
+    <sec:references title="Cross-site Scripting(CWE-79)" id="CWE-79">https://www.ipa.go.jp/en/security/vulnerabilities/cwe.html</sec:references>
+    <sec:references title="Relative Path Traversal(CWE-23)" id="CWE-23">https://cwe.mitre.org/data/definitions/23.html</sec:references>
+    <sec:cpe version="2.2" vendor="appleple inc." product="a-blog cms">cpe:/a:appleple:a-blog_cms</sec:cpe>
+    <sec:cvss version="2.0" score="4.3" type="Base" severity="Medium" vector="AV:N/AC:M/Au:N/C:N/I:P/A:N"/>
+    <sec:cvss version="3.0" score="6.1" type="Base" severity="Medium" vector="CVSS:3.0/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N"/>
+    <dc:date>2024-03-13T17:50+09:00</dc:date>
+    <dcterms:issued>2024-01-22T15:08+09:00</dcterms:issued>
+    <dcterms:modified>2024-03-13T17:50+09:00</dcterms:modified>
+  </item>
+  <item rdf:about="https://jvndb.jvn.jp/en/contents/2024/JVNDB-2024-015471.html">
+    <title>Trend Micro Deep Security 20.0 Agent (for Windows) vulnerable to uncontrolled search path element</title>
+    <link>https://jvndb.jvn.jp/en/contents/2024/JVNDB-2024-015471.html</link>
+    <description>Trend Micro Incorporated has released the security updates for Deep Security 20.0 Agent (for Windows) that contains a fix for an uncontrolled search path element vulnerability (CWE-427, CVE-2024-55955).&#13;
+&#13;
+Trend Micro Incorporated reported this vulnerability to JPCERT/CC to notify users of the solution through JVN.</description>
+    <sec:identifier>JVNDB-2024-015471</sec:identifier>
+    <sec:references source="JVN" id="JVNVU#92980681">https://jvn.jp/en/vu/JVNVU92980681/index.html</sec:references>
+    <sec:references source="CVE" id="CVE-2024-55955">https://www.cve.org/CVERecord?id=CVE-2024-55955</sec:references>
+    <sec:references title="Uncontrolled Search Path Element(CWE-427)" id="CWE-427">https://cwe.mitre.org/data/definitions/427.html</sec:references>
+    <sec:cpe version="2.2" vendor="Trend Micro, Inc." product="Deep Security Agent">cpe:/a:trendmicro:deep_security_agent</sec:cpe>
+    <dc:date>2024-12-25T11:28+09:00</dc:date>
+    <dcterms:issued>2024-12-25T11:28+09:00</dcterms:issued>
+    <dcterms:modified>2024-12-25T11:28+09:00</dcterms:modified>
+  </item>
+</rdf:RDF>

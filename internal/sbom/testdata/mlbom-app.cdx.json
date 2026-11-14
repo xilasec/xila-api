@@ -1,0 +1,99 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "serialNumber": "urn:uuid:6f1d2b4e-2c8a-4f0e-9a51-0c1d7e3b9a10",
+  "version": 1,
+  "metadata": {
+    "component": {
+      "bom-ref": "chat-app",
+      "type": "application",
+      "name": "chat-app",
+      "version": "2.0.0"
+    }
+  },
+  "components": [
+    {
+      "bom-ref": "pkg:pypi/transformers@4.44.0",
+      "type": "library",
+      "name": "transformers",
+      "version": "4.44.0",
+      "purl": "pkg:pypi/transformers@4.44.0",
+      "licenses": [{ "license": { "id": "Apache-2.0" } }]
+    },
+    {
+      "bom-ref": "mistral-7b-instruct",
+      "type": "machine-learning-model",
+      "supplier": { "name": "Hugging Face" },
+      "publisher": "Mistral AI",
+      "group": "mistralai",
+      "name": "Mistral-7B-Instruct-v0.2",
+      "version": "41b61a33a2483885c981aa79e0df6b32407ed873",
+      "description": "Instruction fine-tuned Mistral-7B-v0.2, fine-tuned on our support tickets.",
+      "licenses": [{ "license": { "id": "Apache-2.0" } }],
+      "externalReferences": [
+        { "type": "distribution", "url": "https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.2" }
+      ],
+      "pedigree": {
+        "ancestors": [
+          { "type": "machine-learning-model", "group": "mistralai", "name": "Mistral-7B-v0.1" }
+        ]
+      },
+      "modelCard": {
+        "modelParameters": {
+          "approach": { "type": "supervised" },
+          "task": "text-generation",
+          "architectureFamily": "mistral",
+          "modelArchitecture": "MistralForCausalLM",
+          "datasets": [
+            { "ref": "support-tickets" },
+            { "type": "dataset", "name": "ultrachat_200k", "contents": { "url": "https://huggingface.co/datasets/HuggingFaceH4/ultrachat_200k" }, "classification": "public" }
+          ],
+          "inputs": [{ "format": "string" }],
+          "outputs": [{ "format": "string" }]
+        }
+      }
+    },
+    {
+      "bom-ref": "support-tickets",
+      "type": "data",
+      "name": "support-tickets-2024",
+      "version": "3",
+      "data": [
+        {
+          "type": "dataset",
+          "name": "support-tickets-2024",
+          "contents": { "url": "s3://acme-ml/datasets/support-tickets-2024/" },
+          "classification": "confidential"
+        }
+      ]
+    }
+  ],
+  "services": [
+    {
+      "bom-ref": "inference-api",
+      "name": "chat-inference",
+      "version": "2.0.0",
+      "endpoints": ["https://inference.internal.example/v1/chat"],
+      "authenticated": true
+    },
+    {
+      "bom-ref": "openai-api",
+      "provider": { "name": "OpenAI", "url": ["https://openai.com"] },
+      "name": "OpenAI Chat Completions",
+      "endpoints": ["https://api.openai.com/v1/chat/completions"],
+      "authenticated": true,
+      "x-trust-boundary": true
+    },
+    {
+      "bom-ref": "billing-api",
+      "name": "billing",
+      "endpoints": ["https://billing.example.com/v1"],
+      "authenticated": true
+    }
+  ],
+  "dependencies": [
+    { "ref": "chat-app", "dependsOn": ["pkg:pypi/transformers@4.44.0", "inference-api", "openai-api", "billing-api"] },
+    { "ref": "inference-api", "dependsOn": ["mistral-7b-instruct"] },
+    { "ref": "mistral-7b-instruct", "dependsOn": ["support-tickets"] }
+  ]
+}

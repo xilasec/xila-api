@@ -1,0 +1,16 @@
+# gitleaks policy for this repository — used by scripts/security-scan.sh
+# (pre-commit, `make security`, CI). The built-in rules all apply; this only
+# excludes paths that aren't ours to judge. A false positive in our own code is
+# suppressed inline with `gitleaks:allow` and a comment saying why.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Third-party sample reports and generated output"
+paths = [
+  # Scanner fixtures: real tools' sample reports (hashes, redacted matches).
+  '''(^|/)testdata/''',
+  '''^web/node_modules/''',
+  '''^web/build/''',
+  '''^web/\.svelte-kit/''',
+]

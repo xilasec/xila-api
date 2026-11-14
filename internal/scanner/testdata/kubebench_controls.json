@@ -1,0 +1,130 @@
+{
+ "Controls": [
+  {
+   "id": "1",
+   "version": "1.6",
+   "text": "Master Node Security Configuration",
+   "node_type": "master",
+   "tests": [
+    {
+     "section": "1.1",
+     "type": "",
+     "pass": 0,
+     "fail": 17,
+     "warn": 4,
+     "info": 0,
+     "desc": "Master Node Configuration Files",
+     "results": [
+      {
+       "test_number": "1.1.1",
+       "test_desc": "Ensure that the API server pod specification file permissions are set to 644 or more restrictive (Automated)",
+       "audit": "/bin/sh -c 'if test -e /etc/kubernetes/manifests/kube-apiserver.yaml; then stat -c permissions=%a /etc/kubernetes/manifests/kube-apiserver.yaml; fi'",
+       "AuditEnv": "",
+       "AuditConfig": "",
+       "type": "",
+       "remediation": "Run the below command (based on the file location on your system) on the\nmaster node.\nFor example, chmod 644 /etc/kubernetes/manifests/kube-apiserver.yaml\n",
+       "test_info": [
+        "Run the below command (based on the file location on your system) on the\nmaster node.\nFor example, chmod 644 /etc/kubernetes/manifests/kube-apiserver.yaml\n"
+       ],
+       "status": "FAIL",
+       "actual_value": "",
+       "scored": true,
+       "IsMultiple": false,
+       "expected_result": "'permissions' is present"
+      },
+      {
+       "test_number": "1.1.9",
+       "test_desc": "Ensure that the Container Network Interface file permissions are set to 644 or more restrictive (Manual)",
+       "audit": "stat -c permissions=%a <path/to/cni/files>",
+       "AuditEnv": "",
+       "AuditConfig": "",
+       "type": "manual",
+       "remediation": "Run the below command (based on the file location on your system) on the master node.\nFor example,\nchmod 644 <path/to/cni/files>\n",
+       "test_info": [
+        "Run the below command (based on the file location on your system) on the master node.\nFor example,\nchmod 644 <path/to/cni/files>\n"
+       ],
+       "status": "WARN",
+       "actual_value": "",
+       "scored": false,
+       "IsMultiple": false,
+       "expected_result": "",
+       "reason": "Test marked as a manual test"
+      }
+     ]
+    },
+    {
+     "section": "1.2",
+     "type": "",
+     "pass": 21,
+     "fail": 7,
+     "warn": 7,
+     "info": 0,
+     "desc": "API Server",
+     "results": [
+      {
+       "test_number": "1.2.6",
+       "test_desc": "Ensure that the --kubelet-certificate-authority argument is set as appropriate (Automated)",
+       "audit": "/bin/ps -ef | grep kube-apiserver | grep -v grep",
+       "AuditEnv": "",
+       "AuditConfig": "",
+       "type": "",
+       "remediation": "Follow the Kubernetes documentation and setup the TLS connection between\nthe apiserver and kubelets. Then, edit the API server pod specification file\n/etc/kubernetes/manifests/kube-apiserver.yaml on the master node and set the\n--kubelet-certificate-authority parameter to the path to the cert file for the certificate authority.\n--kubelet-certificate-authority=<ca-string>\n",
+       "test_info": [
+        "Follow the Kubernetes documentation and setup the TLS connection between\nthe apiserver and kubelets. Then, edit the API server pod specification file\n/etc/kubernetes/manifests/kube-apiserver.yaml on the master node and set the\n--kubelet-certificate-authority parameter to the path to the cert file for the certificate authority.\n--kubelet-certificate-authority=<ca-string>\n"
+       ],
+       "status": "FAIL",
+       "actual_value": "actual value",
+       "scored": true,
+       "IsMultiple": false,
+       "expected_result": "'--kubelet-certificate-authority' is present"
+      },
+      {
+       "test_number": "1.2.1",
+       "test_desc": "Ensure that the --anonymous-auth argument is set to false (Manual)",
+       "audit": "/bin/ps -ef | grep kube-apiserver | grep -v grep",
+       "AuditEnv": "",
+       "AuditConfig": "",
+       "type": "",
+       "remediation": "Edit the API server pod specification file /etc/kubernetes/manifests/kube-apiserver.yaml\non the master node and set the below parameter.\n--anonymous-auth=false\n",
+       "test_info": [
+        "Edit the API server pod specification file /etc/kubernetes/manifests/kube-apiserver.yaml\non the master node and set the below parameter.\n--anonymous-auth=false\n"
+       ],
+       "status": "WARN",
+       "actual_value": "actual value",
+       "scored": false,
+       "IsMultiple": false,
+       "expected_result": "'--anonymous-auth' is present"
+      },
+      {
+       "test_number": "1.2.2",
+       "test_desc": "Ensure that the --basic-auth-file argument is not set (Automated)",
+       "audit": "/bin/ps -ef | grep kube-apiserver | grep -v grep",
+       "AuditEnv": "",
+       "AuditConfig": "",
+       "type": "",
+       "remediation": "Follow the documentation and configure alternate mechanisms for authentication. Then,\nedit the API server pod specification file /etc/kubernetes/manifests/kube-apiserver.yaml\non the master node and remove the --basic-auth-file=<filename> parameter.\n",
+       "test_info": [
+        "Follow the documentation and configure alternate mechanisms for authentication. Then,\nedit the API server pod specification file /etc/kubernetes/manifests/kube-apiserver.yaml\non the master node and remove the --basic-auth-file=<filename> parameter.\n"
+       ],
+       "status": "PASS",
+       "actual_value": "actual value",
+       "scored": true,
+       "IsMultiple": false,
+       "expected_result": "'--basic-auth-file' is not present"
+      }
+     ]
+    }
+   ],
+   "total_pass": 27,
+   "total_fail": 26,
+   "total_warn": 12,
+   "total_info": 0
+  }
+ ],
+ "Totals": {
+  "total_pass": 37,
+  "total_fail": 36,
+  "total_warn": 49,
+  "total_info": 0
+ }
+}

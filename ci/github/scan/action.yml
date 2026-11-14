@@ -1,0 +1,227 @@
+name: "Xila Scan"
+description: "Run security scanners (Trivy, Grype, OSV-Scanner, Semgrep, Gitleaks, Checkov) from their official images, upload every report to Xila, and enforce the security gate once."
+branding:
+  icon: "shield"
+  color: "purple"
+inputs:
+  url:
+    description: "Xila base URL (e.g. https://xila.internal)"
+    required: true
+  token:
+    description: "Xila API token (xila_…) — store it as a repo secret. Leave it empty to authenticate with the job's GitHub OIDC token instead (workload identity federation; needs `permissions: id-token: write` and an admin-defined binding in Xila)."
+    required: false
+    default: ""
+  oidc-audience:
+    description: "Audience requested for the GitHub OIDC token when no token is given; must match the trusted issuer's audience in Xila. Defaults to the url input."
+    required: false
+    default: ""
+  project:
+    description: "Project id to upload into"
+    required: true
+  scanners:
+    description: "Comma-separated scanners to run: trivy-fs, trivy-image, grype, osv-scanner, semgrep, opengrep, gitleaks, checkov, kics"
+    required: false
+    default: "trivy-fs,gitleaks,semgrep"
+  image:
+    description: "Container image reference to scan with trivy-image (required when trivy-image is selected)"
+    required: false
+    default: ""
+  path:
+    description: "Directory to scan, relative to the workspace"
+    required: false
+    default: "."
+  engagement:
+    description: "Engagement id to file every scan under (optional; each scan becomes one of its tests)"
+    required: false
+    default: ""
+  gate:
+    description: "Enforce the security gate after all uploads (fails the job on violations)"
+    required: false
+    default: "true"
+  new-only:
+    description: "Gate only on findings this change introduces, ignoring pre-existing debt"
+    required: false
+    default: "false"
+  comment:
+    description: "Post a pull-request comment (edited in place). Needs `permissions: pull-requests: write`."
+    required: false
+    default: "true"
+  check:
+    description: "Create/update a GitHub check run with inline annotations (edited in place). Needs `permissions: checks: write`."
+    required: false
+    default: "false"
+  github-token:
+    description: "Token used to write the PR comment and check run. The default GITHUB_TOKEN is enough."
+    required: false
+    default: ${{ github.token }}
+  version:
+    description: "xila CLI version to install (a git tag/branch, or latest)"
+    required: false
+    default: "latest"
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+      with:
+        go-version: "stable"
+        cache: false
+
+    - name: Install the xila CLI
+      shell: bash
+      env:
+        XILA_VERSION: ${{ inputs.version }}
+      run: go install "github.com/xilasec/xila-api/cmd/xila@${XILA_VERSION}"
+
+    - name: Run scanners
+      shell: bash
+      env:
+        XILA_SCANNERS: ${{ inputs.scanners }}
+        XILA_IMAGE: ${{ inputs.image }}
+        XILA_PATH: ${{ inputs.path }}
+      run: |
+        set -euo pipefail
+        reports="$RUNNER_TEMP/xila-reports"
+        rm -rf "$reports" && mkdir -p "$reports"
+        : > "$reports/manifest"
+
+        # Reports go to a directory outside the workspace, so one scanner never
+        # scans another's report. Containers run as the runner user, so files they
+        # write stay readable and git does not reject the checkout as "dubious".
+        src="/src/${XILA_PATH#./}"
+        [ "$XILA_PATH" = "." ] && src=/src
+        dock=(docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp
+              -v "$GITHUB_WORKSPACE:/src" -v "$reports:/reports" -w /src)
+
+        # A scanner exiting non-zero because it found something must not fail
+        # the job — only the gate decides. A missing/empty report is a real error.
+        run_scanner() { # <name> <xila-scanner> <format> <report> <cmd...>
+          local name=$1 scanner=$2 format=$3 report=$4 rc=0
+          shift 4
+          echo "::group::$name"
+          "$@" || rc=$?
+          echo "::endgroup::"
+          if [ ! -s "$reports/$report" ]; then
+            echo "::error::$name produced no report (exit $rc)"
+            return 1
+          fi
+          [ "$rc" -ne 0 ] && echo "$name exited $rc with a report; the gate decides."
+          printf '%s|%s|%s\n' "$scanner" "$format" "$report" >> "$reports/manifest"
+        }
+
+        IFS=',' read -ra selected <<< "$XILA_SCANNERS"
+        for raw in "${selected[@]}"; do
+          s=$(echo "$raw" | tr -d '[:space:]')
+          case "$s" in
+            "") ;;
+            trivy-fs)
+              run_scanner trivy-fs trivy "" trivy-fs.json \
+                "${dock[@]}" aquasec/trivy:0.58.1 fs --cache-dir /tmp/trivy \
+                --format json -o /reports/trivy-fs.json "$src" ;;
+            trivy-image)
+              if [ -z "$XILA_IMAGE" ]; then
+                echo "::error::trivy-image needs the 'image' input"; exit 1
+              fi
+              run_scanner trivy-image trivy "" trivy-image.json \
+                "${dock[@]}" --group-add "$(stat -c %g /var/run/docker.sock)" \
+                -v /var/run/docker.sock:/var/run/docker.sock \
+                aquasec/trivy:0.58.1 image --cache-dir /tmp/trivy \
+                --format json -o /reports/trivy-image.json "$XILA_IMAGE" ;;
+            grype)
+              run_scanner grype grype "" grype.json \
+                "${dock[@]}" anchore/grype:v0.86.1 "dir:$src" -o json --file /reports/grype.json ;;
+            osv-scanner)
+              # Exit 1 = vulnerabilities found; 128 = no package sources found.
+              run_scanner osv-scanner osv-scanner "" osv-scanner.json \
+                "${dock[@]}" ghcr.io/google/osv-scanner:v1.9.2 --format json \
+                --output /reports/osv-scanner.json -r "$src" ;;
+            semgrep)
+              run_scanner semgrep semgrep sarif semgrep.sarif \
+                "${dock[@]}" semgrep/semgrep:1.99.0 semgrep scan --config auto \
+                --sarif -o /reports/semgrep.sarif "$src" ;;
+            gitleaks)
+              # Scans git history: check out with fetch-depth: 0 to cover it all.
+              run_scanner gitleaks gitleaks "" gitleaks.json \
+                "${dock[@]}" zricethezav/gitleaks:v8.21.2 detect --source "$src" \
+                --report-format json --report-path /reports/gitleaks.json --exit-code 0 ;;
+            checkov)
+              run_scanner checkov checkov "" checkov.json \
+                sh -c '"$@" > "$0"' "$reports/checkov.json" \
+                "${dock[@]}" bridgecrew/checkov:3.2.334 -d "$src" -o json --soft-fail ;;
+            opengrep)
+              # No official image: the pinned, checksum-verified release binary.
+              # Its JSON is semgrep's format, so Xila reads it with that parser.
+              og="$RUNNER_TEMP/opengrep"
+              if [ ! -x "$og" ]; then
+                curl -fsSL -o "$og" "https://github.com/opengrep/opengrep/releases/download/v1.33.1/opengrep_manylinux_x86"
+                echo "46e8133cc490f9f50518061590ce2f6be5a08afaeda034471c0ceda4b3899808  $og" | sha256sum -c -
+                chmod +x "$og"
+              fi
+              run_scanner opengrep opengrep semgrep opengrep.json \
+                "$og" scan --config auto --json -o "$reports/opengrep.json" --quiet "$GITHUB_WORKSPACE/${XILA_PATH#./}" ;;
+            kics)
+              run_scanner kics kics "" results.json \
+                "${dock[@]}" checkmarx/kics:v2.2.1@sha256:49ccc54b6ae7f5d5fc95e96f8f95c18c57f3bba047ab611a03d80792bdff6757 \
+                scan -p "$src" -o /reports --report-formats json --no-progress \
+                --disable-secrets --ignore-on-exit results ;;
+            *)
+              echo "::error::unknown scanner '$s' (want trivy-fs, trivy-image, grype, osv-scanner, semgrep, opengrep, gitleaks, checkov, kics)"
+              exit 1 ;;
+          esac
+        done
+
+        if [ ! -s "$reports/manifest" ]; then
+          echo "::error::no scanner selected"
+          exit 1
+        fi
+
+    - name: Upload reports to Xila
+      shell: bash
+      env:
+        XILA_URL: ${{ inputs.url }}
+        XILA_TOKEN: ${{ inputs.token }}
+        XILA_OIDC_AUDIENCE: ${{ inputs.oidc-audience || inputs.url }}
+        XILA_PROJECT: ${{ inputs.project }}
+        XILA_GATE: ${{ inputs.gate }}
+        XILA_COMMENT: ${{ inputs.comment }}
+        XILA_BRANCH: ${{ github.head_ref || github.ref_name }}
+        XILA_COMMIT: ${{ github.sha }}
+        XILA_ENGAGEMENT: ${{ inputs.engagement }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        set -uo pipefail
+        reports="$RUNNER_TEMP/xila-reports"
+        last=$(tail -n1 "$reports/manifest")
+        failed=0
+        while IFS='|' read -r scanner format report; do
+          args=(upload --project "$XILA_PROJECT" --scanner "$scanner")
+          [ -n "$format" ] && args+=(--format "$format")
+          [ -n "$XILA_BRANCH" ] && args+=(--branch "$XILA_BRANCH")
+          [ -n "$XILA_COMMIT" ] && args+=(--commit "$XILA_COMMIT")
+          [ -n "$XILA_ENGAGEMENT" ] && args+=(--engagement "$XILA_ENGAGEMENT")
+          # The gate below needs every scan processed, not just accepted.
+          [ "$XILA_GATE" = "true" ] && args+=(--wait)
+          # One PR comment, edited in place: post it from the last upload only.
+          [ "$XILA_COMMENT" = "true" ] && [ "$scanner|$format|$report" = "$last" ] && args+=(--comment)
+          args+=("$reports/$report")
+          xila "${args[@]}" || failed=1
+        done < "$reports/manifest"
+        exit "$failed"
+
+    - name: Xila security gate
+      if: inputs.gate == 'true'
+      shell: bash
+      env:
+        XILA_URL: ${{ inputs.url }}
+        XILA_TOKEN: ${{ inputs.token }}
+        XILA_OIDC_AUDIENCE: ${{ inputs.oidc-audience || inputs.url }}
+        XILA_PROJECT: ${{ inputs.project }}
+        XILA_NEW_ONLY: ${{ inputs.new-only }}
+        XILA_CHECK: ${{ inputs.check }}
+        XILA_BRANCH: ${{ github.head_ref || github.ref_name }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        args=(gate --project "$XILA_PROJECT")
+        [ -n "$XILA_BRANCH" ] && args+=(--branch "$XILA_BRANCH")
+        [ "$XILA_NEW_ONLY" = "true" ] && args+=(--new)
+        [ "$XILA_CHECK" = "true" ] && args+=(--check)
+        xila "${args[@]}"

@@ -1,0 +1,128 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call: # the release workflow runs the same gate first
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: xila
+          POSTGRES_PASSWORD: xila
+          POSTGRES_DB: xila
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U xila"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      TEST_DATABASE_URL: postgres://xila:xila@localhost:5432/xila?sslmode=disable
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: "1.27"
+          cache: true
+
+      - name: Verify formatting
+        run: test -z "$(gofmt -l .)" || { echo "run gofmt"; gofmt -l .; exit 1; }
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test (unit + integration, serialized for the shared DB)
+        # internal/server is one big full-stack package: ~9 min under -race on
+        # a dev machine, too close to go test's default 10m per-package limit.
+        run: go test -p 1 -race -timeout 30m ./...
+
+      - name: Build
+        run: go build ./...
+
+  clients:
+    # The generated API clients (clients/) must match the OpenAPI spec: a spec
+    # change without `make clients` fails here, as does a broken client.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: "1.27"
+          cache: true
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 26
+
+      - name: Regenerate and compare
+        run: make clients-check
+
+      - name: Go client builds and passes its test
+        working-directory: clients/go
+        run: go vet ./... && go test ./...
+
+      - name: TypeScript client type-checks
+        working-directory: clients/typescript
+        run: npm ci --no-audit --no-fund && npm run check
+
+  helm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+
+      - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+
+      - name: Lint and render the chart (bundled and external database)
+        working-directory: deploy/helm
+        run: |
+          helm lint --strict xila
+          helm lint --strict xila \
+            --set postgresql.enabled=false --set database.host=db --set database.password=x \
+            --set ingress.enabled=true --set autoscaling.enabled=true --set networkPolicy.enabled=true
+          helm template xila xila > /dev/null
+          # Misconfiguration must fail at render time, not at runtime.
+          ! helm template xila xila --set postgresql.enabled=false 2>/dev/null
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+        with:
+          version: 11
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 26
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      # svelte-check ratchet: fails when the error count rises above
+      # web/.svelte-check-baseline; after fixing errors, lower it with
+      # `pnpm check --update`, so the count only ever goes down.
+      - name: Type check (no new errors)
+        run: pnpm check

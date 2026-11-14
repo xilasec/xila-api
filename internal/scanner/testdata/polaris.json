@@ -1,0 +1,118 @@
+{
+ "PolarisOutputVersion": "1.0",
+ "AuditTime": "2026-07-31T00:00:00Z",
+ "SourceType": "Path",
+ "SourceName": "/manifests/many.yaml",
+ "DisplayName": "/manifests/many.yaml",
+ "ClusterInfo": {
+  "Version": "unknown",
+  "Nodes": 0,
+  "Pods": 0,
+  "Namespaces": 0,
+  "Controllers": 1
+ },
+ "Results": [
+  {
+   "Name": "generic-app",
+   "Namespace": "",
+   "Kind": "Deployment",
+   "Results": {
+    "deploymentMissingReplicas": {
+     "ID": "deploymentMissingReplicas",
+     "Message": "Only one replica is scheduled",
+     "Details": null,
+     "Success": false,
+     "Severity": "warning",
+     "Category": "Reliability",
+     "Mutations": null
+    },
+    "metadataAndInstanceMismatched": {
+     "ID": "metadataAndInstanceMismatched",
+     "Message": "Label app.kubernetes.io/instance must match metadata.name",
+     "Details": null,
+     "Success": false,
+     "Severity": "warning",
+     "Category": "Reliability",
+     "Mutations": null
+    },
+    "pdbMinAvailableGreaterThanHPAMinReplicas": {
+     "ID": "pdbMinAvailableGreaterThanHPAMinReplicas",
+     "Message": "PDB and HPA are correctly configured",
+     "Details": null,
+     "Success": true,
+     "Severity": "warning",
+     "Category": "Reliability",
+     "Mutations": null
+    }
+   },
+   "PodResult": {
+    "Name": "",
+    "Results": {
+     "automountServiceAccountToken": {
+      "ID": "automountServiceAccountToken",
+      "Message": "The ServiceAccount will be automounted",
+      "Details": null,
+      "Success": false,
+      "Severity": "warning",
+      "Category": "Security",
+      "Mutations": null
+     },
+     "missingNetworkPolicy": {
+      "ID": "missingNetworkPolicy",
+      "Message": "A NetworkPolicy should match pod labels and contain applied egress and ingress rules",
+      "Details": null,
+      "Success": false,
+      "Severity": "warning",
+      "Category": "Security",
+      "Mutations": null
+     },
+     "hostIPCSet": {
+      "ID": "hostIPCSet",
+      "Message": "Host IPC is not configured",
+      "Details": null,
+      "Success": true,
+      "Severity": "danger",
+      "Category": "Security",
+      "Mutations": null
+     }
+    },
+    "ContainerResults": [
+     {
+      "Name": "server",
+      "Results": {
+       "cpuLimitsMissing": {
+        "ID": "cpuLimitsMissing",
+        "Message": "CPU limits should be set",
+        "Details": null,
+        "Success": false,
+        "Severity": "warning",
+        "Category": "Efficiency",
+        "Mutations": null
+       },
+       "cpuRequestsMissing": {
+        "ID": "cpuRequestsMissing",
+        "Message": "CPU requests should be set",
+        "Details": null,
+        "Success": false,
+        "Severity": "warning",
+        "Category": "Efficiency",
+        "Mutations": null
+       },
+       "dangerousCapabilities": {
+        "ID": "dangerousCapabilities",
+        "Message": "Container does not have any dangerous capabilities",
+        "Details": null,
+        "Success": true,
+        "Severity": "danger",
+        "Category": "Security",
+        "Mutations": null
+       }
+      }
+     }
+    ]
+   },
+   "CreatedTime": "0001-01-01T00:00:00Z"
+  }
+ ],
+ "Score": 44
+}

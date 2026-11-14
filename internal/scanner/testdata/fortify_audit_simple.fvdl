@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FVDL xmlns="xmlns://www.fortifysoftware.com/schema/fvdl" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="1.8" xsi:type="FVDL">
+<Build>
+  <SourceBasePath>/path/to/project/Samples/advanced/webgoat/WebGoat5.0</SourceBasePath>
+</Build>
+	<Vulnerabilities>
+<Vulnerability>
+  <ClassInfo>
+    <ClassID>45BF957F-1A34-4E28-9B34-FEB83EC96792</ClassID>
+    <Kingdom>Code Quality</Kingdom>
+    <Type>Unreleased Resource</Type>
+    <Subtype>Database</Subtype>
+  </ClassInfo>
+  <InstanceInfo>
+    <InstanceID>1EEA24C519E307822F6D1FAD0AD7B45A</InstanceID>
+    <InstanceSeverity>4.0</InstanceSeverity>
+  </InstanceInfo>
+  <AnalysisInfo>
+    <Unified>
+      <ReplacementDefinitions>
+        <Def key="EnclosingFunction.name" value="_jspService()"/>
+        <Def key="PrimaryLocation.file" value="main.jsp"/>
+        <Def key="PrimaryLocation.line" value="163"/>
+        <Def key="SinkFunction" value="print()"/>
+        <Def key="SinkLocation.file" value="main.jsp"/>
+        <Def key="SinkLocation.line" value="163"/>
+        <Def key="SourceFunction" value="getParameter()"/>
+        <Def key="SourceLocation.file" value="WebSession.java"/>
+        <Def key="SourceLocation.line" value="472"/>
+        <LocationDef path="WebContent/main.jsp" line="163" lineEnd="163" colStart="0" colEnd="0" key="SinkLocation"/>
+        <LocationDef path="JavaSource/org/owasp/webgoat/session/WebSession.java" line="472" lineEnd="472" colStart="0" colEnd="0" key="SourceLocation"/>
+      </ReplacementDefinitions>
+      <Trace>
+        <Primary>
+          <Entry>
+            <Node isDefault="true">
+              <SourceLocation path="WebContent/main.jsp" line="163" lineEnd="163" colStart="0" colEnd="0" contextId="80" snippet="1DCC56558C0A13E42B2C59961371AE85#WebContent/main.jsp:163:163"/>
+            </Node>
+          </Entry>
+        </Primary>
+      </Trace>
+    </Unified>
+  </AnalysisInfo>
+</Vulnerability>
+<Vulnerability>
+  <ClassInfo>
+    <!-- Inactive rule -->
+    <ClassID>FOO-BAR</ClassID>
+  </ClassInfo>
+  <InstanceInfo>
+    <InstanceID>1EEA24C519E307822F6D1FAD0AD7B45A</InstanceID>
+    <InstanceSeverity>4.0</InstanceSeverity>
+  </InstanceInfo>
+  <AnalysisInfo>
+    <Unified>
+      <Trace>
+        <Primary>
+          <Entry>
+            <Node isDefault="true">
+              <SourceLocation path="WebContent/main.jsp" line="163" lineEnd="163" colStart="0" colEnd="0" contextId="80" snippet="1DCC56558C0A13E42B2C59961371AE85#WebContent/main.jsp:163:163"/>
+            </Node>
+          </Entry>
+        </Primary>
+      </Trace>
+    </Unified>
+  </AnalysisInfo>
+</Vulnerability>
+<Vulnerability>
+  <ClassInfo>
+    <ClassID>45BF957F-1A34-4E28-9B34-FEB83EC96792</ClassID>
+  </ClassInfo>
+  <InstanceInfo>
+    <InstanceID>1EEA24C519E307822F6D1FAD0AD7B45A</InstanceID>
+    <InstanceSeverity>4.0</InstanceSeverity>
+  </InstanceInfo>
+  <AnalysisInfo>
+    <Unified>
+      <Trace>
+        <Primary>
+          <Entry>
+            <Node isDefault="true">
+              <!-- Unknow resource -->
+              <SourceLocation path="WebContent/foo.jsp" line="163" lineEnd="163" colStart="0" colEnd="0" contextId="80" snippet="1DCC56558C0A13E42B2C59961371AE85#WebContent/main.jsp:163:163"/>
+            </Node>
+          </Entry>
+        </Primary>
+      </Trace>
+    </Unified>
+  </AnalysisInfo>
+</Vulnerability>
+	</Vulnerabilities>
+<Description classID="45BF957F-1A34-4E28-9B34-FEB83EC96792" contentType="preformatted">
+  <Abstract>&lt;Content&gt;&lt;Paragraph&gt;The method &lt;Replace key="EnclosingFunction.name"/&gt; in &lt;Replace key="PrimaryLocation.file"/&gt; sends unvalidated data to a web browser on line &lt;Replace key="PrimaryLocation.line"/&gt;, which can result in the browser executing malicious code.&lt;AltParagraph&gt;Sending unvalidated data to a web browser can result in the browser executing malicious code.&lt;/AltParagraph&gt;&lt;/Paragraph&gt;&lt;/Content&gt;</Abstract>
+  <References>
+    <Reference>
+      <Title>Understanding Malicious Content Mitigation for Web Developers</Title>
+      <Publisher>CERT</Publisher>
+      <Source>http://www.cert.org/tech_tips/malicious_code_mitigation.html#9</Source>
+    </Reference>
+    <Reference>
+      <Title>HTML 4.01 Specification</Title>
+      <Publisher>W3</Publisher>
+      <Source>http://www.w3.org/TR/html4/sgml/entities.html#h-24.2</Source>
+    </Reference>
+    <Reference>
+      <Title>CWE ID 79, 80</Title>
+    </Reference>
+  </References>
+</Description>
+</FVDL>

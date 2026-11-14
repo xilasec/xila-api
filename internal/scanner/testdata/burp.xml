@@ -1,0 +1,82 @@
+<?xml version="1.0"?>
+<!DOCTYPE issues [
+<!ELEMENT issues (issue*)>
+<!ATTLIST issues burpVersion CDATA "">
+<!ATTLIST issues exportTime CDATA "">
+<!ELEMENT issue (serialNumber, type, name, host, path, location, severity, confidence, issueBackground?, remediationBackground?, issueDetail?, issueDetailItems?, remediationDetail?, requestresponse*)>
+<!ELEMENT serialNumber (#PCDATA)>
+<!ELEMENT type (#PCDATA)>
+<!ELEMENT name (#PCDATA)>
+<!ELEMENT host (#PCDATA)>
+<!ATTLIST host ip CDATA "">
+<!ELEMENT path (#PCDATA)>
+<!ELEMENT location (#PCDATA)>
+<!ELEMENT severity (#PCDATA)>
+<!ELEMENT confidence (#PCDATA)>
+<!ELEMENT issueBackground (#PCDATA)>
+<!ELEMENT remediationBackground (#PCDATA)>
+<!ELEMENT issueDetail (#PCDATA)>
+<!ELEMENT issueDetailItems (issueDetailItem*)>
+<!ELEMENT issueDetailItem (#PCDATA)>
+<!ELEMENT remediationDetail (#PCDATA)>
+<!ELEMENT requestresponse (request?, response?, responseRedirected?)>
+<!ELEMENT request (#PCDATA)>
+<!ATTLIST request method CDATA "">
+<!ATTLIST request base64 (true|false) "false">
+<!ELEMENT response (#PCDATA)>
+<!ATTLIST response base64 (true|false) "false">
+<!ELEMENT responseRedirected (#PCDATA)>
+]>
+<issues burpVersion="1.6.05" exportTime="Sat Sep 13 22:35:04 CEST 2014">
+    <issue>
+    <serialNumber>7121655797013284864</serialNumber>
+    <type>1049088</type>
+    <name>SQL injection</name>
+    <host ip="192.168.187.137">http://bwa</host>
+    <path><![CDATA[/bodgeit/basket.jsp]]></path>
+    <location><![CDATA[/bodgeit/basket.jsp [b_id cookie]]]></location>
+    <severity>High</severity>
+    <confidence>Firm</confidence>
+    <issueDetail><![CDATA[The <b>b_id</b> cookie appears to be vulnerable to SQL injection attacks. The payload <b>'</b> was submitted in the b_id cookie, and a database error message was returned. You should review the contents of the error message, and the application's handling of other input, to confirm whether a vulnerability is present.<br><br>The database appears to be Microsoft SQL Server.]]></issueDetail>
+    <remediationDetail><![CDATA[The application should handle errors gracefully and prevent SQL error messages from being returned in responses. ]]></remediationDetail>
+    <requestresponse>
+      <request method="POST" base64="true"><![CDATA[UE9TVCA]]></request>
+      <response base64="true"><![CDATA[SFRUUC8xLjEgNTAwIEludGVybmFsIFNlcnZlciBFcnJvcg0KRGF0ZTogU2F0]]></response>
+      <responseRedirected>false</responseRedirected>
+    </requestresponse>
+  </issue>
+  <issue>
+    <serialNumber>8138735078627461120</serialNumber>
+    <type>8389120</type>
+    <name>HTML does not specify charset</name>
+    <host ip="192.168.187.137">http://bwa</host>
+    <path><![CDATA[/bodgeit/login.jsp]]></path>
+    <location><![CDATA[/bodgeit/login.jsp]]></location>
+    <severity>Information</severity>
+    <confidence>Certain</confidence>
+    <requestresponse>
+      <request method="POST" base64="true"><![CDATA[UE9TVCA]]></request>
+      <response base64="true"><![CDATA[SFRUUC8xLjEgMjAwIE9LDQpEYXRlOiBTYXQsIDEzIFNlcCAyMDE0IDIwOjI1]]></response>
+      <responseRedirected>false</responseRedirected>
+    </requestresponse>
+  </issue>
+  <issue>
+    <serialNumber>456437653765735</serialNumber>
+    <type>7340288</type>
+    <name><![CDATA[Cacheable HTTPS response]]></name>
+    <host ip="54.12.18.21">https://example.com</host>
+    <path><![CDATA[/test/v4/public/users/fake]]></path>
+    <location><![CDATA[/test/v4/public/users/fake]]></location>
+    <severity>Information</severity>
+    <confidence>Certain</confidence>
+    <vulnerabilityClassifications><![CDATA[<ul>
+<li><a href="https://cwe.mitre.org/data/definitions/524.html">CWE-524: Information Exposure Through Caching</a></li>
+<li><a href="https://cwe.mitre.org/data/definitions/525.html">CWE-525: Information Exposure Through Browser Caching</a></li>
+</ul>]]></vulnerabilityClassifications>
+    <requestresponse>
+      <request method="GET" base64="true"><![CDATA[R0VUIC90]]></request>
+      <response base64="true"></response>
+      <responseRedirected>false</responseRedirected>
+    </requestresponse>
+  </issue>
+</issues>

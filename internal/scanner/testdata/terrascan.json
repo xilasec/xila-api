@@ -1,0 +1,53 @@
+{
+ "results": {
+  "scan_errors": [
+   {
+    "iac_type": "kustomize",
+    "directory": "terrascan-test",
+    "errMsg": "kustomization.y(a)ml file not found in the directory terrascan-test"
+   },
+   {
+    "iac_type": "helm",
+    "directory": "terrascan-test",
+    "errMsg": "no helm charts found in directory terrascan-test"
+   }
+  ],
+  "violations": [
+   {
+    "rule_name": "gkeControlPlaneNotPublic",
+    "description": "Ensure GKE Control Plane is not public.",
+    "rule_id": "accurics.gcp.NS.109",
+    "severity": "HIGH",
+    "category": "Infrastructure Security",
+    "resource_name": "k8s_cluster",
+    "resource_type": "google_container_cluster",
+    "file": "cluster.tf",
+    "plan_root": "./",
+    "line": 52
+   },
+   {
+    "rule_name": "autoNodeRepairEnabled",
+    "description": "Ensure 'Automatic node repair' is enabled for Kubernetes Clusters.",
+    "rule_id": "accurics.gcp.OPS.144",
+    "severity": "MEDIUM",
+    "category": "Security Best Practices",
+    "resource_name": "k8s_cluster_node_pool",
+    "resource_type": "google_container_node_pool",
+    "file": "cluster.tf",
+    "plan_root": "./",
+    "line": 14
+   }
+  ],
+  "skipped_violations": null,
+  "scan_summary": {
+   "file/folder": "terrascan-test",
+   "iac_type": "all",
+   "scanned_at": "2021-05-19 13:13:06.083208 +0000 UTC",
+   "policies_validated": 607,
+   "violated_policies": 9,
+   "low": 0,
+   "medium": 2,
+   "high": 7
+  }
+ }
+}

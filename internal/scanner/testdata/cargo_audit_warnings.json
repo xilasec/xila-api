@@ -1,0 +1,240 @@
+{
+  "database": {
+    "advisory-count": 302,
+    "last-commit": "7e4cbf6107145306ebb5002d66bcb98606a757fe",
+    "last-updated": "2021-05-12T01:59:58Z"
+  },
+  "lockfile": {
+    "dependency-count": 441
+  },
+  "settings": {
+    "target_arch": null,
+    "target_os": null,
+    "severity": null,
+    "ignore": [],
+    "informational_warnings": [
+      "unmaintained"
+    ],
+    "package_scope": null
+  },
+  "vulnerabilities": {
+    "found": true,
+    "count": 3,
+    "list": [
+      {
+        "advisory": {
+          "id": "RUSTSEC-2021-0020",
+          "package": "hyper",
+          "title": "Multiple Transfer-Encoding headers misinterprets request payload",
+          "description": "hyper's HTTP server code had a flaw that incorrectly understands some requests\nwith multiple transfer-encoding headers to have a chunked payload, when it\nshould have been rejected as illegal. This com",
+          "date": "2021-02-05",
+          "aliases": [
+            "CVE-2021-21299"
+          ],
+          "related": [],
+          "collection": "crates",
+          "categories": [
+            "format-injection"
+          ],
+          "keywords": [
+            "http",
+            "request-smuggling"
+          ],
+          "cvss": null,
+          "informational": null,
+          "url": "https://github.com/hyperium/hyper/security/advisories/GHSA-6hfq-h8hq-87mf",
+          "references": [],
+          "yanked": false
+        },
+        "versions": {
+          "patched": [
+            ">=0.14.3",
+            ">=0.13.10, <0.14.0",
+            ">=0.12.36, <0.13.0"
+          ],
+          "unaffected": [
+            "<0.12.0"
+          ]
+        },
+        "affected": null,
+        "package": {
+          "name": "hyper",
+          "version": "0.13.9",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "f6ad767baac13b44d4529fcf58ba2cd0995e36e7b435bc5b039de6f47e880dbf",
+          "dependencies": [
+            {
+              "name": "bytes",
+              "version": "0.5.6",
+              "source": null
+            }
+          ],
+          "replace": null
+        }
+      },
+      {
+        "advisory": {
+          "id": "RUSTSEC-2021-0003",
+          "package": "smallvec",
+          "title": "Buffer overflow in SmallVec::insert_many",
+          "description": "A bug in the `SmallVec::insert_many` method caused it to allocate a buffer that was smaller than needed.  It then wrote past the end of the buffer, causing a buffer overflow and memory corruption on t",
+          "date": "2021-01-08",
+          "aliases": [
+            "CVE-2021-25900"
+          ],
+          "related": [],
+          "collection": "crates",
+          "categories": [
+            "memory-corruption"
+          ],
+          "keywords": [
+            "buffer-overflow",
+            "heap-overflow",
+            "unsound"
+          ],
+          "cvss": null,
+          "informational": null,
+          "url": "https://github.com/servo/rust-smallvec/issues/252",
+          "references": [],
+          "yanked": false
+        },
+        "versions": {
+          "patched": [
+            ">=0.6.14, <1.0.0",
+            ">=1.6.1"
+          ],
+          "unaffected": [
+            "<0.6.3"
+          ]
+        },
+        "affected": {
+          "arch": [],
+          "os": [],
+          "functions": {
+            "smallvec::SmallVec::insert_many": [
+              ">=0.6.3, <0.6.14",
+              ">=1.0.0, <1.6.1"
+            ]
+          }
+        },
+        "package": {
+          "name": "smallvec",
+          "version": "0.6.13",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "f7b0758c52e15a8b5e3691eae6cc559f08eee9406e548a4477ba4e67770a82b6",
+          "dependencies": [
+            {
+              "name": "maybe-uninit",
+              "version": "2.0.0",
+              "source": "registry+https://github.com/rust-lang/crates.io-index"
+            }
+          ],
+          "replace": null
+        }
+      },
+      {
+        "advisory": {
+          "id": "RUSTSEC-2021-0003",
+          "package": "smallvec",
+          "title": "Buffer overflow in SmallVec::insert_many",
+          "description": "A bug in the `SmallVec::insert_many` method caused it to allocate a buffer that was smaller than needed.  It then wrote past the end of the buffer, causing a buffer overflow and memory corruption on t",
+          "date": "2021-01-08",
+          "aliases": [
+            "CVE-2021-25900"
+          ],
+          "related": [],
+          "collection": "crates",
+          "categories": [
+            "memory-corruption"
+          ],
+          "keywords": [
+            "buffer-overflow",
+            "heap-overflow",
+            "unsound"
+          ],
+          "cvss": null,
+          "informational": null,
+          "url": "https://github.com/servo/rust-smallvec/issues/252",
+          "references": [],
+          "yanked": false
+        },
+        "versions": {
+          "patched": [
+            ">=0.6.14, <1.0.0",
+            ">=1.6.1"
+          ],
+          "unaffected": [
+            "<0.6.3"
+          ]
+        },
+        "affected": {
+          "arch": [],
+          "os": [],
+          "functions": {
+            "smallvec::SmallVec::insert_many": [
+              ">=0.6.3, <0.6.14",
+              ">=1.0.0, <1.6.1"
+            ]
+          }
+        },
+        "package": {
+          "name": "smallvec",
+          "version": "1.5.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "7acad6f34eb9e8a259d3283d1e8c1d34d7415943d4895f65cc73813c7396fc85",
+          "replace": null,
+          "dependencies": []
+        }
+      }
+    ]
+  },
+  "warnings": {
+    "unmaintained": [
+      {
+        "kind": "unmaintained",
+        "package": {
+          "name": "cpuid-bool",
+          "version": "0.1.2",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "8aebca1129a03dc6dc2b127edd729435bbc4a37e1d5f4d7513165089ceb02634",
+          "replace": null
+        },
+        "advisory": {
+          "id": "RUSTSEC-2021-0064",
+          "package": "cpuid-bool",
+          "title": "`cpuid-bool` has been renamed to `cpufeatures`",
+          "description": "Please use the `cpufeatures`` crate going forward:\n\n<https://github.com/RustCrypto/utils/tree/master/cpufeatures>\n\nThere will be no further releases of `cpuid-bool`.",
+          "date": "2021-05-06",
+          "aliases": [],
+          "related": [],
+          "collection": "crates",
+          "categories": [],
+          "keywords": [],
+          "cvss": null,
+          "informational": "unmaintained",
+          "url": "https://github.com/RustCrypto/utils/pull/381",
+          "references": [],
+          "yanked": false
+        },
+        "versions": {
+          "patched": [],
+          "unaffected": []
+        }
+      }
+    ],
+    "yanked": [
+      {
+        "kind": "yanked",
+        "package": {
+          "name": "arc-swap",
+          "version": "0.4.7",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "4d25d88fd6b8041580a654f9d0c581a047baee2b3efee13275f2fc392fc75034",
+          "replace": null
+        },
+        "advisory": null,
+        "versions": null
+      }
+    ]
+  }
+}

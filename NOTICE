@@ -1,0 +1,52 @@
+Xila
+Copyright (C) 2026 Joao Sobral and the Xila contributors
+
+Xila is free software: you can redistribute it and/or modify it under the terms
+of the GNU Affero General Public License, version 3 only (AGPL-3.0-only), as
+published by the Free Software Foundation. See LICENSE.
+
+It is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU Affero General Public License for details.
+
+If you run a modified version for users over a network, the AGPL (section 13)
+requires you to offer them its source. Xila links to it from every page; point
+the link at your source with SOURCE_URL.
+
+Exceptions in this repository
+-----------------------------
+
+clients/go and clients/typescript are licensed under the Apache License,
+Version 2.0 (their own LICENSE files), so that programs calling the Xila API
+through them are not bound by the AGPL.
+
+Third-party material
+--------------------
+
+Dependencies keep their own licenses (go.mod / go.sum, web/package.json and
+web/pnpm-lock.yaml). The following data is bundled in this repository, and the
+first three are embedded in the xila-api binary:
+
+- SPDX License List data (internal/license/data/catalog.json),
+  https://github.com/spdx/license-list-data — CC0-1.0.
+
+- ScanCode LicenseDB license categories (internal/license/data/catalog.json),
+  https://scancode-licensedb.aboutcode.org — Copyright (c) nexB Inc. and
+  others, licensed CC-BY-4.0 (https://creativecommons.org/licenses/by/4.0/).
+  The data was reduced to license keys and their categories.
+
+- Sample reports used by `xila-api demo-seed` (internal/demo/testdata):
+  licenses-maven.cdx.json from the CycloneDX bom-examples
+  (https://github.com/CycloneDX/bom-examples), Apache-2.0; semgrep.json from the
+  DefectDojo unit-test scans
+  (https://github.com/DefectDojo/django-DefectDojo), BSD-3-Clause.
+
+- Test fixtures under internal/*/testdata, used only by the test suite. Their
+  sources and licenses (among others DefectDojo and SecObserve, BSD-3-Clause;
+  CycloneDX bom-examples and specification examples, Apache-2.0; Red Hat CSAF
+  VEX, CC BY 4.0; steampipe-security-controls-module, MIT) are recorded next to
+  the tests that read them.
+
+- Compliance frameworks (internal/database/migrations): control identifiers and
+  short paraphrased titles only; the standards' texts (ISO/IEC 27001, PCI DSS,
+  AICPA TSC, OWASP ASVS, NIS2, EU CRA) are not reproduced.

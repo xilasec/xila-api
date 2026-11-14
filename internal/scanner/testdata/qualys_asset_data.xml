@@ -1,0 +1,1888 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE ASSET_DATA_REPORT SYSTEM "https://qualysguard.qg3.apps.qualys.com/asset_data_report.dtd">
+<ASSET_DATA_REPORT>
+  <HEADER>
+    <COMPANY><![CDATA[Training-Qualys]]></COMPANY>
+    <GENERATION_DATETIME>2019-08-01T20:03:10Z</GENERATION_DATETIME>
+    <TEMPLATE><![CDATA[All confirmed and Information Vulnerabilities 1-5]]></TEMPLATE>
+    <TARGET>
+      <USER_ASSET_GROUPS>
+        <ASSET_GROUP_TITLE><![CDATA[All]]></ASSET_GROUP_TITLE>
+      </USER_ASSET_GROUPS>
+      <COMBINED_IP_LIST>
+        <RANGE>
+          <START>64.41.200.243</START>
+          <END>64.41.200.250</END>
+        </RANGE>
+      </COMBINED_IP_LIST>
+    </TARGET>
+    <RISK_SCORE_SUMMARY>
+      <TOTAL_VULNERABILITIES>299</TOTAL_VULNERABILITIES>
+      <AVG_SECURITY_RISK>2.4</AVG_SECURITY_RISK>
+      <BUSINESS_RISK>13/100</BUSINESS_RISK>
+    </RISK_SCORE_SUMMARY>
+  </HEADER>
+  <RISK_SCORE_PER_HOST>
+    <HOSTS>
+      <IP_ADDRESS>64.41.200.243</IP_ADDRESS>
+      <TOTAL_VULNERABILITIES>20</TOTAL_VULNERABILITIES>
+      <SECURITY_RISK>1.8</SECURITY_RISK>
+    </HOSTS>
+    <HOSTS>
+      <IP_ADDRESS>64.41.200.244</IP_ADDRESS>
+      <TOTAL_VULNERABILITIES>23</TOTAL_VULNERABILITIES>
+      <SECURITY_RISK>2.0</SECURITY_RISK>
+    </HOSTS>
+    <HOSTS>
+      <IP_ADDRESS>64.41.200.245</IP_ADDRESS>
+      <TOTAL_VULNERABILITIES>20</TOTAL_VULNERABILITIES>
+      <SECURITY_RISK>2.0</SECURITY_RISK>
+    </HOSTS>
+    <HOSTS>
+      <IP_ADDRESS>64.41.200.250</IP_ADDRESS>
+      <TOTAL_VULNERABILITIES>120</TOTAL_VULNERABILITIES>
+      <SECURITY_RISK>2.6</SECURITY_RISK>
+    </HOSTS>
+    <HOSTS>
+      <IP_ADDRESS>64.41.200.249</IP_ADDRESS>
+      <TOTAL_VULNERABILITIES>27</TOTAL_VULNERABILITIES>
+      <SECURITY_RISK>2.7</SECURITY_RISK>
+    </HOSTS>
+    <HOSTS>
+      <IP_ADDRESS>64.41.200.247</IP_ADDRESS>
+      <TOTAL_VULNERABILITIES>42</TOTAL_VULNERABILITIES>
+      <SECURITY_RISK>2.9</SECURITY_RISK>
+    </HOSTS>
+    <HOSTS>
+      <IP_ADDRESS>64.41.200.246</IP_ADDRESS>
+      <TOTAL_VULNERABILITIES>47</TOTAL_VULNERABILITIES>
+      <SECURITY_RISK>3.1</SECURITY_RISK>
+    </HOSTS>
+  </RISK_SCORE_PER_HOST>
+  <HOST_LIST>
+    <HOST>
+      <IP>64.41.200.246</IP>
+      <TRACKING_METHOD>NETBIOS</TRACKING_METHOD>
+      <DNS><![CDATA[win2008r2.trn.qualys.com]]></DNS>
+      <NETBIOS><![CDATA[WIN2008R2]]></NETBIOS>
+      <OPERATING_SYSTEM><![CDATA[Windows 2008 R2 Enterprise Service Pack 1]]></OPERATING_SYSTEM>
+      <ASSET_GROUPS>
+        <ASSET_GROUP_TITLE><![CDATA[App1_Asset_Group]]></ASSET_GROUP_TITLE>
+      </ASSET_GROUPS>
+      <VULN_INFO_LIST>
+        <VULN_INFO>
+          <QID id="qid_34011">34011</QID>
+          <TYPE>Ig</TYPE>
+          <SSL>false</SSL>
+          <RESULT><![CDATA[Some of the ports filtered by the firewall are: 20, 21, 22, 23, 25, 53, 111, 443, 1, 7.
+
+Listed below are the ports filtered by the firewall.
+No response has been received when any of these ports are probed.
+1-3,5,7,9,11,13,15,17-25,27,29,31,33,35,37-39,41-79,81-134,136-138,140-223,
+242-246,256-265,280-282,309,311,318,322-325,344-351,363,369-444,446-581,
+587,592-593,598,600,606-620,624,627,631,633-637,666-674,700,704-705,707,
+709-711,729-731,740-742,744,747-754,758-765,767,769-777,780-783,786,799-801,
+860,873,886-888,900-901,911,950,954-955,990-993,995-1001,1008,1010-1011,
+1015,1023-1100,1109-1112,1114,1123,1155,1167,1170,1207,1212,1214,1220-1222,
+1234-1236,1241,1243,1245,1248,1269,1313-1314,1337,1344-1625,1636-1705,
+1707-1774,1776-1815,1818-1824,1900-1909,1911-1920,1944-1951,1973,1981,
+1985-1999,2001-2028,2030,2032-2036,2038,2040-2049,2053,2065, and more.
+We have omitted from this list 708 higher ports to keep the report size manageable.]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_45006">45006</QID>
+          <TYPE>Ig</TYPE>
+          <SSL>false</SSL>
+          <RESULT format="table"><![CDATA[Hops	IP	Round Trip Time	Probe	Port
+1	64.39.99.3	0.17ms	ICMP	 
+2	216.52.125.61	0.37ms	ICMP	 
+3	216.52.127.71	0.83ms	ICMP	 
+4	129.250.200.137	0.41ms	ICMP	 
+5	129.250.5.215	0.62ms	ICMP	 
+6	129.250.5.190	0.91ms	ICMP	 
+7	*.*.*.*	0.00ms	Other	80
+8	*.*.*.*	0.00ms	Other	80
+9	63.235.42.5	1.28ms	ICMP	 
+10	63.235.42.158	0.92ms	ICMP	 
+11	206.28.100.137	67.11ms	ICMP	 
+12	206.28.101.22	7.34ms	ICMP	 
+13	204.70.192.90	73.58ms	ICMP	 
+14	204.70.207.38	64.49ms	ICMP	 
+15	204.70.207.29	69.75ms	ICMP	 
+16	216.35.14.46	64.58ms	ICMP	 
+17	64.41.200.246	69.91ms	TCP	80]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_45004">45004</QID>
+          <TYPE>Ig</TYPE>
+          <SSL>false</SSL>
+          <RESULT><![CDATA[The network handle is: NET-64-41-200-0-1
+Network description:
+Qualys SAVV-S233755-0]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_45005">45005</QID>
+          <TYPE>Ig</TYPE>
+          <SSL>false</SSL>
+          <RESULT><![CDATA[The ISP network handle is: CENTURYLINK-LEGACY-SAVVIS-BLK30
+ISP Network description:
+CenturyLink Communications, LLC]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_70028">70028</QID>
+          <TYPE>Ig</TYPE>
+          <SSL>false</SSL>
+          <RESULT format="table"><![CDATA[User Name	(none)
+Domain	(none)
+Authentication Scheme	NULL session
+Security	User-based
+SMBv1 Signing	Disabled
+Discovery Method	NULL session, no valid login credentials provided or found
+CIFS Signing	default
+CIFS Version	SMB v2.1]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_90194">90194</QID>
+          <TYPE>Ig</TYPE>
+          <SSL>false</SSL>
+          <RESULT><![CDATA[Access to Remote Registry Service is denied, error: 0x0]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_82046">82046</QID>
+          <TYPE>Ig</TYPE>
+          <SSL>false</SSL>
+          <RESULT><![CDATA[IP ID changes observed (network order) for port 80: 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 
+Duration: 30 milli seconds]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_42017">42017</QID>
+          <TYPE>Ig</TYPE>
+          <SSL>false</SSL>
+          <RESULT><![CDATA[Service name: Remote Desktop on TCP port 3389.]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_70022">70022</QID>
+          <TYPE>Ig</TYPE>
+          <SSL>false</SSL>
+          <RESULT format="table"><![CDATA[Description	Version	TCP Ports	UDP Ports	HTTP Ports	NetBIOS/CIFS Pipes
+DCE Endpoint Mapper	3.0	135	 	 	 
+DCOM OXID Resolver	0.0	135	 	 	 
+DCOM Remote Activation	0.0	135	 	 	 
+DCOM System Activator	0.0	135	 	 	 
+Microsoft Scheduler Control Service	1.0	 	 	 	\PIPE\atsvc
+Microsoft Security Account Manager	1.0	63238	 	 	\pipe\lsass
+Microsoft Service Control Service	2.0	49180	 	 	 
+Microsoft Spool Subsystem	1.0	49181	 	 	 
+Microsoft Task Scheduler	1.0	 	 	 	\PIPE\atsvc
+WinHttp Auto-Proxy Service	5.1	 	 	 	\PIPE\W32TIME_ALT
+(Unknown Service)	1.0	135	 	 	 
+(Unknown Service)	0.0	135	 	 	 
+(Unknown Service)	2.0	135	 	 	 
+(Unknown Service)	1.0	49152	 	 	\PIPE\InitShutdown
+(Unknown Service)	1.0	 	 	 	\PIPE\InitShutdown
+DHCP Client LRPC Endpoint	1.0	49153	 	 	\pipe\eventlog
+DHCPv6 Client LRPC Endpoint	1.0	49153	 	 	\pipe\eventlog
+NRP server endpoint	1.0	49153	 	 	\pipe\eventlog
+Event log TCPIP	1.0	49153	 	 	\pipe\eventlog
+(Unknown Service)	1.0	49154	 	 	\PIPE\srvsvc, \PIPE\atsvc
+Impl friendly name	1.0	49154	 	 	\PIPE\srvsvc, \PIPE\atsvc
+XactSrv service	1.0	49154	 	 	\PIPE\atsvc
+IP Transition Configuration endpoint	1.0	49154	 	 	\PIPE\atsvc
+IKE/Authip API	1.0	49154	 	 	\PIPE\atsvc
+(Unknown Service)	1.0	49154	 	 	\PIPE\atsvc
+(Unknown Service)	1.0	49173	 	 	\pipe\HydraLsPipe]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_45261">45261</QID>
+          <TYPE>Ig</TYPE>
+          <SSL>false</SSL>
+          <RESULT><![CDATA[QID: 45261 detected on port 445 over TCP.
+SMBv1 is enabled.]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_82045">82045</QID>
+          <TYPE>Ig</TYPE>
+          <SSL>false</SSL>
+          <RESULT><![CDATA[Average change between subsequent TCP initial sequence numbers is 656689825 with a standard deviation of 848500569. These TCP initial sequence numbers were triggered by TCP SYN probes sent to the host at an average rate of 1/(4772 microseconds). The degree of difficulty to exploit the TCP initial sequence number generation scheme is: hard.]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_45262">45262</QID>
+          <TYPE>Ig</TYPE>
+          <SSL>false</SSL>
+          <RESULT><![CDATA[QID: 45262 detected on port 445 over TCP.
+SMBv2 is enabled.]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_82063">82063</QID>
+          <TYPE>Ig</TYPE>
+          <SSL>false</SSL>
+          <RESULT><![CDATA[Based on TCP timestamps obtained via port 80, the host&apos;s uptime is 271 days, 3 hours, and 20 minutes.
+The TCP timestamps from the host are in units of 10 milliseconds.]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_45039">45039</QID>
+          <TYPE>Ig</TYPE>
+          <SSL>false</SSL>
+          <RESULT format="table"><![CDATA[Host Name	Source
+win2008R2.trn.qualys.com	NTLM DNS
+demo16.s02.sjc01.qualys.com	FQDN
+WIN2008R2	NTLM NetBIOS
+WIN2008R2	NetBIOS]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_90788">90788</QID>
+          <TYPE>Ig</TYPE>
+          <SSL>false</SSL>
+          <RESULT><![CDATA[QID: 90788 detected on port 3389 over TCP.]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_45017">45017</QID>
+          <TYPE>Ig</TYPE>
+          <SSL>false</SSL>
+          <RESULT format="table"><![CDATA[Operating System	Technique	ID
+Windows 2008 R2 Enterprise Service Pack 1	CIFS via TCP Port 445	 
+Windows 2008 R2/7	NTLMSSP	 
+Windows 2008 R2 / Windows 7	TCP/IP Fingerprint	U3414:80
+Windows 2003/XP/Vista/2008/2012	MS-RPC Fingerprint]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_82023">82023</QID>
+          <TYPE>Ig</TYPE>
+          <SSL>false</SSL>
+          <RESULT format="table"><![CDATA[Port	IANA Assigned Ports/Services	Description	Service Detected	OS On Redirected Port
+80	www-http	World Wide Web HTTP	http 	 
+135	msrpc-epmap	epmap DCE endpoint resolution	DCERPC Endpoint Mapper 	 
+139	netbios-ssn	NETBIOS Session Service	netbios ssn 	 
+445	microsoft-ds	Microsoft-DS	microsoft-ds 	 
+3389	ms-wbt-server	MS WBT Server	win remote desktop]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_82004">82004</QID>
+          <TYPE>Ig</TYPE>
+          <SSL>false</SSL>
+          <RESULT format="table"><![CDATA[Port	IANA Assigned Ports/Services	Description	Service Detected
+137	netbios-ns	NETBIOS Name Service	netbios ns]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_45038">45038</QID>
+          <TYPE>Ig</TYPE>
+          <SSL>false</SSL>
+          <RESULT><![CDATA[Scan duration: 478 seconds
+
+Start time: Wed, Jul 31 2019, 21:53:20 GMT
+
+End time: Wed, Jul 31 2019, 22:01:18 GMT]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_6">6</QID>
+          <TYPE>Ig</TYPE>
+          <SSL>false</SSL>
+          <RESULT format="table"><![CDATA[IP address	Host name
+64.41.200.246	demo16.s02.sjc01.qualys.com]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_82040">82040</QID>
+          <TYPE>Ig</TYPE>
+          <SSL>false</SSL>
+          <RESULT format="table"><![CDATA[ICMP Reply Type	Triggered By	Additional Information
+Echo (type=0 code=0)	Echo Request	Echo Reply]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_70004">70004</QID>
+          <TYPE>Ig</TYPE>
+          <SSL>false</SSL>
+          <RESULT format="table"><![CDATA[Name	Service	NetBIOS Suffix
+WIN2008R2	Workstation Service	0x0
+TRN	Domain Name	0x0
+WIN2008R2	File Server Service	0x20]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_82062">82062</QID>
+          <TYPE>Ig</TYPE>
+          <SSL>false</SSL>
+          <RESULT><![CDATA[TRN]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_82044">82044</QID>
+          <TYPE>Ig</TYPE>
+          <SSL>false</SSL>
+          <RESULT><![CDATA[WIN2008R2]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_43007">43007</QID>
+          <TYPE>Ig</TYPE>
+          <SSL>false</SSL>
+          <RESULT format="table"><![CDATA[#table	cols=3
+Method	MAC Address	Vendor
+NBTSTAT	00:50:56:B2:05:83	VMWARE, INC.]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_70000">70000</QID>
+          <TYPE>Vuln</TYPE>
+          <SSL>false</SSL>
+          <RESULT><![CDATA[WIN2008R2]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+          <VULN_STATUS>New</VULN_STATUS>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_91345">91345</QID>
+          <TYPE>Vuln</TYPE>
+          <SSL>false</SSL>
+          <RESULT><![CDATA[Microsoft SMB Server Remote Code Execution Vulnerability (MS17-010) and Shadow Brokers detected on port 445 over TCP.]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+          <VULN_STATUS>New</VULN_STATUS>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_90783">90783</QID>
+          <TYPE>Vuln</TYPE>
+          <SSL>false</SSL>
+          <RESULT><![CDATA[QID: 90783 detected on port 3389 over TCP.]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+          <VULN_STATUS>New</VULN_STATUS>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_45104">45104</QID>
+          <TYPE>Ig</TYPE>
+          <PORT>80</PORT>
+          <SERVICE>http</SERVICE>
+          <FQDN><![CDATA[demo16.s02.sjc01.qualys.com]]></FQDN>
+          <PROTOCOL>tcp</PROTOCOL>
+          <SSL>false</SSL>
+          <RESULT><![CDATA[Microsoft-IIS/7.5]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_45056">45056</QID>
+          <TYPE>Ig</TYPE>
+          <PORT>80</PORT>
+          <SERVICE>http</SERVICE>
+          <FQDN><![CDATA[demo16.s02.sjc01.qualys.com]]></FQDN>
+          <PROTOCOL>tcp</PROTOCOL>
+          <SSL>false</SSL>
+          <RESULT><![CDATA[Allow: OPTIONS, TRACE, GET, HEAD, POST]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_45266">45266</QID>
+          <TYPE>Ig</TYPE>
+          <PORT>80</PORT>
+          <SERVICE>http</SERVICE>
+          <FQDN><![CDATA[demo16.s02.sjc01.qualys.com]]></FQDN>
+          <PROTOCOL>tcp</PROTOCOL>
+          <SSL>false</SSL>
+          <RESULT><![CDATA[Remote Web Server supports HTTP version 1.x on 80 port.GET / HTTP/1.1]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_86000">86000</QID>
+          <TYPE>Ig</TYPE>
+          <PORT>80</PORT>
+          <SERVICE>http</SERVICE>
+          <FQDN><![CDATA[demo16.s02.sjc01.qualys.com]]></FQDN>
+          <PROTOCOL>tcp</PROTOCOL>
+          <SSL>false</SSL>
+          <RESULT format="table"><![CDATA[Server Version	Server Banner
+Microsoft-IIS/7.5	Microsoft-IIS/7.5]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_12230">12230</QID>
+          <TYPE>Ig</TYPE>
+          <PORT>80</PORT>
+          <SERVICE>http</SERVICE>
+          <PROTOCOL>tcp</PROTOCOL>
+          <SSL>false</SSL>
+          <RESULT><![CDATA[GET / HTTP/1.1
+Host: demo16.s02.sjc01.qualys.com
+Connection: Keep-Alive
+
+
+
+HTTP/1.1 404 Not Found
+Server: Microsoft-IIS/7.5
+Date: Wed, 31 Jul 2019 21:33:02 GMT
+Content-Length: 0]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_86565">86565</QID>
+          <TYPE>Ig</TYPE>
+          <PORT>80</PORT>
+          <SERVICE>http</SERVICE>
+          <PROTOCOL>tcp</PROTOCOL>
+          <SSL>false</SSL>
+          <RESULT><![CDATA[GET / HTTP/1.1
+Host:64.41.200.246:80
+
+GET /Q_Evasive/ HTTP/1.1
+Host:64.41.200.246:80
+
+
+
+HTTP/1.1 404 Not Found
+Server: Microsoft-IIS/7.5
+Date: Wed, 31 Jul 2019 21:37:32 GMT
+Content-Length: 0
+
+HTTP/1.1 404 Not Found
+Server: Microsoft-IIS/7.5
+Date: Wed, 31 Jul 2019 21:37:32 GMT
+Content-Length: 0]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_38291">38291</QID>
+          <TYPE>Ig</TYPE>
+          <PORT>3389</PORT>
+          <SERVICE>win remote desktop</SERVICE>
+          <PROTOCOL>tcp</PROTOCOL>
+          <SSL>false</SSL>
+          <RESULT><![CDATA[TLSv1 session caching is enabled on the target.]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_86002">86002</QID>
+          <TYPE>Ig</TYPE>
+          <PORT>3389</PORT>
+          <SERVICE>win remote desktop</SERVICE>
+          <PROTOCOL>tcp</PROTOCOL>
+          <SSL>false</SSL>
+          <RESULT format="table"><![CDATA[NAME	VALUE
+(0)CERTIFICATE 0	 
+(0)Version	3 (0x2)
+(0)Serial Number	 18:07:86:99:24:0a:51:9f:44:ce:40:90:1b:fb:92:27 
+(0)Signature Algorithm	sha1WithRSAEncryption
+(0)ISSUER NAME	 
+commonName	win2008R2.trn.qualys.com
+(0)SUBJECT NAME	 
+commonName	win2008R2.trn.qualys.com
+(0)Valid From	Apr 1 21:59:46 2019 GMT
+(0)Valid Till	Oct 1 21:59:46 2019 GMT
+(0)Public Key Algorithm	rsaEncryption
+(0)RSA Public Key	(2048 bit)
+(0)	 RSA Public-Key: (2048 bit)
+(0)	 Modulus:
+(0)	 00:af:c5:42:20:36:6e:3e:af:7b:33:b7:02:68:46:
+(0)	 53:f9:a4:32:ab:ac:de:cf:53:c2:17:3e:6f:69:d1:
+(0)	 1e:7f:f7:11:1f:47:c2:2b:a0:98:78:6f:3a:2d:1a:
+(0)	 09:24:2a:f2:0f:0c:1e:54:e4:e1:85:62:b3:57:fb:
+(0)	 37:55:73:7e:81:4d:2a:9c:f5:7c:a3:db:ea:99:e6:
+(0)	 11:d9:c3:b7:38:b1:e1:71:87:79:9f:fe:27:11:ae:
+(0)	 ba:86:dd:3b:8a:ff:4d:be:06:27:ae:39:50:29:05:
+(0)	 97:36:83:40:80:47:4b:70:e4:a2:45:28:e2:9b:2b:
+(0)	 6f:e0:82:52:25:91:fc:5a:e0:82:34:56:a9:7b:a2:
+(0)	 96:ac:a9:3c:7c:2b:57:84:c4:43:99:6b:5c:c1:ae:
+(0)	 ce:3c:e3:0f:9c:04:6e:c3:61:99:67:09:9e:90:38:
+(0)	 51:71:9b:b7:9f:7d:70:69:bd:e2:2e:83:77:b9:da:
+(0)	 c3:78:4a:a3:85:6c:7f:5d:92:d6:0a:d0:3b:61:45:
+(0)	 f2:0f:b4:db:3a:c2:9e:a6:04:3d:b0:d5:08:fa:21:
+(0)	 f9:59:bc:a0:b6:e7:db:b5:8c:a8:2c:21:6d:50:54:
+(0)	 2b:97:59:60:39:8c:e4:f6:00:60:65:44:64:51:40:
+(0)	 4e:59:76:75:e6:68:bc:2c:5e:b3:cb:1d:6e:cb:87:
+(0)	 3c:df
+(0)	 Exponent: 65537 (0x10001)
+(0)X509v3 EXTENSIONS	 	
+(0)X509v3 Extended Key Usage	 TLS Web Server Authentication
+(0)X509v3 Key Usage	 Key Encipherment, Data Encipherment
+(0)Signature	(256 octets)
+(0)	3e:44:78:93:3a:03:3e:34:93:92:0e:fb:0f:c5:e0:1c
+(0)	48:a8:fe:40:90:9c:8e:0c:1f:14:a5:a1:0f:35:1b:21
+(0)	40:c2:79:cf:08:a9:6b:af:79:48:c7:93:6b:bb:98:c0
+(0)	8c:a0:6f:93:7e:81:14:9f:17:48:6c:4b:10:52:e1:22
+(0)	e0:dc:13:c1:e7:fa:a8:c4:20:40:48:7e:36:88:ab:4d
+(0)	b6:76:5a:ed:90:76:51:eb:6a:87:74:b3:fd:df:f8:b9
+(0)	39:21:96:31:17:a6:75:3f:ce:71:cb:cd:09:7d:3d:2f
+(0)	9d:67:6c:aa:30:64:a4:6b:0e:37:8a:a3:52:58:4a:23
+(0)	54:12:a1:50:2b:c0:18:52:56:6b:7f:27:6e:34:d3:54
+(0)	eb:93:31:db:23:7f:b8:f9:5d:4b:f8:48:ca:c5:50:83
+(0)	da:e5:6c:01:6d:b2:f5:a9:bb:ba:46:4f:c9:d8:9f:d3
+(0)	bd:e0:af:92:ee:03:cb:33:3f:a8:04:31:ab:70:10:ca
+(0)	a3:3b:06:f1:d9:ee:77:91:6d:ff:a1:c8:11:85:73:6a
+(0)	3d:7a:77:6c:df:7e:68:2f:47:bc:ca:97:85:52:45:b5
+(0)	32:fa:e5:8c:2d:13:7a:34:0f:b0:ae:11:30:99:27:ec
+(0)	18:94:60:86:dd:c0:e9:34:21:ba:73:c4:1e:ec:b2:96]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_38600">38600</QID>
+          <TYPE>Ig</TYPE>
+          <PORT>3389</PORT>
+          <SERVICE>win remote desktop</SERVICE>
+          <PROTOCOL>tcp</PROTOCOL>
+          <SSL>false</SSL>
+          <RESULT><![CDATA[Certificate #0 CN=win2008R2.trn.qualys.com The certificate will expire within six months: Oct  1 21:59:46 2019 GMT]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_42350">42350</QID>
+          <TYPE>Ig</TYPE>
+          <PORT>3389</PORT>
+          <SERVICE>win remote desktop</SERVICE>
+          <PROTOCOL>tcp</PROTOCOL>
+          <SSL>false</SSL>
+          <RESULT><![CDATA[TLS Secure Renegotiation Extension Status: supported.]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_38597">38597</QID>
+          <TYPE>Ig</TYPE>
+          <PORT>3389</PORT>
+          <SERVICE>win remote desktop</SERVICE>
+          <PROTOCOL>tcp</PROTOCOL>
+          <SSL>false</SSL>
+          <RESULT format="table"><![CDATA[#table	cols=2
+my version	target version
+0304	0301
+0399	0301
+0400	0301
+0499	0301]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_38116">38116</QID>
+          <TYPE>Ig</TYPE>
+          <PORT>3389</PORT>
+          <SERVICE>win remote desktop</SERVICE>
+          <PROTOCOL>tcp</PROTOCOL>
+          <SSL>false</SSL>
+          <RESULT format="table"><![CDATA[CIPHER	KEY-EXCHANGE	AUTHENTICATION	MAC	ENCRYPTION(KEY-STRENGTH)	GRADE
+SSLv2 PROTOCOL IS DISABLED	 	 	 	 	 
+SSLv3 PROTOCOL IS DISABLED	 	 	 	 	 
+TLSv1 PROTOCOL IS ENABLED	 	 	 	 	 
+TLSv1	COMPRESSION METHOD	None	 	 	 
+RC4-MD5	RSA	RSA	MD5	RC4(128)	MEDIUM
+RC4-SHA	RSA	RSA	SHA1	RC4(128)	MEDIUM
+DES-CBC3-SHA	RSA	RSA	SHA1	3DES(168)	MEDIUM
+AES128-SHA	RSA	RSA	SHA1	AES(128)	MEDIUM
+AES256-SHA	RSA	RSA	SHA1	AES(256)	HIGH
+ECDHE-RSA-AES128-SHA	ECDH	RSA	SHA1	AES(128)	MEDIUM
+ECDHE-RSA-AES256-SHA	ECDH	RSA	SHA1	AES(256)	HIGH
+TLSv1.1 PROTOCOL IS DISABLED	 	 	 	 	 
+TLSv1.2 PROTOCOL IS DISABLED	 	 	 	 	 
+TLSv1.3 PROTOCOL IS DISABLED]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_38704">38704</QID>
+          <TYPE>Ig</TYPE>
+          <PORT>3389</PORT>
+          <SERVICE>win remote desktop</SERVICE>
+          <PROTOCOL>tcp</PROTOCOL>
+          <SSL>false</SSL>
+          <RESULT format="table"><![CDATA[NAME	GROUP	KEY-SIZE	FORWARD-SECRET	CLASSICAL-STRENGTH	QUANTUM-STRENGTH
+TLSv1	 	 	 	 	 
+RSA	 	2048	no	110	low
+ECDHE	secp256r1	256	yes	128	low
+ECDHE	secp384r1	384	yes	192	low]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_38706">38706</QID>
+          <TYPE>Ig</TYPE>
+          <PORT>3389</PORT>
+          <SERVICE>win remote desktop</SERVICE>
+          <PROTOCOL>tcp</PROTOCOL>
+          <SSL>false</SSL>
+          <RESULT format="table"><![CDATA[NAME	STATUS
+TLSv1	 
+Extended Master Secret	no
+Encrypt Then MAC	no
+Heartbeat	no
+Truncated HMAC	no
+Cipher priority controlled by	server
+OCSP stapling	no
+SCT extension	no]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_38628">38628</QID>
+          <TYPE>Vuln</TYPE>
+          <PORT>3389</PORT>
+          <SERVICE>win remote desktop</SERVICE>
+          <PROTOCOL>tcp</PROTOCOL>
+          <SSL>true</SSL>
+          <RESULT><![CDATA[TLSv1.0 is supported]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+          <VULN_STATUS>New</VULN_STATUS>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_38601">38601</QID>
+          <TYPE>Vuln</TYPE>
+          <PORT>3389</PORT>
+          <SERVICE>win remote desktop</SERVICE>
+          <PROTOCOL>tcp</PROTOCOL>
+          <SSL>true</SSL>
+          <RESULT format="table"><![CDATA[CIPHER	KEY-EXCHANGE	AUTHENTICATION	MAC	ENCRYPTION(KEY-STRENGTH)	GRADE
+TLSv1 WITH RC4 CIPHERS IS SUPPORTED	 	 	 	 	 
+RC4-MD5	RSA	RSA	MD5	RC4(128)	MEDIUM
+RC4-SHA	RSA	RSA	SHA1	RC4(128)	MEDIUM]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+          <VULN_STATUS>New</VULN_STATUS>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_38170">38170</QID>
+          <TYPE>Vuln</TYPE>
+          <PORT>3389</PORT>
+          <SERVICE>win remote desktop</SERVICE>
+          <PROTOCOL>tcp</PROTOCOL>
+          <SSL>true</SSL>
+          <RESULT><![CDATA[Certificate #0 CN=win2008R2.trn.qualys.com (win2008R2.trn.qualys.com) doesn&apos;t resolve]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+          <VULN_STATUS>New</VULN_STATUS>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_38657">38657</QID>
+          <TYPE>Vuln</TYPE>
+          <PORT>3389</PORT>
+          <SERVICE>win remote desktop</SERVICE>
+          <PROTOCOL>tcp</PROTOCOL>
+          <SSL>true</SSL>
+          <RESULT format="table"><![CDATA[CIPHER	KEY-EXCHANGE	AUTHENTICATION	MAC	ENCRYPTION(KEY-STRENGTH)	GRADE
+TLSv1 WITH 64-BIT CBC CIPHERS IS SUPPORTED	 	 	 	 	 
+DES-CBC3-SHA	RSA	RSA	SHA1	3DES(168)	MEDIUM]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+          <VULN_STATUS>New</VULN_STATUS>
+        </VULN_INFO>
+        <VULN_INFO>
+          <QID id="qid_38173">38173</QID>
+          <TYPE>Vuln</TYPE>
+          <PORT>3389</PORT>
+          <SERVICE>win remote desktop</SERVICE>
+          <PROTOCOL>tcp</PROTOCOL>
+          <SSL>true</SSL>
+          <RESULT><![CDATA[Certificate #0 CN=win2008R2.trn.qualys.com unable to get local issuer certificate]]></RESULT>
+          <FIRST_FOUND>2019-07-31T22:01:18Z</FIRST_FOUND>
+          <LAST_FOUND>2019-07-31T22:01:18Z</LAST_FOUND>
+          <TIMES_FOUND>1</TIMES_FOUND>
+          <VULN_STATUS>New</VULN_STATUS>
+        </VULN_INFO>
+      </VULN_INFO_LIST>
+    </HOST>
+  </HOST_LIST>
+  <GLOSSARY>
+    <VULN_DETAILS_LIST>
+      <VULN_DETAILS id="qid_6">
+        <QID id="qid_6">6</QID>
+        <TITLE><![CDATA[DNS Host Name]]></TITLE>
+        <SEVERITY>1</SEVERITY>
+        <CATEGORY>Information gathering</CATEGORY>
+        <THREAT><![CDATA[The fully qualified domain name of this host, if it was obtained from a DNS server, is displayed in the RESULT section.]]></THREAT>
+        <IMPACT><![CDATA[N/A]]></IMPACT>
+        <SOLUTION><![CDATA[N/A]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2018-01-04T17:39:37Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_12230">
+        <QID id="qid_12230">12230</QID>
+        <TITLE><![CDATA[Default Web Page]]></TITLE>
+        <SEVERITY>1</SEVERITY>
+        <CATEGORY>CGI</CATEGORY>
+        <THREAT><![CDATA[The Result section displays the default Web page for the Web server.]]></THREAT>
+        <IMPACT><![CDATA[N/A]]></IMPACT>
+        <SOLUTION><![CDATA[N/A]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2019-03-16T03:30:26Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_34011">
+        <QID id="qid_34011">34011</QID>
+        <TITLE><![CDATA[Firewall Detected]]></TITLE>
+        <SEVERITY>1</SEVERITY>
+        <CATEGORY>Firewall</CATEGORY>
+        <THREAT><![CDATA[A packet filtering device protecting this IP was detected. This is likely to be a firewall or a router using access control lists (ACLs).]]></THREAT>
+        <IMPACT><![CDATA[N/A]]></IMPACT>
+        <SOLUTION><![CDATA[N/A]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2019-04-22T02:37:57Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_38116">
+        <QID id="qid_38116">38116</QID>
+        <TITLE><![CDATA[SSL Server Information Retrieval]]></TITLE>
+        <SEVERITY>1</SEVERITY>
+        <CATEGORY>General remote services</CATEGORY>
+        <THREAT><![CDATA[<P>The following is a list of supported SSL ciphers.<P>
+Note: If a cipher is included in this list it means that it was possible to establish a SSL connection using that cipher. There are some web servers setups that allow connections to be established using a LOW grade cipher, only to provide a web page stating that the URL is accessible only through a non-LOW grade cipher. In this case even though LOW grade cipher will be listed here QID 38140 will not be reported.
+<P>]]></THREAT>
+        <IMPACT><![CDATA[N/A]]></IMPACT>
+        <SOLUTION><![CDATA[N/A]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2016-05-24T21:02:48Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_38170">
+        <QID id="qid_38170">38170</QID>
+        <TITLE><![CDATA[SSL Certificate - Subject Common Name Does Not Match Server FQDN]]></TITLE>
+        <SEVERITY>2</SEVERITY>
+        <CATEGORY>General remote services</CATEGORY>
+        <THREAT><![CDATA[An SSL Certificate associates an entity (person, organization, host, etc.) with a Public Key. In an SSL connection, the client authenticates the remote server using the server's Certificate and extracts the Public Key in the Certificate to establish the secure connection.
+<P>
+A certificate whose Subject commonName or subjectAltName does not match the server FQDN offers only encryption without authentication.
+<P>
+Please note that a false positive reporting of this vulnerability is possible in the following case:
+<UL>If the common name of the certificate uses a wildcard such as *.somedomainname.com and the reverse DNS resolution of the target IP is not configured. In this case there is no way for Qualys to associate the wildcard common name to the IP. Adding a reverse DNS lookup entry to the target IP will solve this problem.
+</UL>]]></THREAT>
+        <IMPACT><![CDATA[A man-in-the-middle attacker can exploit this vulnerability in tandem with a DNS cache poisoning attack to lure the client to another server, and then steal all the encryption communication.]]></IMPACT>
+        <SOLUTION><![CDATA[Please install a server certificate whose Subject commonName or subjectAltName matches the server FQDN.]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2018-10-25T22:01:06Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_38173">
+        <QID id="qid_38173">38173</QID>
+        <TITLE><![CDATA[SSL Certificate - Signature Verification Failed Vulnerability]]></TITLE>
+        <SEVERITY>2</SEVERITY>
+        <CATEGORY>General remote services</CATEGORY>
+        <THREAT><![CDATA[An SSL Certificate associates an entity (person, organization, host, etc.) with a Public Key. In an SSL connection, the client authenticates the remote server using the server's Certificate and extracts the Public Key in the Certificate to establish the secure connection. The authentication is done by verifying that the public key in the certificate is signed by a trusted third-party Certificate Authority.
+<P>
+If a client is unable to verify the certificate, it can abort communication or prompt the user to continue the communication without authentication.]]></THREAT>
+        <IMPACT><![CDATA[By exploiting this vulnerability, man-in-the-middle attacks in tandem with DNS cache poisoning can occur.
+<P>
+Exception:<BR>
+If the server communicates only with a restricted set of clients who have the server certificate or the trusted CA certificate, then the server or CA certificate may not be available publicly, and the scan will be unable to verify the signature.]]></IMPACT>
+        <SOLUTION><![CDATA[Please install a server certificate signed by a trusted third-party Certificate Authority.]]></SOLUTION>
+        <PCI_FLAG>1</PCI_FLAG>
+        <LAST_UPDATE>2018-10-25T22:04:26Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_38291">
+        <QID id="qid_38291">38291</QID>
+        <TITLE><![CDATA[SSL Session Caching Information]]></TITLE>
+        <SEVERITY>1</SEVERITY>
+        <CATEGORY>General remote services</CATEGORY>
+        <THREAT><![CDATA[SSL session is a collection of security parameters that are negotiated by the SSL client and server for each SSL connection. SSL session caching is targeted to reduce the overhead of negotiations in recurring SSL connections. SSL sessions can be reused to resume an earlier connection or to establish multiple simultaneous connections. The client suggests an SSL session to be reused by identifying the session with a Session-ID during SSL handshake. If the server finds it appropriate to reuse the session,  then they both proceed to secure communication with already known security parameters.
+<P>
+This test determines if SSL session caching is enabled on the host.]]></THREAT>
+        <IMPACT><![CDATA[SSL session caching is part of the SSL and TLS protocols and is not a security threat. The result of this test is for informational purposes only.]]></IMPACT>
+        <SOLUTION><![CDATA[]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2004-09-16T18:11:03Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_38597">
+        <QID id="qid_38597">38597</QID>
+        <TITLE><![CDATA[SSL/TLS invalid protocol version tolerance]]></TITLE>
+        <SEVERITY>1</SEVERITY>
+        <CATEGORY>General remote services</CATEGORY>
+        <THREAT><![CDATA[SSL/TLS protocols have different version that can be supported by both the client and the server. This test attempts to send invalid protocol versions to the target in order to find out what is the target's behavior. The results section contains a table that indicates what was the target's response to each of our tests.]]></THREAT>
+        <IMPACT><![CDATA[N/A]]></IMPACT>
+        <SOLUTION><![CDATA[N/A]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2016-01-29T20:01:36Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_38600">
+        <QID id="qid_38600">38600</QID>
+        <TITLE><![CDATA[SSL Certificate will expire within next six months]]></TITLE>
+        <SEVERITY>1</SEVERITY>
+        <CATEGORY>General remote services</CATEGORY>
+        <THREAT><![CDATA[Certificates are used for authentication purposes in different protocols such as SSL/TLS. Each certificate has a validity period outside of which it is supposed to be considered invalid. This QID is reported to inform that a certificate will expire within next six months. The advance notice can be helpful since obtaining a certificate can take some time.]]></THREAT>
+        <IMPACT><![CDATA[Expired certificates can cause connection disruptions or compromise the integrity and privacy of the connections being protected by the certificates.]]></IMPACT>
+        <SOLUTION><![CDATA[Contact the certificate authority that signed your certificate to arrange for a renewal.]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2016-01-29T20:24:19Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_38601">
+        <QID id="qid_38601">38601</QID>
+        <TITLE><![CDATA[SSL/TLS use of weak RC4(Arcfour) cipher]]></TITLE>
+        <SEVERITY>3</SEVERITY>
+        <CATEGORY>General remote services</CATEGORY>
+        <THREAT><![CDATA[Secure Sockets Layer (SSL v2/v3) and Transport Layer Security (TLS ) protocols provide integrity, confidentiality and authenticity services to other protocols that lack these features.
+<P>
+SSL/TLS protocols use ciphers such as AES,DES, 3DES and RC4(Arcfour) to encrypt the content of the higher layer protocols and thus provide the confidentiality service. Normally the output of an encryption process is a sequence of random looking bytes. It was known that RC4 output has some bias in the output. Recently a group of researchers has discovered that the there is a stronger bias in RC4(Arcfour) , which make statistical analysis of ciphertext more practical.
+<P>
+The described attack is to inject a malicious javascript into the victim's browser that would ensure that there are multiple connections being established with a target website and the same HTTP cookie is sent multiple times to the website in encrypted form. This provides the attacker a large set of ciphertext samples, that can be used for statistical analysis.
+
+<P>NOTE: On 3/12/15 NVD changed the CVSS v2 access complicity from high to medium. As a result Qualys revised the CVSS score to 4.3 immediately. On 5/4/15 Qualys is also revising the severity to level 3.]]></THREAT>
+        <IMPACT><![CDATA[If this attack is carried out and an HTTP cookie is recovered, then the attacker can use the cookie to impersonate the user whose cookie was recovered.
+<P>
+This attack is not very practical as it requires the attacker to have access to millions of samples of ciphertext, but there are certain assumptions that an attacker can make to improve the chances of recovering the cleartext from cihpertext. For examples HTTP cookies are either base64 encoded or hex digits. This information can help the attacker in their efforts to recover the cookie.]]></IMPACT>
+        <SOLUTION><![CDATA[RC4 should not be used where possible. One reason that RC4(Arcfour) was still being used was BEAST and Lucky13 attacks against CBC mode ciphers in SSL and TLS. However, TLSv 1.2 or later address these issues.]]></SOLUTION>
+        <PCI_FLAG>1</PCI_FLAG>
+        <LAST_UPDATE>2019-05-10T09:42:39Z</LAST_UPDATE>
+        <CVE_ID_LIST>
+          <CVE_ID>
+            <ID><![CDATA[CVE-2013-2566]]></ID>
+            <URL><![CDATA[http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2013-2566]]></URL>
+          </CVE_ID>
+          <CVE_ID>
+            <ID><![CDATA[CVE-2015-2808]]></ID>
+            <URL><![CDATA[http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2015-2808]]></URL>
+          </CVE_ID>
+        </CVE_ID_LIST>
+        <BUGTRAQ_ID_LIST>
+          <BUGTRAQ_ID>
+            <ID><![CDATA[91787]]></ID>
+            <URL><![CDATA[http://www.securityfocus.com/bid/91787]]></URL>
+          </BUGTRAQ_ID>
+          <BUGTRAQ_ID>
+            <ID><![CDATA[58796]]></ID>
+            <URL><![CDATA[http://www.securityfocus.com/bid/58796]]></URL>
+          </BUGTRAQ_ID>
+          <BUGTRAQ_ID>
+            <ID><![CDATA[73684]]></ID>
+            <URL><![CDATA[http://www.securityfocus.com/bid/73684]]></URL>
+          </BUGTRAQ_ID>
+        </BUGTRAQ_ID_LIST>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_38628">
+        <QID id="qid_38628">38628</QID>
+        <TITLE><![CDATA[SSL/TLS Server supports TLSv1.0]]></TITLE>
+        <SEVERITY>3</SEVERITY>
+        <CATEGORY>General remote services</CATEGORY>
+        <THREAT><![CDATA[TLS is capable of using a multitude of ciphers (algorithms) to create the public and private key pairs.<BR>
+For example if TLSv1.0 uses either the RC4 stream cipher, or a block cipher in CBC mode.<BR>
+RC4 is known to have biases and the block cipher in CBC mode is vulnerable to the POODLE attack.<P>
+
+TLSv1.0, if configured to use the same cipher suites as SSLv3, includes a means by which a TLS implementation can downgrade the connection to SSL v3.0, thus weakening security.<P>
+
+<A HREF="https://blog.qualys.com/ssllabs/2014/12/08/poodle-bites-tls" TARGET="_blank">A POODLE-type</A> attack could also be launched directly at TLS without negotiating a downgrade.<P>
+
+<B> This QID is an automatic PCI FAIL in accordance with the PCI standards. <P>
+
+Further details can be found under: <BR>
+<A HREF="https://www.pcisecuritystandards.org/documents/ASV_Program_Guide_v3.1.pdf" TARGET="_blank">PCI: ASV Program Guide v3.1 (page 27)</A><BR>
+<A HREF="https://www.pcisecuritystandards.org/documents/Use-of-SSL-Early-TLS-and-ASV-Scans.pdf" TARGET="_blank">PCI: Use of SSL Early TLS and ASV Scans</A>
+</B>
+<P>]]></THREAT>
+        <IMPACT><![CDATA[An attacker can exploit cryptographic flaws to conduct man-in-the-middle type attacks or to decryption communications.<P>
+For example: An attacker could force a downgrade from the TLS protocol to the older SSLv3.0 protocol and exploit the POODLE vulnerability, read secure communications or maliciously modify messages.<P>
+<A HREF="https://blog.qualys.com/ssllabs/2014/12/08/poodle-bites-tls" TARGET="_blank">A POODLE-type</A> attack could also be launched directly at TLS without negotiating a downgrade.<P>]]></IMPACT>
+        <SOLUTION><![CDATA[Disable the use of TLSv1.0 protocol in favor of a cryptographically stronger protocol such as TLSv1.2.
+The following openssl commands can be used to do a manual test:
+openssl s_client -connect ip:port -tls1
+
+If the test is successful, then the target support TLSv1]]></SOLUTION>
+        <PCI_FLAG>1</PCI_FLAG>
+        <LAST_UPDATE>2018-12-20T23:36:18Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_38657">
+        <QID id="qid_38657">38657</QID>
+        <TITLE><![CDATA[Birthday attacks against TLS ciphers with 64bit block size vulnerability (Sweet32)]]></TITLE>
+        <SEVERITY>3</SEVERITY>
+        <CATEGORY>General remote services</CATEGORY>
+        <THREAT><![CDATA[Legacy block ciphers having block size of 64 bits are vulnerable to a practical collision attack when used in CBC mode. 
+All versions of SSL/TLS protocol support cipher suites which use DES, 3DES, IDEA or RC2 as the symmetric encryption cipher are affected.]]></THREAT>
+        <IMPACT><![CDATA[Remote attackers can obtain cleartext data via a birthday attack against a long-duration encrypted session.]]></IMPACT>
+        <SOLUTION><![CDATA[Disable and stop using DES, 3DES, IDEA or RC2 ciphers.<BR>
+More information can be found at <A HREF="https://docs.microsoft.com/en-us/windows-server/security/tls/tls-schannel-ssp-changes-in-windows-10-and-windows-server" TARGET="_blank">Microsoft Windows TLS changes docs</A> and <A HREF="https://docs.microsoft.com/en-us/windows-server/security/tls/tls-registry-settings" TARGET="_blank">Microsoft Transport Layer Security (TLS) registry settings</A>]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2019-07-15T23:19:33Z</LAST_UPDATE>
+        <CVE_ID_LIST>
+          <CVE_ID>
+            <ID><![CDATA[CVE-2016-2183]]></ID>
+            <URL><![CDATA[http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2016-2183]]></URL>
+          </CVE_ID>
+        </CVE_ID_LIST>
+        <BUGTRAQ_ID_LIST>
+          <BUGTRAQ_ID>
+            <ID><![CDATA[92630]]></ID>
+            <URL><![CDATA[http://www.securityfocus.com/bid/92630]]></URL>
+          </BUGTRAQ_ID>
+          <BUGTRAQ_ID>
+            <ID><![CDATA[95568]]></ID>
+            <URL><![CDATA[http://www.securityfocus.com/bid/95568]]></URL>
+          </BUGTRAQ_ID>
+        </BUGTRAQ_ID_LIST>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_38704">
+        <QID id="qid_38704">38704</QID>
+        <TITLE><![CDATA[SSL/TLS Key Exchange Methods]]></TITLE>
+        <SEVERITY>1</SEVERITY>
+        <CATEGORY>General remote services</CATEGORY>
+        <THREAT><![CDATA[The following is a list of SSL/TLS key exchange methods supported by the server, along with their respective key sizes and strengths.]]></THREAT>
+        <IMPACT><![CDATA[N/A]]></IMPACT>
+        <SOLUTION><![CDATA[N/A]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2018-07-12T20:36:58Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_38706">
+        <QID id="qid_38706">38706</QID>
+        <TITLE><![CDATA[SSL/TLS Protocol Properties]]></TITLE>
+        <SEVERITY>1</SEVERITY>
+        <CATEGORY>General remote services</CATEGORY>
+        <THREAT><![CDATA[The following is a list of detected SSL/TLS protocol properties.]]></THREAT>
+        <IMPACT><![CDATA[Items include:<P><UL>
+<LI>Extended Master Secret: indicates whether the extended_master_secret extension is supported or required by the server. This extension enhances security and is recommended. Applicable to TLSv1, TLSv1.1, TLSv1.2, DTLSv1, DTLSv1.2</LI>
+<LI>Encrypt Then MAC: indicates whether the encrypt_then_mac extension is supported or required by the server. This extension enhances the security of non-AEAD ciphers and is recommended. Applicable to TLSv1, TLSv1.1, TLSv1.2, DTLSv1, DTLSv1.2</LI>
+<LI>Heartbeat: indicates whether the heartbeat extension is supported. It is not recommended to enable this, except for DTLS. Applicable to TLSv1, TLSv1.1, TLSv1.2, TLSv1.3, DTLSv1, DTLSv1.2</LI>
+<LI>Truncated HMAC: indicates whether the truncated_hmac extension is supported. This can degrade security and is not recommended. Applicable to TLSv1, TLSv1.1, TLSv1.2, DTLSv1, DTLSv1.2</LI>
+<LI>Cipher priority: indicates whether client, server or both determine the priority of ciphers. Having the server determine the priority is recommended. Applicable to SSLv3, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3, DTLSv1, DTLSv1.2</LI>
+</UL>]]></IMPACT>
+        <SOLUTION><![CDATA[N/A]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2018-07-12T20:36:35Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_42017">
+        <QID id="qid_42017">42017</QID>
+        <TITLE><![CDATA[Remote Access or Management Service Detected]]></TITLE>
+        <SEVERITY>3</SEVERITY>
+        <CATEGORY>General remote services</CATEGORY>
+        <THREAT><![CDATA[A remote access or remote management service was detected. If such a service is accessible to malicious users it can be used to carry different type of attacks. Malicious users could try to brute force credentials or collect additional information on the service which could enable them in crafting further attacks. 
+<P>
+The Results section includes information on the remote access service that was found on the target.
+<P>
+Services like Telnet, Rlogin, SSH, windows remote desktop, pcAnywhere, Citrix Management Console, Remote Admin (RAdmin), VNC, OPENVPN and ISAKMP are checked.]]></THREAT>
+        <IMPACT><![CDATA[Consequences vary by the type of attack.]]></IMPACT>
+        <SOLUTION><![CDATA[Expose the remote access or remote management services only to the system administrators or intended users of the system.]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2019-05-24T03:30:33Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_42350">
+        <QID id="qid_42350">42350</QID>
+        <TITLE><![CDATA[TLS Secure Renegotiation Extension Support Information]]></TITLE>
+        <SEVERITY>1</SEVERITY>
+        <CATEGORY>General remote services</CATEGORY>
+        <THREAT><![CDATA[Secure Socket Layer (SSL) and Transport Layer Security (TLS) renegotiation are vulnerable to an attack in which the attacker forms a TLS connection with the target server, injects content of his choice, and then splices in a new TLS connection from a client. The server treats the client's initial TLS handshake as a renegotiation and thus believes that the initial data transmitted by the attacker is from the same entity as the subsequent client data. TLS protocol was extended to cryptographically tierenegotiations to the TLS connections they are being performed over. This is referred to as TLS secure renegotiation extension. This detection determines whether the TLS secure renegotiation extension is supported by the server or not.]]></THREAT>
+        <IMPACT><![CDATA[N/A]]></IMPACT>
+        <SOLUTION><![CDATA[N/A]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2016-03-21T16:40:23Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_43007">
+        <QID id="qid_43007">43007</QID>
+        <TITLE><![CDATA[Network Adapter MAC Address]]></TITLE>
+        <SEVERITY>1</SEVERITY>
+        <CATEGORY>Hardware</CATEGORY>
+        <THREAT><![CDATA[It is possible to obtain the MAC address information of the network adapters on the target system. Various sources such as SNMP and NetBIOS provide such information. This vulnerability test attempts to gather and report on this information in a table format.]]></THREAT>
+        <IMPACT><![CDATA[N/A]]></IMPACT>
+        <SOLUTION><![CDATA[N/A]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2004-11-29T20:50:15Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_45004">
+        <QID id="qid_45004">45004</QID>
+        <TITLE><![CDATA[Target Network Information]]></TITLE>
+        <SEVERITY>1</SEVERITY>
+        <CATEGORY>Information gathering</CATEGORY>
+        <THREAT><![CDATA[The information shown in the Result section was returned by the network infrastructure responsible for routing traffic from our cloud platform to the target network (where the scanner appliance is located).<P>
+This information was returned from: 1) the WHOIS service, or 2) the infrastructure provided by the closest gateway server to our cloud platform. If your ISP is routing traffic, your ISP's gateway server returned this information.]]></THREAT>
+        <IMPACT><![CDATA[This information can be used by malicious users to gather more information about the network infrastructure that may help in launching attacks against it.]]></IMPACT>
+        <SOLUTION><![CDATA[N/A]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2013-08-15T21:12:37Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_45005">
+        <QID id="qid_45005">45005</QID>
+        <TITLE><![CDATA[Internet Service Provider]]></TITLE>
+        <SEVERITY>1</SEVERITY>
+        <CATEGORY>Information gathering</CATEGORY>
+        <THREAT><![CDATA[The information shown in the Result section was returned by the network infrastructure responsible for routing traffic from our cloud platform to the target network (where the scanner appliance is located). 
+
+<P>This information was returned from: 1) the WHOIS service, or 2) the infrastructure provided by the closest gateway server to our cloud platform. If your ISP is routing traffic, your ISP's gateway server returned this information.]]></THREAT>
+        <IMPACT><![CDATA[This information can be used by malicious users to gather more information about the network infrastructure that may aid in launching further attacks against it.]]></IMPACT>
+        <SOLUTION><![CDATA[N/A]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2013-09-27T19:31:33Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_45006">
+        <QID id="qid_45006">45006</QID>
+        <TITLE><![CDATA[Traceroute]]></TITLE>
+        <SEVERITY>1</SEVERITY>
+        <CATEGORY>Information gathering</CATEGORY>
+        <THREAT><![CDATA[Traceroute describes the path in realtime from the scanner to the remote host being contacted. It reports the IP addresses of all the routers in between.]]></THREAT>
+        <IMPACT><![CDATA[]]></IMPACT>
+        <SOLUTION><![CDATA[]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2003-05-09T18:28:51Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_45017">
+        <QID id="qid_45017">45017</QID>
+        <TITLE><![CDATA[Operating System Detected]]></TITLE>
+        <SEVERITY>2</SEVERITY>
+        <CATEGORY>Information gathering</CATEGORY>
+        <THREAT><![CDATA[Several different techniques can be used to identify the operating system (OS) running on a host. A short description of these techniques is provided below. The specific technique used to identify the OS on this host is included in the RESULTS section of your report.
+<P>
+1) <B>TCP/IP Fingerprint</B>: The operating system of a host can be identified from a remote system using TCP/IP fingerprinting. All underlying operating system TCP/IP stacks have subtle differences that can be seen in their responses to specially-crafted TCP packets. According to the results of this &quot;fingerprinting&quot; technique, the OS version is among those listed below. 
+<P>
+Note that if one or more of these subtle differences are modified by a firewall or a packet filtering device between the scanner and the host, the fingerprinting technique may fail. Consequently, the version of the OS may not be detected correctly. If the host is behind a proxy-type firewall, the version of the operating system detected may be that of the firewall instead of the host being scanned.
+<P>
+2) <B>NetBIOS</B>: Short for Network Basic Input Output System, an application programming interface (API) that augments the DOS BIOS by adding special functions for local-area networks (LANs). Almost all LANs for PCs are based on the NetBIOS. Some LAN manufacturers have even extended it, adding additional network capabilities. NetBIOS relies on a message format called Server Message Block (SMB). 
+<P>
+3) <B>PHP Info</B>: PHP is a hypertext pre-processor, an open-source, server-side, HTML-embedded scripting language used to create dynamic Web pages. Under some configurations it is possible to call PHP functions like phpinfo() and obtain operating system information.
+<P>
+4) <B>SNMP</B>: The Simple Network Monitoring Protocol is used to monitor hosts, routers, and the networks to which they attach. The SNMP service maintains Management Information Base (MIB), a set of variables (database) that can be fetched by Managers. These include &quot;MIB_II.system.sysDescr&quot; for the operating system.]]></THREAT>
+        <IMPACT><![CDATA[Not  applicable.]]></IMPACT>
+        <SOLUTION><![CDATA[Not  applicable.]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2019-06-11T03:30:10Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_45038">
+        <QID id="qid_45038">45038</QID>
+        <TITLE><![CDATA[Host Scan Time]]></TITLE>
+        <SEVERITY>1</SEVERITY>
+        <CATEGORY>Information gathering</CATEGORY>
+        <THREAT><![CDATA[The Host Scan Time is the period of time it takes the scanning engine to perform the vulnerability assessment of a single target host. The Host Scan Time for this host is reported in the Result section below. 
+<P>
+The Host Scan Time does not have a direct correlation to the Duration time as displayed in the Report Summary section of a scan results report. The Duration is the period of time it takes the service to perform a scan task. The Duration includes the time it takes the service to scan all hosts, which may involve parallel scanning. It also includes the time it takes for a scanner appliance to pick up the scan task and transfer the results back to the service's Secure Operating Center. Further, when a scan task is distributed across multiple scanners, the Duration includes the time it takes to perform parallel host scanning on all scanners.
+<P>
+For host running the Qualys Windows agent this QID reports the time taken by the agent to collect the host metadata used for the most recent assessment scan.]]></THREAT>
+        <IMPACT><![CDATA[N/A]]></IMPACT>
+        <SOLUTION><![CDATA[N/A]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2016-03-18T21:41:40Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_45039">
+        <QID id="qid_45039">45039</QID>
+        <TITLE><![CDATA[Host Names Found]]></TITLE>
+        <SEVERITY>1</SEVERITY>
+        <CATEGORY>Information gathering</CATEGORY>
+        <THREAT><![CDATA[The following host names were discovered for this computer using various methods such as DNS look up, NetBIOS query, and SQL server name query.]]></THREAT>
+        <IMPACT><![CDATA[N/A]]></IMPACT>
+        <SOLUTION><![CDATA[N/A]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2005-02-14T21:01:44Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_45056">
+        <QID id="qid_45056">45056</QID>
+        <TITLE><![CDATA[HTTP Methods Returned by OPTIONS Request]]></TITLE>
+        <SEVERITY>1</SEVERITY>
+        <CATEGORY>Information gathering</CATEGORY>
+        <THREAT><![CDATA[The HTTP methods returned in response to an OPTIONS request to the Web server detected on the target host are listed.]]></THREAT>
+        <IMPACT><![CDATA[N/A]]></IMPACT>
+        <SOLUTION><![CDATA[N/A]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2006-01-16T22:00:56Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_45104">
+        <QID id="qid_45104">45104</QID>
+        <TITLE><![CDATA[Microsoft IIS Server Detected]]></TITLE>
+        <SEVERITY>1</SEVERITY>
+        <CATEGORY>Information gathering</CATEGORY>
+        <THREAT><![CDATA[Microsoft Internet Information Services (IIS) Web Server was detected on the target host.<P>
+
+QID Detection Logic (authenticated):<BR>
+Operating System: Windows<BR>
+The QID checks for key &quot;HKLM\SOFTWARE\Microsoft\InetStp SetupString&quot; value &quot;SetupString&quot; to verify if IIS is present on the Host or not.<P>]]></THREAT>
+        <IMPACT><![CDATA[N/A]]></IMPACT>
+        <SOLUTION><![CDATA[N/A]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2019-06-07T18:08:55Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_45261">
+        <QID id="qid_45261">45261</QID>
+        <TITLE><![CDATA[SMB Version 1 Enabled]]></TITLE>
+        <SEVERITY>1</SEVERITY>
+        <CATEGORY>Information gathering</CATEGORY>
+        <THREAT><![CDATA[The Server Message Block (SMB) Protocol is a network file sharing protocol, and as implemented in Microsoft Windows is known as Microsoft SMB Protocol. 
+<P>
+The Windows host has SMBv1 protocol enabled for either : <BR>
+Client or <BR>
+Server 
+<P>]]></THREAT>
+        <IMPACT><![CDATA[SMB protocols could allow a remote attacker to obtain sensitive information from affected systems.]]></IMPACT>
+        <SOLUTION><![CDATA[Microsoft recommends users to update to latest SMB versions and stop using SMBv1.
+Refer to Microsoft KB article <A HREF="https://support.microsoft.com/en-us/help/2696547/how-to-enable-and-disable-smbv1,-smbv2,-and-smbv3-in-windows-vista,-windows-server-2008,-windows-7,-windows-server-2008-r2,-windows-8,-and-windows-server-2012" TARGET="_blank">KB2696547</A> for more details.
+
+
+
+
+
+
+
+
+
+Workaround:<BR>
+Customer may consider blocking all versions of SMB at the network boundary by blocking TCP port 445 with related protocols on UDP ports 137-138 and TCP port 139, for all boundary devices.]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2018-07-13T17:24:44Z</LAST_UPDATE>
+        <VENDOR_REFERENCE_LIST>
+          <VENDOR_REFERENCE>
+            <ID><![CDATA[SMB v1]]></ID>
+            <URL><![CDATA[https://blogs.technet.microsoft.com/filecab/2016/09/16/stop-using-smb1/]]></URL>
+          </VENDOR_REFERENCE>
+        </VENDOR_REFERENCE_LIST>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_45262">
+        <QID id="qid_45262">45262</QID>
+        <TITLE><![CDATA[SMB Version 2 or 3 Enabled]]></TITLE>
+        <SEVERITY>1</SEVERITY>
+        <CATEGORY>Information gathering</CATEGORY>
+        <THREAT><![CDATA[The Windows host has SMBv2 or SMBv3 protocol enabled.]]></THREAT>
+        <IMPACT><![CDATA[N/A]]></IMPACT>
+        <SOLUTION><![CDATA[For more information on how to enable/disable SMB, refer to Microsoft KB article <A HREF="https://support.microsoft.com/en-us/help/2696547/how-to-enable-and-disable-smbv1-smbv2-and-smbv3-in-windows-and-windows" TARGET="_blank">KB2696547</A>.]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2017-08-29T16:40:27Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_45266">
+        <QID id="qid_45266">45266</QID>
+        <TITLE><![CDATA[Web Server HTTP Protocol Versions]]></TITLE>
+        <SEVERITY>2</SEVERITY>
+        <CATEGORY>Information gathering</CATEGORY>
+        <THREAT><![CDATA[This QID lists supported HTTP protocol (HTTP 1.x or HTTP 2) from remote web server.]]></THREAT>
+        <IMPACT><![CDATA[N/A]]></IMPACT>
+        <SOLUTION><![CDATA[N/A]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2017-04-24T10:47:04Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_70000">
+        <QID id="qid_70000">70000</QID>
+        <TITLE><![CDATA[NetBIOS Name Accessible]]></TITLE>
+        <SEVERITY>2</SEVERITY>
+        <CATEGORY>SMB / NETBIOS</CATEGORY>
+        <THREAT><![CDATA[Unauthorized users can obtain this host's NetBIOS server name from a remote system.]]></THREAT>
+        <IMPACT><![CDATA[Unauthorized users can obtain the list of NetBIOS servers on your network.  This list outlines trust relationships between server and client computers.  Unauthorized users can therefore use a vulnerable host to penetrate secure servers.]]></IMPACT>
+        <SOLUTION><![CDATA[If the NetBIOS service is not required on this host, disable it. Otherwise, block any NetBIOS traffic at your network boundaries.]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2009-04-28T09:36:02Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_70004">
+        <QID id="qid_70004">70004</QID>
+        <TITLE><![CDATA[NetBIOS Bindings Information]]></TITLE>
+        <SEVERITY>3</SEVERITY>
+        <CATEGORY>SMB / NETBIOS</CATEGORY>
+        <THREAT><![CDATA[The following bindings were detected on this computer. Bindings have many purposes. They reflect such things as users logged-in, registration of a user name, registration of a service in a domain, and registering of a NetBIOS name.]]></THREAT>
+        <IMPACT><![CDATA[Unauthorized users can use this information in further attacks against the host. A list of logged-in users on the target host/network can potentially be used to launch social engineering attacks.]]></IMPACT>
+        <SOLUTION><![CDATA[This service uses the UDP and TCP port 137. Typically, this port should not be
+accessible to external networks, and should be firewalled.]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2005-05-09T23:01:28Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_70022">
+        <QID id="qid_70022">70022</QID>
+        <TITLE><![CDATA[Open DCE-RPC / MS-RPC Services List]]></TITLE>
+        <SEVERITY>2</SEVERITY>
+        <CATEGORY>SMB / NETBIOS</CATEGORY>
+        <THREAT><![CDATA[The following DCE-RPC / MS-RPC services are active on the remote host.]]></THREAT>
+        <IMPACT><![CDATA[N/A]]></IMPACT>
+        <SOLUTION><![CDATA[Shut down any unknown or unused service on the list. In Windows, this is done in the &quot;Services&quot; Control Panel. In other environments, this usually requires editing a configuration file or start-up script.
+
+If you have provided Windows Authentication credentials, the Microsoft Registry service supporting the named pipe &quot;\PIPE\winreg&quot; must be present to allow CIFS to access the Registry.]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2019-05-22T22:54:23Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_70028">
+        <QID id="qid_70028">70028</QID>
+        <TITLE><![CDATA[Windows Authentication Method]]></TITLE>
+        <SEVERITY>1</SEVERITY>
+        <CATEGORY>SMB / NETBIOS</CATEGORY>
+        <THREAT><![CDATA[Windows authentication was performed. The Results section in your detailed results includes a list of authentication credentials used.
+<P>
+The service also attempts to authenticate using common credentials. You should verify that the credentials used for successful authentication were those that were provided in the Windows authentication record. User-provided credentials failed if the discovery method shows &quot;Unable to log in using credentials provided by user, fallback to NULL session&quot;. If this is the case, verify that the credentials specified in the Windows authentication record are valid for this host.]]></THREAT>
+        <IMPACT><![CDATA[N/A]]></IMPACT>
+        <SOLUTION><![CDATA[N/A]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2008-12-09T22:36:26Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_82004">
+        <QID id="qid_82004">82004</QID>
+        <TITLE><![CDATA[Open UDP Services List]]></TITLE>
+        <SEVERITY>1</SEVERITY>
+        <CATEGORY>TCP/IP</CATEGORY>
+        <THREAT><![CDATA[A port scanner was used to draw a map of all the UDP services on this host that can be accessed from the Internet.
+<P>
+Note that if the host is behind a firewall, there is a small chance that the list includes a few ports that are filtered or blocked by the firewall but are not actually open on the target host. This (false positive on UDP open ports) may happen when the firewall is configured to reject UDP packets for most (but not all) ports with an ICMP Port Unreachable packet. This may also happen when the firewall is configured to allow UDP packets for most (but not all) ports through and filter/block/drop UDP packets for only a few ports. Both cases are uncommon.]]></THREAT>
+        <IMPACT><![CDATA[Unauthorized users can exploit this information to test vulnerabilities in each of the open services.]]></IMPACT>
+        <SOLUTION><![CDATA[Shut down any unknown or unused service on the list.  If you have difficulty working out which service is provided by which process or program, contact your provider's support team.  For more information about commercial and open-source Intrusion Detection Systems available for detecting port scanners of this kind, visit the <A HREF="http://www.cert.org" TARGET="_blank">CERT Web site</A>.]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2005-07-11T22:36:34Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_82023">
+        <QID id="qid_82023">82023</QID>
+        <TITLE><![CDATA[Open TCP Services List]]></TITLE>
+        <SEVERITY>1</SEVERITY>
+        <CATEGORY>TCP/IP</CATEGORY>
+        <THREAT><![CDATA[The port scanner enables unauthorized users with the appropriate tools to draw a map of all services on this host that can be accessed from the Internet.  The test was carried out with a &quot;stealth&quot; port scanner so that the server does not log real connections.
+<P>
+The Results section displays the port number (Port), the default service listening on the port (IANA Assigned Ports/Services), the description of the service (Description) and the service that the scanner detected using service discovery (Service Detected).]]></THREAT>
+        <IMPACT><![CDATA[Unauthorized users can exploit this information to test vulnerabilities in each of the open services.]]></IMPACT>
+        <SOLUTION><![CDATA[Shut down any unknown or unused service on the list.  If you have difficulty figuring out which service is provided by which process or program, contact your provider's support team.  For more information about commercial and open-source Intrusion Detection Systems available for detecting port scanners of this kind, visit the <A HREF="http://www.cert.org" TARGET="_blank">CERT Web site</A>.]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2009-06-15T18:32:21Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_82040">
+        <QID id="qid_82040">82040</QID>
+        <TITLE><![CDATA[ICMP Replies Received]]></TITLE>
+        <SEVERITY>1</SEVERITY>
+        <CATEGORY>TCP/IP</CATEGORY>
+        <THREAT><![CDATA[ICMP (Internet Control and Error Message Protocol) is a protocol encapsulated in IP packets. ICMP's principal purpose is to provide a protocol layer that informs gateways of the inter-connectivity and accessibility of other gateways or hosts. 
+<P>
+We have sent the following types of packets to trigger the host to send us ICMP replies: 
+<P>
+Echo Request (to trigger Echo Reply)<br>
+Timestamp Request (to trigger Timestamp Reply)<br>
+Address Mask Request (to trigger Address Mask Reply)<br>
+UDP Packet (to trigger Port Unreachable Reply)<br>
+IP Packet with Protocol >= 250 (to trigger Protocol Unreachable Reply)
+<P>
+Listed in the "Result" section are the ICMP replies that we have received.]]></THREAT>
+        <IMPACT><![CDATA[]]></IMPACT>
+        <SOLUTION><![CDATA[]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2003-01-16T20:14:30Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_82044">
+        <QID id="qid_82044">82044</QID>
+        <TITLE><![CDATA[NetBIOS Host Name]]></TITLE>
+        <SEVERITY>1</SEVERITY>
+        <CATEGORY>TCP/IP</CATEGORY>
+        <THREAT><![CDATA[The NetBIOS host name of this computer has been detected.]]></THREAT>
+        <IMPACT><![CDATA[N/A]]></IMPACT>
+        <SOLUTION><![CDATA[N/A]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2005-01-21T00:10:23Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_82045">
+        <QID id="qid_82045">82045</QID>
+        <TITLE><![CDATA[Degree of Randomness of TCP Initial Sequence Numbers]]></TITLE>
+        <SEVERITY>1</SEVERITY>
+        <CATEGORY>TCP/IP</CATEGORY>
+        <THREAT><![CDATA[TCP Initial Sequence Numbers (ISNs) obtained in the SYNACK replies from the host are analyzed to determine how random they are. The average change between subsequent ISNs and the standard deviation from the average are displayed in the RESULT section. Also included is the degree of difficulty for exploitation of the TCP ISN generation scheme used by the host.]]></THREAT>
+        <IMPACT><![CDATA[N/A]]></IMPACT>
+        <SOLUTION><![CDATA[N/A]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2004-11-19T21:53:59Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_82046">
+        <QID id="qid_82046">82046</QID>
+        <TITLE><![CDATA[IP ID Values Randomness]]></TITLE>
+        <SEVERITY>1</SEVERITY>
+        <CATEGORY>TCP/IP</CATEGORY>
+        <THREAT><![CDATA[The values for the identification (ID) field in IP headers in IP packets from the host are analyzed to determine how random they are. The changes between subsequent ID values for either the network byte ordering or the host byte ordering, whichever is smaller, are displayed in the RESULT section along with the duration taken to send the probes. When incremental values are used, as is the case for TCP/IP implementation in many operating systems, these changes reflect the network load of the host at the time this test was conducted.
+<P>
+Please note that for reliability reasons only the network traffic from open TCP ports is analyzed.]]></THREAT>
+        <IMPACT><![CDATA[N/A]]></IMPACT>
+        <SOLUTION><![CDATA[N/A]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2006-07-27T21:45:19Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_82062">
+        <QID id="qid_82062">82062</QID>
+        <TITLE><![CDATA[NetBIOS Workgroup Name Detected]]></TITLE>
+        <SEVERITY>1</SEVERITY>
+        <CATEGORY>TCP/IP</CATEGORY>
+        <THREAT><![CDATA[The NetBIOS workgroup or domain name for this system has been detected.]]></THREAT>
+        <IMPACT><![CDATA[N/A]]></IMPACT>
+        <SOLUTION><![CDATA[N/A]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2005-06-02T07:00:00Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_82063">
+        <QID id="qid_82063">82063</QID>
+        <TITLE><![CDATA[Host Uptime Based on TCP TimeStamp Option]]></TITLE>
+        <SEVERITY>2</SEVERITY>
+        <CATEGORY>TCP/IP</CATEGORY>
+        <THREAT><![CDATA[The TCP/IP stack on the host supports the TCP TimeStamp (kind 8) option. Typically the timestamp used is the host's uptime (since last reboot) in various units (e.g., one hundredth of second, one tenth of a second, etc.). Based on this, we can obtain the host's uptime. The result is given in the Result section below.
+<P>
+Some operating systems (e.g., MacOS, OpenBSD) use a non-zero, probably random, initial value for the timestamp. For these operating systems, the uptime obtained does not reflect the actual uptime of the host; the former is always larger than the latter.]]></THREAT>
+        <IMPACT><![CDATA[N/A]]></IMPACT>
+        <SOLUTION><![CDATA[N/A]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2007-05-29T18:56:36Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_86000">
+        <QID id="qid_86000">86000</QID>
+        <TITLE><![CDATA[Web Server Version]]></TITLE>
+        <SEVERITY>1</SEVERITY>
+        <CATEGORY>Web server</CATEGORY>
+        <THREAT><![CDATA[N/A]]></THREAT>
+        <IMPACT><![CDATA[N/A]]></IMPACT>
+        <SOLUTION><![CDATA[N/A]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2016-10-26T03:30:31Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_86002">
+        <QID id="qid_86002">86002</QID>
+        <TITLE><![CDATA[SSL Certificate - Information]]></TITLE>
+        <SEVERITY>1</SEVERITY>
+        <CATEGORY>Web server</CATEGORY>
+        <THREAT><![CDATA[]]></THREAT>
+        <IMPACT><![CDATA[]]></IMPACT>
+        <SOLUTION><![CDATA[]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2003-01-24T01:09:39Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_86565">
+        <QID id="qid_86565">86565</QID>
+        <TITLE><![CDATA[Web Server Supports HTTP Request Pipelining]]></TITLE>
+        <SEVERITY>1</SEVERITY>
+        <CATEGORY>Web server</CATEGORY>
+        <THREAT><![CDATA[Version 1.1 of the HTTP protocol supports URL-Request Pipelining. This means that instead of using the &quot;Keep-Alive&quot; method to keep the TCP connection alive over multiple requests, the protocol allows multiple HTTP URL requests to be made in the same TCP packet. Any Web server which is HTTP 1.1 compliant should then process all the URLs requested in the single TCP packet and respond as usual.
+<P>
+The target Web server was found to support this functionality of the HTTP 1.1 protocol.]]></THREAT>
+        <IMPACT><![CDATA[Support for URL-Request Pipelining has interesting consequences. For example, as explained in <A HREF="http://www.defcon.org/images/defcon-11/dc-11-presentations/dc-11-Roelker/dc-11-roelker-paper.pdf" TARGET="_blank">this paper by Daniel Roelker</A>, it can be used for evading detection by Intrusion Detection Systems. Also, it can be used in HTTP Response-Spliting style attacks.]]></IMPACT>
+        <SOLUTION><![CDATA[N/A]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2005-02-23T00:25:38Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_90194">
+        <QID id="qid_90194">90194</QID>
+        <TITLE><![CDATA[Windows Registry Pipe Access Level]]></TITLE>
+        <SEVERITY>2</SEVERITY>
+        <CATEGORY>Windows</CATEGORY>
+        <THREAT><![CDATA[Return code from remote access to the Windows registry pipe is displayed. The CIFS service accesses the Windows registry through a named pipe. Authentication to CIFS was successful, but it could not access the Registry named pipe if the error code is not 0.]]></THREAT>
+        <IMPACT><![CDATA[Vulnerabilities that require Windows registry access may not have been detected during the scan if the error code is not 0.]]></IMPACT>
+        <SOLUTION><![CDATA[Error code 0x00 means the pipe access was successful. Other error codes (for eg: 0x0) denote unsuccessful access.]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2005-06-16T20:28:59Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_90783">
+        <QID id="qid_90783">90783</QID>
+        <TITLE><![CDATA[Microsoft Windows Remote Desktop Protocol Remote Code Execution Vulnerability (MS12-020)]]></TITLE>
+        <SEVERITY>5</SEVERITY>
+        <CATEGORY>Windows</CATEGORY>
+        <THREAT><![CDATA[The Remote Desktop feature in Windows enables access to all of the programs, resources and accessories on a user's computer from a second Windows-based computer.
+<P>
+A remote code execution vulnerability exists in the way the Remote Desktop Protocol accesses an object in memory that has been improperly initialized or has been deleted (CVE-2012-0002).
+<P>
+A denial of service vulnerability exists in the way the Remote Desktop Protocol service processes packets. An attacker who successfully exploited this vulnerability could cause the target service to stop responding (CVE-2012-0152).
+<P>
+This security update is rated Critical for all supported releases of Microsoft Windows.<P>
+Note:<BR>
+NLA or network layer authentication is a  layer of security on top of RDP. If NLA is enabled then the vulnerability can be exploited remotely but will need credentials.<BR>
+1. The authenticated check will determine presence of this vulnerability irrespective of the NLA setting.<BR>
+2. The remote check can determine presence of this vulnerability only if NLA is disabled.<BR>
+We encourage customers to patch irrespective of the NLA status.
+<P><B>Windows Embedded Systems:-</B> For additional information regarding security updates for embedded systems, refer to the following MSDN blog(s):<P><A HREF="http://blogs.msdn.com/b/embedded/archive/2012/03/26/march-2012-security-updates-for-xpe-sp3-and-standard-2009-are-now-on-ece.aspx" TARGET="_blank">March 2012 Security Updates for XPe SP3 and Standard 2009 Are Now on ECE</A> (KB2621440)<BR>
+<A HREF="http://blogs.msdn.com/b/embedded/archive/2012/04/24/april-2012-security-updates-are-live-on-ece-for-xpe-and-standard-2009.aspx" TARGET="_blank">April 2012 Security Updates are Live on ECE for XPe and Standard 2009</A> (KB2621440)<BR>
+<BR>
+Note: This vulnerability is applicable to versions of the software that are not listed in the official advisory.]]></THREAT>
+        <IMPACT><![CDATA[Successfully exploiting these vulnerabilities might allow a remote attacker to execute arbitrary code or cause a denial of service.]]></IMPACT>
+        <SOLUTION><![CDATA[<P>Patch:<BR>
+Following are links for downloading patches to fix the vulnerabilities:
+<P> <A HREF="http://www.microsoft.com/downloads/details.aspx?familyid=18a1fe48-1318-4b93-afad-206950bb1ae5" TARGET="_blank">MS12-020: Windows XP Service Pack 3</A><P> <A HREF="http://www.microsoft.com/downloads/details.aspx?familyid=eccf865d-399a-4862-b26f-f35580419875" TARGET="_blank">MS12-020: Windows XP Professional x64 Edition Service Pack 2</A><P> <A HREF="http://www.microsoft.com/downloads/details.aspx?familyid=b69b4b9b-c0a1-4c1e-b081-8529eaf1536a" TARGET="_blank">MS12-020: Windows Server 2003 Service Pack 2</A><P> <A HREF="http://www.microsoft.com/downloads/details.aspx?familyid=8081e67f-288c-4714-bff8-e0ff9777692f" TARGET="_blank">MS12-020: Windows Server 2003 x64 Edition Service Pack 2</A><P> <A HREF="http://www.microsoft.com/downloads/details.aspx?familyid=521baa02-5d7a-4cba-8a1a-2af1b6e4cbe4" TARGET="_blank">MS12-020: Windows Server 2003 with SP2 for Itanium-based Systems</A><P> <A HREF="http://www.microsoft.com/downloads/details.aspx?familyid=39abdf7b-ea9d-4b95-a28d-4140374d531d" TARGET="_blank">MS12-020: Windows Vista Service Pack 2</A><P> <A HREF="http://www.microsoft.com/downloads/details.aspx?familyid=e5970daf-4440-42fa-8efc-e6190c6a22aa" TARGET="_blank">MS12-020: Windows Vista x64 Edition Service Pack 2</A><P> <A HREF="http://www.microsoft.com/downloads/details.aspx?familyid=fef2c1d7-2004-43d7-aa49-673c6f374670" TARGET="_blank">MS12-020: Windows Server 2008 for 32-bit Systems Service Pack 2</A><P> <A HREF="http://www.microsoft.com/downloads/details.aspx?familyid=4ffae13f-3432-4849-a2da-a76f96d7ceb3" TARGET="_blank">MS12-020: Windows Server 2008 for x64-based Systems Service Pack 2</A><P> <A HREF="http://www.microsoft.com/downloads/details.aspx?familyid=67581250-50fd-4f4c-a3cc-45ce2662b0c3" TARGET="_blank">MS12-020: Windows Server 2008 for Itanium-based Systems Service Pack 2</A><P> <A HREF="http://www.microsoft.com/downloads/details.aspx?familyid=16b0195c-84d3-4c08-8b98-ff2c80d144e1" TARGET="_blank">MS12-020: Windows 7 for 32-bit Systems and Windows 7 for 32-bit Systems Service Pack 1</A><P> <A HREF="http://www.microsoft.com/downloads/details.aspx?familyid=3a6c7fdf-105a-4886-ad52-c892f37e32d1" TARGET="_blank">MS12-020: Windows 7 for 32-bit Systems and Windows 7 for 32-bit Systems Service Pack 1</A><P> <A HREF="http://www.microsoft.com/downloads/details.aspx?familyid=40b62d08-d2a2-4900-b01c-46fc761973d0" TARGET="_blank">MS12-020: Windows 7 for x64-based Systems and Windows 7 for x64-based Systems Service Pack 1</A><P> <A HREF="http://www.microsoft.com/downloads/details.aspx?familyid=1bbe7cda-4bee-4d65-8127-3c13624a1168" TARGET="_blank">MS12-020: Windows 7 for x64-based Systems and Windows 7 for x64-based Systems Service Pack 1</A><P> <A HREF="http://www.microsoft.com/downloads/details.aspx?familyid=7c1774cc-e00c-47f3-97a2-bc90de857793" TARGET="_blank">MS12-020: Windows Server 2008 R2 for x64-based Systems and Windows Server 2008 R2 for x64-based Systems Service Pack 1*</A><P> <A HREF="http://www.microsoft.com/downloads/details.aspx?familyid=7ec21f41-1673-4592-b45c-6438ad57e08c" TARGET="_blank">MS12-020: Windows Server 2008 R2 for x64-based Systems and Windows Server 2008 R2 for x64-based Systems Service Pack 1*</A><P> <A HREF="http://www.microsoft.com/downloads/details.aspx?familyid=6a07f99c-8ab4-4e44-8d48-6ac787dd2b51" TARGET="_blank">MS12-020: Windows Server 2008 R2 for Itanium-based Systems and Windows Server 2008 R2 for Itanium-based Systems Service Pack 1</A><P> <A HREF="http://www.microsoft.com/downloads/details.aspx?familyid=469aa1f6-ed89-4649-8736-eaa5e2ad44ee" TARGET="_blank">MS12-020: Windows Server 2008 R2 for Itanium-based Systems and Windows Server 2008 R2 for Itanium-based Systems Service Pack 1</A>
+
+<P>Virtual Patches:<BR><A HREF="http://www.trendmicro.com/vulnerabilitycontrols"TARGET="_blank">Trend Micro Virtual Patching</A><BR>
+Virtual Patch #1004949: 1004949 - Remote Desktop Protocol Vulnerability (CVE-2012-0002)<BR>]]></SOLUTION>
+        <CORRELATION>
+          <EXPLOITABILITY>
+            <EXPLT_SRC>
+              <SRC_NAME><![CDATA[Metasploit]]></SRC_NAME>
+              <EXPLT_LIST>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2012-0002]]></REF>
+                  <DESC><![CDATA[MS12-020 Microsoft Remote Desktop Use-After-Free DoS - Metasploit Ref : /modules/auxiliary/dos/windows/rdp/ms12_020_maxchannelids]]></DESC>
+                  <LINK><![CDATA[https://github.com/rapid7/metasploit-framework/blob/master/modules/auxiliary/dos/windows/rdp/ms12_020_maxchannelids.rb]]></LINK>
+                </EXPLT>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2012-0002]]></REF>
+                  <DESC><![CDATA[MS12-020 Microsoft Remote Desktop Checker - Metasploit Ref : /modules/auxiliary/scanner/rdp/ms12_020_check]]></DESC>
+                  <LINK><![CDATA[https://github.com/rapid7/metasploit-framework/blob/master/modules/auxiliary/scanner/rdp/ms12_020_check.rb]]></LINK>
+                </EXPLT>
+              </EXPLT_LIST>
+            </EXPLT_SRC>
+            <EXPLT_SRC>
+              <SRC_NAME><![CDATA[The Exploit-DB]]></SRC_NAME>
+              <EXPLT_LIST>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2012-0002]]></REF>
+                  <DESC><![CDATA[Microsoft Terminal Services - Use-After-Free (MS12-020) - The Exploit-DB Ref : 18606]]></DESC>
+                  <LINK><![CDATA[http://www.exploit-db.com/exploits/18606]]></LINK>
+                </EXPLT>
+              </EXPLT_LIST>
+            </EXPLT_SRC>
+            <EXPLT_SRC>
+              <SRC_NAME><![CDATA[Core Security]]></SRC_NAME>
+              <EXPLT_LIST>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2012-0002]]></REF>
+                  <DESC><![CDATA[Microsoft Windows Remote Desktop Protocol DoS (MS12-020) - Core Security Category : Denial of Service/Remote]]></DESC>
+                </EXPLT>
+              </EXPLT_LIST>
+            </EXPLT_SRC>
+          </EXPLOITABILITY>
+          <MALWARE>
+            <MW_SRC>
+              <SRC_NAME><![CDATA[Trend Micro]]></SRC_NAME>
+              <MW_LIST>
+                <MW_INFO>
+                  <MW_ID><![CDATA[DDOS_DUCAU.A]]></MW_ID>
+                  <MW_TYPE><![CDATA[Hacking Tool]]></MW_TYPE>
+                  <MW_PLATFORM><![CDATA[Windows 2000; Windows XP; Windows Server 2003]]></MW_PLATFORM>
+                  <MW_ALIAS><![CDATA[Exploit:Win32/CVE-2012-0002.A (Microsoft), Exploit.Win32.CVE-2012 (Ikarus)]]></MW_ALIAS>
+                  <MW_RATING><![CDATA[Low]]></MW_RATING>
+                  <MW_LINK><![CDATA[http://about-threats.trendmicro.com/Malware.aspx?name=DDOS_DUCAU.A&language=us]]></MW_LINK>
+                </MW_INFO>
+              </MW_LIST>
+            </MW_SRC>
+          </MALWARE>
+        </CORRELATION>
+        <PCI_FLAG>1</PCI_FLAG>
+        <LAST_UPDATE>2012-03-29T17:35:31Z</LAST_UPDATE>
+        <VENDOR_REFERENCE_LIST>
+          <VENDOR_REFERENCE>
+            <ID><![CDATA[MS12-020]]></ID>
+            <URL><![CDATA[http://technet.microsoft.com/en-us/security/bulletin/ms12-020]]></URL>
+          </VENDOR_REFERENCE>
+        </VENDOR_REFERENCE_LIST>
+        <CVE_ID_LIST>
+          <CVE_ID>
+            <ID><![CDATA[CVE-2012-0002]]></ID>
+            <URL><![CDATA[http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2012-0002]]></URL>
+          </CVE_ID>
+          <CVE_ID>
+            <ID><![CDATA[CVE-2012-0152]]></ID>
+            <URL><![CDATA[http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2012-0152]]></URL>
+          </CVE_ID>
+        </CVE_ID_LIST>
+        <BUGTRAQ_ID_LIST>
+          <BUGTRAQ_ID>
+            <ID><![CDATA[52354]]></ID>
+            <URL><![CDATA[http://www.securityfocus.com/bid/52354]]></URL>
+          </BUGTRAQ_ID>
+        </BUGTRAQ_ID_LIST>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_90788">
+        <QID id="qid_90788">90788</QID>
+        <TITLE><![CDATA[Microsoft Windows Network Level Authentication Disabled]]></TITLE>
+        <SEVERITY>1</SEVERITY>
+        <CATEGORY>Windows</CATEGORY>
+        <THREAT><![CDATA[Microsoft Windows Network Level Authentication (NLA) is an authentication method that enhances the security of a Remote Desktop Session Host server by requiring the user to be authenticated before a session is created.
+<P>
+The registry key for the Network Level Authentication (NLA) is disabled.<P>
+
+Network Level Authentication is supported on Windows Vista, Windows 7, Windows Server 2008, and Windows Server 2008 R2]]></THREAT>
+        <IMPACT><![CDATA[Enabling NLA can help protect the remote computer from malicious users and malicious software attacks.]]></IMPACT>
+        <SOLUTION><![CDATA[See Microsoft Knowledge Base Article <A HREF="http://support.microsoft.com/kb/2671387" TARGET="_blank">2671387</A> to use the automated Microsoft Fix it solution to enable this feature.
+<P>
+As a precaution, always test in a QA or rehearsal environment before rolling out to production.<P>
+<B>Note: Client computers that do not support Credential Security Support Provider (CredSSP) protocol will not be able to access servers protected with Network Level Authentication. Windows XP does not support the CredSSP protocol by default.</B>]]></SOLUTION>
+        <PCI_FLAG>0</PCI_FLAG>
+        <LAST_UPDATE>2013-05-01T17:40:17Z</LAST_UPDATE>
+      </VULN_DETAILS>
+      <VULN_DETAILS id="qid_91345">
+        <QID id="qid_91345">91345</QID>
+        <TITLE><![CDATA[Microsoft SMB Server Remote Code Execution Vulnerability (MS17-010) and Shadow Brokers]]></TITLE>
+        <SEVERITY>5</SEVERITY>
+        <CATEGORY>Windows</CATEGORY>
+        <THREAT><![CDATA[Microsoft Server Message Block (SMB) Protocol is a Microsoft network file sharing protocol used in Microsoft Windows. 
+<P>
+The Microsoft SMB Server is vulnerable to multiple remote code execution vulnerabilities due to the way that the Microsoft Server Message Block 1.0 (SMBv1) server handles certain requests. 
+<P>
+This security update is rated Critical for all supported editions of Windows XP, Windows 2003, Windows 8, Windows Vista, Windows Server 2008, Windows 7, Windows Server 2008 R2, Windows Server 2012 and 2012 R2, Windows 8.1 and RT 8.1, Windows 10 and Windows Server 2016.
+<P>
+<P>UPDATE: 14 May 2017. Signature for this QID has been updated to detect the patch released by Microsoft for end-of-life operating systems Windows XP, Windows 2003 and Windows 8.
+<P>
+QID Detection Logic (Unauthenticated):<BR>
+This QID connects the remote server's &quot;IPC$&quot; then sends a &quot;PeekNamedPipe&quot; SMB request with &quot;FID = 0&quot; to the remote target. Vulnerable system should return &quot;STATUS_INSUFF_SERVER_RESOURCES&quot; in the SMB status code. <P>
+
+QID Detection Logic (Authenticated):<BR>
+Operating Systems: Windows XP, Windows Server 2003 Windows Server 2008, Windows Server 2008 R2, Windows Vista, Windows 7, Windows 8, Windows 8.1, Windows RT 8.1, Windows 10, Windows Server 2012, Windows Server 2012 R2, Windows Server 2016 <BR>
+This QID checks for the file version of %windir%\System32\drivers\srv.sys (On Windows XP, Windows Server 2003 Windows Server 2008, Windows Server 2008 R2, Windows Vista, Windows 7, Windows 8,  Windows 8.1, Windows RT 8.1, Windows 10, Windows Server 2012, Windows Server 2012 R2 and Windows Server 2016)<BR>
+The following KBs are checked for srv.sys:<BR>
+The patch version is 5.1.2600.7208 (KB4012598) <BR>
+The patch version is 5.2.3790.6021 (KB4012598) <BR>
+The patch version is 6.0.6002.19743 (KB4012598) <BR>
+The patch version is 6.0.6002.24067 (KB4012598) <BR>
+The patch version is 6.1.7601.23689 (KB4012212 and KB4012215) <BR>
+The patch version is 6.2.9200.22099 (KB4012598, KB4012214 and KB4012217) <BR>
+The patch version is 6.3.9600.18604 (KB4012213 and KB4012216) <BR>
+The patch version is 10.0.10240.17319 (KB4012606)<BR>
+The patch version is 10.0.10586.839 (KB4013198)<BR>
+The patch version is 10.0.14393.953 (KB4013429)<P>]]></THREAT>
+        <IMPACT><![CDATA[A remote attacker could gain the ability to execute code by sending crafted messages to a Microsoft Server Message Block 1.0 (SMBv1) server. <P>
+<B>The latest version of the Petya ransomware is spreading over Windows SMB and is reportedly using the ETERNALBLUE exploit.</B><P>]]></IMPACT>
+        <SOLUTION><![CDATA[Customers are advised to refer to Microsoft Advisory <A HREF="https://technet.microsoft.com/en-us/security/bulletin/MS17-010" TARGET="_blank">MS17-010</A> or <A HREF="https://support.microsoft.com/eu-es/help/4023262/how-to-verify-that-ms17-010-is-installed" TARGET="_blank">How to verify that MS17-010 is installed</A> for more details.
+<P>
+
+
+
+
+
+
+Workaround:<BR>Disable SMBv1<BR>
+Refer to <A HREF="https://support.microsoft.com/en-us/help/2696547/how-to-enable-and-disable-smbv1,-smbv2,-and-smbv3-in-windows-vista,-windows-server-2008,-windows-7,-windows-server-2008-r2,-windows-8,-and-windows-server-2012" TARGET="_blank">KB2696547</A> for more information.<P>
+<P>Patch:<BR>
+Following are links for downloading patches to fix the vulnerabilities:
+<P> <A HREF="http://www.catalog.update.microsoft.com/Search.aspx?q=KB4012598" TARGET="_blank">MS17-010: Windows Vista Service Pack 2</A><P> <A HREF="http://www.catalog.update.microsoft.com/Search.aspx?q=KB4012598" TARGET="_blank">MS17-010: Windows Vista x64 Edition Service Pack 2</A><P> <A HREF="http://www.catalog.update.microsoft.com/Search.aspx?q=KB4012598" TARGET="_blank">MS17-010: Windows Server 2008 for 32-bit Systems Service Pack 2</A><P> <A HREF="http://www.catalog.update.microsoft.com/Search.aspx?q=KB4012598" TARGET="_blank">MS17-010: Windows Server 2008 for x64-based Systems Service Pack 2</A><P> <A HREF="http://www.catalog.update.microsoft.com/Search.aspx?q=KB4012212" TARGET="_blank">MS17-010: Windows 7 for 32-bit Systems Service Pack 1</A><P> <A HREF="http://www.catalog.update.microsoft.com/Search.aspx?q=KB4012212" TARGET="_blank">MS17-010: Windows 7 for x64-based Systems Service Pack 1</A><P> <A HREF="http://www.catalog.update.microsoft.com/Search.aspx?q=KB4012212" TARGET="_blank">MS17-010: Windows Server 2008 R2 for x64-based Systems Service Pack 1</A><P> <A HREF="http://www.catalog.update.microsoft.com/Search.aspx?q=KB4012215" TARGET="_blank">MS17-010: Windows 7 for 32-bit Systems Service Pack 1</A><P> <A HREF="http://www.catalog.update.microsoft.com/Search.aspx?q=KB4012215" TARGET="_blank">MS17-010: Windows 7 for x64-based Systems Service Pack 1</A><P> <A HREF="http://www.catalog.update.microsoft.com/Search.aspx?q=KB4012215" TARGET="_blank">MS17-010: Windows Server 2008 R2 for x64-based Systems Service Pack 1</A><P> <A HREF="http://www.catalog.update.microsoft.com/Search.aspx?q=KB4012213" TARGET="_blank">MS17-010: Windows 8.1 for 32-bit Systems</A><P> <A HREF="http://www.catalog.update.microsoft.com/Search.aspx?q=KB4012213" TARGET="_blank">MS17-010: Windows 8.1 for x64-based Systems</A><P> <A HREF="http://www.catalog.update.microsoft.com/Search.aspx?q=KB4012213" TARGET="_blank">MS17-010: Windows Server 2012 R2</A><P> <A HREF="http://www.catalog.update.microsoft.com/Search.aspx?q=KB4012216" TARGET="_blank">MS17-010: Windows 8.1 for 32-bit Systems</A><P> <A HREF="http://www.catalog.update.microsoft.com/Search.aspx?q=KB4012216" TARGET="_blank">MS17-010: Windows 8.1 for x64-based Systems</A><P> <A HREF="http://www.catalog.update.microsoft.com/Search.aspx?q=KB4012216" TARGET="_blank">MS17-010: Windows Server 2012 R2</A><P> <A HREF="http://www.catalog.update.microsoft.com/Search.aspx?q=KB4012216" TARGET="_blank">MS17-010: Windows RT 8.1</A><P> <A HREF="http://www.catalog.update.microsoft.com/Search.aspx?q=KB4012214" TARGET="_blank">MS17-010: Windows Server 2012</A><P> <A HREF="http://www.catalog.update.microsoft.com/Search.aspx?q=KB4012217" TARGET="_blank">MS17-010: Windows Server 2012</A><P> <A HREF="http://www.catalog.update.microsoft.com/Search.aspx?q=KB4012606" TARGET="_blank">MS17-010: Windows 10 for 32-bit Systems</A><P> <A HREF="http://www.catalog.update.microsoft.com/Search.aspx?q=KB4012606" TARGET="_blank">MS17-010: Windows 10 for x64-based Systems </A><P> <A HREF="http://www.catalog.update.microsoft.com/Search.aspx?q=KB4013198" TARGET="_blank">MS17-010: Windows 10 Version 1511 for 32-bit Systems </A><P> <A HREF="http://www.catalog.update.microsoft.com/Search.aspx?q=KB4013198" TARGET="_blank">MS17-010: Windows 10 Version 1511 for x64-based Systems </A><P> <A HREF="http://www.catalog.update.microsoft.com/Search.aspx?q=KB4013429" TARGET="_blank">MS17-010: Windows 10 Version 1607 for 32-bit Systems</A><P> <A HREF="http://www.catalog.update.microsoft.com/Search.aspx?q=KB4013429" TARGET="_blank">MS17-010: Windows 10 Version 1607 for x64-based Systems </A><P> <A HREF="http://www.catalog.update.microsoft.com/Search.aspx?q=KB4013429" TARGET="_blank">MS17-010: Windows Server 2016 for x64-based Systems</A><P> <A HREF="http://www.catalog.update.microsoft.com/Search.aspx?q=KB4012598" TARGET="_blank">MS17-010: Windows Server 2003 Systems</A><P> <A HREF="http://www.catalog.update.microsoft.com/Search.aspx?q=KB4012598" TARGET="_blank">MS17-010: Windows XP Service Pack 3</A><P> <A HREF="http://www.catalog.update.microsoft.com/Search.aspx?q=KB4012598" TARGET="_blank">MS17-010: Windows 8</A>]]></SOLUTION>
+        <CORRELATION>
+          <EXPLOITABILITY>
+            <EXPLT_SRC>
+              <SRC_NAME><![CDATA[Core Security]]></SRC_NAME>
+              <EXPLT_LIST>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0143]]></REF>
+                  <DESC><![CDATA[Microsoft Windows SMB Pool Overflow Remote Code Execution Exploit (MS17-010) - Core Security Category : Exploits/Remote]]></DESC>
+                </EXPLT>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0143]]></REF>
+                  <DESC><![CDATA[Microsoft Windows SMB Remote Code Execution (MS17-010) Detector - Core Security Category : Exploits/Remote]]></DESC>
+                </EXPLT>
+              </EXPLT_LIST>
+            </EXPLT_SRC>
+            <EXPLT_SRC>
+              <SRC_NAME><![CDATA[The Exploit-DB]]></SRC_NAME>
+              <EXPLT_LIST>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0148]]></REF>
+                  <DESC><![CDATA[Microsoft Windows Server 2008 R2 (x64) - 'SrvOs2FeaToNt' SMB Remote Code Execution (MS17-010) - The Exploit-DB Ref : 41987]]></DESC>
+                  <LINK><![CDATA[http://www.exploit-db.com/exploits/41987]]></LINK>
+                </EXPLT>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0147]]></REF>
+                  <DESC><![CDATA[Microsoft Windows Server 2008 R2 (x64) - 'SrvOs2FeaToNt' SMB Remote Code Execution (MS17-010) - The Exploit-DB Ref : 41987]]></DESC>
+                  <LINK><![CDATA[http://www.exploit-db.com/exploits/41987]]></LINK>
+                </EXPLT>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0146]]></REF>
+                  <DESC><![CDATA[Microsoft Windows Server 2008 R2 (x64) - 'SrvOs2FeaToNt' SMB Remote Code Execution (MS17-010) - The Exploit-DB Ref : 41987]]></DESC>
+                  <LINK><![CDATA[http://www.exploit-db.com/exploits/41987]]></LINK>
+                </EXPLT>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0145]]></REF>
+                  <DESC><![CDATA[Microsoft Windows Server 2008 R2 (x64) - 'SrvOs2FeaToNt' SMB Remote Code Execution (MS17-010) - The Exploit-DB Ref : 41987]]></DESC>
+                  <LINK><![CDATA[http://www.exploit-db.com/exploits/41987]]></LINK>
+                </EXPLT>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0144]]></REF>
+                  <DESC><![CDATA[Microsoft Windows Server 2008 R2 (x64) - 'SrvOs2FeaToNt' SMB Remote Code Execution (MS17-010) - The Exploit-DB Ref : 41987]]></DESC>
+                  <LINK><![CDATA[http://www.exploit-db.com/exploits/41987]]></LINK>
+                </EXPLT>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0147]]></REF>
+                  <DESC><![CDATA[Microsoft Windows - SMB Remote Code Execution Scanner (MS17-010) (Metasploit) - The Exploit-DB Ref : 41891]]></DESC>
+                  <LINK><![CDATA[http://www.exploit-db.com/exploits/41891]]></LINK>
+                </EXPLT>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0146]]></REF>
+                  <DESC><![CDATA[Microsoft Windows - SMB Remote Code Execution Scanner (MS17-010) (Metasploit) - The Exploit-DB Ref : 41891]]></DESC>
+                  <LINK><![CDATA[http://www.exploit-db.com/exploits/41891]]></LINK>
+                </EXPLT>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0148]]></REF>
+                  <DESC><![CDATA[Microsoft Windows - SMB Remote Code Execution Scanner (MS17-010) (Metasploit) - The Exploit-DB Ref : 41891]]></DESC>
+                  <LINK><![CDATA[http://www.exploit-db.com/exploits/41891]]></LINK>
+                </EXPLT>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0145]]></REF>
+                  <DESC><![CDATA[Microsoft Windows - SMB Remote Code Execution Scanner (MS17-010) (Metasploit) - The Exploit-DB Ref : 41891]]></DESC>
+                  <LINK><![CDATA[http://www.exploit-db.com/exploits/41891]]></LINK>
+                </EXPLT>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0144]]></REF>
+                  <DESC><![CDATA[Microsoft Windows - SMB Remote Code Execution Scanner (MS17-010) (Metasploit) - The Exploit-DB Ref : 41891]]></DESC>
+                  <LINK><![CDATA[http://www.exploit-db.com/exploits/41891]]></LINK>
+                </EXPLT>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0143]]></REF>
+                  <DESC><![CDATA[Microsoft Windows - SMB Remote Code Execution Scanner (MS17-010) (Metasploit) - The Exploit-DB Ref : 41891]]></DESC>
+                  <LINK><![CDATA[http://www.exploit-db.com/exploits/41891]]></LINK>
+                </EXPLT>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0144]]></REF>
+                  <DESC><![CDATA[Microsoft Windows 8/8.1/2012 R2 (x64) - 'EternalBlue' SMB Remote Code Execution (MS17-010) - The Exploit-DB Ref : 42030]]></DESC>
+                  <LINK><![CDATA[http://www.exploit-db.com/exploits/42030]]></LINK>
+                </EXPLT>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0144]]></REF>
+                  <DESC><![CDATA[Microsoft Windows 7/2008 R2 - 'EternalBlue' SMB Remote Code Execution (MS17-010) - The Exploit-DB Ref : 42031]]></DESC>
+                  <LINK><![CDATA[http://www.exploit-db.com/exploits/42031]]></LINK>
+                </EXPLT>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0144]]></REF>
+                  <DESC><![CDATA[Microsoft Windows 7/8.1/2008 R2/2012 R2/2016 R2 - 'EternalBlue' SMB Remote Code Execution (MS17-010) - The Exploit-DB Ref : 42315]]></DESC>
+                  <LINK><![CDATA[http://www.exploit-db.com/exploits/42315]]></LINK>
+                </EXPLT>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0143]]></REF>
+                  <DESC><![CDATA[Microsoft Windows Server 2008 R2 (x64) - 'SrvOs2FeaToNt' SMB Remote Code Execution (MS17-010) - The Exploit-DB Ref : 41987]]></DESC>
+                  <LINK><![CDATA[http://www.exploit-db.com/exploits/41987]]></LINK>
+                </EXPLT>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0147]]></REF>
+                  <DESC><![CDATA[Microsoft Windows - 'EternalRomance'/'EternalSynergy'/'EternalChampion' SMB Remote Code Execution (Metasploit) (MS17-010) - The Exploit-DB Ref : 43970]]></DESC>
+                  <LINK><![CDATA[http://www.exploit-db.com/exploits/43970]]></LINK>
+                </EXPLT>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0146]]></REF>
+                  <DESC><![CDATA[Microsoft Windows - 'EternalRomance'/'EternalSynergy'/'EternalChampion' SMB Remote Code Execution (Metasploit) (MS17-010) - The Exploit-DB Ref : 43970]]></DESC>
+                  <LINK><![CDATA[http://www.exploit-db.com/exploits/43970]]></LINK>
+                </EXPLT>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0143]]></REF>
+                  <DESC><![CDATA[Microsoft Windows - 'EternalRomance'/'EternalSynergy'/'EternalChampion' SMB Remote Code Execution (Metasploit) (MS17-010) - The Exploit-DB Ref : 43970]]></DESC>
+                  <LINK><![CDATA[http://www.exploit-db.com/exploits/43970]]></LINK>
+                </EXPLT>
+              </EXPLT_LIST>
+            </EXPLT_SRC>
+            <EXPLT_SRC>
+              <SRC_NAME><![CDATA[Metasploit]]></SRC_NAME>
+              <EXPLT_LIST>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0143]]></REF>
+                  <DESC><![CDATA[MS17-010 EternalRomance/EternalSynergy/EternalChampion SMB Remote Windows Code Execution - Metasploit Ref : /modules/exploit/windows/smb/ms17_010_psexec]]></DESC>
+                  <LINK><![CDATA[https://github.com/rapid7/metasploit-framework/blob/master/modules/exploits/windows/smb/ms17_010_psexec.rb]]></LINK>
+                </EXPLT>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0143]]></REF>
+                  <DESC><![CDATA[MS17-010 SMB RCE Detection - Metasploit Ref : /modules/auxiliary/scanner/smb/smb_ms17_010]]></DESC>
+                  <LINK><![CDATA[https://github.com/rapid7/metasploit-framework/blob/master/modules/auxiliary/scanner/smb/smb_ms17_010.rb]]></LINK>
+                </EXPLT>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0144]]></REF>
+                  <DESC><![CDATA[MS17-010 SMB RCE Detection - Metasploit Ref : /modules/auxiliary/scanner/smb/smb_ms17_010]]></DESC>
+                  <LINK><![CDATA[https://github.com/rapid7/metasploit-framework/blob/master/modules/auxiliary/scanner/smb/smb_ms17_010.rb]]></LINK>
+                </EXPLT>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0145]]></REF>
+                  <DESC><![CDATA[MS17-010 SMB RCE Detection - Metasploit Ref : /modules/auxiliary/scanner/smb/smb_ms17_010]]></DESC>
+                  <LINK><![CDATA[https://github.com/rapid7/metasploit-framework/blob/master/modules/auxiliary/scanner/smb/smb_ms17_010.rb]]></LINK>
+                </EXPLT>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0146]]></REF>
+                  <DESC><![CDATA[MS17-010 SMB RCE Detection - Metasploit Ref : /modules/auxiliary/scanner/smb/smb_ms17_010]]></DESC>
+                  <LINK><![CDATA[https://github.com/rapid7/metasploit-framework/blob/master/modules/auxiliary/scanner/smb/smb_ms17_010.rb]]></LINK>
+                </EXPLT>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0147]]></REF>
+                  <DESC><![CDATA[MS17-010 SMB RCE Detection - Metasploit Ref : /modules/auxiliary/scanner/smb/smb_ms17_010]]></DESC>
+                  <LINK><![CDATA[https://github.com/rapid7/metasploit-framework/blob/master/modules/auxiliary/scanner/smb/smb_ms17_010.rb]]></LINK>
+                </EXPLT>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0148]]></REF>
+                  <DESC><![CDATA[MS17-010 SMB RCE Detection - Metasploit Ref : /modules/auxiliary/scanner/smb/smb_ms17_010]]></DESC>
+                  <LINK><![CDATA[https://github.com/rapid7/metasploit-framework/blob/master/modules/auxiliary/scanner/smb/smb_ms17_010.rb]]></LINK>
+                </EXPLT>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0146]]></REF>
+                  <DESC><![CDATA[MS17-010 EternalRomance/EternalSynergy/EternalChampion SMB Remote Windows Code Execution - Metasploit Ref : /modules/exploit/windows/smb/ms17_010_psexec]]></DESC>
+                  <LINK><![CDATA[https://github.com/rapid7/metasploit-framework/blob/master/modules/exploits/windows/smb/ms17_010_psexec.rb]]></LINK>
+                </EXPLT>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0147]]></REF>
+                  <DESC><![CDATA[MS17-010 EternalRomance/EternalSynergy/EternalChampion SMB Remote Windows Code Execution - Metasploit Ref : /modules/exploit/windows/smb/ms17_010_psexec]]></DESC>
+                  <LINK><![CDATA[https://github.com/rapid7/metasploit-framework/blob/master/modules/exploits/windows/smb/ms17_010_psexec.rb]]></LINK>
+                </EXPLT>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0143]]></REF>
+                  <DESC><![CDATA[MS17-010 EternalBlue SMB Remote Windows Kernel Pool Corruption - Metasploit Ref : /modules/exploit/windows/smb/ms17_010_eternalblue]]></DESC>
+                  <LINK><![CDATA[https://github.com/rapid7/metasploit-framework/blob/master/modules/exploits/windows/smb/ms17_010_eternalblue.rb]]></LINK>
+                </EXPLT>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0144]]></REF>
+                  <DESC><![CDATA[MS17-010 EternalBlue SMB Remote Windows Kernel Pool Corruption - Metasploit Ref : /modules/exploit/windows/smb/ms17_010_eternalblue]]></DESC>
+                  <LINK><![CDATA[https://github.com/rapid7/metasploit-framework/blob/master/modules/exploits/windows/smb/ms17_010_eternalblue.rb]]></LINK>
+                </EXPLT>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0145]]></REF>
+                  <DESC><![CDATA[MS17-010 EternalBlue SMB Remote Windows Kernel Pool Corruption - Metasploit Ref : /modules/exploit/windows/smb/ms17_010_eternalblue]]></DESC>
+                  <LINK><![CDATA[https://github.com/rapid7/metasploit-framework/blob/master/modules/exploits/windows/smb/ms17_010_eternalblue.rb]]></LINK>
+                </EXPLT>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0146]]></REF>
+                  <DESC><![CDATA[MS17-010 EternalBlue SMB Remote Windows Kernel Pool Corruption - Metasploit Ref : /modules/exploit/windows/smb/ms17_010_eternalblue]]></DESC>
+                  <LINK><![CDATA[https://github.com/rapid7/metasploit-framework/blob/master/modules/exploits/windows/smb/ms17_010_eternalblue.rb]]></LINK>
+                </EXPLT>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0147]]></REF>
+                  <DESC><![CDATA[MS17-010 EternalBlue SMB Remote Windows Kernel Pool Corruption - Metasploit Ref : /modules/exploit/windows/smb/ms17_010_eternalblue]]></DESC>
+                  <LINK><![CDATA[https://github.com/rapid7/metasploit-framework/blob/master/modules/exploits/windows/smb/ms17_010_eternalblue.rb]]></LINK>
+                </EXPLT>
+                <EXPLT>
+                  <REF><![CDATA[CVE-2017-0148]]></REF>
+                  <DESC><![CDATA[MS17-010 EternalBlue SMB Remote Windows Kernel Pool Corruption - Metasploit Ref : /modules/exploit/windows/smb/ms17_010_eternalblue]]></DESC>
+                  <LINK><![CDATA[https://github.com/rapid7/metasploit-framework/blob/master/modules/exploits/windows/smb/ms17_010_eternalblue.rb]]></LINK>
+                </EXPLT>
+              </EXPLT_LIST>
+            </EXPLT_SRC>
+          </EXPLOITABILITY>
+        </CORRELATION>
+        <PCI_FLAG>1</PCI_FLAG>
+        <LAST_UPDATE>2019-01-15T01:18:35Z</LAST_UPDATE>
+        <VENDOR_REFERENCE_LIST>
+          <VENDOR_REFERENCE>
+            <ID><![CDATA[MS17-010]]></ID>
+            <URL><![CDATA[]]></URL>
+          </VENDOR_REFERENCE>
+          <VENDOR_REFERENCE>
+            <ID><![CDATA[MS Shadow Brokers]]></ID>
+            <URL><![CDATA[https://blogs.technet.microsoft.com/msrc/2017/04/14/protecting-customers-and-evaluating-risk/]]></URL>
+          </VENDOR_REFERENCE>
+        </VENDOR_REFERENCE_LIST>
+        <CVE_ID_LIST>
+          <CVE_ID>
+            <ID><![CDATA[CVE-2017-0143]]></ID>
+            <URL><![CDATA[http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-0143]]></URL>
+          </CVE_ID>
+          <CVE_ID>
+            <ID><![CDATA[CVE-2017-0144]]></ID>
+            <URL><![CDATA[http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-0144]]></URL>
+          </CVE_ID>
+          <CVE_ID>
+            <ID><![CDATA[CVE-2017-0145]]></ID>
+            <URL><![CDATA[http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-0145]]></URL>
+          </CVE_ID>
+          <CVE_ID>
+            <ID><![CDATA[CVE-2017-0146]]></ID>
+            <URL><![CDATA[http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-0146]]></URL>
+          </CVE_ID>
+          <CVE_ID>
+            <ID><![CDATA[CVE-2017-0148]]></ID>
+            <URL><![CDATA[http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-0148]]></URL>
+          </CVE_ID>
+          <CVE_ID>
+            <ID><![CDATA[CVE-2017-0147]]></ID>
+            <URL><![CDATA[http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-0147]]></URL>
+          </CVE_ID>
+        </CVE_ID_LIST>
+        <BUGTRAQ_ID_LIST>
+          <BUGTRAQ_ID>
+            <ID><![CDATA[96703]]></ID>
+            <URL><![CDATA[http://www.securityfocus.com/bid/96703]]></URL>
+          </BUGTRAQ_ID>
+          <BUGTRAQ_ID>
+            <ID><![CDATA[96704]]></ID>
+            <URL><![CDATA[http://www.securityfocus.com/bid/96704]]></URL>
+          </BUGTRAQ_ID>
+          <BUGTRAQ_ID>
+            <ID><![CDATA[96705]]></ID>
+            <URL><![CDATA[http://www.securityfocus.com/bid/96705]]></URL>
+          </BUGTRAQ_ID>
+          <BUGTRAQ_ID>
+            <ID><![CDATA[96707]]></ID>
+            <URL><![CDATA[http://www.securityfocus.com/bid/96707]]></URL>
+          </BUGTRAQ_ID>
+          <BUGTRAQ_ID>
+            <ID><![CDATA[96709]]></ID>
+            <URL><![CDATA[http://www.securityfocus.com/bid/96709]]></URL>
+          </BUGTRAQ_ID>
+          <BUGTRAQ_ID>
+            <ID><![CDATA[96706]]></ID>
+            <URL><![CDATA[http://www.securityfocus.com/bid/96706]]></URL>
+          </BUGTRAQ_ID>
+        </BUGTRAQ_ID_LIST>
+      </VULN_DETAILS>
+    </VULN_DETAILS_LIST>
+  </GLOSSARY>
+  <APPENDICES>
+    <NO_RESULTS>
+      <IP_LIST>
+        <RANGE>
+          <START>64.41.200.248</START>
+          <END>64.41.200.248</END>
+        </RANGE>
+      </IP_LIST>
+    </NO_RESULTS>
+    <TEMPLATE_DETAILS>
+      <FILTER_SUMMARY>
+        Status:New, Active, Re-Opened
+        Display non-running kernels:
+        Off
+        Exclude non-running kernels:
+        Off
+        Exclude non-running services:
+        Off
+        Exclude QIDs not exploitable due to configuration:
+        Off
+        Vulnerabilities:
+        State:Active
+        Information Gathered:
+        State:Active
+        Included Operating Systems:
+        All Operating Systems
+      </FILTER_SUMMARY>
+    </TEMPLATE_DETAILS>
+  </APPENDICES>
+</ASSET_DATA_REPORT>
+<!-- CONFIDENTIAL AND PROPRIETARY INFORMATION. Qualys provides the QualysGuard Service "As Is," without any warranty of any kind. Qualys makes no warranty that the information contained in this report is complete or error-free. Copyright 2019, Qualys, Inc. //--> 

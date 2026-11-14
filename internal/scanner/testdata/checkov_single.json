@@ -1,0 +1,71 @@
+{
+ "check_type": "terraform",
+ "results": {
+  "passed_checks": [],
+  "failed_checks": [
+   {
+    "check_id": "CKV_GCP_29",
+    "bc_check_id": "BC_GCP_GCS_2",
+    "check_name": "Ensure that Cloud Storage buckets have uniform bucket-level access enabled",
+    "check_result": {
+     "result": "FAILED",
+     "evaluated_keys": [
+      "uniform_bucket_level_access"
+     ]
+    },
+    "code_block": [
+     [
+      1,
+      "resource \"google_storage_bucket\" \"terragoat_website\" {\n"
+     ],
+     [
+      2,
+      "  name          = \"terragot-${var.environment}\"\n"
+     ]
+    ],
+    "file_path": "/gcs.tf",
+    "file_abs_path": "/tf/gcs.tf",
+    "repo_file_path": "/gcs.tf",
+    "file_line_range": [
+     1,
+     15
+    ],
+    "resource": "google_storage_bucket.terragoat_website",
+    "evaluations": null,
+    "check_class": "checkov.terraform.checks.resource.gcp.GoogleStorageBucketUniformAccess",
+    "fixed_definition": null,
+    "entity_tags": null,
+    "caller_file_path": null,
+    "caller_file_line_range": null,
+    "resource_address": null,
+    "severity": "MEDIUM",
+    "bc_category": "Storage",
+    "benchmarks": {
+     "CIS GCP V1.1": [
+      {
+       "name": "5.2",
+       "description": "Ensure that Cloud Storage buckets have uniform bucket-level access enabled"
+      }
+     ]
+    },
+    "description": null,
+    "short_description": null,
+    "vulnerability_details": null,
+    "connected_node": null,
+    "guideline": "https://docs.bridgecrew.io/docs/bc_gcp_gcs_2",
+    "details": []
+   }
+  ],
+  "skipped_checks": [],
+  "parsing_errors": []
+ },
+ "summary": {
+  "passed": 0,
+  "failed": 4,
+  "skipped": 0,
+  "parsing_errors": 0,
+  "resource_count": 2,
+  "checkov_version": "2.2.34"
+ },
+ "url": "https://www.bridgecrew.cloud/projects?repository=*********/tf&branch=bc-47d01eb_master&runId=latest"
+}

@@ -1,0 +1,154 @@
+{
+  "artifacts": [
+    {
+      "id": "dc90ed707a93444f",
+      "name": "leftpad",
+      "version": "1.0.0",
+      "type": "npm",
+      "foundBy": "javascript-lock-cataloger",
+      "locations": [
+        {
+          "path": "/package-lock.json",
+          "accessPath": "/package-lock.json",
+          "annotations": {
+            "evidence": "primary"
+          }
+        }
+      ],
+      "licenses": [
+        {
+          "value": "MIT",
+          "spdxExpression": "MIT",
+          "type": "declared",
+          "urls": [],
+          "locations": [
+            {
+              "path": "/package-lock.json",
+              "accessPath": "/package-lock.json",
+              "annotations": {
+                "evidence": "primary"
+              }
+            }
+          ]
+        }
+      ],
+      "language": "javascript",
+      "cpes": [
+        {
+          "cpe": "cpe:2.3:a:leftpad:leftpad:1.0.0:*:*:*:*:*:*:*",
+          "source": "syft-generated"
+        }
+      ],
+      "purl": "pkg:npm/leftpad@1.0.0",
+      "metadataType": "javascript-npm-package-lock-entry",
+      "metadata": {
+        "resolved": "https://registry.npmjs.org/leftpad/-/leftpad-1.0.0.tgz",
+        "integrity": "",
+        "dependencies": null
+      }
+    },
+    {
+      "id": "7f21d79a3f84c9de",
+      "name": "syft-demo",
+      "version": "1.0.0",
+      "type": "npm",
+      "foundBy": "javascript-lock-cataloger",
+      "locations": [
+        {
+          "path": "/package-lock.json",
+          "accessPath": "/package-lock.json",
+          "annotations": {
+            "evidence": "primary"
+          }
+        }
+      ],
+      "licenses": [],
+      "language": "javascript",
+      "cpes": [
+        {
+          "cpe": "cpe:2.3:a:syft-demo:syft-demo:1.0.0:*:*:*:*:*:*:*",
+          "source": "syft-generated"
+        },
+        {
+          "cpe": "cpe:2.3:a:syft-demo:syft_demo:1.0.0:*:*:*:*:*:*:*",
+          "source": "syft-generated"
+        },
+        {
+          "cpe": "cpe:2.3:a:syft_demo:syft-demo:1.0.0:*:*:*:*:*:*:*",
+          "source": "syft-generated"
+        },
+        {
+          "cpe": "cpe:2.3:a:syft_demo:syft_demo:1.0.0:*:*:*:*:*:*:*",
+          "source": "syft-generated"
+        },
+        {
+          "cpe": "cpe:2.3:a:syft:syft-demo:1.0.0:*:*:*:*:*:*:*",
+          "source": "syft-generated"
+        },
+        {
+          "cpe": "cpe:2.3:a:syft:syft_demo:1.0.0:*:*:*:*:*:*:*",
+          "source": "syft-generated"
+        }
+      ],
+      "purl": "pkg:npm/syft-demo@1.0.0",
+      "metadataType": "javascript-npm-package-lock-entry",
+      "metadata": {
+        "resolved": "",
+        "integrity": "",
+        "dependencies": {
+          "leftpad": "1.0.0"
+        }
+      }
+    }
+  ],
+  "artifactRelationships": [
+    {
+      "parent": "7f21d79a3f84c9de",
+      "child": "fd71c2238fc07657",
+      "type": "evident-by",
+      "metadata": {
+        "kind": "primary"
+      }
+    },
+    {
+      "parent": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8",
+      "child": "7f21d79a3f84c9de",
+      "type": "contains"
+    },
+    {
+      "parent": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8",
+      "child": "dc90ed707a93444f",
+      "type": "contains"
+    },
+    {
+      "parent": "dc90ed707a93444f",
+      "child": "7f21d79a3f84c9de",
+      "type": "dependency-of"
+    },
+    {
+      "parent": "dc90ed707a93444f",
+      "child": "fd71c2238fc07657",
+      "type": "evident-by",
+      "metadata": {
+        "kind": "primary"
+      }
+    }
+  ],
+  "source": {
+    "id": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8",
+    "name": ".",
+    "version": "",
+    "type": "directory",
+    "metadata": {
+      "path": "."
+    }
+  },
+  "descriptor": {
+    "name": "syft",
+    "version": "1.42.3"
+  },
+  "schema": {
+    "version": "16.1.3",
+    "url": "https://raw.githubusercontent.com/anchore/syft/main/schema/json/schema-16.1.3.json"
+  }
+}

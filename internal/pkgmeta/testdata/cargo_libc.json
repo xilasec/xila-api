@@ -1,0 +1,59 @@
+{
+  "crate": {
+    "id": "libc",
+    "name": "libc",
+    "max_version": "1.0.0-alpha.5",
+    "max_stable_version": "0.2.191",
+    "newest_version": "0.2.191"
+  },
+  "versions": [
+    {
+      "id": 3518841,
+      "crate": "libc",
+      "num": "0.2.191",
+      "created_at": "2026-10-16T22:56:46.041660Z",
+      "yanked": false,
+      "yank_message": null
+    },
+    {
+      "id": 3386652,
+      "crate": "libc",
+      "num": "0.2.190",
+      "created_at": "2026-10-02T19:33:19.966421Z",
+      "yanked": false,
+      "yank_message": null
+    },
+    {
+      "id": 3382819,
+      "crate": "libc",
+      "num": "1.0.0-alpha.5",
+      "created_at": "2026-10-02T09:35:33.743439Z",
+      "yanked": false,
+      "yank_message": null
+    },
+    {
+      "id": 1354105,
+      "crate": "libc",
+      "num": "0.2.166",
+      "created_at": "2024-11-26T22:55:05.341367Z",
+      "yanked": false,
+      "yank_message": null
+    },
+    {
+      "id": 1352504,
+      "crate": "libc",
+      "num": "0.2.165",
+      "created_at": "2024-11-25T21:34:45.467821Z",
+      "yanked": true,
+      "yank_message": null
+    },
+    {
+      "id": 1342092,
+      "crate": "libc",
+      "num": "0.2.164",
+      "created_at": "2024-11-16T10:29:15.314915Z",
+      "yanked": false,
+      "yank_message": null
+    }
+  ]
+}

@@ -1,0 +1,245 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.4",
+  "serialNumber": "urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79",
+  "version": 1,
+  "metadata": {
+    "component": {
+      "bom-ref": "root",
+      "type": "application",
+      "name": "license-sample",
+      "version": "1.0.0"
+    }
+  },
+  "components": [
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/antlr/antlr@2.7.7?type=jar",
+      "group": "antlr",
+      "name": "antlr",
+      "version": "2.7.7",
+      "licenses": [
+        {
+          "license": {
+            "name": "BSD License",
+            "url": "http://www.antlr.org/license.html"
+          }
+        }
+      ],
+      "purl": "pkg:maven/antlr/antlr@2.7.7?type=jar"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/org.bouncycastle/bcprov-jdk15on@1.62?type=jar",
+      "group": "org.bouncycastle",
+      "name": "bcprov-jdk15on",
+      "version": "1.62",
+      "licenses": [
+        {
+          "license": {
+            "name": "Bouncy Castle Licence",
+            "url": "http://www.bouncycastle.org/licence.html"
+          }
+        }
+      ],
+      "purl": "pkg:maven/org.bouncycastle/bcprov-jdk15on@1.62?type=jar"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/org.checkerframework/checker-compat-qual@2.0.0?type=jar",
+      "group": "org.checkerframework",
+      "name": "checker-compat-qual",
+      "version": "2.0.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "GNU General Public License, version 2 (GPL2), with the classpath exception",
+            "url": "http://www.gnu.org/software/classpath/license.html"
+          }
+        },
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:maven/org.checkerframework/checker-compat-qual@2.0.0?type=jar"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.dropwizard/dropwizard-util@1.3.15?type=jar",
+      "group": "io.dropwizard",
+      "name": "dropwizard-util",
+      "version": "1.3.15",
+      "licenses": [],
+      "purl": "pkg:maven/io.dropwizard/dropwizard-util@1.3.15?type=jar"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/org.hibernate/hibernate-core@5.2.18.Final?type=jar",
+      "publisher": "Hibernate.org",
+      "group": "org.hibernate",
+      "name": "hibernate-core",
+      "version": "5.2.18.Final",
+      "licenses": [
+        {
+          "license": {
+            "name": "GNU Lesser General Public License",
+            "url": "http://www.gnu.org/licenses/lgpl-2.1.html"
+          }
+        }
+      ],
+      "purl": "pkg:maven/org.hibernate/hibernate-core@5.2.18.Final?type=jar"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/com.fasterxml.jackson.core/jackson-annotations@2.9.10?type=jar",
+      "publisher": "FasterXML",
+      "group": "com.fasterxml.jackson.core",
+      "name": "jackson-annotations",
+      "version": "2.9.10",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ],
+      "purl": "pkg:maven/com.fasterxml.jackson.core/jackson-annotations@2.9.10?type=jar"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/javax.ws.rs/javax.ws.rs-api@2.0.1?type=jar",
+      "publisher": "Oracle Corporation",
+      "group": "javax.ws.rs",
+      "name": "javax.ws.rs-api",
+      "version": "2.0.1",
+      "licenses": [
+        {
+          "license": {
+            "id": "CDDL-1.1"
+          }
+        },
+        {
+          "license": {
+            "id": "GPL-2.0-with-classpath-exception"
+          }
+        }
+      ],
+      "purl": "pkg:maven/javax.ws.rs/javax.ws.rs-api@2.0.1?type=jar"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/org.jboss/jboss-dmr@1.5.0.Final?type=jar",
+      "publisher": "JBoss by Red Hat",
+      "group": "org.jboss",
+      "name": "jboss-dmr",
+      "version": "1.5.0.Final",
+      "licenses": [
+        {
+          "license": {
+            "id": "LGPL-2.1",
+            "url": "https://www.gnu.org/licenses/old-licenses/lgpl-2.1-standalone.html"
+          }
+        },
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "http://www.apache.org/licenses/LICENSE-2.0"
+          }
+        }
+      ],
+      "purl": "pkg:maven/org.jboss/jboss-dmr@1.5.0.Final?type=jar"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/net.java.dev.jna/jna@4.1.0?type=jar",
+      "group": "net.java.dev.jna",
+      "name": "jna",
+      "version": "4.1.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "LGPL, version 2.1",
+            "url": "http://www.gnu.org/licenses/licenses.html"
+          }
+        },
+        {
+          "license": {
+            "name": "ASL, version 2",
+            "url": "http://www.apache.org/licenses/"
+          }
+        }
+      ],
+      "purl": "pkg:maven/net.java.dev.jna/jna@4.1.0?type=jar"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/org.junit.jupiter/junit-jupiter-engine@5.2.0?type=jar",
+      "group": "org.junit.jupiter",
+      "name": "junit-jupiter-engine",
+      "version": "5.2.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "Eclipse Public License v2.0",
+            "url": "http://www.eclipse.org/legal/epl-v20.html"
+          }
+        }
+      ],
+      "purl": "pkg:maven/org.junit.jupiter/junit-jupiter-engine@5.2.0?type=jar"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/ch.qos.logback/logback-core@1.2.3?type=jar",
+      "publisher": "QOS.ch",
+      "group": "ch.qos.logback",
+      "name": "logback-core",
+      "version": "1.2.3",
+      "licenses": [
+        {
+          "license": {
+            "id": "EPL-1.0"
+          }
+        },
+        {
+          "license": {
+            "name": "GNU Lesser General Public License",
+            "url": "http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html"
+          }
+        }
+      ],
+      "purl": "pkg:maven/ch.qos.logback/logback-core@1.2.3?type=jar"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/org.glassfish.hk2/osgi-resource-locator@1.0.1?type=jar",
+      "publisher": "GlassFish Community",
+      "group": "org.glassfish.hk2",
+      "name": "osgi-resource-locator",
+      "version": "1.0.1",
+      "licenses": [
+        {
+          "expression": "(CDDL-1.0 OR GPL-2.0-with-classpath-exception)"
+        }
+      ],
+      "purl": "pkg:maven/org.glassfish.hk2/osgi-resource-locator@1.0.1?type=jar"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/org.reactivestreams/reactive-streams@1.0.3?type=jar",
+      "group": "org.reactivestreams",
+      "name": "reactive-streams",
+      "version": "1.0.3",
+      "licenses": [
+        {
+          "license": {
+            "name": "CC0",
+            "url": "http://creativecommons.org/publicdomain/zero/1.0/"
+          }
+        }
+      ],
+      "purl": "pkg:maven/org.reactivestreams/reactive-streams@1.0.3?type=jar"
+    }
+  ]
+}

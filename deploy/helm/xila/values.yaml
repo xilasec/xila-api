@@ -1,0 +1,243 @@
+# Default values for the Xila chart.
+#
+# Quick start (bundled PostgreSQL, secrets generated for you):
+#   helm install xila deploy/helm/xila --namespace xila --create-namespace
+#
+# Production: point `database` at a managed PostgreSQL 15+ with TLS
+# (postgresql.enabled=false), set `publicUrl`, enable `ingress`, and keep the
+# generated secrets — or bring your own via `existingSecret`.
+
+image:
+  repository: ghcr.io/xilasec/xila-api
+  # Defaults to the chart's appVersion.
+  tag: ""
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+# Replicas are safe to scale: scheduled jobs (digest, sweeps, syncs, metric
+# snapshots…) run on exactly one pod at a time via a PostgreSQL advisory-lock
+# leader election; ingest workers run on every pod (the queue is SKIP LOCKED).
+replicaCount: 2
+
+# --- Application settings -----------------------------------------------------
+
+# development | production. Production enforces a strong JWT secret and
+# hardened defaults (CORS closed, Secure cookies).
+appEnv: production
+
+# The URL users reach the UI at (https://xila.example.com). Used in links back
+# to Xila (issue bodies, VEX ids). Defaults to the first ingress host if empty.
+publicUrl: ""
+
+# Browser origins allowed to call the API cross-origin. Empty = same-origin only
+# (the UI is served by the API itself, so this is usually right).
+corsAllowedOrigins: []
+
+# Proxy IPs/CIDRs whose X-Forwarded-* headers are trusted (your ingress
+# controller / load balancer), so client IPs and schemes are accurate.
+trustedProxies: []
+
+# Any other setting from the README configuration table, as plain env vars
+# (non-secret). Example:
+#   config:
+#     ENRICH_INTERVAL: 12h
+#     SLA_SWEEP_INTERVAL: 30m
+#     INGEST_ASYNC: "true"
+#     OIDC_ENABLED: "true"
+#     OIDC_ISSUER: https://accounts.google.com
+config: {}
+
+# Secrets. Empty values are generated on install and kept across upgrades.
+secrets:
+  # JWT signing key.
+  jwtSecret: ""
+  # 32 random bytes, base64 — encrypts issue-tracker / connector tokens at rest.
+  # Changing it makes stored integration tokens unreadable.
+  integrationSecretKey: ""
+  # Other secret env vars, e.g. SMTP_PASSWORD, OIDC_CLIENT_SECRET, and the SAML
+  # SP key pair SAML_SP_CERT / SAML_SP_KEY (PEM). Without that pair Xila generates
+  # one and stores it in the database sealed with integrationSecretKey.
+  extra: {}
+
+# Use a Secret you manage (sealed-secrets, external-secrets…) instead. It must
+# contain JWT_SECRET and INTEGRATION_SECRET_KEY, and may contain any other env
+# var (SMTP_PASSWORD, OIDC_CLIENT_SECRET, SAML_SP_KEY, DB_PASSWORD…). `secrets` is then ignored.
+existingSecret: ""
+
+# --- Database -------------------------------------------------------------------
+
+# External PostgreSQL 15+ (used when postgresql.enabled=false). Session-level
+# advisory locks are used, so connect directly or through a session-mode
+# pooler — not transaction-mode PgBouncer.
+database:
+  host: ""
+  port: 5432
+  name: xila
+  user: xila
+  # Ignored when passwordSecret.name is set.
+  password: ""
+  passwordSecret:
+    name: ""
+    key: password
+  sslmode: require
+  maxConns: 20
+  minConns: 2
+
+# Bundled single-instance PostgreSQL for evaluation and small installs. No
+# backups, no HA — use a managed database for anything you can't lose.
+postgresql:
+  enabled: true
+  image:
+    repository: docker.io/library/postgres
+    tag: 18-alpine
+    pullPolicy: IfNotPresent
+  # Server settings, as postgres command-line flags. random_page_cost=1.1 suits
+  # SSD-backed volumes (the stock 4 models spinning disks and makes the planner
+  # pick whole-table scans; see docs/SCALE.md). Set to [] to keep the defaults.
+  extraArgs: ["-c", "random_page_cost=1.1"]
+  auth:
+    database: xila
+    username: xila
+    # Generated (and kept across upgrades) when empty.
+    password: ""
+  persistence:
+    size: 8Gi
+    storageClass: ""
+    accessModes: [ReadWriteOnce]
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 1Gi }
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# --- Observability ----------------------------------------------------------
+
+otel:
+  enabled: false
+  # host:port of an OTLP/gRPC collector, no scheme.
+  endpoint: ""
+  insecure: false
+
+# Prometheus /metrics (METRICS_ENABLED) on its own container port
+# (METRICS_ADDR), which the Service exposes as "metrics" and the Ingress never
+# routes. Same instruments as the OTLP export: HTTP by route, ingest queue,
+# notification outbox, background jobs and feed freshness, Go runtime.
+metrics:
+  enabled: false
+  port: 9090
+  # Optional bearer token scrapers must send: put METRICS_TOKEN in
+  # secrets.extra and set serviceMonitor.bearerTokenSecret to match.
+  serviceMonitor:
+    # Needs the Prometheus Operator CRDs (monitoring.coreos.com/v1).
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+    labels: {}
+    # e.g. {name: xila-secrets, key: METRICS_TOKEN}
+    bearerTokenSecret: {}
+
+# --- Kubernetes plumbing ----------------------------------------------------
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+  # The app never talks to the Kubernetes API.
+  automount: false
+
+service:
+  type: ClusterIP
+  port: 80
+  annotations: {}
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # Scan and SBOM uploads can be large; match HTTP_BODY_LIMIT_MB (32).
+    # nginx.ingress.kubernetes.io/proxy-body-size: 32m
+  hosts:
+    - host: xila.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  #  - secretName: xila-tls
+  #    hosts: [xila.example.com]
+
+resources:
+  requests: { cpu: 100m, memory: 128Mi }
+  limits: { memory: 512Mi }
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 75
+
+# Kept on when more than one replica can run.
+podDisruptionBudget:
+  enabled: true
+  maxUnavailable: 1
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  seccompProfile: { type: RuntimeDefault }
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities: { drop: [ALL] }
+
+# Pods get this long to drain requests and hand over the scheduler lock.
+terminationGracePeriodSeconds: 30
+
+probes:
+  # Migrations run at startup; give a large schema upgrade time to finish.
+  startup:
+    httpGet: { path: /ready, port: http }
+    periodSeconds: 5
+    failureThreshold: 60
+  liveness:
+    httpGet: { path: /health, port: http }
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  readiness:
+    httpGet: { path: /ready, port: http }
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+# Restrict ingress to the app port (from anywhere, or the listed peers) and
+# to the bundled PostgreSQL from the app pods only.
+networkPolicy:
+  enabled: false
+  # Extra peers allowed to reach the app, e.g. your ingress controller's namespace.
+  # Empty = any source.
+  ingressFrom: []
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+# Defaults to spreading replicas across nodes when empty.
+topologySpreadConstraints: []
+
+extraEnv: []
+extraEnvFrom: []
+extraVolumes: []
+extraVolumeMounts: []
+
+# `helm test` image (needs wget).
+tests:
+  image: docker.io/library/busybox:1.36

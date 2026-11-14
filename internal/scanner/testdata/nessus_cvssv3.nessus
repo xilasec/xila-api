@@ -1,0 +1,2947 @@
+<?xml version="1.0" ?>
+<NessusClientData_v2>
+    <Report name="dummy scan" xmlns:cm="http://www.nessus.org/cm">
+        <ReportHost name="testphp.vulnweb.com">
+            <HostProperties>
+                <tag name="HOST_END_TIMESTAMP">1648044472</tag>
+                <tag name="HOST_END">Wed Mar 23 15:07:52 2022</tag>
+                <tag name="cpe-5">cpe:/a:php:php:5.1.6 -&gt; PHP PHP</tag>
+                <tag name="LastUnauthenticatedResults">1648044472</tag>
+                <tag name="Credentialed_Scan">false</tag>
+                <tag name="policy-used">Basic Network Scan</tag>
+                <tag name="patch-summary-total-cves">138</tag>
+                <tag name="cpe-4">cpe:/a:nginx:nginx:1.19.0 -&gt; Nginx</tag>
+                <tag name="cpe-3">cpe:/a:php:php:5.6.40-38+ubuntu20.04.1+deb.sury.org+1 -&gt; PHP PHP</tag>
+                <tag name="patch-summary-cves-e6c83756995a506a166149a2bd8dccfb">CVE-2014-8626, CVE-2012-1172,
+                    CVE-2012-1171, CVE-2012-0831, CVE-2012-0789, CVE-2012-0788, CVE-2012-0781, CVE-2012-0057,
+                    CVE-2011-4885, CVE-2011-4566, CVE-2011-3379, CVE-2011-1398, CVE-2010-1130, CVE-2010-1129,
+                    CVE-2010-1128, CVE-2009-5016, CVE-2009-4143, CVE-2009-4142, CVE-2009-4018, CVE-2009-4017,
+                    CVE-2009-3558, CVE-2009-3557, CVE-2009-3294, CVE-2009-3293, CVE-2009-3292, CVE-2009-3291,
+                    CVE-2009-2687, CVE-2009-1272, CVE-2009-1271, CVE-2008-7068, CVE-2008-5658, CVE-2008-5625,
+                    CVE-2008-5624, CVE-2008-5557, CVE-2008-5498, CVE-2008-3660, CVE-2008-3659, CVE-2008-3658,
+                    CVE-2008-2829, CVE-2008-2666, CVE-2008-2665, CVE-2008-2371, CVE-2007-5424, CVE-2007-4663,
+                    CVE-2007-4662, CVE-2007-4661, CVE-2007-4660, CVE-2007-4659, CVE-2007-4658, CVE-2007-4652,
+                    CVE-2007-4586, CVE-2007-4507, CVE-2007-4441, CVE-2007-4255, CVE-2007-4033, CVE-2007-4010,
+                    CVE-2007-3806, CVE-2007-3799, CVE-2007-3790, CVE-2007-3378, CVE-2007-3294, CVE-2007-3007,
+                    CVE-2007-2872, CVE-2007-2844, CVE-2007-2756, CVE-2007-1900, CVE-2007-1890, CVE-2007-1889,
+                    CVE-2007-1888, CVE-2007-1887, CVE-2007-1886, CVE-2007-1885, CVE-2007-1884, CVE-2007-1835,
+                    CVE-2007-1825, CVE-2007-1824, CVE-2007-1718, CVE-2007-1717, CVE-2007-1701, CVE-2007-1700,
+                    CVE-2007-1649, CVE-2007-1584, CVE-2007-1583, CVE-2007-1454, CVE-2007-1453, CVE-2007-1452,
+                    CVE-2007-1413, CVE-2007-1383, CVE-2007-1381, CVE-2007-1380, CVE-2007-1376, CVE-2007-1001,
+                    CVE-2007-0988, CVE-2007-0910, CVE-2007-0909, CVE-2007-0908, CVE-2007-0907, CVE-2007-0906,
+                    CVE-2007-0905, CVE-2007-0448, CVE-2006-7205, CVE-2006-6383, CVE-2006-5706, CVE-2006-5465,
+                    CVE-2006-4812, CVE-2006-4625, CVE-2006-4486, CVE-2006-2660, CVE-2006-1549, CVE-2006-1015
+                </tag>
+                <tag name="patch-summary-cve-num-e6c83756995a506a166149a2bd8dccfb">110</tag>
+                <tag name="patch-summary-txt-e6c83756995a506a166149a2bd8dccfb">PHP &lt; 5.3.12 / 5.4.2 CGI Query String
+                    Code Execution: Upgrade to PHP version 5.3.12 / 5.4.2 or later. A &apos;mod_rewrite&apos; workaround
+                    is available as well.
+                </tag>
+                <tag name="cpe-2">cpe:/a:igor_sysoev:nginx:1.19.0 -&gt; Nginx</tag>
+                <tag name="cpe-1">cpe:/a:php:php:5.6.40 -&gt; PHP PHP</tag>
+                <tag name="cpe-0">cpe:/o:linux:linux_kernel -&gt; Linux Kernel</tag>
+                <tag name="cpe">cpe:/o:linux:linux_kernel</tag>
+                <tag name="os">linux</tag>
+                <tag name="operating-system-conf">65</tag>
+                <tag name="operating-system-method">SinFP</tag>
+                <tag name="host-fqdns">[{&quot;FQDN&quot;:&quot;testphp.vulnweb.com&quot;,&quot;sources&quot;:[&quot;get_host_report_name()&quot;,&quot;determine_fqdn()&quot;]},{&quot;FQDN&quot;:&quot;ec2-44-228-249-3.us-west-2.compute.amazonaws.com&quot;,&quot;sources&quot;:[&quot;get_host_fqdn()&quot;]}]</tag>
+                <tag name="system-type">general-purpose</tag>
+                <tag name="operating-system">Linux Kernel 2.6</tag>
+                <tag name="DDI_Dir_Scanner_Global_Duration">197</tag>
+                <tag name="DDI_Dir_Scanner_Port_80_Duration">197</tag>
+                <tag name="DDI_Dir_Scanner_Port_80_Pass_Start">1648042696</tag>
+                <tag name="DDI_Dir_Scanner_Port_80_Init">1648042695</tag>
+                <tag name="DDI_Dir_Scanner_Global_Init">1648042695</tag>
+                <tag name="traceroute-hop-8">?</tag>
+                <tag name="traceroute-hop-7">?</tag>
+                <tag name="traceroute-hop-6">?</tag>
+                <tag name="traceroute-hop-5">?</tag>
+                <tag name="traceroute-hop-4">?</tag>
+                <tag name="traceroute-hop-3">?</tag>
+                <tag name="traceroute-hop-2">?</tag>
+                <tag name="traceroute-hop-1">?</tag>
+                <tag name="traceroute-hop-0">10.20.0.254</tag>
+                <tag name="sinfp-ml-prediction">[{&quot;predicted-os&quot;: &quot;Microsoft Windows Server 2012 R2&quot;,
+                    &quot;confidence&quot;: 1},{&quot;predicted-os&quot;: &quot;Ubuntu 14.04 Linux Kernel 3.13&quot;,
+                    &quot;confidence&quot;: 6},{&quot;predicted-os&quot;: &quot;CentOS Linux 7 Linux Kernel 3.10&quot;,
+                    &quot;confidence&quot;: 1}]
+                </tag>
+                <tag name="sinfp-signature">
+                    P1:B10113:F0x12:W62727:O0204ffff:M1460:
+                    P2:B10113:F0x12:W62643:O0204ffff0402080affffffff4445414401030307:M1460:
+                    P3:B00000:F0x00:W0:O0:M0
+                    P4:190101_7_p=80R
+                </tag>
+                <tag name="host-fqdn">testphp.vulnweb.com</tag>
+                <tag name="host-rdns">ec2-44-228-249-3.us-west-2.compute.amazonaws.com</tag>
+                <tag name="host-ip">44.228.249.3</tag>
+                <tag name="HOST_START_TIMESTAMP">1648042311</tag>
+                <tag name="HOST_START">Wed Mar 23 14:31:51 2022</tag>
+            </HostProperties>
+            <ReportItem port="0" svc_name="general" protocol="tcp" severity="0" pluginID="45590"
+                        pluginName="Common Platform Enumeration (CPE)" pluginFamily="General">
+                <agent>all</agent>
+                <description>By using information obtained from a Nessus scan, this plugin reports CPE (Common Platform
+                    Enumeration) matches for various hardware and software products found on a host.
+
+                    Note that if an official CPE is not available for the product, this plugin computes the best
+                    possible CPE based on the information available from the scan.
+                </description>
+                <fname>cpe.nbin</fname>
+                <plugin_modification_date>2022/02/14</plugin_modification_date>
+                <plugin_name>Common Platform Enumeration (CPE)</plugin_name>
+                <plugin_publication_date>2010/04/21</plugin_publication_date>
+                <plugin_type>combined</plugin_type>
+                <risk_factor>None</risk_factor>
+                <script_version>1.118</script_version>
+                <see_also>http://cpe.mitre.org/
+                    https://nvd.nist.gov/products/cpe
+                </see_also>
+                <solution>n/a</solution>
+                <synopsis>It was possible to enumerate CPE names that matched on the remote system.</synopsis>
+                <plugin_output>
+                    The remote operating system matched the following CPE :
+
+                    cpe:/o:linux:linux_kernel -&gt; Linux Kernel
+
+                    Following application CPE&apos;s matched on the remote system :
+
+                    cpe:/a:igor_sysoev:nginx:1.19.0 -&gt; Nginx
+                    cpe:/a:nginx:nginx:1.19.0 -&gt; Nginx
+                    cpe:/a:php:php:5.1.6 -&gt; PHP PHP
+                    cpe:/a:php:php:5.6.40 -&gt; PHP PHP
+                    cpe:/a:php:php:5.6.40-38+ubuntu20.04.1+deb.sury.org+1 -&gt; PHP PHP
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="0" svc_name="general" protocol="tcp" severity="0" pluginID="19506"
+                        pluginName="Nessus Scan Information" pluginFamily="Settings">
+                <agent>all</agent>
+                <always_run>1</always_run>
+                <description>This plugin displays, for each tested host, information about the scan itself :
+
+                    - The version of the plugin set.
+                    - The type of scanner (Nessus or Nessus Home).
+                    - The version of the Nessus Engine.
+                    - The port scanner(s) used.
+                    - The port range scanned.
+                    - The ping round trip time
+                    - Whether credentialed or third-party patch management checks are possible.
+                    - Whether the display of superseded patches is enabled
+                    - The date of the scan.
+                    - The duration of the scan.
+                    - The number of hosts scanned in parallel.
+                    - The number of checks done in parallel.
+                </description>
+                <fname>scan_info.nasl</fname>
+                <plugin_modification_date>2021/09/27</plugin_modification_date>
+                <plugin_name>Nessus Scan Information</plugin_name>
+                <plugin_publication_date>2005/08/26</plugin_publication_date>
+                <plugin_type>summary</plugin_type>
+                <risk_factor>None</risk_factor>
+                <script_version>1.106</script_version>
+                <solution>n/a</solution>
+                <synopsis>This plugin displays information about the Nessus scan.</synopsis>
+                <plugin_output>Information about this scan :
+
+                    Nessus version : 10.1.1
+                    Nessus build : X20061
+                    Plugin feed version : 202203230748
+                    Scanner edition used : Nessus
+                    Scanner OS : LINUX
+                    Scanner distribution : ubuntu910-x86-64
+                    Scan type : Normal
+                    Scan name : dummy scan
+                    Scan policy used : Basic Network Scan
+                    Scanner IP : 10.20.0.0.1
+                    Port scanner(s) : nessus_syn_scanner
+                    Port range : default
+                    Ping RTT : 184.503 ms
+                    Thorough tests : no
+                    Experimental tests : no
+                    Paranoia level : 1
+                    Report verbosity : 1
+                    Safe checks : yes
+                    Optimize the test : yes
+                    Credentialed checks : no
+                    Patch management checks : None
+                    Display superseded patches : yes (supersedence plugin launched)
+                    CGI scanning : enabled
+                    Web application tests : disabled
+                    Max hosts : 30
+                    Max checks : 4
+                    Recv timeout : 5
+                    Backports : None
+                    Allow post-scan editing: Yes
+                    Scan Start Date : 2022/3/23 14:32 CET
+                    Scan duration : 2151 sec
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="0" svc_name="general" protocol="tcp" severity="0" pluginID="66334"
+                        pluginName="Patch Report" pluginFamily="General">
+                <agent>all</agent>
+                <description>The remote host is missing one or more security patches. This plugin lists the newest
+                    version of each patch to install to make sure the remote host is up-to-date.
+                </description>
+                <fname>patches_summary.nbin</fname>
+                <plugin_modification_date>2022/03/08</plugin_modification_date>
+                <plugin_name>Patch Report</plugin_name>
+                <plugin_publication_date>2013/07/08</plugin_publication_date>
+                <plugin_type>combined</plugin_type>
+                <risk_factor>None</risk_factor>
+                <script_version>1.204</script_version>
+                <solution>Install the patches listed below.</solution>
+                <synopsis>The remote host is missing several patches.</synopsis>
+                <plugin_output>
+
+                    . You need to take the following action :
+
+                    [ PHP &lt; 5.3.12 / 5.4.2 CGI Query String Code Execution (58988) ]
+
+                    + Action to take : Upgrade to PHP version 5.3.12 / 5.4.2 or later. A &apos;mod_rewrite&apos;
+                    workaround is available as well.
+
+                    +Impact : Taking this action will resolve 110 different vulnerabilities (CVEs).
+
+
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="2" pluginID="40984"
+                        pluginName="Browsable Web Directories" pluginFamily="CGI abuses">
+                <cvss3_base_score>5.3</cvss3_base_score>
+                <cvss3_vector>CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N</cvss3_vector>
+                <cvss_base_score>5.0</cvss_base_score>
+                <cvss_vector>CVSS2#AV:N/AC:L/Au:N/C:P/I:N/A:N</cvss_vector>
+                <description>Multiple Nessus plugins identified directories on the web server that are browsable.
+                </description>
+                <fname>browsable_web_dir.nasl</fname>
+                <plugin_modification_date>2021/01/19</plugin_modification_date>
+                <plugin_name>Browsable Web Directories</plugin_name>
+                <plugin_publication_date>2009/09/15</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <risk_factor>Medium</risk_factor>
+                <script_version>1.10</script_version>
+                <see_also>http://www.nessus.org/u?0a35179e</see_also>
+                <solution>Make sure that browsable directories do not leak confidential information or give access to
+                    sensitive resources. Additionally, use access restrictions or disable directory indexing for any
+                    that do.
+                </solution>
+                <synopsis>Some directories on the remote web server are browsable.</synopsis>
+                <plugin_output>
+                    The following directories are browsable :
+
+                    http://testphp.vulnweb.com/CVS/
+                    http://testphp.vulnweb.com/Templates/
+                    http://testphp.vulnweb.com/admin/
+                    http://testphp.vulnweb.com/images/
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="0" svc_name="general" protocol="tcp" severity="0" pluginID="54615"
+                        pluginName="Device Type" pluginFamily="General">
+                <description>Based on the remote operating system, it is possible to determine what the remote system
+                    type is (eg: a printer, router, general-purpose computer, etc).
+                </description>
+                <fname>device_type.nasl</fname>
+                <plugin_modification_date>2011/05/23</plugin_modification_date>
+                <plugin_name>Device Type</plugin_name>
+                <plugin_publication_date>2011/05/23</plugin_publication_date>
+                <plugin_type>combined</plugin_type>
+                <risk_factor>None</risk_factor>
+                <script_version>$Revision: 1.1 $</script_version>
+                <solution>n/a</solution>
+                <synopsis>It is possible to guess the remote device type.</synopsis>
+                <plugin_output>Remote device type : general-purpose
+                    Confidence level : 65
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="0" svc_name="general" protocol="tcp" severity="0" pluginID="11936"
+                        pluginName="OS Identification" pluginFamily="General">
+                <agent>all</agent>
+                <asset_inventory>True</asset_inventory>
+                <description>Using a combination of remote probes (e.g., TCP/IP, SMB, HTTP, NTP, SNMP, etc.), it is
+                    possible to guess the name of the remote operating system in use. It is also possible sometimes to
+                    guess the version of the operating system.
+                </description>
+                <fname>os_fingerprint.nasl</fname>
+                <os_identification>True</os_identification>
+                <plugin_modification_date>2022/03/09</plugin_modification_date>
+                <plugin_name>OS Identification</plugin_name>
+                <plugin_publication_date>2003/12/09</plugin_publication_date>
+                <plugin_type>combined</plugin_type>
+                <risk_factor>None</risk_factor>
+                <script_version>2.61</script_version>
+                <solution>n/a</solution>
+                <synopsis>It is possible to guess the remote operating system.</synopsis>
+                <plugin_output>
+                    Remote operating system : Linux Kernel 2.6
+                    Confidence level : 65
+                    Method : SinFP
+
+
+                    The remote host is running Linux Kernel 2.6
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="0" pluginID="72427"
+                        pluginName="Web Site Client Access Policy File Detection" pluginFamily="CGI abuses">
+                <description>The remote web server contains a client access policy file. This is a simple XML file used
+                    by Microsoft Silverlight to allow access to services that reside outside the exact web domain from
+                    which a Silverlight control originated.
+                </description>
+                <exploited_by_nessus>true</exploited_by_nessus>
+                <fname>clientaccesspolicy.nasl</fname>
+                <plugin_modification_date>2021/01/19</plugin_modification_date>
+                <plugin_name>Web Site Client Access Policy File Detection</plugin_name>
+                <plugin_publication_date>2014/02/11</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <risk_factor>None</risk_factor>
+                <script_version>1.5</script_version>
+                <see_also>http://www.nessus.org/u?a4eeeaa2</see_also>
+                <solution>Review the contents of the policy file carefully. Improper policies, especially an
+                    unrestricted one with just &apos;*&apos;, could allow for cross- site request forgery or other
+                    attacks against the web server.
+                </solution>
+                <synopsis>The remote web server contains a &apos;clientaccesspolicy.xml&apos; file.</synopsis>
+                <plugin_output>
+                    Nessus was able to obtain a client access policy file from the
+                    remote host at the following URL :
+
+                    GET /clientaccesspolicy.xml HTTP/1.1
+                    Host: testphp.vulnweb.com
+                    Accept-Charset: iso-8859-1,utf-8;q=0.9,*;q=0.1
+                    Accept-Language: en
+                    Connection: Keep-Alive
+                    User-Agent: Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.1; Trident/4.0)
+                    Pragma: no-cache
+                    Accept: image/gif, image/x-xbitmap, image/jpeg, image/pjpeg, image/png, */*
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="0" pluginID="32318"
+                        pluginName="Web Site Cross-Domain Policy File Detection" pluginFamily="CGI abuses">
+                <description>The remote web server contains a cross-domain policy file. This is a simple XML file used
+                    by Adobe&apos;s Flash Player to allow access to data that resides outside the exact web domain from
+                    which a Flash movie file originated.
+                </description>
+                <exploited_by_nessus>true</exploited_by_nessus>
+                <fname>crossdomain.nasl</fname>
+                <plugin_modification_date>2021/01/19</plugin_modification_date>
+                <plugin_name>Web Site Cross-Domain Policy File Detection</plugin_name>
+                <plugin_publication_date>2008/05/15</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <risk_factor>None</risk_factor>
+                <script_version>1.16</script_version>
+                <see_also>http://www.nessus.org/u?8a58aa76
+                    http://kb2.adobe.com/cps/142/tn_14213.html
+                    http://www.nessus.org/u?74a6a9a5
+                    http://www.nessus.org/u?acb70df2
+                </see_also>
+                <solution>Review the contents of the policy file carefully. Improper policies, especially an
+                    unrestricted one with just &apos;*&apos;, could allow for cross- site request forgery and cross-site
+                    scripting attacks against the web server.
+                </solution>
+                <synopsis>The remote web server contains a &apos;crossdomain.xml&apos; file.</synopsis>
+                <plugin_output>
+                    Nessus was able to obtain a cross-domain policy file from the remote
+                    host using the following URL :
+
+                    http://testphp.vulnweb.com/crossdomain.xml
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="0" pluginID="24260"
+                        pluginName="HyperText Transfer Protocol (HTTP) Information" pluginFamily="Web Servers">
+                <asset_inventory>True</asset_inventory>
+                <description>This test gives some information about the remote HTTP protocol - the version used, whether
+                    HTTP Keep-Alive and HTTP pipelining are enabled, etc...
+
+                    This test is informational only and does not denote any security problem.
+                </description>
+                <fname>http_info.nasl</fname>
+                <plugin_modification_date>2019/11/22</plugin_modification_date>
+                <plugin_name>HyperText Transfer Protocol (HTTP) Information</plugin_name>
+                <plugin_publication_date>2007/01/30</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <risk_factor>None</risk_factor>
+                <script_version>1.14</script_version>
+                <solution>n/a</solution>
+                <synopsis>Some information about the remote HTTP configuration can be extracted.</synopsis>
+                <plugin_output>
+                    Response Code : HTTP/1.1 200 OK
+
+                    Protocol version : HTTP/1.1
+                    SSL : no
+                    Keep-Alive : no
+                    Options allowed : (Not implemented)
+                    Headers :
+
+                    Server: nginx/1.19.0
+                    Date: Wed, 23 Mar 2022 13:53:26 GMT
+                    Content-Type: text/html; charset=UTF-8
+                    Transfer-Encoding: chunked
+                    Connection: keep-alive
+                    X-Powered-By: PHP/5.6.40-38+ubuntu20.04.1+deb.sury.org+1
+
+                    Response Body :
+
+                    &lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.01 Transitional//EN&quot;
+                    &quot;http://www.w3.org/TR/html4/loose.dtd&quot;&gt;
+                    &lt;html&gt;&lt;!-- InstanceBegin template=&quot;/Templates/main_dynamic_template.dwt.php&quot;
+                    codeOutsideHTMLIsLocked=&quot;false&quot; --&gt;
+                    &lt;head&gt;
+                    &lt;meta http-equiv=&quot;Content-Type&quot; content=&quot;text/html; charset=iso-8859-2&quot;&gt;
+
+                    &lt;!-- InstanceBeginEditable name=&quot;document_title_rgn&quot; --&gt;
+                    &lt;title&gt;Home of Acunetix Art&lt;/title&gt;
+                    &lt;!-- InstanceEndEditable --&gt;
+                    &lt;link rel=&quot;stylesheet&quot; href=&quot;style.css&quot; type=&quot;text/css&quot;&gt;
+                    &lt;!-- InstanceBeginEditable name=&quot;headers_rgn&quot; --&gt;
+                    &lt;!-- here goes headers headers --&gt;
+                    &lt;!-- InstanceEndEditable --&gt;
+                    &lt;script language=&quot;JavaScript&quot; type=&quot;text/JavaScript&quot;&gt;
+                    &lt;!--
+                    function MM_reloadPage(init) { //reloads the window if Nav4 resized
+                    if (init==true) with (navigator) {if ((appName==&quot;Netscape&quot;)&amp;&amp;(parseInt(appVersion)==4))
+                    {
+                    document.MM_pgW=innerWidth; document.MM_pgH=innerHeight; onresize=MM_reloadPage; }}
+                    else if (innerWidth!=document.MM_pgW || innerHeight!=document.MM_pgH) location.reload();
+                    }
+                    MM_reloadPage(true);
+                    //--&gt;
+                    &lt;/script&gt;
+
+                    &lt;/head&gt;
+                    &lt;body&gt;
+                    &lt;div id=&quot;mainLayer&quot; style=&quot;position:absolute; width:700px; z-index:1&quot;&gt;
+                    &lt;div id=&quot;masthead&quot;&gt;
+                    &lt;h1 id=&quot;siteName&quot;&gt;&lt;a href=&quot;https://www.acunetix.com/&quot;&gt;&lt;img src=&quot;images/logo.gif&quot;
+                    width=&quot;306&quot; height=&quot;38&quot; border=&quot;0&quot; alt=&quot;Acunetix website security&quot;&gt;&lt;/a&gt;&lt;/h1&gt;
+                    &lt;h6 id=&quot;siteInfo&quot;&gt;TEST and Demonstration site for &lt;a href=&quot;https://www.acunetix.com/vulnerability-scanner/&quot;&gt;Acunetix
+                    Web Vulnerability Scanner&lt;/a&gt;&lt;/h6&gt;
+                    &lt;div id=&quot;globalNav&quot;&gt;
+                    &lt;table border=&quot;0&quot; cellpadding=&quot;0&quot; cellspacing=&quot;0&quot; width=&quot;100%&quot;&gt;&lt;tr&gt;
+                    &lt;td align=&quot;left&quot;&gt;
+                    &lt;a href=&quot;index.php&quot;&gt;home&lt;/a&gt; | &lt;a href=&quot;categories.php&quot;&gt;categories&lt;/a&gt;
+                    | &lt;a href=&quot;artists.php&quot;&gt;artists
+                    &lt;/a&gt; | &lt;a href=&quot;disclaimer.php&quot;&gt;disclaimer&lt;/a&gt; | &lt;a href=&quot;cart.php&quot;&gt;your
+                    cart&lt;/a&gt; |
+                    &lt;a href=&quot;guestbook.php&quot;&gt;guestbook&lt;/a&gt; |
+                    &lt;a href=&quot;AJAX/index.php&quot;&gt;AJAX Demo&lt;/a&gt;
+                    &lt;/td&gt;
+                    &lt;td align=&quot;right&quot;&gt;
+                    &lt;/td&gt;
+                    &lt;/tr&gt;&lt;/table&gt;
+                    &lt;/div&gt;
+                    &lt;/div&gt;
+                    &lt;!-- end masthead --&gt;
+
+                    &lt;!-- begin content --&gt;
+                    &lt;!-- InstanceBeginEditable name=&quot;content_rgn&quot; --&gt;
+                    &lt;div id=&quot;content&quot;&gt;
+                    &lt;h2 id=&quot;pageName&quot;&gt;welcome to our page&lt;/h2&gt;
+                    &lt;div class=&quot;story&quot;&gt;
+                    &lt;h3&gt;Test site for Acunetix WVS.&lt;/h3&gt;
+                    &lt;/div&gt;
+                    &lt;/div&gt;
+                    &lt;!-- InstanceEndEditable --&gt;
+                    &lt;!--end content --&gt;
+
+                    &lt;div id=&quot;navBar&quot;&gt;
+                    &lt;div id=&quot;search&quot;&gt;
+                    &lt;form action=&quot;search.php?test=query&quot; method=&quot;post&quot;&gt;
+                    &lt;label&gt;search art&lt;/label&gt;
+                    &lt;input name=&quot;searchFor&quot; type=&quot;text&quot; size=&quot;10&quot;&gt;
+                    &lt;input name=&quot;goButton&quot; type=&quot;submit&quot; value=&quot;go&quot;&gt;
+                    &lt;/form&gt;
+                    &lt;/div&gt;
+                    &lt;div id=&quot;sectionLinks&quot;&gt;
+                    &lt;ul&gt;
+                    &lt;li&gt;&lt;a href=&quot;categories.php&quot;&gt;Browse categories&lt;/a&gt;&lt;/li&gt;
+                    &lt;li&gt;&lt;a href=&quot;artists.php&quot;&gt;Browse artists&lt;/a&gt;&lt;/li&gt;
+                    &lt;li&gt;&lt;a href=&quot;cart.php&quot;&gt;Your cart&lt;/a&gt;&lt;/li&gt;
+                    &lt;li&gt;&lt;a href=&quot;login.php&quot;&gt;Signup&lt;/a&gt;&lt;/li&gt;
+                    &lt;li&gt;&lt;a href=&quot;userinfo.php&quot;&gt;Your profile&lt;/a&gt;&lt;/li&gt;
+                    &lt;li&gt;&lt;a href=&quot;guestbook.php&quot;&gt;Our guestbook&lt;/a&gt;&lt;/li&gt;
+                    &lt;li&gt;&lt;a href=&quot;AJAX/index.php&quot;&gt;AJAX Demo&lt;/a&gt;&lt;/li&gt;
+                    &lt;/li&gt;
+                    &lt;/ul&gt;
+                    &lt;/div&gt;
+                    &lt;div class=&quot;relatedLinks&quot;&gt;
+                    &lt;h3&gt;Links&lt;/h3&gt;
+                    &lt;ul&gt;
+                    &lt;li&gt;&lt;a href=&quot;http://www.acunetix.com&quot;&gt;Security art&lt;/a&gt;&lt;/li&gt;
+                    &lt;li&gt;&lt;a href=&quot;https://www.acunetix.com/vulnerability-scanner/php-security-scanner/&quot;&gt;PHP
+                    scanner&lt;/a&gt;&lt;/li&gt;
+                    &lt;li&gt;&lt;a href=&quot;https://www.acunetix.com/blog/articles/prevent-sql-injection-vulnerabilities-in-php-applications/&quot;&gt;PHP
+                    vuln help&lt;/a&gt;&lt;/li&gt;
+                    &lt;li&gt;&lt;a href=&quot;http://www.eclectasy.com/Fractal-Explorer/index.html&quot;&gt;Fractal
+                    Explorer&lt;/a&gt;&lt;/li&gt;
+                    &lt;/ul&gt;
+                    &lt;/div&gt;
+                    &lt;div id=&quot;advert&quot;&gt;
+                    &lt;p&gt;
+                    &lt;object classid=&quot;clsid:D27CDB6E-AE6D-11cf-96B8-444553540000&quot; codebase=&quot;http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=6,0,29,0&quot;
+                    width=&quot;107&quot; height=&quot;66&quot;&gt;
+                    &lt;param name=&quot;movie&quot; value=&quot;Flash/add.swf&quot;&gt;
+                    &lt;param name=quality value=high&gt;
+                    &lt;embed src=&quot;Flash/add.swf&quot; quality=high pluginspage=&quot;http://www.macromedia.com/shockwave/download/index.cgi?P1_Prod_Version=ShockwaveFlash&quot;
+                    type=&quot;application/x-shockwave-flash&quot; width=&quot;107&quot; height=&quot;66&quot;&gt;&lt;/embed&gt;
+                    &lt;/object&gt;
+                    &lt;/p&gt;
+                    &lt;/div&gt;
+                    &lt;/div&gt;
+
+                    &lt;!--end navbar --&gt;
+                    &lt;div id=&quot;siteInfo&quot;&gt; &lt;a href=&quot;http://www.acunetix.com&quot;&gt;About Us&lt;/a&gt;
+                    | &lt;a href=&quot;privacy.php&quot;&gt;Privacy Policy&lt;/a&gt; | &lt;a href=&quot;mailto:wvs@acunetix.com&quot;&gt;Contact
+                    Us&lt;/a&gt; | &lt;a href=&quot;/Mod_Rewrite_Shop/&quot;&gt;Shop&lt;/a&gt; | &lt;a href=&quot;/hpp/&quot;&gt;HTTP
+                    Parameter Pollution&lt;/a&gt; | &amp;copy;2019
+                    Acunetix Ltd
+                    &lt;/div&gt;
+
+
+                    &lt;br&gt;
+                    &lt;div style=&quot;background-color:lightgray;width:100%;text-align:center;font-size:12px;padding:1px&quot;&gt;
+                    &lt;p style=&quot;padding-left:5%;padding-right:5%&quot;&gt;&lt;b&gt;Warning&lt;/b&gt;: This is not
+                    a real shop. This is an example PHP application, which is intentionally vulnerable to web attacks.
+                    It is intended to help you test Acunetix. It also helps you understand how developer errors and bad
+                    configuration may let someone break into your website. You can use it to test other tools and your
+                    manual hacking skills as well. Tip: Look for potential SQL Injections, Cross-site Scripting (XSS),
+                    and Cross-site Request Forgery (CSRF), and more.&lt;/p&gt;
+                    &lt;/div&gt;
+                    &lt;/div&gt;
+                    &lt;/body&gt;
+                    &lt;!-- InstanceEnd --&gt;&lt;/html&gt;
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="0" pluginID="106375"
+                        pluginName="nginx HTTP Server Detection" pluginFamily="Web Servers">
+                <asset_inventory>True</asset_inventory>
+                <cpe>cpe:/a:nginx:nginx</cpe>
+                <description>Nessus was able to detect the nginx HTTP server by looking at the HTTP banner on the remote
+                    host.
+                </description>
+                <fname>nginx_detect.nasl</fname>
+                <iavt>0001-T-0677</iavt>
+                <plugin_modification_date>2021/04/07</plugin_modification_date>
+                <plugin_name>nginx HTTP Server Detection</plugin_name>
+                <plugin_publication_date>2018/01/26</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <risk_factor>None</risk_factor>
+                <script_version>1.6</script_version>
+                <see_also>https://nginx.org/</see_also>
+                <solution>n/a</solution>
+                <synopsis>The nginx HTTP server was detected on the remote host.</synopsis>
+                <xref>IAVT:0001-T-0677</xref>
+                <plugin_output>
+                    URL : http://testphp.vulnweb.com/
+                    Version : 1.19.0
+                    source : Server: nginx/1.19.0
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="3" pluginID="31649"
+                        pluginName="PHP 5.x &lt; 5.2 Multiple Vulnerabilities" pluginFamily="CGI abuses">
+                <age_of_vuln>730 days +</age_of_vuln>
+                <bid>20349</bid>
+                <bid>20879</bid>
+                <bid>49634</bid>
+                <cpe>cpe:/a:php:php</cpe>
+                <cve>CVE-2006-1015</cve>
+                <cve>CVE-2006-1549</cve>
+                <cve>CVE-2006-2660</cve>
+                <cve>CVE-2006-4486</cve>
+                <cve>CVE-2006-4625</cve>
+                <cve>CVE-2006-4812</cve>
+                <cve>CVE-2006-5465</cve>
+                <cve>CVE-2006-5706</cve>
+                <cve>CVE-2006-7205</cve>
+                <cve>CVE-2007-0448</cve>
+                <cve>CVE-2007-1381</cve>
+                <cve>CVE-2007-1584</cve>
+                <cve>CVE-2007-1888</cve>
+                <cve>CVE-2007-2844</cve>
+                <cve>CVE-2007-5424</cve>
+                <cvssV3_impactScore>5.9</cvssV3_impactScore>
+                <cvss_base_score>7.5</cvss_base_score>
+                <cvss_temporal_score>5.9</cvss_temporal_score>
+                <cvss_temporal_vector>CVSS2#E:POC/RL:OF/RC:C</cvss_temporal_vector>
+                <cvss_vector>CVSS2#AV:N/AC:L/Au:N/C:P/I:P/A:P</cvss_vector>
+                <cwe>94</cwe>
+                <cwe>119</cwe>
+                <cwe>399</cwe>
+                <description>According to its banner, the version of PHP 5.x installed on the remote host is older than
+                    5.2. Such versions may be affected by several buffer overflows.
+
+                    To exploit these issues, an attacker would need the ability to upload an arbitrary PHP script on the
+                    remote server or to manipulate several variables processed by some PHP functions such as &apos;htmlentities().&apos;
+                </description>
+                <exploit_available>false</exploit_available>
+                <exploit_code_maturity>PoC</exploit_code_maturity>
+                <exploitability_ease>No exploit is required</exploitability_ease>
+                <fname>php_5_2_0.nasl</fname>
+                <patch_publication_date>2006/11/02</patch_publication_date>
+                <plugin_modification_date>2021/01/19</plugin_modification_date>
+                <plugin_name>PHP 5.x &lt; 5.2 Multiple Vulnerabilities</plugin_name>
+                <plugin_publication_date>2008/03/25</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <product_coverage>Low</product_coverage>
+                <risk_factor>High</risk_factor>
+                <script_version>1.28</script_version>
+                <see_also>http://www.hardened-php.net/advisory_092006.133.html
+                    http://www.php.net/releases/5_2_0.php
+                </see_also>
+                <solution>Upgrade to PHP version 5.2.0 or later.</solution>
+                <synopsis>The remote web server uses a version of PHP that is affected by multiple buffer overflows.
+                </synopsis>
+                <threat_intensity_last_28>Very Low</threat_intensity_last_28>
+                <threat_recency>No recorded events</threat_recency>
+                <threat_sources_last_28>No recorded events</threat_sources_last_28>
+                <vpr_score>6.7</vpr_score>
+                <vuln_publication_date>2006/11/02</vuln_publication_date>
+                <xref>CWE:94</xref>
+                <xref>CWE:119</xref>
+                <xref>CWE:399</xref>
+                <plugin_output>
+                    Version source : http://testphp.vulnweb.com/secured/phpinfo.php
+                    Installed version : 5.1.6
+                    Fixed version : 5.2
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="3" pluginID="24907"
+                        pluginName="PHP &lt; 5.2.1 Multiple Vulnerabilities" pluginFamily="CGI abuses">
+                <age_of_vuln>730 days +</age_of_vuln>
+                <bid>21508</bid>
+                <bid>22496</bid>
+                <bid>22805</bid>
+                <bid>22806</bid>
+                <bid>22862</bid>
+                <bid>22922</bid>
+                <bid>23119</bid>
+                <bid>23120</bid>
+                <bid>23219</bid>
+                <bid>23233</bid>
+                <bid>23234</bid>
+                <bid>23235</bid>
+                <bid>23236</bid>
+                <bid>23237</bid>
+                <bid>23238</bid>
+                <cpe>cpe:/a:php:php</cpe>
+                <cve>CVE-2006-6383</cve>
+                <cve>CVE-2007-0905</cve>
+                <cve>CVE-2007-0906</cve>
+                <cve>CVE-2007-0907</cve>
+                <cve>CVE-2007-0908</cve>
+                <cve>CVE-2007-0909</cve>
+                <cve>CVE-2007-0910</cve>
+                <cve>CVE-2007-0988</cve>
+                <cve>CVE-2007-1376</cve>
+                <cve>CVE-2007-1380</cve>
+                <cve>CVE-2007-1383</cve>
+                <cve>CVE-2007-1452</cve>
+                <cve>CVE-2007-1453</cve>
+                <cve>CVE-2007-1454</cve>
+                <cve>CVE-2007-1700</cve>
+                <cve>CVE-2007-1701</cve>
+                <cve>CVE-2007-1824</cve>
+                <cve>CVE-2007-1825</cve>
+                <cve>CVE-2007-1835</cve>
+                <cve>CVE-2007-1884</cve>
+                <cve>CVE-2007-1885</cve>
+                <cve>CVE-2007-1886</cve>
+                <cve>CVE-2007-1887</cve>
+                <cve>CVE-2007-1889</cve>
+                <cve>CVE-2007-1890</cve>
+                <cve>CVE-2007-4441</cve>
+                <cve>CVE-2007-4586</cve>
+                <cvssV3_impactScore>5.9</cvssV3_impactScore>
+                <cvss_base_score>7.5</cvss_base_score>
+                <cvss_temporal_score>5.9</cvss_temporal_score>
+                <cvss_temporal_vector>CVSS2#E:POC/RL:OF/RC:C</cvss_temporal_vector>
+                <cvss_vector>CVSS2#AV:N/AC:L/Au:N/C:P/I:P/A:P</cvss_vector>
+                <cwe>20</cwe>
+                <cwe>119</cwe>
+                <cwe>189</cwe>
+                <cwe>399</cwe>
+                <description>According to its banner, the version of PHP installed on the remote host is older than
+                    5.2.1. Such versions may be affected by several issues, including buffer overflows, format string
+                    vulnerabilities, arbitrary code execution, &apos;safe_mode&apos; and &apos;open_basedir&apos;
+                    bypasses, and clobbering of super-globals.
+                </description>
+                <exploit_available>false</exploit_available>
+                <exploit_code_maturity>PoC</exploit_code_maturity>
+                <exploitability_ease>No exploit is required</exploitability_ease>
+                <fname>php_5_2_1.nasl</fname>
+                <patch_publication_date>2007/02/08</patch_publication_date>
+                <plugin_modification_date>2021/01/19</plugin_modification_date>
+                <plugin_name>PHP &lt; 5.2.1 Multiple Vulnerabilities</plugin_name>
+                <plugin_publication_date>2007/04/02</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <product_coverage>Low</product_coverage>
+                <risk_factor>High</risk_factor>
+                <script_version>1.28</script_version>
+                <see_also>http://www.php.net/releases/5_2_1.php</see_also>
+                <solution>Upgrade to PHP version 5.2.1 or later.</solution>
+                <synopsis>The remote web server uses a version of PHP that is affected by multiple flaws.</synopsis>
+                <threat_intensity_last_28>Very Low</threat_intensity_last_28>
+                <threat_recency>No recorded events</threat_recency>
+                <threat_sources_last_28>No recorded events</threat_sources_last_28>
+                <vpr_score>6.7</vpr_score>
+                <vuln_publication_date>2006/12/09</vuln_publication_date>
+                <xref>CWE:20</xref>
+                <xref>CWE:119</xref>
+                <xref>CWE:189</xref>
+                <xref>CWE:399</xref>
+                <plugin_output>
+                    Version source : http://testphp.vulnweb.com/secured/phpinfo.php
+                    Installed version : 5.1.6
+                    Fixed version : 5.2.1
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="2" pluginID="39480"
+                        pluginName="PHP &lt; 5.2.10 Multiple Vulnerabilities" pluginFamily="CGI abuses">
+                <age_of_vuln>730 days +</age_of_vuln>
+                <bid>35440</bid>
+                <bid>35435</bid>
+                <cpe>cpe:/a:php:php</cpe>
+                <cve>CVE-2009-2687</cve>
+                <cvssV3_impactScore>3.6</cvssV3_impactScore>
+                <cvss_base_score>5.1</cvss_base_score>
+                <cvss_temporal_score>3.8</cvss_temporal_score>
+                <cvss_temporal_vector>CVSS2#E:U/RL:OF/RC:C</cvss_temporal_vector>
+                <cvss_vector>CVSS2#AV:N/AC:H/Au:N/C:P/I:P/A:P</cvss_vector>
+                <cwe>20</cwe>
+                <description>According to its banner, the version of PHP installed on the remote host is older than
+                    5.2.10. Such versions are reportedly affected by multiple vulnerabilities :
+
+                    - Sufficient checks are not performed on fields reserved for offsets in function &apos;exif_read_data()&apos;.
+                    Successful exploitation of this issue could result in a denial of service condition. (bug 48378)
+
+                    - Provided &apos;safe_mode_exec_dir&apos; is not set (not set by default), it may be possible to
+                    bypass &apos;safe_mode&apos; restrictions by preceding a backslash in functions such as &apos;exec()&apos;,
+                    &apos;system()&apos;, &apos;shell_exec()&apos;, &apos;passthru()&apos; and &apos;popen()&apos; on a
+                    system running PHP on Windows. (bug 45997)
+                </description>
+                <exploit_available>false</exploit_available>
+                <exploit_code_maturity>Unproven</exploit_code_maturity>
+                <exploitability_ease>No exploit is required</exploitability_ease>
+                <fname>php_5_2_10.nasl</fname>
+                <patch_publication_date>2009/06/18</patch_publication_date>
+                <plugin_modification_date>2021/01/19</plugin_modification_date>
+                <plugin_name>PHP &lt; 5.2.10 Multiple Vulnerabilities</plugin_name>
+                <plugin_publication_date>2009/06/22</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <product_coverage>Low</product_coverage>
+                <risk_factor>Medium</risk_factor>
+                <script_version>1.13</script_version>
+                <secunia>35441</secunia>
+                <see_also>https://bugs.php.net/bug.php?id=45997
+                    https://bugs.php.net/bug.php?id=48378
+                    http://www.php.net/releases/5_2_10.php
+                    http://www.php.net/ChangeLog-5.php#5.2.10
+                </see_also>
+                <solution>Upgrade to PHP version 5.2.10 or later.</solution>
+                <synopsis>The remote web server uses a version of PHP that is affected by multiple vulnerabilities.
+                </synopsis>
+                <threat_intensity_last_28>Very Low</threat_intensity_last_28>
+                <threat_recency>No recorded events</threat_recency>
+                <threat_sources_last_28>No recorded events</threat_sources_last_28>
+                <vpr_score>3.6</vpr_score>
+                <vuln_publication_date>2009/05/24</vuln_publication_date>
+                <xref>Secunia:35441</xref>
+                <xref>CWE:20</xref>
+                <plugin_output>
+                    Version source : http://testphp.vulnweb.com/secured/phpinfo.php
+                    Installed version : 5.1.6
+                    Fixed version : 5.2.10
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="3" pluginID="41014"
+                        pluginName="PHP &lt; 5.2.11 Multiple Vulnerabilities" pluginFamily="CGI abuses">
+                <age_of_vuln>730 days +</age_of_vuln>
+                <bid>36449</bid>
+                <bid>44889</bid>
+                <cpe>cpe:/a:php:php</cpe>
+                <cve>CVE-2009-3291</cve>
+                <cve>CVE-2009-3292</cve>
+                <cve>CVE-2009-3293</cve>
+                <cve>CVE-2009-3294</cve>
+                <cve>CVE-2009-4018</cve>
+                <cve>CVE-2009-5016</cve>
+                <cvssV3_impactScore>5.9</cvssV3_impactScore>
+                <cvss_base_score>7.5</cvss_base_score>
+                <cvss_temporal_score>5.9</cvss_temporal_score>
+                <cvss_temporal_vector>CVSS2#E:POC/RL:OF/RC:C</cvss_temporal_vector>
+                <cvss_vector>CVSS2#AV:N/AC:L/Au:N/C:P/I:P/A:P</cvss_vector>
+                <cwe>20</cwe>
+                <cwe>134</cwe>
+                <cwe>264</cwe>
+                <description>According to its banner, the version of PHP installed on the remote host is older than
+                    5.2.11. Such versions may be affected by several security issues :
+
+                    - An unspecified error occurs in certificate validation inside &apos;php_openssl_apply_verification_policy&apos;.
+
+                    - An unspecified input validation vulnerability affects the color index in &apos;imagecolortransparent()&apos;.
+
+                    - An unspecified input validation vulnerability affects exif processing.
+
+                    - Calling &apos;popen()&apos; with an invalid mode can cause a crash under Windows. (Bug #44683)
+
+                    - An integer overflow in &apos;xml_utf8_decode()&apos; can make it easier to bypass cross-site
+                    scripting and SQL injection protection mechanisms using a specially crafted string with a long UTF-8
+                    encoding. (Bug #49687)
+
+                    - &apos;proc_open()&apos; can bypass &apos;safe_mode_protected_env_vars&apos;.
+                    (Bug #49026)
+                </description>
+                <exploit_available>false</exploit_available>
+                <exploit_code_maturity>PoC</exploit_code_maturity>
+                <exploitability_ease>No exploit is required</exploitability_ease>
+                <fname>php_5_2_11.nasl</fname>
+                <patch_publication_date>2009/09/16</patch_publication_date>
+                <plugin_modification_date>2021/01/19</plugin_modification_date>
+                <plugin_name>PHP &lt; 5.2.11 Multiple Vulnerabilities</plugin_name>
+                <plugin_publication_date>2009/09/18</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <product_coverage>Low</product_coverage>
+                <risk_factor>High</risk_factor>
+                <script_version>1.19</script_version>
+                <secunia>36791</secunia>
+                <see_also>http://www.php.net/ChangeLog-5.php#5.2.11
+                    http://www.php.net/releases/5_2_11.php
+                    http://news.php.net/php.internals/45597
+                    http://www.php.net/ChangeLog-5.php#5.2.11
+                </see_also>
+                <solution>Upgrade to PHP version 5.2.11 or later.</solution>
+                <synopsis>The remote web server uses a version of PHP that is affected by multiple flaws.</synopsis>
+                <threat_intensity_last_28>Very Low</threat_intensity_last_28>
+                <threat_recency>No recorded events</threat_recency>
+                <threat_sources_last_28>No recorded events</threat_sources_last_28>
+                <vpr_score>6.7</vpr_score>
+                <xref>Secunia:36791</xref>
+                <xref>CWE:20</xref>
+                <xref>CWE:134</xref>
+                <xref>CWE:264</xref>
+                <plugin_output>
+                    Version source : http://testphp.vulnweb.com/secured/phpinfo.php
+                    Installed version : 5.1.6
+                    Fixed version : 5.2.11
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="2" pluginID="43351"
+                        pluginName="PHP &lt; 5.2.12 Multiple Vulnerabilities" pluginFamily="CGI abuses">
+                <age_of_vuln>730 days +</age_of_vuln>
+                <bid>37389</bid>
+                <bid>37390</bid>
+                <cpe>cpe:/a:php:php</cpe>
+                <cve>CVE-2009-3557</cve>
+                <cve>CVE-2009-3558</cve>
+                <cve>CVE-2009-4017</cve>
+                <cve>CVE-2009-4142</cve>
+                <cve>CVE-2009-4143</cve>
+                <cvssV3_impactScore>5.9</cvssV3_impactScore>
+                <cvss_base_score>6.8</cvss_base_score>
+                <cvss_temporal_score>5.3</cvss_temporal_score>
+                <cvss_temporal_vector>CVSS2#E:POC/RL:OF/RC:C</cvss_temporal_vector>
+                <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:P/I:P/A:P</cvss_vector>
+                <cwe>79</cwe>
+                <cwe>264</cwe>
+                <description>According to its banner, the version of PHP installed on the remote host is older than
+                    5.2.12. Such versions may be affected by several security issues :
+
+                    - It is possible to bypass the &apos;safe_mode&apos; configuration setting using &apos;tempnam()&apos;.
+                    (CVE-2009-3557)
+
+                    - It is possible to bypass the &apos;open_basedir&apos; configuration setting using &apos;posix_mkfifo()&apos;.
+                    (CVE-2009-3558)
+
+                    - Provided file uploading is enabled (it is by default), an attacker can upload files using a POST
+                    request with &apos;multipart/form-data&apos; content even if the target script doesn&apos;t actually
+                    support file uploads per se. By supplying a large number (15,000+) of files, an attacker could cause
+                    the web server to stop responding while it processes the file list. (CVE-2009-4017)
+
+                    - Missing protection for &apos;$_SESSION&apos; from interrupt corruption and improved &apos;session.save_path&apos;
+                    check.
+                    (CVE-2009-4143)
+
+                    - Insufficient input string validation in the &apos;htmlspecialchars()&apos; function.
+                    (CVE-2009-4142)
+                </description>
+                <exploit_available>false</exploit_available>
+                <exploit_code_maturity>Unproven</exploit_code_maturity>
+                <exploitability_ease>No exploit is required</exploitability_ease>
+                <fname>php_5_2_12.nasl</fname>
+                <patch_publication_date>2009/12/17</patch_publication_date>
+                <plugin_modification_date>2021/01/19</plugin_modification_date>
+                <plugin_name>PHP &lt; 5.2.12 Multiple Vulnerabilities</plugin_name>
+                <plugin_publication_date>2009/12/18</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <product_coverage>Low</product_coverage>
+                <risk_factor>Medium</risk_factor>
+                <script_version>1.16</script_version>
+                <secunia>37821</secunia>
+                <see_also>http://www.nessus.org/u?57f2d08f
+                    http://www.php.net/releases/5_2_12.php
+                    http://www.php.net/ChangeLog-5.php#5.2.12
+                </see_also>
+                <solution>Upgrade to PHP version 5.2.12 or later.</solution>
+                <synopsis>The remote web server uses a version of PHP that is affected by multiple flaws.</synopsis>
+                <threat_intensity_last_28>Very Low</threat_intensity_last_28>
+                <threat_recency>No recorded events</threat_recency>
+                <threat_sources_last_28>No recorded events</threat_sources_last_28>
+                <vpr_score>5.9</vpr_score>
+                <vuln_publication_date>2009/12/17</vuln_publication_date>
+                <xref>Secunia:37821</xref>
+                <xref>CWE:79</xref>
+                <xref>CWE:264</xref>
+                <plugin_output>
+                    Version source : http://testphp.vulnweb.com/secured/phpinfo.php
+                    Installed version : 5.1.6
+                    Fixed version : 5.2.12
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="2" pluginID="44921"
+                        pluginName="PHP &lt; 5.3.2 / 5.2.13 Multiple Vulnerabilities" pluginFamily="CGI abuses">
+                <age_of_vuln>730 days +</age_of_vuln>
+                <bid>38182</bid>
+                <bid>38430</bid>
+                <bid>38431</bid>
+                <cpe>cpe:/a:php:php</cpe>
+                <cve>CVE-2010-1128</cve>
+                <cve>CVE-2010-1129</cve>
+                <cve>CVE-2010-1130</cve>
+                <cvssV3_impactScore>5.3</cvssV3_impactScore>
+                <cvss_base_score>6.4</cvss_base_score>
+                <cvss_temporal_score>5.0</cvss_temporal_score>
+                <cvss_temporal_vector>CVSS2#E:POC/RL:OF/RC:C</cvss_temporal_vector>
+                <cvss_vector>CVSS2#AV:N/AC:L/Au:N/C:P/I:P/A:N</cvss_vector>
+                <description>According to its banner, the version of PHP installed on the remote host is older than
+                    5.3.2 / 5.2.13. Such versions may be affected by several security issues :
+
+                    - Directory paths not ending with &apos;/&apos; may not be correctly validated inside &apos;tempnam()&apos;
+                    in &apos;safe_mode&apos; configuration.
+
+                    - It may be possible to bypass the &apos;open_basedir&apos;/ &apos;safe_mode&apos; configuration
+                    restrictions due to an error in session extensions.
+
+                    - An unspecified vulnerability affects the LCG entropy.
+                </description>
+                <exploit_available>false</exploit_available>
+                <exploit_code_maturity>Unproven</exploit_code_maturity>
+                <exploitability_ease>No exploit is required</exploitability_ease>
+                <fname>php_5_2_13.nasl</fname>
+                <patch_publication_date>2010/02/25</patch_publication_date>
+                <plugin_modification_date>2021/01/19</plugin_modification_date>
+                <plugin_name>PHP &lt; 5.3.2 / 5.2.13 Multiple Vulnerabilities</plugin_name>
+                <plugin_publication_date>2010/02/26</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <product_coverage>Low</product_coverage>
+                <risk_factor>Medium</risk_factor>
+                <script_version>1.16</script_version>
+                <secunia>38708</secunia>
+                <see_also>http://securityreason.com/achievement_securityalert/82
+                    http://securityreason.com/securityalert/7008
+                    https://seclists.org/fulldisclosure/2010/Feb/208
+                    http://www.php.net/releases/5_3_2.php
+                    http://www.php.net/ChangeLog-5.php#5.3.2
+                    http://www.php.net/releases/5_2_13.php
+                    http://www.php.net/ChangeLog-5.php#5.2.13
+                </see_also>
+                <solution>Upgrade to PHP version 5.3.2 / 5.2.13 or later.</solution>
+                <synopsis>The remote web server uses a version of PHP that is affected by multiple flaws.</synopsis>
+                <threat_intensity_last_28>Very Low</threat_intensity_last_28>
+                <threat_recency>No recorded events</threat_recency>
+                <threat_sources_last_28>No recorded events</threat_sources_last_28>
+                <vpr_score>5.3</vpr_score>
+                <vuln_publication_date>2010/02/11</vuln_publication_date>
+                <xref>Secunia:38708</xref>
+                <plugin_output>
+                    Version source : http://testphp.vulnweb.com/secured/phpinfo.php
+                    Installed version : 5.1.6
+                    Fixed version : 5.3.2 / 5.2.13
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="3" pluginID="17797"
+                        pluginName="PHP 5.x &lt; 5.2.2 Multiple vulnerabilities" pluginFamily="CGI abuses">
+                <age_of_vuln>730 days +</age_of_vuln>
+                <bid>23105</bid>
+                <bid>23357</bid>
+                <cpe>cpe:/a:php:php</cpe>
+                <cve>CVE-2007-1001</cve>
+                <cve>CVE-2007-1583</cve>
+                <cve>CVE-2007-1649</cve>
+                <cve>CVE-2007-1717</cve>
+                <cve>CVE-2007-1718</cve>
+                <cvss3_base_score>7.5</cvss3_base_score>
+                <cvss3_temporal_score>6.7</cvss3_temporal_score>
+                <cvss3_temporal_vector>CVSS:3.0/E:P/RL:O/RC:C</cvss3_temporal_vector>
+                <cvss3_vector>CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N</cvss3_vector>
+                <cvssV3_impactScore>5.8</cvssV3_impactScore>
+                <cvss_base_score>7.8</cvss_base_score>
+                <cvss_score_source>CVE-2007-1649</cvss_score_source>
+                <cvss_temporal_score>6.1</cvss_temporal_score>
+                <cvss_temporal_vector>CVSS2#E:POC/RL:OF/RC:C</cvss_temporal_vector>
+                <cvss_vector>CVSS2#AV:N/AC:L/Au:N/C:C/I:N/A:N</cvss_vector>
+                <description>According to its banner, the version of PHP 5.x installed on the remote host is older than
+                    5.2.2. It is, therefore, affected by multiple vulnerabilities:
+
+                    - A heap-based buffer overflow vulnerability was found in PHP&apos;s gd extension. A script that
+                    could be forced to process WBMP images from an untrusted source could result in arbitrary code
+                    execution. (CVE-2007-1001)
+
+                    - A vulnerability in the way the mbstring extension setglobal variables was discovered where a
+                    script using the mb_parse_str() function to set global variables could be forced to to enable the
+                    register_globals configuration option, possibly resulting in global variable injection.
+                    (CVE-2007-1583)
+
+                    - A context-dependent attacker could read portions of heap memory by executing certain scripts with
+                    a serialized data input string beginning with &apos;S:&apos;, which did not properly track the
+                    number of input bytes being processed. (CVE-2007-1649)
+
+                    - A vulnerability in how PHP&apos;s mail() function processed email messages, truncating potentially
+                    important information after the first ASCIIZ (\0) byte.
+                    (CVE-2007-1717)
+
+                    - A vulnerability in how PHP&apos;s mail() function processed header data was discovered. If a
+                    script sent mail using a subject header containing a string from an untrusted source, a remote
+                    attacker could send bulk email to unintended recipients (CVE-2007-1718).
+                </description>
+                <exploit_available>false</exploit_available>
+                <exploit_code_maturity>PoC</exploit_code_maturity>
+                <exploitability_ease>No exploit is required</exploitability_ease>
+                <fname>php_5_2_2.nasl</fname>
+                <patch_publication_date>2007/05/03</patch_publication_date>
+                <plugin_modification_date>2021/01/19</plugin_modification_date>
+                <plugin_name>PHP 5.x &lt; 5.2.2 Multiple vulnerabilities</plugin_name>
+                <plugin_publication_date>2012/01/11</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <product_coverage>Low</product_coverage>
+                <risk_factor>High</risk_factor>
+                <script_version>1.8</script_version>
+                <see_also>http://www.php.net/releases/5_2_2.php</see_also>
+                <solution>Upgrade to PHP version 5.2.2 or later.</solution>
+                <synopsis>The remote web server uses a version of PHP that is affected by multiple vulnerabilities.
+                </synopsis>
+                <threat_intensity_last_28>Very Low</threat_intensity_last_28>
+                <threat_recency>No recorded events</threat_recency>
+                <threat_sources_last_28>No recorded events</threat_sources_last_28>
+                <vpr_score>6.6</vpr_score>
+                <vuln_publication_date>2007/03/23</vuln_publication_date>
+                <plugin_output>
+                    Version source : http://testphp.vulnweb.com/secured/phpinfo.php
+                    Installed version : 5.1.6
+                    Fixed version : 5.2.2
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="3" pluginID="25368"
+                        pluginName="PHP &lt; 5.2.3 Multiple Vulnerabilities" pluginFamily="CGI abuses">
+                <age_of_vuln>730 days +</age_of_vuln>
+                <bid>23235</bid>
+                <bid>23359</bid>
+                <bid>24089</bid>
+                <bid>24259</bid>
+                <bid>24261</bid>
+                <cpe>cpe:/a:php:php</cpe>
+                <cve>CVE-2007-1887</cve>
+                <cve>CVE-2007-1900</cve>
+                <cve>CVE-2007-2756</cve>
+                <cve>CVE-2007-2872</cve>
+                <cve>CVE-2007-3007</cve>
+                <cvss3_base_score>7.3</cvss3_base_score>
+                <cvss3_temporal_score>6.6</cvss3_temporal_score>
+                <cvss3_temporal_vector>CVSS:3.0/E:P/RL:O/RC:C</cvss3_temporal_vector>
+                <cvss3_vector>CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:L</cvss3_vector>
+                <cvssV3_impactScore>5.9</cvssV3_impactScore>
+                <cvss_base_score>7.5</cvss_base_score>
+                <cvss_score_source>CVE-2007-1887</cvss_score_source>
+                <cvss_temporal_score>5.9</cvss_temporal_score>
+                <cvss_temporal_vector>CVSS2#E:POC/RL:OF/RC:C</cvss_temporal_vector>
+                <cvss_vector>CVSS2#AV:N/AC:L/Au:N/C:P/I:P/A:P</cvss_vector>
+                <cwe>189</cwe>
+                <cwe>264</cwe>
+                <description>According to its banner, the version of PHP installed on the remote host is older than
+                    5.2.3. It is, therefore, affected by multiple vulnerabilities:
+
+                    - A buffer overflow in the sqlite_decode_function() in the bundled sqlite library could allow
+                    context-dependent attackers to execute arbitrary code. (CVE-2007-1887)
+
+                    - A CRLF injection vulnerability in the FILTER_VALIDATE_EMAIL filter could allow an attacker to
+                    inject arbitrary email headers via a special email address. This only affects Mandriva Linux 2007.1.
+                    (CVE-2007-1900)
+
+                    - An infinite-loop flaw was discovered in the PHP gd extension. A script that could be forced to
+                    process PNG images from an untrusted source could allow a remote attacker to cause a denial of
+                    service. (CVE-2007-2756)
+
+                    - An integer overflow flaw was found in the chunk_split() function that ould possibly execute
+                    arbitrary code as the apache user if a remote attacker was able to pass arbitrary data to the third
+                    argument of chunk_split() (CVE-2007-2872).
+
+                    - An open_basedir and safe_mode restriction bypass which could allow context-dependent attackers to
+                    determine the existence of arbitrary files. (CVE-2007-3007)
+                </description>
+                <exploit_available>false</exploit_available>
+                <exploit_code_maturity>PoC</exploit_code_maturity>
+                <exploitability_ease>No exploit is required</exploitability_ease>
+                <fname>php_5_2_3.nasl</fname>
+                <patch_publication_date>2007/05/31</patch_publication_date>
+                <plugin_modification_date>2021/01/19</plugin_modification_date>
+                <plugin_name>PHP &lt; 5.2.3 Multiple Vulnerabilities</plugin_name>
+                <plugin_publication_date>2007/06/02</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <product_coverage>Low</product_coverage>
+                <risk_factor>High</risk_factor>
+                <script_version>1.25</script_version>
+                <see_also>http://www.php.net/releases/5_2_3.php</see_also>
+                <solution>Upgrade to PHP version 5.2.3 or later.</solution>
+                <synopsis>The remote web server uses a version of PHP that is affected by multiple flaws.</synopsis>
+                <threat_intensity_last_28>Very Low</threat_intensity_last_28>
+                <threat_recency>No recorded events</threat_recency>
+                <threat_sources_last_28>No recorded events</threat_sources_last_28>
+                <vpr_score>6.7</vpr_score>
+                <vuln_publication_date>2007/04/07</vuln_publication_date>
+                <xref>CWE:189</xref>
+                <xref>CWE:264</xref>
+                <plugin_output>
+                    Version source : http://testphp.vulnweb.com/secured/phpinfo.php
+                    Installed version : 5.1.6
+                    Fixed version : 5.2.3
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="2" pluginID="25971"
+                        pluginName="PHP &lt; 5.2.4 Multiple Vulnerabilities" pluginFamily="CGI abuses">
+                <age_of_vuln>730 days +</age_of_vuln>
+                <bid>24661</bid>
+                <bid>24261</bid>
+                <bid>24922</bid>
+                <bid>25498</bid>
+                <cpe>cpe:/a:php:php</cpe>
+                <cve>CVE-2007-1413</cve>
+                <cve>CVE-2007-2872</cve>
+                <cve>CVE-2007-3294</cve>
+                <cve>CVE-2007-3378</cve>
+                <cve>CVE-2007-3790</cve>
+                <cve>CVE-2007-3799</cve>
+                <cve>CVE-2007-3806</cve>
+                <cve>CVE-2007-4010</cve>
+                <cve>CVE-2007-4033</cve>
+                <cve>CVE-2007-4255</cve>
+                <cve>CVE-2007-4507</cve>
+                <cve>CVE-2007-4652</cve>
+                <cve>CVE-2007-4658</cve>
+                <cve>CVE-2007-4659</cve>
+                <cve>CVE-2007-4660</cve>
+                <cve>CVE-2007-4661</cve>
+                <cve>CVE-2007-4662</cve>
+                <cve>CVE-2007-4663</cve>
+                <cvssV3_impactScore>5.9</cvssV3_impactScore>
+                <cvss_base_score>6.8</cvss_base_score>
+                <cvss_temporal_score>5.3</cvss_temporal_score>
+                <cvss_temporal_vector>CVSS2#E:POC/RL:OF/RC:C</cvss_temporal_vector>
+                <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:P/I:P/A:P</cvss_vector>
+                <cwe>20</cwe>
+                <cwe>22</cwe>
+                <cwe>119</cwe>
+                <cwe>189</cwe>
+                <cwe>362</cwe>
+                <cwe>399</cwe>
+                <description>According to its banner, the version of PHP installed on the remote host is older than
+                    5.2.4. Such versions may be affected by various issues, including but not limited to several
+                    overflows.
+                </description>
+                <exploit_available>false</exploit_available>
+                <exploit_code_maturity>PoC</exploit_code_maturity>
+                <exploitability_ease>No exploit is required</exploitability_ease>
+                <fname>php_5_2_4.nasl</fname>
+                <patch_publication_date>2007/08/30</patch_publication_date>
+                <plugin_modification_date>2021/01/19</plugin_modification_date>
+                <plugin_name>PHP &lt; 5.2.4 Multiple Vulnerabilities</plugin_name>
+                <plugin_publication_date>2007/09/03</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <product_coverage>Low</product_coverage>
+                <risk_factor>Medium</risk_factor>
+                <script_version>1.21</script_version>
+                <see_also>http://www.php.net/releases/5_2_4.php</see_also>
+                <solution>Upgrade to PHP version 5.2.4 or later.</solution>
+                <synopsis>The remote web server uses a version of PHP that is affected by multiple flaws.</synopsis>
+                <threat_intensity_last_28>Very Low</threat_intensity_last_28>
+                <threat_recency>No recorded events</threat_recency>
+                <threat_sources_last_28>No recorded events</threat_sources_last_28>
+                <vpr_score>6.7</vpr_score>
+                <vuln_publication_date>2007/06/01</vuln_publication_date>
+                <xref>CWE:20</xref>
+                <xref>CWE:22</xref>
+                <xref>CWE:119</xref>
+                <xref>CWE:189</xref>
+                <xref>CWE:362</xref>
+                <xref>CWE:399</xref>
+                <plugin_output>
+                    Version source : http://testphp.vulnweb.com/secured/phpinfo.php
+                    Installed version : 5.1.6
+                    Fixed version : 5.2.4
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="2" pluginID="28181"
+                        pluginName="PHP &lt; 5.2.5 Multiple Vulnerabilities" pluginFamily="CGI abuses">
+                <age_of_vuln>730 days +</age_of_vuln>
+                <bid>26403</bid>
+                <bid>69246</bid>
+                <cpe>cpe:/a:php:php</cpe>
+                <cve>CVE-2007-3996</cve>
+                <cve>CVE-2007-4782</cve>
+                <cve>CVE-2007-4783</cve>
+                <cve>CVE-2007-4784</cve>
+                <cve>CVE-2007-4825</cve>
+                <cve>CVE-2007-4840</cve>
+                <cve>CVE-2007-4887</cve>
+                <cve>CVE-2007-4889</cve>
+                <cve>CVE-2007-5447</cve>
+                <cve>CVE-2007-5653</cve>
+                <cve>CVE-2007-5898</cve>
+                <cve>CVE-2007-5899</cve>
+                <cve>CVE-2007-5900</cve>
+                <cve>CVE-2008-2107</cve>
+                <cve>CVE-2008-2108</cve>
+                <cve>CVE-2008-4107</cve>
+                <cvssV3_impactScore>5.9</cvssV3_impactScore>
+                <cvss_base_score>4.4</cvss_base_score>
+                <cvss_temporal_score>3.4</cvss_temporal_score>
+                <cvss_temporal_vector>CVSS2#E:POC/RL:OF/RC:C</cvss_temporal_vector>
+                <cvss_vector>CVSS2#AV:L/AC:M/Au:N/C:P/I:P/A:P</cvss_vector>
+                <cwe>20</cwe>
+                <cwe>22</cwe>
+                <cwe>78</cwe>
+                <cwe>94</cwe>
+                <cwe>189</cwe>
+                <cwe>200</cwe>
+                <cwe>264</cwe>
+                <description>According to its banner, the version of PHP installed on the remote host is older than
+                    5.2.5. Such versions may be affected by various issues, including but not limited to several buffer
+                    overflows.
+                </description>
+                <exploit_available>false</exploit_available>
+                <exploit_code_maturity>PoC</exploit_code_maturity>
+                <exploitability_ease>No exploit is required</exploitability_ease>
+                <fname>php_5_2_5.nasl</fname>
+                <plugin_modification_date>2021/01/19</plugin_modification_date>
+                <plugin_name>PHP &lt; 5.2.5 Multiple Vulnerabilities</plugin_name>
+                <plugin_publication_date>2007/11/12</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <product_coverage>Low</product_coverage>
+                <risk_factor>Medium</risk_factor>
+                <script_version>1.21</script_version>
+                <see_also>http://www.php.net/releases/5_2_5.php</see_also>
+                <solution>Upgrade to PHP version 5.2.5 or later.</solution>
+                <synopsis>The remote web server uses a version of PHP that is affected by multiple flaws.</synopsis>
+                <threat_intensity_last_28>Very Low</threat_intensity_last_28>
+                <threat_recency>No recorded events</threat_recency>
+                <threat_sources_last_28>No recorded events</threat_sources_last_28>
+                <vpr_score>6.7</vpr_score>
+                <vuln_publication_date>2007/09/10</vuln_publication_date>
+                <xref>CWE:20</xref>
+                <xref>CWE:22</xref>
+                <xref>CWE:78</xref>
+                <xref>CWE:94</xref>
+                <xref>CWE:189</xref>
+                <xref>CWE:200</xref>
+                <xref>CWE:264</xref>
+                <plugin_output>
+                    Version source : http://testphp.vulnweb.com/secured/phpinfo.php
+                    Installed version : 5.1.6
+                    Fixed version : 5.2.5
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="3" pluginID="32123"
+                        pluginName="PHP &lt; 5.2.6 Multiple Vulnerabilities" pluginFamily="CGI abuses">
+                <age_of_vuln>730 days +</age_of_vuln>
+                <bid>27413</bid>
+                <bid>28392</bid>
+                <bid>29009</bid>
+                <cpe>cpe:/a:php:php</cpe>
+                <cve>CVE-2007-4850</cve>
+                <cve>CVE-2007-6039</cve>
+                <cve>CVE-2008-0599</cve>
+                <cve>CVE-2008-1384</cve>
+                <cve>CVE-2008-2050</cve>
+                <cve>CVE-2008-2051</cve>
+                <cvssV3_impactScore>5.9</cvssV3_impactScore>
+                <cvss_base_score>7.5</cvss_base_score>
+                <cvss_temporal_score>5.9</cvss_temporal_score>
+                <cvss_temporal_vector>CVSS2#E:POC/RL:OF/RC:C</cvss_temporal_vector>
+                <cvss_vector>CVSS2#AV:N/AC:L/Au:N/C:P/I:P/A:P</cvss_vector>
+                <cwe>20</cwe>
+                <cwe>119</cwe>
+                <cwe>264</cwe>
+                <description>According to its banner, the version of PHP installed on the remote host is older than
+                    5.2.6. Such versions may be affected by the following issues :
+
+                    - A stack-based buffer overflow in FastCGI SAPI.
+
+                    - An integer overflow in printf().
+
+                    - An security issue arising from improper calculation of the length of PATH_TRANSLATED in
+                    cgi_main.c.
+
+                    - A safe_mode bypass in cURL.
+
+                    - Incomplete handling of multibyte chars inside escapeshellcmd().
+
+                    - Issues in the bundled PCRE fixed by version 7.6.
+                </description>
+                <exploit_available>false</exploit_available>
+                <exploit_code_maturity>Unproven</exploit_code_maturity>
+                <exploitability_ease>No exploit is required</exploitability_ease>
+                <fname>php_5_2_6.nasl</fname>
+                <plugin_modification_date>2021/01/19</plugin_modification_date>
+                <plugin_name>PHP &lt; 5.2.6 Multiple Vulnerabilities</plugin_name>
+                <plugin_publication_date>2008/05/02</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <product_coverage>Low</product_coverage>
+                <risk_factor>High</risk_factor>
+                <script_version>1.29</script_version>
+                <secunia>30048</secunia>
+                <see_also>https://seclists.org/bugtraq/2008/Mar/285
+                    https://seclists.org/fulldisclosure/2008/May/102
+                    https://seclists.org/fulldisclosure/2008/May/106
+                    http://www.php.net/releases/5_2_6.php
+                </see_also>
+                <solution>Upgrade to PHP version 5.2.6 or later.</solution>
+                <synopsis>The remote web server uses a version of PHP that is affected by multiple flaws.</synopsis>
+                <threat_intensity_last_28>Very Low</threat_intensity_last_28>
+                <threat_recency>No recorded events</threat_recency>
+                <threat_sources_last_28>No recorded events</threat_sources_last_28>
+                <vpr_score>5.9</vpr_score>
+                <xref>Secunia:30048</xref>
+                <xref>CWE:20</xref>
+                <xref>CWE:119</xref>
+                <xref>CWE:264</xref>
+                <plugin_output>
+                    Version source : http://testphp.vulnweb.com/secured/phpinfo.php
+                    Installed version : 5.1.6
+                    Fixed version : 5.2.6
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="3" pluginID="35043"
+                        pluginName="PHP 5 &lt; 5.2.7 Multiple Vulnerabilities" pluginFamily="CGI abuses">
+                <age_of_vuln>730 days +</age_of_vuln>
+                <bid>29796</bid>
+                <bid>29797</bid>
+                <bid>29829</bid>
+                <bid>30087</bid>
+                <bid>30649</bid>
+                <bid>31612</bid>
+                <bid>32383</bid>
+                <bid>32625</bid>
+                <bid>32688</bid>
+                <bid>32948</bid>
+                <bid>70928</bid>
+                <cpe>cpe:/a:php:php</cpe>
+                <cve>CVE-2008-2371</cve>
+                <cve>CVE-2008-2665</cve>
+                <cve>CVE-2008-2666</cve>
+                <cve>CVE-2008-2829</cve>
+                <cve>CVE-2008-3658</cve>
+                <cve>CVE-2008-3659</cve>
+                <cve>CVE-2008-3660</cve>
+                <cve>CVE-2008-5557</cve>
+                <cve>CVE-2008-5624</cve>
+                <cve>CVE-2008-5625</cve>
+                <cve>CVE-2008-5658</cve>
+                <cve>CVE-2008-7068</cve>
+                <cve>CVE-2014-8626</cve>
+                <cvssV3_impactScore>5.9</cvssV3_impactScore>
+                <cvss_base_score>7.5</cvss_base_score>
+                <cvss_temporal_score>5.9</cvss_temporal_score>
+                <cvss_temporal_vector>CVSS2#E:POC/RL:OF/RC:C</cvss_temporal_vector>
+                <cvss_vector>CVSS2#AV:N/AC:L/Au:N/C:P/I:P/A:P</cvss_vector>
+                <cwe>20</cwe>
+                <cwe>22</cwe>
+                <cwe>119</cwe>
+                <cwe>264</cwe>
+                <description>According to its banner, the version of PHP installed on the remote host is prior to 5.2.7.
+                    It is, therefore, affected by multiple vulnerabilities :
+
+                    - There is a buffer overflow flaw in the bundled PCRE library that allows a denial of service
+                    attack.
+                    (CVE-2008-2371)
+
+                    - Multiple directory traversal vulnerabilities exist in functions such as &apos;posix_access&apos;,
+                    &apos;chdir&apos;, and &apos;ftok&apos; that allow a remote attacker to bypass &apos;safe_mode&apos;
+                    restrictions. (CVE-2008-2665 and CVE-2008-2666).
+
+                    - A buffer overflow flaw in &apos;php_imap.c&apos; may be triggered when processing long message
+                    headers due to the use of obsolete API calls. This can be exploited to cause a denial of service or
+                    to execute arbitrary code.
+                    (CVE-2008-2829)
+
+                    - A buffer overflow in the &apos;imageloadfont&apos; function in &apos;ext/gd/gd.c&apos; can be
+                    triggered when a specially crafted font is given. This can be exploited to cause a denial of service
+                    or to execute arbitrary code. (CVE-2008-3658)
+
+                    - A buffer overflow flaw exists in PHP&apos;s internal function &apos;memnstr&apos; which can be
+                    exploited by an attacker using the delimiter argument to the &apos;explode&apos; function. This can
+                    be used to cause a denial of service or to execute arbitrary code. (CVE-2008-3659)
+
+                    - When PHP is used as a FastCGI module, an attacker by requesting a file whose file name extension
+                    is preceded by multiple dots can cause a denial of service.
+                    (CVE-2008-3660)
+
+                    - A heap-based buffer overflow flaw in the mbstring extension can be triggered via a specially
+                    crafted string containing an HTML entity that is not handled during Unicode conversion. This can be
+                    exploited to execute arbitrary code.(CVE-2008-5557)
+
+                    - Improper initialization of global variables &apos;page_uid&apos; and &apos;page_gid&apos; when PHP
+                    is used as an Apache module allows the bypassing of security restriction due to SAPI &apos;php_getuid&apos;
+                    function overloading. (CVE-2008-5624)
+
+                    - PHP does not enforce the correct restrictions when &apos;safe_mode&apos; is enabled through a
+                    &apos;php_admin_flag&apos; setting in &apos;httpd.conf&apos;. This allows an attacker, by placing a
+                    specially crafted &apos;php_value&apos; entry in &apos;.htaccess&apos;, to able to write to
+                    arbitrary files.
+                    (CVE-2008-5625)
+
+                    - The &apos;ZipArchive::extractTo&apos; function in the ZipArchive extension fails to filter
+                    directory traversal sequences from file names. An attacker can exploit this to write to arbitrary
+                    files. (CVE-2008-5658)
+
+                    - Under limited circumstances, an attacker can cause a file truncation to occur when calling the
+                    &apos;dba_replace&apos; function with an invalid argument. (CVE-2008-7068)
+
+                    - A buffer overflow error exists in the function &apos;date_from_ISO8601&apos; function within file
+                    &apos;xmlrpc.c&apos; because user-supplied input is improperly validated.
+                    This can be exploited by a remote attacker to cause a denial of service or to execute arbitrary
+                    code.
+                    (CVE-2014-8626)
+                </description>
+                <exploit_available>false</exploit_available>
+                <exploit_code_maturity>Unproven</exploit_code_maturity>
+                <exploitability_ease>No exploit is required</exploitability_ease>
+                <fname>php_5_2_7.nasl</fname>
+                <patch_publication_date>2008/12/04</patch_publication_date>
+                <plugin_modification_date>2021/01/19</plugin_modification_date>
+                <plugin_name>PHP 5 &lt; 5.2.7 Multiple Vulnerabilities</plugin_name>
+                <plugin_publication_date>2008/12/05</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <product_coverage>Low</product_coverage>
+                <risk_factor>High</risk_factor>
+                <script_version>1.31</script_version>
+                <see_also>http://cxsecurity.com/issue/WLB-2008110041
+                    http://cxsecurity.com/issue/WLB-2008110058
+                    http://cxsecurity.com/issue/WLB-2008120011
+                    https://seclists.org/fulldisclosure/2008/Jun/237
+                    https://seclists.org/fulldisclosure/2008/Jun/238
+                    https://www.openwall.com/lists/oss-security/2008/08/08/2
+                    https://www.openwall.com/lists/oss-security/2008/08/13/8
+                    https://seclists.org/fulldisclosure/2008/Nov/674
+                    https://seclists.org/fulldisclosure/2008/Dec/90
+                    https://bugs.php.net/bug.php?id=42862
+                    https://bugs.php.net/bug.php?id=45151
+                    https://bugs.php.net/bug.php?id=45722
+                    http://www.php.net/releases/5_2_7.php
+                    http://www.php.net/ChangeLog-5.php#5.2.7
+                </see_also>
+                <solution>Upgrade to PHP version 5.2.8 or later.
+
+                    Note that version 5.2.7 has been removed from distribution because of a regression in that version
+                    that results in the &apos;magic_quotes_gpc&apos; setting remaining off even if it was set to on.
+                </solution>
+                <synopsis>The remote web server uses a version of PHP that is affected by multiple vulnerabilities.
+                </synopsis>
+                <threat_intensity_last_28>Very Low</threat_intensity_last_28>
+                <threat_recency>&gt; 365 days</threat_recency>
+                <threat_sources_last_28>No recorded events</threat_sources_last_28>
+                <vpr_score>6.7</vpr_score>
+                <vuln_publication_date>2008/06/19</vuln_publication_date>
+                <xref>CWE:20</xref>
+                <xref>CWE:22</xref>
+                <xref>CWE:119</xref>
+                <xref>CWE:264</xref>
+                <plugin_output>
+                    Version source : http://testphp.vulnweb.com/secured/phpinfo.php
+                    Installed version : 5.1.6
+                    Fixed version : 5.2.7
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="3" pluginID="35067"
+                        pluginName="PHP &lt; 5.2.8 Multiple Vulnerabilities" pluginFamily="CGI abuses">
+                <age_of_vuln>730 days +</age_of_vuln>
+                <bid>32673</bid>
+                <cpe>cpe:/a:php:php</cpe>
+                <cve>CVE-2008-5814</cve>
+                <cve>CVE-2008-5844</cve>
+                <cvssV3_impactScore>5.5</cvssV3_impactScore>
+                <cvss_base_score>7.5</cvss_base_score>
+                <cvss_temporal_score>5.5</cvss_temporal_score>
+                <cvss_temporal_vector>CVSS2#E:U/RL:OF/RC:C</cvss_temporal_vector>
+                <cvss_vector>CVSS2#AV:N/AC:L/Au:N/C:P/I:P/A:P</cvss_vector>
+                <cwe>16</cwe>
+                <cwe>79</cwe>
+                <description>According to its banner, the version of PHP installed on the remote host is earlier than
+                    5.2.8. As such, it is potentially affected by the following vulnerabilities :
+
+                    - PHP fails to properly sanitize error messages of arbitrary HTML or script code, would code allow
+                    for cross-site scripting attacks if PHP&apos;s &apos;display_errors&apos; setting is enabled.
+                    (CVE-2008-5814)
+
+                    - Version 5.2.7 introduced a regression with regard to &apos;magic_quotes&apos; functionality due to
+                    an incorrect fix to the filter extension. As a result, the &apos;magic_quotes_gpc&apos; setting
+                    remains off even if it is set to on. (CVE-2008-5844)
+                </description>
+                <exploit_available>false</exploit_available>
+                <exploit_code_maturity>Unproven</exploit_code_maturity>
+                <exploitability_ease>No exploit is required</exploitability_ease>
+                <fname>php_5_2_8.nasl</fname>
+                <plugin_modification_date>2021/01/19</plugin_modification_date>
+                <plugin_name>PHP &lt; 5.2.8 Multiple Vulnerabilities</plugin_name>
+                <plugin_publication_date>2008/12/09</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <product_coverage>Low</product_coverage>
+                <risk_factor>High</risk_factor>
+                <script_version>1.19</script_version>
+                <see_also>https://bugs.php.net/bug.php?id=42718
+                    http://www.php.net/releases/5_2_8.php
+                </see_also>
+                <solution>Upgrade to PHP version 5.2.8 or later.</solution>
+                <synopsis>The remote web server uses a version of PHP that may be affected by multiple
+                    vulnerabilities.
+                </synopsis>
+                <threat_intensity_last_28>Very Low</threat_intensity_last_28>
+                <threat_recency>No recorded events</threat_recency>
+                <threat_sources_last_28>No recorded events</threat_sources_last_28>
+                <vpr_score>5.5</vpr_score>
+                <xref>CWE:16</xref>
+                <xref>CWE:79</xref>
+                <plugin_output>
+                    Version source : http://testphp.vulnweb.com/secured/phpinfo.php
+                    Installed version : 5.1.6
+                    Fixed version : 5.2.8
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="2" pluginID="35750"
+                        pluginName="PHP &lt; 5.2.9 Multiple Vulnerabilities" pluginFamily="CGI abuses">
+                <age_of_vuln>730 days +</age_of_vuln>
+                <bid>33002</bid>
+                <bid>33927</bid>
+                <cpe>cpe:/a:php:php</cpe>
+                <cve>CVE-2008-5498</cve>
+                <cve>CVE-2009-1271</cve>
+                <cve>CVE-2009-1272</cve>
+                <cvssV3_impactScore>3.6</cvssV3_impactScore>
+                <cvss_base_score>5.0</cvss_base_score>
+                <cvss_temporal_score>3.9</cvss_temporal_score>
+                <cvss_temporal_vector>CVSS2#E:POC/RL:OF/RC:C</cvss_temporal_vector>
+                <cvss_vector>CVSS2#AV:N/AC:L/Au:N/C:N/I:N/A:P</cvss_vector>
+                <cwe>20</cwe>
+                <cwe>200</cwe>
+                <description>According to its banner, the version of PHP installed on the remote host is older than
+                    5.2.9. Such versions may be affected by several security issues :
+
+                    - Background color is not correctly validated with a non true color image in function &apos;imagerotate()&apos;.
+                    (CVE-2008-5498)
+
+                    - A denial of service condition can be triggered by trying to extract zip files that contain files
+                    with relative paths in file or directory names.
+
+                    - Function &apos;explode()&apos; is affected by an unspecified vulnerability.
+
+                    - It may be possible to trigger a segfault by passing a specially crafted string to function &apos;json_decode()&apos;.
+
+                    - Function &apos;xml_error_string()&apos; is affected by a flaw which results in messages being off
+                    by one.
+                </description>
+                <exploit_available>false</exploit_available>
+                <exploit_code_maturity>Unproven</exploit_code_maturity>
+                <exploitability_ease>No exploit is required</exploitability_ease>
+                <fname>php_5_2_9.nasl</fname>
+                <patch_publication_date>2009/02/26</patch_publication_date>
+                <plugin_modification_date>2021/01/19</plugin_modification_date>
+                <plugin_name>PHP &lt; 5.2.9 Multiple Vulnerabilities</plugin_name>
+                <plugin_publication_date>2009/02/27</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <product_coverage>Low</product_coverage>
+                <risk_factor>Medium</risk_factor>
+                <script_version>1.14</script_version>
+                <secunia>34081</secunia>
+                <see_also>http://news.php.net/php.internals/42762
+                    http://www.php.net/releases/5_2_9.php
+                    http://www.php.net/ChangeLog-5.php#5.2.9
+                </see_also>
+                <solution>Upgrade to PHP version 5.2.9 or later.</solution>
+                <synopsis>The remote web server uses a version of PHP that is affected by multiple flaws.</synopsis>
+                <threat_intensity_last_28>Very Low</threat_intensity_last_28>
+                <threat_recency>No recorded events</threat_recency>
+                <threat_sources_last_28>No recorded events</threat_sources_last_28>
+                <vpr_score>3.6</vpr_score>
+                <xref>Secunia:34081</xref>
+                <xref>CWE:20</xref>
+                <xref>CWE:200</xref>
+                <plugin_output>
+                    Version source : http://testphp.vulnweb.com/secured/phpinfo.php
+                    Installed version : 5.1.6
+                    Fixed version : 5.2.9
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="2" pluginID="58966"
+                        pluginName="PHP &lt; 5.3.11 Multiple Vulnerabilities" pluginFamily="CGI abuses">
+                <age_of_vuln>730 days +</age_of_vuln>
+                <bid>51954</bid>
+                <bid>53403</bid>
+                <bid>55297</bid>
+                <cpe>cpe:/a:php:php</cpe>
+                <cve>CVE-2011-1398</cve>
+                <cve>CVE-2012-0831</cve>
+                <cve>CVE-2012-1172</cve>
+                <cvssV3_impactScore>5.9</cvssV3_impactScore>
+                <cvss_base_score>6.8</cvss_base_score>
+                <cvss_score_source>CVE-2012-0831</cvss_score_source>
+                <cvss_temporal_score>5.3</cvss_temporal_score>
+                <cvss_temporal_vector>CVSS2#E:POC/RL:OF/RC:C</cvss_temporal_vector>
+                <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:P/I:P/A:P</cvss_vector>
+                <description>According to its banner, the version of PHP installed on the remote host is earlier than
+                    5.3.11, and as such is potentially affected by multiple vulnerabilities :
+
+                    - During the import of environment variables, temporary changes to the &apos;magic_quotes_gpc&apos;
+                    directive are not handled properly. This can lower the difficulty for SQL injection attacks.
+                    (CVE-2012-0831)
+
+                    - The &apos;$_FILES&apos; variable can be corrupted because the names of uploaded files are not
+                    properly validated.
+                    (CVE-2012-1172)
+
+                    - The &apos;open_basedir&apos; directive is not properly handled by the functions &apos;readline_write_history&apos;
+                    and &apos;readline_read_history&apos;.
+
+                    - The &apos;header()&apos; function does not detect multi-line headers with a CR. (Bug #60227 /
+                    CVE-2011-1398)
+                </description>
+                <exploit_available>false</exploit_available>
+                <exploit_code_maturity>Unproven</exploit_code_maturity>
+                <exploitability_ease>No exploit is required</exploitability_ease>
+                <fname>php_5_3_11.nasl</fname>
+                <patch_publication_date>2012/04/26</patch_publication_date>
+                <plugin_modification_date>2021/01/19</plugin_modification_date>
+                <plugin_name>PHP &lt; 5.3.11 Multiple Vulnerabilities</plugin_name>
+                <plugin_publication_date>2012/05/02</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <product_coverage>Low</product_coverage>
+                <risk_factor>Medium</risk_factor>
+                <script_version>1.16</script_version>
+                <see_also>http://www.nessus.org/u?e81d4026
+                    https://bugs.php.net/bug.php?id=61043
+                    https://bugs.php.net/bug.php?id=54374
+                    https://bugs.php.net/bug.php?id=60227
+                    https://marc.info/?l=oss-security&amp;m=134626481806571&amp;w=2
+                    http://www.php.net/archive/2012.php#id2012-04-26-1
+                    http://www.php.net/ChangeLog-5.php#5.3.11
+                </see_also>
+                <solution>Upgrade to PHP version 5.3.11 or later.</solution>
+                <synopsis>The remote web server uses a version of PHP that is affected by multiple vulnerabilities.
+                </synopsis>
+                <threat_intensity_last_28>Very Low</threat_intensity_last_28>
+                <threat_recency>No recorded events</threat_recency>
+                <threat_sources_last_28>No recorded events</threat_sources_last_28>
+                <vpr_score>5.9</vpr_score>
+                <vuln_publication_date>2012/02/09</vuln_publication_date>
+                <plugin_output>
+                    Version source : http://testphp.vulnweb.com/secured/phpinfo.php
+                    Installed version : 5.1.6
+                    Fixed version : 5.3.11
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="3" pluginID="57537"
+                        pluginName="PHP &lt; 5.3.9 Multiple Vulnerabilities" pluginFamily="CGI abuses">
+                <age_of_vuln>730 days +</age_of_vuln>
+                <bid>49754</bid>
+                <bid>50907</bid>
+                <bid>51193</bid>
+                <bid>51806</bid>
+                <bid>51952</bid>
+                <bid>51992</bid>
+                <bid>52043</bid>
+                <cpe>cpe:/a:php:php</cpe>
+                <cve>CVE-2011-3379</cve>
+                <cve>CVE-2011-4566</cve>
+                <cve>CVE-2011-4885</cve>
+                <cve>CVE-2012-0057</cve>
+                <cve>CVE-2012-0781</cve>
+                <cve>CVE-2012-0788</cve>
+                <cve>CVE-2012-0789</cve>
+                <cvssV3_impactScore>2.7</cvssV3_impactScore>
+                <cvss_base_score>7.5</cvss_base_score>
+                <cvss_temporal_score>6.5</cvss_temporal_score>
+                <cvss_temporal_vector>CVSS2#E:H/RL:OF/RC:C</cvss_temporal_vector>
+                <cvss_vector>CVSS2#AV:N/AC:L/Au:N/C:P/I:P/A:P</cvss_vector>
+                <description>According to its banner, the version of PHP installed on the remote host is older than
+                    5.3.9. As such, it may be affected by the following security issues :
+
+                    - The &apos;is_a()&apos; function in PHP 5.3.7 and 5.3.8 triggers a call to &apos;__autoload()&apos;.
+                    (CVE-2011-3379)
+
+                    - It is possible to create a denial of service condition by sending multiple, specially crafted
+                    requests containing parameter values that cause hash collisions when computing the hash values for
+                    storage in a hash table. (CVE-2011-4885)
+                    - An integer overflow exists in the exif_process_IFD_TAG function in exif.c that can allow a remote
+                    attacker to read arbitrary memory locations or cause a denial of service condition. This
+                    vulnerability only affects PHP 5.4.0beta2 on 32-bit platforms. (CVE-2011-4566)
+
+                    - Calls to libxslt are not restricted via xsltSetSecurityPrefs(), which could allow an attacker to
+                    create or overwrite files, resulting in arbitrary code execution. (CVE-2012-0057)
+
+                    - An error exists in the function &apos;tidy_diagnose&apos; that can allow an attacker to cause the
+                    application to dereference a NULL pointer. This causes the application to crash. (CVE-2012-0781)
+
+                    - The &apos;PDORow&apos; implementation contains an error that can cause application crashes when
+                    interacting with the session feature. (CVE-2012-0788)
+
+                    - An error exists in the timezone handling such that repeated calls to the function &apos;strtotime&apos;
+                    can allow a denial of service attack via memory consumption.
+                    (CVE-2012-0789)
+                </description>
+                <exploit_available>false</exploit_available>
+                <exploit_code_maturity>High</exploit_code_maturity>
+                <exploit_framework_core>true</exploit_framework_core>
+                <exploitability_ease>No exploit is required</exploitability_ease>
+                <exploited_by_malware>true</exploited_by_malware>
+                <fname>php_5_3_9.nasl</fname>
+                <patch_publication_date>2012/01/11</patch_publication_date>
+                <plugin_modification_date>2021/01/19</plugin_modification_date>
+                <plugin_name>PHP &lt; 5.3.9 Multiple Vulnerabilities</plugin_name>
+                <plugin_publication_date>2012/01/13</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <product_coverage>Low</product_coverage>
+                <risk_factor>High</risk_factor>
+                <script_version>1.24</script_version>
+                <see_also>https://www.tenable.com/security/research/tra-2012-01
+                    http://xhe.myxwiki.org/xwiki/bin/view/XSLT/Application_PHP5
+                    http://www.php.net/archive/2012.php#id2012-01-11-1
+                    https://seclists.org/bugtraq/2012/Jan/91
+                    https://bugs.php.net/bug.php?id=55475
+                    https://bugs.php.net/bug.php?id=55776
+                    https://bugs.php.net/bug.php?id=53502
+                    http://www.php.net/ChangeLog-5.php#5.3.9
+                </see_also>
+                <solution>Upgrade to PHP version 5.3.9 or later.</solution>
+                <synopsis>The remote web server uses a version of PHP that is affected by multiple flaws.</synopsis>
+                <threat_intensity_last_28>Very Low</threat_intensity_last_28>
+                <threat_recency>&gt; 365 days</threat_recency>
+                <threat_sources_last_28>No recorded events</threat_sources_last_28>
+                <tra>TRA-2012-01</tra>
+                <vpr_score>5.7</vpr_score>
+                <vuln_publication_date>2011/09/23</vuln_publication_date>
+                <xref>TRA:TRA-2012-01</xref>
+                <plugin_output>
+                    Version source : http://testphp.vulnweb.com/secured/phpinfo.php
+                    Installed version : 5.1.6
+                    Fixed version : 5.3.9
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="3" pluginID="58988"
+                        pluginName="PHP &lt; 5.3.12 / 5.4.2 CGI Query String Code Execution" pluginFamily="CGI abuses">
+                <age_of_vuln>730 days +</age_of_vuln>
+                <bid>53388</bid>
+                <canvas_package>CANVAS</canvas_package>
+                <cert>520827</cert>
+                <cpe>cpe:/a:php:php</cpe>
+                <cve>CVE-2012-1823</cve>
+                <cvssV3_impactScore>5.9</cvssV3_impactScore>
+                <cvss_base_score>7.5</cvss_base_score>
+                <cvss_score_source>CVE-2012-1823</cvss_score_source>
+                <cvss_temporal_score>6.5</cvss_temporal_score>
+                <cvss_temporal_vector>CVSS2#E:H/RL:OF/RC:C</cvss_temporal_vector>
+                <cvss_vector>CVSS2#AV:N/AC:L/Au:N/C:P/I:P/A:P</cvss_vector>
+                <description>According to its banner, the version of PHP installed on the remote host is earlier than
+                    5.3.12 / 5.4.2, and as such is potentially affected by a remote code execution and information
+                    disclosure vulnerability.
+
+                    An error in the file &apos;sapi/cgi/cgi_main.c&apos; can allow a remote attacker to obtain PHP
+                    source code from the web server or to potentially execute arbitrary code. In vulnerable
+                    configurations, PHP treats certain query string parameters as command line arguments including
+                    switches such as &apos;-s&apos;, &apos;-d&apos;, and &apos;-c&apos;.
+
+                    Note that this vulnerability is exploitable only when PHP is used in CGI-based configurations.
+                    Apache with &apos;mod_php&apos; is not an exploitable configuration.
+                </description>
+                <exploit_available>true</exploit_available>
+                <exploit_code_maturity>High</exploit_code_maturity>
+                <exploit_framework_canvas>true</exploit_framework_canvas>
+                <exploit_framework_core>true</exploit_framework_core>
+                <exploit_framework_metasploit>true</exploit_framework_metasploit>
+                <exploitability_ease>Exploits are available</exploitability_ease>
+                <exploited_by_malware>true</exploited_by_malware>
+                <fname>php_5_4_2.nasl</fname>
+                <metasploit_name>PHP CGI Argument Injection</metasploit_name>
+                <patch_publication_date>2012/05/03</patch_publication_date>
+                <plugin_modification_date>2021/09/27</plugin_modification_date>
+                <plugin_name>PHP &lt; 5.3.12 / 5.4.2 CGI Query String Code Execution</plugin_name>
+                <plugin_publication_date>2012/05/04</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <product_coverage>Low</product_coverage>
+                <risk_factor>High</risk_factor>
+                <script_version>1.24</script_version>
+                <see_also>http://eindbazen.net/2012/05/php-cgi-advisory-cve-2012-1823/
+                    https://bugs.php.net/bug.php?id=61910
+                    http://www.php.net/archive/2012.php#id2012-05-03-1
+                    http://www.php.net/ChangeLog-5.php#5.3.12
+                    http://www.php.net/ChangeLog-5.php#5.4.2
+                </see_also>
+                <solution>Upgrade to PHP version 5.3.12 / 5.4.2 or later. A &apos;mod_rewrite&apos; workaround is
+                    available as well.
+                </solution>
+                <synopsis>The remote web server uses a version of PHP that is affected by a remote code execution
+                    vulnerability.
+                </synopsis>
+                <threat_intensity_last_28>Very Low</threat_intensity_last_28>
+                <threat_recency>30 to 120 days</threat_recency>
+                <threat_sources_last_28>No recorded events</threat_sources_last_28>
+                <vpr_score>9.0</vpr_score>
+                <vuln_publication_date>2012/05/03</vuln_publication_date>
+                <xref>CERT:520827</xref>
+                <plugin_output>
+                    Version source : http://testphp.vulnweb.com/secured/phpinfo.php
+                    Installed version : 5.1.6
+                    Fixed version : 5.3.12 / 5.4.2
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="2" pluginID="142591"
+                        pluginName="PHP &lt; 7.3.24 Multiple Vulnerabilities" pluginFamily="CGI abuses">
+                <cpe>cpe:/a:php:php</cpe>
+                <cvss3_base_score>7.5</cvss3_base_score>
+                <cvss3_vector>CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H</cvss3_vector>
+                <cvss_base_score>5.0</cvss_base_score>
+                <cvss_score_rationale>DoS</cvss_score_rationale>
+                <cvss_score_source>manual</cvss_score_source>
+                <cvss_vector>CVSS2#AV:N/AC:L/Au:N/C:N/I:N/A:P</cvss_vector>
+                <description>According to its self-reported version number, the version of PHP running on the remote web
+                    server is prior to 7.3.24. It is, therefore affected by multiple vulnerabilities
+                </description>
+                <fname>php_7_3_24.nasl</fname>
+                <iava>2020-A-0510-S</iava>
+                <patch_publication_date>2020/10/29</patch_publication_date>
+                <plugin_modification_date>2021/06/03</plugin_modification_date>
+                <plugin_name>PHP &lt; 7.3.24 Multiple Vulnerabilities</plugin_name>
+                <plugin_publication_date>2020/11/06</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <risk_factor>Medium</risk_factor>
+                <script_version>1.4</script_version>
+                <see_also>https://www.php.net/ChangeLog-7.php#7.3.24</see_also>
+                <solution>Upgrade to PHP version 7.3.24 or later.</solution>
+                <stig_severity>I</stig_severity>
+                <synopsis>The version of PHP running on the remote web server is affected by multiple vulnerabilities.
+                </synopsis>
+                <vuln_publication_date>2020/10/29</vuln_publication_date>
+                <xref>IAVA:2020-A-0510-S</xref>
+                <plugin_output>
+                    URL : http://testphp.vulnweb.com/ (5.1.6 under http://testphp.vulnweb.com/secured/phpinfo.php)
+                    Installed version : 5.1.6
+                    Fixed version : 7.3.24
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="2" pluginID="152853"
+                        pluginName="PHP &lt; 7.3.28 Email Header Injection" pluginFamily="CGI abuses">
+                <cpe>cpe:/a:php:php</cpe>
+                <cvss3_base_score>5.3</cvss3_base_score>
+                <cvss3_vector>CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:N</cvss3_vector>
+                <cvss_base_score>5.0</cvss_base_score>
+                <cvss_score_rationale>Score based on analysis of the vendor advisory.</cvss_score_rationale>
+                <cvss_score_source>manual</cvss_score_source>
+                <cvss_vector>CVSS2#AV:N/AC:L/Au:N/C:N/I:P/A:N</cvss_vector>
+                <description>According to its self-reported version number, the version of PHP running on the remote web
+                    server is prior to 7.3.28.
+                    It is, therefore affected by an email header injection vulnerability, due to a failure to properly
+                    handle CR-LF sequences in header fields. An unauthenticated, remote attacker can exploit this, by
+                    inserting line feed characters into email headers, to gain full control of email header content.
+                </description>
+                <fname>php_7_3_28.nasl</fname>
+                <patch_publication_date>2021/04/29</patch_publication_date>
+                <plugin_modification_date>2021/08/26</plugin_modification_date>
+                <plugin_name>PHP &lt; 7.3.28 Email Header Injection</plugin_name>
+                <plugin_publication_date>2021/08/26</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <risk_factor>Medium</risk_factor>
+                <script_version>1.1</script_version>
+                <see_also>https://www.php.net/ChangeLog-7.php#7.3.28</see_also>
+                <solution>Upgrade to PHP version 7.3.28 or later.</solution>
+                <synopsis>The version of PHP running on the remote web server is affected by an email header injection
+                    vulnerability.
+                </synopsis>
+                <vuln_publication_date>2021/04/29</vuln_publication_date>
+                <plugin_output>
+                    URL : http://testphp.vulnweb.com/ (5.1.6 under http://testphp.vulnweb.com/secured/phpinfo.php)
+                    Installed version : 5.1.6
+                    Fixed version : 7.3.28
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="2" pluginID="73289"
+                        pluginName="PHP PHP_RSHUTDOWN_FUNCTION Security Bypass" pluginFamily="CGI abuses">
+                <age_of_vuln>730 days +</age_of_vuln>
+                <bid>65673</bid>
+                <cpe>cpe:/a:php:php</cpe>
+                <cve>CVE-2012-1171</cve>
+                <cvssV3_impactScore>3.4</cvssV3_impactScore>
+                <cvss_base_score>5.0</cvss_base_score>
+                <cvss_temporal_score>3.7</cvss_temporal_score>
+                <cvss_temporal_vector>CVSS2#E:U/RL:OF/RC:C</cvss_temporal_vector>
+                <cvss_vector>CVSS2#AV:N/AC:L/Au:N/C:P/I:N/A:N</cvss_vector>
+                <description>According to its banner, the version of PHP 5.x installed on the remote host is 5.x prior
+                    to 5.3.11 or 5.4.x prior to 5.4.1 and thus, is potentially affected by a security bypass
+                    vulnerability.
+
+                    An error exists related to the function &apos;PHP_RSHUTDOWN_FUNCTION&apos; in the libxml extension
+                    and the &apos;stream_close&apos; method that could allow a remote attacker to bypass &apos;open_basedir&apos;
+                    protections and obtain sensitive information.
+
+                    Note that this plugin has not attempted to exploit this issue, but has instead relied only on PHP&apos;s
+                    self-reported version number.
+                </description>
+                <exploit_available>false</exploit_available>
+                <exploit_code_maturity>Unproven</exploit_code_maturity>
+                <exploitability_ease>No exploit is required</exploitability_ease>
+                <fname>php_rshutdown_open_basedir_bypass.nasl</fname>
+                <patch_publication_date>2012/03/12</patch_publication_date>
+                <plugin_modification_date>2021/01/19</plugin_modification_date>
+                <plugin_name>PHP PHP_RSHUTDOWN_FUNCTION Security Bypass</plugin_name>
+                <plugin_publication_date>2014/04/01</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <product_coverage>Low</product_coverage>
+                <risk_factor>Medium</risk_factor>
+                <script_version>1.9</script_version>
+                <see_also>http://www.nessus.org/u?bcc428c2
+                    https://bugs.php.net/bug.php?id=61367
+                </see_also>
+                <solution>Upgrade to PHP version 5.3.11 / 5.4.1 or later.</solution>
+                <synopsis>The remote web server uses a version of PHP that is potentially affected by a security bypass
+                    vulnerability.
+                </synopsis>
+                <threat_intensity_last_28>Very Low</threat_intensity_last_28>
+                <threat_recency>No recorded events</threat_recency>
+                <threat_sources_last_28>No recorded events</threat_sources_last_28>
+                <vpr_score>3.4</vpr_score>
+                <vuln_publication_date>2012/03/12</vuln_publication_date>
+                <plugin_output>
+                    Version source : http://testphp.vulnweb.com/secured/phpinfo.php
+                    Installed version : 5.1.6
+                    Fixed version : 5.3.11 / 5.4.1
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="4" pluginID="58987"
+                        pluginName="PHP Unsupported Version Detection" pluginFamily="CGI abuses">
+                <cpe>cpe:/a:php:php</cpe>
+                <cvss3_base_score>10.0</cvss3_base_score>
+                <cvss3_vector>CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H</cvss3_vector>
+                <cvss_base_score>10.0</cvss_base_score>
+                <cvss_score_rationale>Unsupported Software</cvss_score_rationale>
+                <cvss_score_source>manual</cvss_score_source>
+                <cvss_vector>CVSS2#AV:N/AC:L/Au:N/C:C/I:C/A:C</cvss_vector>
+                <description>According to its version, the installation of PHP on the remote host is no longer
+                    supported.
+
+                    Lack of support implies that no new security patches for the product will be released by the vendor.
+                    As a result, it is likely to contain security vulnerabilities.
+                </description>
+                <fname>php_unsupported.nasl</fname>
+                <iava>0001-A-0581</iava>
+                <plugin_modification_date>2021/02/15</plugin_modification_date>
+                <plugin_name>PHP Unsupported Version Detection</plugin_name>
+                <plugin_publication_date>2012/05/04</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <risk_factor>Critical</risk_factor>
+                <script_version>1.21</script_version>
+                <see_also>http://php.net/eol.php
+                    https://wiki.php.net/rfc/releaseprocess
+                </see_also>
+                <solution>Upgrade to a version of PHP that is currently supported.</solution>
+                <synopsis>The remote host contains an unsupported version of a web application scripting language.
+                </synopsis>
+                <unsupported_by_vendor>true</unsupported_by_vendor>
+                <xref>IAVA:0001-A-0581</xref>
+                <plugin_output>
+                    Source : X-Powered-By: PHP/5.6.40-38+ubuntu20.04.1+deb.sury.org+1
+                    Installed version : 5.6.40-38+ubuntu20.04.1+deb.sury.org+1
+                    End of support date : 2018/12/31
+                    Announcement : http://php.net/supported-versions.php
+                    Supported versions : 7.3.x / 7.4.x / 8.0.x
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="4" pluginID="58987"
+                        pluginName="PHP Unsupported Version Detection" pluginFamily="CGI abuses">
+                <cpe>cpe:/a:php:php</cpe>
+                <cvss3_base_score>10.0</cvss3_base_score>
+                <cvss3_vector>CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H</cvss3_vector>
+                <cvss_base_score>10.0</cvss_base_score>
+                <cvss_score_rationale>Unsupported Software</cvss_score_rationale>
+                <cvss_score_source>manual</cvss_score_source>
+                <cvss_vector>CVSS2#AV:N/AC:L/Au:N/C:C/I:C/A:C</cvss_vector>
+                <description>According to its version, the installation of PHP on the remote host is no longer
+                    supported.
+
+                    Lack of support implies that no new security patches for the product will be released by the vendor.
+                    As a result, it is likely to contain security vulnerabilities.
+                </description>
+                <fname>php_unsupported.nasl</fname>
+                <iava>0001-A-0581</iava>
+                <plugin_modification_date>2021/02/15</plugin_modification_date>
+                <plugin_name>PHP Unsupported Version Detection</plugin_name>
+                <plugin_publication_date>2012/05/04</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <risk_factor>Critical</risk_factor>
+                <script_version>1.21</script_version>
+                <see_also>http://php.net/eol.php
+                    https://wiki.php.net/rfc/releaseprocess
+                </see_also>
+                <solution>Upgrade to a version of PHP that is currently supported.</solution>
+                <synopsis>The remote host contains an unsupported version of a web application scripting language.
+                </synopsis>
+                <unsupported_by_vendor>true</unsupported_by_vendor>
+                <xref>IAVA:0001-A-0581</xref>
+                <plugin_output>
+                    Source : http://testphp.vulnweb.com/secured/phpinfo.php
+                    Installed version : 5.1.6
+                    End of support date : 2006/08/24
+                    Announcement : http://php.net/eol.php
+                    Supported versions : 7.3.x / 7.4.x / 8.0.x
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="0" pluginID="48243"
+                        pluginName="PHP Version Detection" pluginFamily="Web Servers">
+                <asset_inventory>True</asset_inventory>
+                <cpe>cpe:/a:php:php</cpe>
+                <description>Nessus was able to determine the version of PHP available on the remote web server.
+                </description>
+                <fname>php_version.nasl</fname>
+                <iavt>0001-T-0936</iavt>
+                <plugin_modification_date>2020/09/22</plugin_modification_date>
+                <plugin_name>PHP Version Detection</plugin_name>
+                <plugin_publication_date>2010/08/04</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <risk_factor>None</risk_factor>
+                <script_version>1.25</script_version>
+                <solution>n/a</solution>
+                <synopsis>It was possible to obtain the version number of the remote PHP installation.</synopsis>
+                <xref>IAVT:0001-T-0936</xref>
+                <plugin_output>
+                    Nessus was able to identify the following PHP version information :
+
+                    Version : 5.1.6
+                    Source : http://testphp.vulnweb.com/secured/phpinfo.php
+
+                    Version : 5.6.40-38+ubuntu20.04.1+deb.sury.org+1
+                    Source : X-Powered-By: PHP/5.6.40-38+ubuntu20.04.1+deb.sury.org+1
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="2" pluginID="11229"
+                        pluginName="Web Server info.php / phpinfo.php Detection" pluginFamily="CGI abuses">
+                <cpe>cpe:/a:php:php</cpe>
+                <cvss3_base_score>5.3</cvss3_base_score>
+                <cvss3_vector>CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N</cvss3_vector>
+                <cvss_base_score>5.0</cvss_base_score>
+                <cvss_score_rationale>score from an analysis done by Tenable</cvss_score_rationale>
+                <cvss_score_source>manual</cvss_score_source>
+                <cvss_vector>CVSS2#AV:N/AC:L/Au:N/C:P/I:N/A:N</cvss_vector>
+                <description>Many PHP installation tutorials instruct the user to create a PHP file that calls the PHP
+                    function &apos;phpinfo()&apos; for debugging purposes. Various PHP applications may also include
+                    such a file. By accessing such a file, a remote attacker can discover a large amount of information
+                    about the remote web server, including :
+
+                    - The username of the user who installed PHP and if they are a SUDO user.
+
+                    - The IP address of the host.
+
+                    - The version of the operating system.
+
+                    - The web server version.
+
+                    - The root directory of the web server.
+
+                    - Configuration information about the remote PHP installation.
+                </description>
+                <fname>phpinfo.nasl</fname>
+                <plugin_modification_date>2021/02/15</plugin_modification_date>
+                <plugin_name>Web Server info.php / phpinfo.php Detection</plugin_name>
+                <plugin_publication_date>2003/02/12</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <risk_factor>Medium</risk_factor>
+                <script_version>1.20</script_version>
+                <solution>Remove the affected file(s).</solution>
+                <synopsis>The remote web server contains a PHP script that is prone to an information disclosure
+                    attack.
+                </synopsis>
+                <plugin_output>
+                    Nessus discovered the following URL that calls phpinfo() :
+
+                    - http://testphp.vulnweb.com/secured/phpinfo.php
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="0" pluginID="10107"
+                        pluginName="HTTP Server Type and Version" pluginFamily="Web Servers">
+                <asset_inventory>True</asset_inventory>
+                <description>This plugin attempts to determine the type and the version of the remote web server.
+                </description>
+                <fname>http_version.nasl</fname>
+                <iavt>0001-T-0931</iavt>
+                <plugin_modification_date>2020/10/30</plugin_modification_date>
+                <plugin_name>HTTP Server Type and Version</plugin_name>
+                <plugin_publication_date>2000/01/04</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <risk_factor>None</risk_factor>
+                <script_version>1.141</script_version>
+                <solution>n/a</solution>
+                <synopsis>A web server is running on the remote host.</synopsis>
+                <xref>IAVT:0001-T-0931</xref>
+                <plugin_output>The remote web server type is :
+
+                    nginx/1.19.0
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="0" pluginID="50344"
+                        pluginName="Missing or Permissive Content-Security-Policy frame-ancestors HTTP Response Header"
+                        pluginFamily="CGI abuses">
+                <description>The remote web server in some responses sets a permissive Content-Security-Policy (CSP)
+                    frame-ancestors response header or does not set one at all.
+
+                    The CSP frame-ancestors header has been proposed by the W3C Web Application Security Working Group
+                    as a way to mitigate cross-site scripting and clickjacking attacks.
+                </description>
+                <fname>http_X_Content_Security_Policy_header.nasl</fname>
+                <plugin_modification_date>2021/01/19</plugin_modification_date>
+                <plugin_name>Missing or Permissive Content-Security-Policy frame-ancestors HTTP Response Header
+                </plugin_name>
+                <plugin_publication_date>2010/10/26</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <risk_factor>None</risk_factor>
+                <script_version>1.6</script_version>
+                <see_also>http://www.nessus.org/u?55aa8f57
+                    http://www.nessus.org/u?07cc2a06
+                    https://content-security-policy.com/
+                    https://www.w3.org/TR/CSP2/
+                </see_also>
+                <solution>Set a non-permissive Content-Security-Policy frame-ancestors header for all requested
+                    resources.
+                </solution>
+                <synopsis>The remote web server does not take steps to mitigate a class of web application
+                    vulnerabilities.
+                </synopsis>
+                <plugin_output>
+                    The following pages do not set a Content-Security-Policy frame-ancestors response header or set a
+                    permissive policy:
+
+                    - http://testphp.vulnweb.com/
+                    - http://testphp.vulnweb.com/AJAX/
+                    - http://testphp.vulnweb.com/AJAX/index.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/.php/.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/.php/.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/.php/showxml.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/.php/showxml.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/showxml.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/showxml.php/.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/showxml.php/.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/showxml.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/showxml.php/showxml.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/showxml.php/showxml.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/.php/.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/.php/.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/.php/showxml.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/.php/showxml.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/showxml.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/showxml.php/.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/showxml.php/.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/showxml.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/showxml.php/showxml.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/showxml.php/showxml.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/showxml.php
+                    - http://testphp.vulnweb.com/CVS/
+                    - http://testphp.vulnweb.com/Mod_Rewrite_Shop/
+                    - http://testphp.vulnweb.com/Mod_Rewrite_Shop/BuyProduct-1/
+                    - http://testphp.vulnweb.com/Mod_Rewrite_Shop/BuyProduct-2/
+                    - http://testphp.vulnweb.com/Mod_Rewrite_Shop/BuyProduct-3/
+                    - http://testphp.vulnweb.com/Mod_Rewrite_Shop/Details/color-printer/3/
+                    - http://testphp.vulnweb.com/Mod_Rewrite_Shop/Details/network-attached-storage-dlink/1/
+                    - http://testphp.vulnweb.com/Mod_Rewrite_Shop/Details/web-camera-a4tech/2/
+                    - http://testphp.vulnweb.com/Mod_Rewrite_Shop/RateProduct-1.html
+                    - http://testphp.vulnweb.com/Mod_Rewrite_Shop/RateProduct-2.html
+                    - http://testphp.vulnweb.com/Mod_Rewrite_Shop/RateProduct-3.html
+                    - http://testphp.vulnweb.com/Templates/
+                    - http://testphp.vulnweb.com/Templates/main_dynamic_template.dwt.php
+                    - http://testphp.vulnweb.com/admin/
+                    - http://testphp.vulnweb.com/artists.php
+                    - http://testphp.vulnweb.com/cart.php
+                    - http://testphp.vulnweb.com/categories.php
+                    - http://testphp.vulnweb.com/disclaimer.php
+                    - http://testphp.vulnweb.com/guestbook.php
+                    - http://testphp.vulnweb.com/hpp/
+                    - http://testphp.vulnweb.com/images/
+                    - http://testphp.vulnweb.com/index.php
+                    - http://testphp.vulnweb.com/listproducts.php
+                    - http://testphp.vulnweb.com/login.php
+                    - http://testphp.vulnweb.com/search.php
+                    - http://testphp.vulnweb.com/secured/
+                    - http://testphp.vulnweb.com/secured/newuser.php
+                    - http://testphp.vulnweb.com/signup.php
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="0" pluginID="50345"
+                        pluginName="Missing or Permissive X-Frame-Options HTTP Response Header"
+                        pluginFamily="CGI abuses">
+                <description>The remote web server in some responses sets a permissive X-Frame-Options response header
+                    or does not set one at all.
+
+                    The X-Frame-Options header has been proposed by Microsoft as a way to mitigate clickjacking attacks
+                    and is currently supported by all major browser vendors
+                </description>
+                <fname>http_X_Frame_Options_header.nasl</fname>
+                <plugin_modification_date>2021/01/19</plugin_modification_date>
+                <plugin_name>Missing or Permissive X-Frame-Options HTTP Response Header</plugin_name>
+                <plugin_publication_date>2010/10/26</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <risk_factor>None</risk_factor>
+                <script_version>1.5</script_version>
+                <see_also>https://en.wikipedia.org/wiki/Clickjacking
+                    http://www.nessus.org/u?399b1f56
+                </see_also>
+                <solution>Set a properly configured X-Frame-Options header for all requested resources.</solution>
+                <synopsis>The remote web server does not take steps to mitigate a class of web application
+                    vulnerabilities.
+                </synopsis>
+                <plugin_output>
+                    The following pages do not set a X-Frame-Options response header or set a permissive policy:
+
+                    - http://testphp.vulnweb.com/
+                    - http://testphp.vulnweb.com/AJAX/
+                    - http://testphp.vulnweb.com/AJAX/index.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/.php/.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/.php/.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/.php/showxml.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/.php/showxml.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/showxml.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/showxml.php/.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/showxml.php/.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/showxml.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/showxml.php/showxml.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/showxml.php/showxml.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/.php/.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/.php/.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/.php/showxml.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/.php/showxml.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/showxml.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/showxml.php/.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/showxml.php/.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/showxml.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/showxml.php/showxml.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/showxml.php/showxml.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/showxml.php
+                    - http://testphp.vulnweb.com/CVS/
+                    - http://testphp.vulnweb.com/Mod_Rewrite_Shop/
+                    - http://testphp.vulnweb.com/Mod_Rewrite_Shop/BuyProduct-1/
+                    - http://testphp.vulnweb.com/Mod_Rewrite_Shop/BuyProduct-2/
+                    - http://testphp.vulnweb.com/Mod_Rewrite_Shop/BuyProduct-3/
+                    - http://testphp.vulnweb.com/Mod_Rewrite_Shop/Details/color-printer/3/
+                    - http://testphp.vulnweb.com/Mod_Rewrite_Shop/Details/network-attached-storage-dlink/1/
+                    - http://testphp.vulnweb.com/Mod_Rewrite_Shop/Details/web-camera-a4tech/2/
+                    - http://testphp.vulnweb.com/Mod_Rewrite_Shop/RateProduct-1.html
+                    - http://testphp.vulnweb.com/Mod_Rewrite_Shop/RateProduct-2.html
+                    - http://testphp.vulnweb.com/Mod_Rewrite_Shop/RateProduct-3.html
+                    - http://testphp.vulnweb.com/Templates/
+                    - http://testphp.vulnweb.com/Templates/main_dynamic_template.dwt.php
+                    - http://testphp.vulnweb.com/admin/
+                    - http://testphp.vulnweb.com/artists.php
+                    - http://testphp.vulnweb.com/cart.php
+                    - http://testphp.vulnweb.com/categories.php
+                    - http://testphp.vulnweb.com/disclaimer.php
+                    - http://testphp.vulnweb.com/guestbook.php
+                    - http://testphp.vulnweb.com/hpp/
+                    - http://testphp.vulnweb.com/images/
+                    - http://testphp.vulnweb.com/index.php
+                    - http://testphp.vulnweb.com/listproducts.php
+                    - http://testphp.vulnweb.com/login.php
+                    - http://testphp.vulnweb.com/search.php
+                    - http://testphp.vulnweb.com/secured/
+                    - http://testphp.vulnweb.com/secured/newuser.php
+                    - http://testphp.vulnweb.com/signup.php
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="2" pluginID="85582"
+                        pluginName="Web Application Potentially Vulnerable to Clickjacking" pluginFamily="Web Servers">
+                <cvss_base_score>4.3</cvss_base_score>
+                <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:N/I:P/A:N</cvss_vector>
+                <cwe>693</cwe>
+                <description>The remote web server does not set an X-Frame-Options response header or a
+                    Content-Security-Policy &apos;frame-ancestors&apos; response header in all content responses. This
+                    could potentially expose the site to a clickjacking or UI redress attack, in which an attacker can
+                    trick a user into clicking an area of the vulnerable page that is different than what the user
+                    perceives the page to be. This can result in a user performing fraudulent or malicious transactions.
+
+                    X-Frame-Options has been proposed by Microsoft as a way to mitigate clickjacking attacks and is
+                    currently supported by all major browser vendors.
+
+                    Content-Security-Policy (CSP) has been proposed by the W3C Web Application Security Working Group,
+                    with increasing support among all major browser vendors, as a way to mitigate clickjacking and other
+                    attacks. The &apos;frame-ancestors&apos; policy directive restricts which sources can embed the
+                    protected resource.
+
+                    Note that while the X-Frame-Options and Content-Security-Policy response headers are not the only
+                    mitigations for clickjacking, they are currently the most reliable methods that can be detected
+                    through automation. Therefore, this plugin may produce false positives if other mitigation
+                    strategies (e.g., frame-busting JavaScript) are deployed or if the page does not perform any
+                    security-sensitive transactions.
+                </description>
+                <fname>http_generic_clickjacking.nasl</fname>
+                <plugin_modification_date>2017/05/16</plugin_modification_date>
+                <plugin_name>Web Application Potentially Vulnerable to Clickjacking</plugin_name>
+                <plugin_publication_date>2015/08/22</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <risk_factor>Medium</risk_factor>
+                <script_version>$Revision: 1.7 $</script_version>
+                <see_also>http://www.nessus.org/u?399b1f56
+                    https://www.owasp.org/index.php/Clickjacking_Defense_Cheat_Sheet
+                    https://en.wikipedia.org/wiki/Clickjacking
+                </see_also>
+                <solution>Return the X-Frame-Options or Content-Security-Policy (with the &apos;frame-ancestors&apos;
+                    directive) HTTP header with the page&apos;s response.
+                    This prevents the page&apos;s content from being rendered by another site when using the frame or
+                    iframe HTML tags.
+                </solution>
+                <synopsis>The remote web server may fail to mitigate a class of web application vulnerabilities.
+                </synopsis>
+                <xref>CWE:693</xref>
+                <plugin_output>
+                    The following pages do not use a clickjacking mitigation response header and contain a clickable
+                    event :
+
+                    - http://testphp.vulnweb.com/
+                    - http://testphp.vulnweb.com/AJAX/
+                    - http://testphp.vulnweb.com/AJAX/index.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/.php/.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/.php/.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/.php/showxml.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/.php/showxml.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/showxml.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/showxml.php/.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/showxml.php/.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/showxml.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/showxml.php/showxml.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/showxml.php/showxml.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/.php/.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/.php/.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/.php/showxml.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/.php/showxml.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/showxml.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/showxml.php/.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/showxml.php/.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/showxml.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/showxml.php/showxml.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/showxml.php/showxml.php/showxml.php
+                    - http://testphp.vulnweb.com/Templates/main_dynamic_template.dwt.php
+                    - http://testphp.vulnweb.com/artists.php
+                    - http://testphp.vulnweb.com/cart.php
+                    - http://testphp.vulnweb.com/categories.php
+                    - http://testphp.vulnweb.com/disclaimer.php
+                    - http://testphp.vulnweb.com/guestbook.php
+                    - http://testphp.vulnweb.com/index.php
+                    - http://testphp.vulnweb.com/listproducts.php
+                    - http://testphp.vulnweb.com/login.php
+                    - http://testphp.vulnweb.com/search.php
+                    - http://testphp.vulnweb.com/signup.php
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="0" pluginID="91815"
+                        pluginName="Web Application Sitemap" pluginFamily="Web Servers">
+                <description>The remote web server contains linkable content that can be used to gather information
+                    about a target.
+                </description>
+                <fname>http_sitemap.nasl</fname>
+                <plugin_modification_date>2016/06/24</plugin_modification_date>
+                <plugin_name>Web Application Sitemap</plugin_name>
+                <plugin_publication_date>2016/06/24</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <risk_factor>None</risk_factor>
+                <script_version>$Revision: 1.1 $</script_version>
+                <see_also>http://www.nessus.org/u?5496c8d9</see_also>
+                <solution>n/a</solution>
+                <synopsis>The remote web server hosts linkable content that can be crawled by Nessus.</synopsis>
+                <plugin_output>
+                    The following sitemap was created from crawling linkable content on the target host :
+
+                    - http://testphp.vulnweb.com/
+                    - http://testphp.vulnweb.com/AJAX/
+                    - http://testphp.vulnweb.com/AJAX/index.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/.php/.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/.php/.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/.php/showxml.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/.php/showxml.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/showxml.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/showxml.php/.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/showxml.php/.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/showxml.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/showxml.php/showxml.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/.php/showxml.php/showxml.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/.php/.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/.php/.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/.php/showxml.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/.php/showxml.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/showxml.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/showxml.php/.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/showxml.php/.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/showxml.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/showxml.php/showxml.php/.php
+                    - http://testphp.vulnweb.com/AJAX/index.php/showxml.php/showxml.php/showxml.php/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/showxml.php
+                    - http://testphp.vulnweb.com/AJAX/styles.css
+                    - http://testphp.vulnweb.com/CVS/
+                    - http://testphp.vulnweb.com/CVS/Entries
+                    - http://testphp.vulnweb.com/CVS/Entries.Log
+                    - http://testphp.vulnweb.com/CVS/Repository
+                    - http://testphp.vulnweb.com/CVS/Root
+                    - http://testphp.vulnweb.com/Mod_Rewrite_Shop/
+                    - http://testphp.vulnweb.com/Mod_Rewrite_Shop/BuyProduct-1/
+                    - http://testphp.vulnweb.com/Mod_Rewrite_Shop/BuyProduct-2/
+                    - http://testphp.vulnweb.com/Mod_Rewrite_Shop/BuyProduct-3/
+                    - http://testphp.vulnweb.com/Mod_Rewrite_Shop/Details/color-printer/3/
+                    - http://testphp.vulnweb.com/Mod_Rewrite_Shop/Details/network-attached-storage-dlink/1/
+                    - http://testphp.vulnweb.com/Mod_Rewrite_Shop/Details/web-camera-a4tech/2/
+                    - http://testphp.vulnweb.com/Mod_Rewrite_Shop/RateProduct-1.html
+                    - http://testphp.vulnweb.com/Mod_Rewrite_Shop/RateProduct-2.html
+                    - http://testphp.vulnweb.com/Mod_Rewrite_Shop/RateProduct-3.html
+                    - http://testphp.vulnweb.com/Templates/
+                    - http://testphp.vulnweb.com/Templates/main_dynamic_template.dwt.php
+                    - http://testphp.vulnweb.com/admin/
+                    - http://testphp.vulnweb.com/admin/create.sql
+                    - http://testphp.vulnweb.com/artists.php
+                    - http://testphp.vulnweb.com/cart.php
+                    - http://testphp.vulnweb.com/categories.php
+                    - http://testphp.vulnweb.com/disclaimer.php
+                    - http://testphp.vulnweb.com/guestbook.php
+                    - http://testphp.vulnweb.com/hpp/
+                    - http://testphp.vulnweb.com/images/
+                    - http://testphp.vulnweb.com/images/logo.gif
+                    - http://testphp.vulnweb.com/images/remark.gif
+                    - http://testphp.vulnweb.com/index.php
+                    - http://testphp.vulnweb.com/listproducts.php
+                    - http://testphp.vulnweb.com/login.php
+                    - http://testphp.vulnweb.com/search.php
+                    - http://testphp.vulnweb.com/secured/
+                    - http://testphp.vulnweb.com/secured/newuser.php
+                    - http://testphp.vulnweb.com/secured/style.css
+                    - http://testphp.vulnweb.com/signup.php
+                    - http://testphp.vulnweb.com/style.css
+
+                    Attached is a copy of the sitemap file.
+                </plugin_output>
+                <attachment name="testphp.vulnweb.com_80_sitemap.xml" type="application/xml">
+                    e48dbcc1e83a31720de4adbe039409a9
+                </attachment>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="0" pluginID="49704" pluginName="External URLs"
+                        pluginFamily="Web Servers">
+                <description>Nessus gathered HREF links to external sites by crawling the remote web server.
+                </description>
+                <fname>webmirror_ext_URL.nasl</fname>
+                <plugin_modification_date>2011/08/19</plugin_modification_date>
+                <plugin_name>External URLs</plugin_name>
+                <plugin_publication_date>2010/10/04</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <risk_factor>None</risk_factor>
+                <script_version>$Revision: 1.3 $</script_version>
+                <solution>n/a</solution>
+                <synopsis>Links to external sites were gathered.</synopsis>
+                <plugin_output>
+                    7 external URLs were gathered on this web server :
+                    URL... - Seen on...
+
+
+                    http://blog.mindedsecurity.com/2009/05/client-side-http-parameter-pollution.html - /hpp/
+                    http://www.acunetix.com - /
+                    http://www.eclectasy.com/Fractal-Explorer/index.html - /
+                    https://www.acunetix.com/ - /
+                    https://www.acunetix.com/blog/articles/prevent-sql-injection-vulnerabilities-in-php-applications/ -
+                    /
+                    https://www.acunetix.com/vulnerability-scanner/ - /
+                    https://www.acunetix.com/vulnerability-scanner/php-security-scanner/ - /
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="0" pluginID="49705"
+                        pluginName="Web Server Harvested Email Addresses" pluginFamily="Web Servers">
+                <description>Nessus harvested HREF mailto: links and extracted email addresses by crawling the remote
+                    web server.
+                </description>
+                <fname>webmirror_mailto.nasl</fname>
+                <plugin_modification_date>2018/05/24</plugin_modification_date>
+                <plugin_name>Web Server Harvested Email Addresses</plugin_name>
+                <plugin_publication_date>2010/10/04</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <risk_factor>None</risk_factor>
+                <script_version>1.7</script_version>
+                <solution>n/a</solution>
+                <synopsis>Email addresses were harvested from the web server.</synopsis>
+                <plugin_output>
+
+                    The following email address has been gathered :
+
+
+                    - &apos;wvs@acunetix.com&apos;, referenced from :
+                    /search.php
+                    /listproducts.php
+                    /index.php
+                    /artists.php
+                    /categories.php
+                    /signup.php
+                    /disclaimer.php
+                    /
+                    /Templates/main_dynamic_template.dwt.php
+                    /cart.php
+                    /guestbook.php
+                    /login.php
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="1" pluginID="26194"
+                        pluginName="Web Server Transmits Cleartext Credentials" pluginFamily="Web Servers">
+                <cvss_base_score>2.6</cvss_base_score>
+                <cvss_vector>CVSS2#AV:N/AC:H/Au:N/C:P/I:N/A:N</cvss_vector>
+                <cwe>522</cwe>
+                <cwe>523</cwe>
+                <cwe>718</cwe>
+                <cwe>724</cwe>
+                <cwe>928</cwe>
+                <cwe>930</cwe>
+                <description>The remote web server contains several HTML form fields containing an input of type &apos;password&apos;
+                    which transmit their information to a remote web server in cleartext.
+
+                    An attacker eavesdropping the traffic between web browser and server may obtain logins and passwords
+                    of valid users.
+                </description>
+                <fname>www_clear_text_passwords.nasl</fname>
+                <plugin_modification_date>2016/11/29</plugin_modification_date>
+                <plugin_name>Web Server Transmits Cleartext Credentials</plugin_name>
+                <plugin_publication_date>2007/09/28</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <risk_factor>Low</risk_factor>
+                <script_version>$Revision: 1.17 $</script_version>
+                <solution>Make sure that every sensitive form transmits content over HTTPS.</solution>
+                <synopsis>The remote web server might transmit credentials in cleartext.</synopsis>
+                <xref>CWE:522</xref>
+                <xref>CWE:523</xref>
+                <xref>CWE:718</xref>
+                <xref>CWE:724</xref>
+                <xref>CWE:928</xref>
+                <xref>CWE:930</xref>
+                <plugin_output>Page : /login.php
+                    Destination Page: /userinfo.php
+
+                    Page : /signup.php
+                    Destination Page: /secured/newuser.php
+
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="0" pluginID="10662" pluginName="Web mirroring"
+                        pluginFamily="Web Servers">
+                <description>This plugin makes a mirror of the remote website(s) and extracts the list of CGIs that are
+                    used by the remote host.
+
+                    It is suggested that you change the number of pages to mirror in the &apos;Options&apos; section of
+                    the client.
+                </description>
+                <fname>webmirror3.nbin</fname>
+                <plugin_modification_date>2022/02/14</plugin_modification_date>
+                <plugin_name>Web mirroring</plugin_name>
+                <plugin_publication_date>2001/05/04</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <risk_factor>None</risk_factor>
+                <script_version>3.84</script_version>
+                <solution>n/a</solution>
+                <synopsis>Nessus can crawl the remote website.</synopsis>
+                <plugin_output>
+                    Webmirror performed 174 queries in 89s (1.0955 queries per second)
+
+                    The following CGIs have been discovered :
+
+
+                    + CGI : /search.php
+                    Methods : POST
+                    Argument : goButton
+                    Value: go
+                    Argument : searchFor
+                    Argument : test
+                    Value: query
+
+
+                    + CGI : /listproducts.php
+                    Methods : GET
+                    Argument : cat
+                    Value: 4
+
+
+                    + CGI : /artists.php
+                    Methods : GET
+                    Argument : artist
+                    Value: 3
+
+
+                    + CGI : /comment.php
+                    Methods : GET
+                    Argument : aid
+                    Value: 3
+
+
+                    + CGI : /guestbook.php
+                    Methods : POST
+                    Argument : name
+                    Value: anonymous user
+                    Argument : submit
+                    Value: add message
+                    Argument : text
+
+
+                    + CGI : /AJAX/index.php/.php
+                    Methods : GET
+                    Argument : id
+
+
+                    + CGI : /userinfo.php
+                    Methods : POST
+                    Argument : pass
+                    Argument : uname
+
+
+                    + CGI : /hpp/
+                    Methods : GET
+                    Argument : pp
+                    Value: 12
+
+
+                    + CGI : /AJAX/index.php/.php/.php
+                    Methods : GET
+                    Argument : id
+
+
+                    + CGI : /AJAX/index.php/showxml.php/.php
+                    Methods : GET
+                    Argument : id
+
+
+                    + CGI : /AJAX/.php
+                    Methods : GET
+                    Argument : id
+
+
+                    + CGI : /secured/newuser.php
+                    Methods : POST
+                    Argument : signup
+                    Value: signup
+                    Argument : uaddress
+                    Argument : ucc
+                    Argument : uemail
+                    Argument : upass
+                    Argument : upass2
+                    Argument : uphone
+                    Argument : urname
+                    Argument : uuname
+
+
+                    + CGI : /AJAX/index.php/.php/.php/.php
+                    Methods : GET
+                    Argument : id
+
+
+                    + CGI : /AJAX/index.php/.php/showxml.php/.php
+                    Methods : GET
+                    Argument : id
+
+
+                    + CGI : /AJAX/index.php/showxml.php/.php/.php
+                    Methods : GET
+                    Argument : id
+
+
+                    + CGI : /AJAX/index.php/showxml.php/showxml.php/.php
+                    Methods : GET
+                    Argument : id
+
+
+                    + CGI : /AJAX/index.php/.php/.php/.php/.php
+                    Methods : GET
+                    Argument : id
+
+
+                    + CGI : /AJAX/index.php/.php/.php/showxml.php/.php
+                    Methods : GET
+                    Argument : id
+
+
+                    + CGI : /AJAX/index.php/.php/showxml.php/.php/.php
+                    Methods : GET
+                    Argument : id
+
+
+                    + CGI : /AJAX/index.php/.php/showxml.php/showxml.php/.php
+                    Methods : GET
+                    Argument : id
+
+
+                    + CGI : /AJAX/index.php/showxml.php/.php/.php/.php
+                    Methods : GET
+                    Argument : id
+
+
+                    + CGI : /AJAX/index.php/showxml.php/.php/showxml.php/.php
+                    Methods : GET
+                    Argument : id
+
+
+                    + CGI : /AJAX/index.php/showxml.php/showxml.php/.php/.php
+                    Methods : GET
+                    Argument : id
+
+
+                    + CGI : /AJAX/index.php/showxml.php/showxml.php/showxml.php/.php
+                    Methods : GET
+                    Argument : id
+
+
+                    + CGI : /AJAX/index.php/.php/.php/.php/.php/.php
+                    Methods : GET
+                    Argument : id
+
+
+                    + CGI : /AJAX/index.php/.php/.php/.php/showxml.php/.php
+                    Methods : GET
+                    Argument : id
+
+
+                    + CGI : /AJAX/index.php/.php/.php/showxml.php/.php/.php
+                    Methods : GET
+                    Argument : id
+
+
+                    + CGI : /AJAX/index.php/.php/.php/showxml.php/showxml.php/.php
+                    Methods : GET
+                    Argument : id
+
+
+                    + CGI : /AJAX/index.php/.php/showxml.php/.php/.php/.php
+                    Methods : GET
+                    Argument : id
+
+
+                    + CGI : /AJAX/index.php/.php/showxml.php/.php/showxml.php/.php
+                    Methods : GET
+                    Argument : id
+
+
+                    + CGI : /AJAX/index.php/.php/showxml.php/showxml.php/.php/.php
+                    Methods : GET
+                    Argument : id
+
+
+                    + CGI : /AJAX/index.php/.php/showxml.php/showxml.php/showxml.php/.php
+                    Methods : GET
+                    Argument : id
+
+
+                    + CGI : /AJAX/index.php/showxml.php/.php/.php/.php/.php
+                    Methods : GET
+                    Argument : id
+
+
+                    + CGI : /AJAX/index.php/showxml.php/.php/.php/showxml.php/.php
+                    Methods : GET
+                    Argument : id
+
+
+                    + CGI : /AJAX/index.php/showxml.php/.php/showxml.php/.php/.php
+                    Methods : GET
+                    Argument : id
+
+
+                    + CGI : /AJAX/index.php/showxml.php/.php/showxml.php/showxml.php/.php
+                    Methods : GET
+                    Argument : id
+
+
+                    + CGI : /AJAX/index.php/showxml.php/showxml.php/.php/.php/.php
+                    Methods : GET
+                    Argument : id
+
+
+                    + CGI : /AJAX/index.php/showxml.php/showxml.php/.php/showxml.php/.php
+                    Methods : GET
+                    Argument : id
+
+
+                    + CGI : /AJAX/index.php/showxml.php/showxml.php/showxml.php/.php/.php
+                    Methods : GET
+                    Argument : id
+
+
+                    + CGI : /AJAX/index.php/showxml.php/showxml.php/showxml.php/showxml.php/.php
+                    Methods : GET
+                    Argument : id
+
+                    Directory index found at /admin/
+                    Directory index found at /images/
+                    Directory index found at /Templates/
+                    Directory index found at /CVS/
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="0" pluginID="11032"
+                        pluginName="Web Server Directory Enumeration" pluginFamily="Web Servers">
+                <description>This plugin attempts to determine the presence of various common directories on the remote
+                    web server. By sending a request for a directory, the web server response code indicates if it is a
+                    valid directory or not.
+                </description>
+                <fname>DDI_Directory_Scanner.nasl</fname>
+                <owasp>OWASP-CM-006</owasp>
+                <plugin_modification_date>2021/08/17</plugin_modification_date>
+                <plugin_name>Web Server Directory Enumeration</plugin_name>
+                <plugin_publication_date>2002/06/26</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <risk_factor>None</risk_factor>
+                <script_version>1.114</script_version>
+                <see_also>http://projects.webappsec.org/w/page/13246953/Predictable%20Resource%20Location</see_also>
+                <solution>n/a</solution>
+                <synopsis>It is possible to enumerate directories on the web server.</synopsis>
+                <xref>OWASP:OWASP-CM-006</xref>
+                <plugin_output>
+                    The following directories were discovered:
+                    /admin, /cgi-bin, /secured, /CVS, /Templates, /images
+
+                    While this is not, in and of itself, a bug, you should manually inspect
+                    these directories to ensure that they are in compliance with company
+                    security standards
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="0" pluginID="11153"
+                        pluginName="Service Detection (HELP Request)" pluginFamily="Service detection">
+                <description>It was possible to identify the remote service by its banner or by looking at the error
+                    message it sends when it receives a &apos;HELP&apos; request.
+                </description>
+                <fname>find_service2.nasl</fname>
+                <plugin_modification_date>2018/11/26</plugin_modification_date>
+                <plugin_name>Service Detection (HELP Request)</plugin_name>
+                <plugin_publication_date>2002/11/18</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <risk_factor>None</risk_factor>
+                <script_version>1.317</script_version>
+                <solution>n/a</solution>
+                <synopsis>The remote service could be identified.</synopsis>
+                <plugin_output>A web server seems to be running on this port.</plugin_output>
+            </ReportItem>
+            <ReportItem port="0" svc_name="general" protocol="tcp" severity="0" pluginID="25220"
+                        pluginName="TCP/IP Timestamps Supported" pluginFamily="General">
+                <description>The remote host implements TCP timestamps, as defined by RFC1323. A side effect of this
+                    feature is that the uptime of the remote host can sometimes be computed.
+                </description>
+                <fname>tcp_timestamps.nasl</fname>
+                <plugin_modification_date>2019/03/06</plugin_modification_date>
+                <plugin_name>TCP/IP Timestamps Supported</plugin_name>
+                <plugin_publication_date>2007/05/16</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <risk_factor>None</risk_factor>
+                <script_version>1.21</script_version>
+                <see_also>http://www.ietf.org/rfc/rfc1323.txt</see_also>
+                <solution>n/a</solution>
+                <synopsis>The remote service implements TCP timestamps.</synopsis>
+            </ReportItem>
+            <ReportItem port="0" svc_name="general" protocol="icmp" severity="0" pluginID="10114"
+                        pluginName="ICMP Timestamp Request Remote Date Disclosure" pluginFamily="General">
+                <cve>CVE-1999-0524</cve>
+                <cvss3_base_score>0.0</cvss3_base_score>
+                <cvss3_vector>CVSS:3.0/AV:L/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:N</cvss3_vector>
+                <cvss_base_score>0.0</cvss_base_score>
+                <cvss_score_source>CVE-1999-0524</cvss_score_source>
+                <cvss_vector>CVSS2#AV:L/AC:L/Au:N/C:N/I:N/A:N</cvss_vector>
+                <cwe>200</cwe>
+                <description>The remote host answers to an ICMP timestamp request. This allows an attacker to know the
+                    date that is set on the targeted machine, which may assist an unauthenticated, remote attacker in
+                    defeating time-based authentication protocols.
+
+                    Timestamps returned from machines running Windows Vista / 7 / 2008 / 2008 R2 are deliberately
+                    incorrect, but usually within 1000 seconds of the actual system time.
+                </description>
+                <fname>icmp_timestamp.nasl</fname>
+                <plugin_modification_date>2019/10/04</plugin_modification_date>
+                <plugin_name>ICMP Timestamp Request Remote Date Disclosure</plugin_name>
+                <plugin_publication_date>1999/08/01</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <risk_factor>None</risk_factor>
+                <script_version>1.48</script_version>
+                <solution>Filter out the ICMP timestamp requests (13), and the outgoing ICMP timestamp replies (14).
+                </solution>
+                <synopsis>It is possible to determine the exact time set on the remote host.</synopsis>
+                <vuln_publication_date>1995/01/01</vuln_publication_date>
+                <xref>CWE:200</xref>
+                <plugin_output>The difference between the local and remote clocks is 1 second.
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="0" svc_name="general" protocol="tcp" severity="0" pluginID="12053"
+                        pluginName="Host Fully Qualified Domain Name (FQDN) Resolution" pluginFamily="General">
+                <description>Nessus was able to resolve the fully qualified domain name (FQDN) of the remote host.
+                </description>
+                <fname>fqdn.nasl</fname>
+                <plugin_modification_date>2017/04/14</plugin_modification_date>
+                <plugin_name>Host Fully Qualified Domain Name (FQDN) Resolution</plugin_name>
+                <plugin_publication_date>2004/02/11</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <risk_factor>None</risk_factor>
+                <script_version>$Revision: 1.16 $</script_version>
+                <solution>n/a</solution>
+                <synopsis>It was possible to resolve the name of the remote host.</synopsis>
+                <plugin_output>
+                    44.228.249.3 resolves as ec2-44-228-249-3.us-west-2.compute.amazonaws.com.
+                </plugin_output>
+            </ReportItem>
+            <ReportItem port="80" svc_name="www" protocol="tcp" severity="0" pluginID="11219"
+                        pluginName="Nessus SYN scanner" pluginFamily="Port scanners">
+                <description>This plugin is a SYN &apos;half-open&apos; port scanner. It shall be reasonably quick even
+                    against a firewalled target.
+
+                    Note that SYN scans are less intrusive than TCP (full connect) scans against broken services, but
+                    they might cause problems for less robust firewalls and also leave unclosed connections on the
+                    remote target, if the network is loaded.
+                </description>
+                <fname>nessus_syn_scanner.nbin</fname>
+                <plugin_modification_date>2022/02/14</plugin_modification_date>
+                <plugin_name>Nessus SYN scanner</plugin_name>
+                <plugin_publication_date>2009/02/04</plugin_publication_date>
+                <plugin_type>remote</plugin_type>
+                <risk_factor>None</risk_factor>
+                <script_version>1.43</script_version>
+                <solution>Protect your target with an IP filter.</solution>
+                <synopsis>It is possible to determine which TCP ports are open.</synopsis>
+                <plugin_output>Port 80/tcp was found to be open</plugin_output>
+            </ReportItem>
+        </ReportHost>
+    </Report>
+</NessusClientData_v2>

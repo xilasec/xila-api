@@ -1,0 +1,106 @@
+name: "Xila Security Gate"
+description: "Upload a scanner report to Xila, comment on the pull request, and enforce the security gate — failing the build on policy violations."
+branding:
+  icon: "shield"
+  color: "purple"
+inputs:
+  url:
+    description: "Xila base URL (e.g. https://xila.internal)"
+    required: true
+  token:
+    description: "Xila API token (xila_…) — store it as a repo secret. Leave it empty to authenticate with the job's GitHub OIDC token instead (workload identity federation; needs `permissions: id-token: write` and an admin-defined binding in Xila)."
+    required: false
+    default: ""
+  oidc-audience:
+    description: "Audience requested for the GitHub OIDC token when no token is given; must match the trusted issuer's audience in Xila. Defaults to the url input."
+    required: false
+    default: ""
+  project:
+    description: "Project id to upload into"
+    required: true
+  scanner:
+    description: "Scanner name: trivy, grype, osv-scanner, npm-audit, dependency-check, govulncheck, gitleaks, trufflehog, zap, nuclei, prowler, kubescape, kubeaudit, or sarif"
+    required: true
+  file:
+    description: "Path to the scanner report file"
+    required: true
+  format:
+    description: "Override the format sniffing (e.g. sarif)"
+    required: false
+    default: ""
+  engagement:
+    description: "Engagement id to file the scan under (optional; a DefectDojo-style test of that engagement)"
+    required: false
+    default: ""
+  gate:
+    description: "Enforce the security gate after upload (fails the job on violations)"
+    required: false
+    default: "true"
+  new-only:
+    description: "Gate only on findings this change introduces, ignoring pre-existing debt. Usually what you want on a pull request."
+    required: false
+    default: "false"
+  baseline:
+    description: "With new-only: compare against this baseline branch (a finding is new only if it isn't already open there) instead of the single-scan heuristic."
+    required: false
+    default: ""
+  comment:
+    description: "Post the result as a pull-request comment, edited in place on each push. Needs `permissions: pull-requests: write`."
+    required: false
+    default: "true"
+  check:
+    description: "Create/update a GitHub check run with the gate verdict and inline annotations for the findings this scan introduced, edited in place on each push. Needs `permissions: checks: write`."
+    required: false
+    default: "false"
+  github-token:
+    description: "Token used to write the PR comment and check run. The default GITHUB_TOKEN is enough."
+    required: false
+    default: ${{ github.token }}
+  version:
+    description: "xila CLI version to install (a git tag/branch, or latest)"
+    required: false
+    default: "latest"
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+      with:
+        go-version: "stable"
+    - shell: bash
+      env:
+        XILA_VERSION: ${{ inputs.version }}
+      run: go install "github.com/xilasec/xila-api/cmd/xila@${XILA_VERSION}"
+    - shell: bash
+      env:
+        XILA_URL: ${{ inputs.url }}
+        XILA_TOKEN: ${{ inputs.token }}
+        XILA_OIDC_AUDIENCE: ${{ inputs.oidc-audience || inputs.url }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        XILA_ENGAGEMENT: ${{ inputs.engagement }}
+        # Every value reaches the script through the environment, never by
+        # template expansion into the script text: a branch name or input like
+        # `$(curl …)` must stay data (GitHub script-injection hardening).
+        XILA_PROJECT: ${{ inputs.project }}
+        XILA_SCANNER: ${{ inputs.scanner }}
+        XILA_FORMAT: ${{ inputs.format }}
+        XILA_GATE: ${{ inputs.gate }}
+        XILA_NEW_ONLY: ${{ inputs.new-only }}
+        XILA_COMMENT: ${{ inputs.comment }}
+        XILA_CHECK: ${{ inputs.check }}
+        XILA_BASELINE: ${{ inputs.baseline }}
+        XILA_FILE: ${{ inputs.file }}
+        XILA_COMMIT: ${{ github.sha }}
+        XILA_BRANCH: ${{ github.head_ref || github.ref_name }}
+      run: |
+        args=(upload --project "$XILA_PROJECT" --scanner "$XILA_SCANNER")
+        [ -n "$XILA_ENGAGEMENT" ] && args+=(--engagement "$XILA_ENGAGEMENT")
+        [ -n "$XILA_FORMAT" ] && args+=(--format "$XILA_FORMAT")
+        [ "$XILA_GATE" = "true" ] && args+=(--gate)
+        [ "$XILA_NEW_ONLY" = "true" ] && args+=(--new)
+        [ "$XILA_COMMENT" = "true" ] && args+=(--comment)
+        [ "$XILA_CHECK" = "true" ] && args+=(--check)
+        [ -n "$XILA_COMMIT" ] && args+=(--commit "$XILA_COMMIT")
+        [ -n "$XILA_BRANCH" ] && args+=(--branch "$XILA_BRANCH")
+        [ -n "$XILA_BASELINE" ] && args+=(--baseline "$XILA_BASELINE")
+        args+=("$XILA_FILE")
+        xila "${args[@]}"

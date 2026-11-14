@@ -1,0 +1,551 @@
+[
+  {
+    "vulnerabilities": [
+      {
+        "CVSSv3": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+        "creationTime": "2019-04-14T12:54:43.072009Z",
+        "cvssScore": 7.5,
+        "description": "## Overview\n\n[Microsoft.AspNetCore](https://www.nuget.org/packages/Microsoft.AspNetCore) is an open-source and cross-platform framework for building modern clou…",
+        "disclosureTime": "2019-04-09T07:00:00Z",
+        "exploit": "Not Defined",
+        "fixedIn": [],
+        "id": "SNYK-DOTNET-MICROSOFTASPNETCORE-174184",
+        "identifiers": {
+          "CVE": [
+            "CVE-2019-0815"
+          ],
+          "CWE": [
+            "CWE-200"
+          ]
+        },
+        "language": "dotnet",
+        "modificationTime": "2019-04-14T14:50:43.271387Z",
+        "moduleName": "microsoft.aspnetcore",
+        "packageManager": "nuget",
+        "packageName": "Microsoft.AspNetCore",
+        "proprietary": false,
+        "publicationTime": "2019-04-14T07:00:00Z",
+        "severity": "high",
+        "severityWithCritical": "high",
+        "title": "Denial of Service (DoS)",
+        "from": [
+          "project@1.0.0",
+          "Microsoft.AspNetCore.App@2.2.0",
+          "Microsoft.AspNetCore@2.2.0"
+        ],
+        "upgradePath": [],
+        "isUpgradable": false,
+        "isPatchable": false,
+        "name": "Microsoft.AspNetCore",
+        "version": "2.2.0"
+      },
+      {
+        "CVSSv3": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H/RL:O",
+        "creationTime": "2019-01-09T12:47:52.676198Z",
+        "cvssScore": 5.9,
+        "description": "## Overview\n[Microsoft.AspNetCore.WebSockets](https://www.nuget.org/packages/Microsoft.AspNetCore.WebSockets) is an ASP.NET Core web socket middleware for use o…",
+        "disclosureTime": "2019-01-08T20:32:39Z",
+        "exploit": "Not Defined",
+        "fixedIn": [
+          "2.1.7",
+          "2.2.1"
+        ],
+        "id": "SNYK-DOTNET-MICROSOFTASPNETCOREWEBSOCKETS-72891",
+        "identifiers": {
+          "CVE": [
+            "CVE-2019-0564"
+          ],
+          "CWE": [
+            "CWE-400"
+          ]
+        },
+        "language": "dotnet",
+        "modificationTime": "2020-06-12T14:36:55.646152Z",
+        "moduleName": "microsoft.aspnetcore.websockets",
+        "packageManager": "nuget",
+        "packageName": "Microsoft.AspNetCore.WebSockets",
+        "proprietary": false,
+        "publicationTime": "2019-01-10T09:27:21.069255Z",
+        "severity": "medium",
+        "severityWithCritical": "medium",
+        "title": "Denial of Service (DoS)",
+        "from": [
+          "project@1.0.0",
+          "Microsoft.AspNetCore.App@2.2.0",
+          "Microsoft.AspNetCore.WebSockets@2.2.0"
+        ],
+        "upgradePath": [],
+        "isUpgradable": false,
+        "isPatchable": false,
+        "name": "Microsoft.AspNetCore.WebSockets",
+        "version": "2.2.0"
+      },
+      {
+        "CVSSv3": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H/RL:O",
+        "creationTime": "2019-01-09T12:47:52.676198Z",
+        "cvssScore": 5.9,
+        "description": "## Overview\n[Microsoft.AspNetCore.WebSockets](https://www.nuget.org/packages/Microsoft.AspNetCore.WebSockets) is an ASP.NET Core web socket middleware for use o…",
+        "disclosureTime": "2019-01-08T20:32:39Z",
+        "exploit": "Not Defined",
+        "fixedIn": [
+          "2.1.7",
+          "2.2.1"
+        ],
+        "id": "SNYK-DOTNET-MICROSOFTASPNETCOREWEBSOCKETS-72891",
+        "identifiers": {
+          "CVE": [
+            "CVE-2019-0564"
+          ],
+          "CWE": [
+            "CWE-400"
+          ]
+        },
+        "language": "dotnet",
+        "modificationTime": "2020-06-12T14:36:55.646152Z",
+        "moduleName": "microsoft.aspnetcore.websockets",
+        "packageManager": "nuget",
+        "packageName": "Microsoft.AspNetCore.WebSockets",
+        "proprietary": false,
+        "publicationTime": "2019-01-10T09:27:21.069255Z",
+        "severity": "medium",
+        "severityWithCritical": "medium",
+        "title": "Denial of Service (DoS)",
+        "from": [
+          "project@1.0.0",
+          "Microsoft.AspNetCore.App@2.2.0",
+          "Microsoft.AspNetCore.Http.Connections@1.1.0",
+          "Microsoft.AspNetCore.WebSockets@2.2.0"
+        ],
+        "upgradePath": [],
+        "isUpgradable": false,
+        "isPatchable": false,
+        "name": "Microsoft.AspNetCore.WebSockets",
+        "version": "2.2.0"
+      }
+    ],
+    "ok": false,
+    "dependencyCount": 309,
+    "org": "company-poc",
+    "policy": "# Snyk (https://snyk.io) policy file, patches or ignores known vulnerabilities.\n",
+    "isPrivate": true,
+    "licensesPolicy": {
+      "severities": {},
+      "orgLicenseRules": {
+        "AGPL-1.0": {
+          "licenseType": "AGPL-1.0",
+          "severity": "high",
+          "instructions": ""
+        },
+        "AGPL-3.0": {
+          "licenseType": "AGPL-3.0",
+          "severity": "high",
+          "instructions": ""
+        },
+        "Artistic-1.0": {
+          "licenseType": "Artistic-1.0",
+          "severity": "medium",
+          "instructions": ""
+        },
+        "Artistic-2.0": {
+          "licenseType": "Artistic-2.0",
+          "severity": "medium",
+          "instructions": ""
+        },
+        "CDDL-1.0": {
+          "licenseType": "CDDL-1.0",
+          "severity": "medium",
+          "instructions": ""
+        },
+        "CPOL-1.02": {
+          "licenseType": "CPOL-1.02",
+          "severity": "high",
+          "instructions": ""
+        },
+        "EPL-1.0": {
+          "licenseType": "EPL-1.0",
+          "severity": "medium",
+          "instructions": ""
+        },
+        "GPL-2.0": {
+          "licenseType": "GPL-2.0",
+          "severity": "high",
+          "instructions": ""
+        },
+        "GPL-3.0": {
+          "licenseType": "GPL-3.0",
+          "severity": "high",
+          "instructions": ""
+        },
+        "LGPL-2.0": {
+          "licenseType": "LGPL-2.0",
+          "severity": "medium",
+          "instructions": ""
+        },
+        "LGPL-2.1": {
+          "licenseType": "LGPL-2.1",
+          "severity": "medium",
+          "instructions": ""
+        },
+        "LGPL-3.0": {
+          "licenseType": "LGPL-3.0",
+          "severity": "medium",
+          "instructions": ""
+        },
+        "MPL-1.1": {
+          "licenseType": "MPL-1.1",
+          "severity": "medium",
+          "instructions": ""
+        },
+        "MPL-2.0": {
+          "licenseType": "MPL-2.0",
+          "severity": "medium",
+          "instructions": ""
+        },
+        "MS-RL": {
+          "licenseType": "MS-RL",
+          "severity": "medium",
+          "instructions": ""
+        },
+        "SimPL-2.0": {
+          "licenseType": "SimPL-2.0",
+          "severity": "high",
+          "instructions": ""
+        }
+      }
+    },
+    "packageManager": "nuget",
+    "projectId": "8ec8f901-adfb-45e5-89a7-17946c344797",
+    "ignoreSettings": null,
+    "summary": "24 vulnerable dependency paths",
+    "filesystemPolicy": false,
+    "filtered": {
+      "ignore": [],
+      "patch": []
+    },
+    "uniqueCount": 13,
+    "targetFile": "company.Api.project\\src\\obj\\project.assets.json",
+    "projectName": "project",
+    "foundProjectCount": 1,
+    "displayTargetFile": "company.Api.project\\src\\obj\\project.assets.json",
+    "path": "C:\\Users\\uac\\source\\repos\\project"
+  },
+  {
+    "vulnerabilities": [
+      {
+        "CVSSv3": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
+        "creationTime": "2020-07-16T08:19:48.462528Z",
+        "cvssScore": 8.1,
+        "description": "## Overview\n[ajv](https://www.npmjs.com/package/ajv) is an Another JSON Schema Validator\n\nAffected versions of this package are vulnerable to Prototype Pollutio…",
+        "disclosureTime": "2020-07-16T08:14:41Z",
+        "exploit": "Not Defined",
+        "fixedIn": [
+          "6.12.3"
+        ],
+        "id": "SNYK-JS-AJV-584908",
+        "identifiers": {
+          "CVE": [
+            "CVE-2020-15366"
+          ],
+          "CWE": [
+            "CWE-400"
+          ]
+        },
+        "language": "js",
+        "modificationTime": "2020-07-16T13:58:04.600521Z",
+        "moduleName": "ajv",
+        "packageManager": "npm",
+        "packageName": "ajv",
+        "proprietary": false,
+        "publicationTime": "2020-07-16T13:58:04Z",
+        "severity": "high",
+        "severityWithCritical": "high",
+        "title": "Prototype Pollution",
+        "from": [
+          "email-template-manager@0.0.0",
+          "node-sass@4.12.0",
+          "request@2.88.0",
+          "har-validator@5.1.3",
+          "ajv@6.6.2"
+        ],
+        "upgradePath": [
+          false,
+          "node-sass@4.12.0",
+          "request@2.88.0",
+          "har-validator@5.1.3",
+          "ajv@6.12.3"
+        ],
+        "isUpgradable": true,
+        "isPatchable": false,
+        "name": "ajv",
+        "version": "6.6.2"
+      },
+      {
+        "CVSSv3": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
+        "creationTime": "2020-07-16T08:19:48.462528Z",
+        "cvssScore": 8.1,
+        "description": "## Overview\n[ajv](https://www.npmjs.com/package/ajv) is an Another JSON Schema Validator\n\nAffected versions of this package are vulnerable to Prototype Pollutio…",
+        "disclosureTime": "2020-07-16T08:14:41Z",
+        "exploit": "Not Defined",
+        "fixedIn": [
+          "6.12.3"
+        ],
+        "id": "SNYK-JS-AJV-584908",
+        "identifiers": {
+          "CVE": [
+            "CVE-2020-15366"
+          ],
+          "CWE": [
+            "CWE-400"
+          ]
+        },
+        "language": "js",
+        "modificationTime": "2020-07-16T13:58:04.600521Z",
+        "moduleName": "ajv",
+        "packageManager": "npm",
+        "packageName": "ajv",
+        "proprietary": false,
+        "publicationTime": "2020-07-16T13:58:04Z",
+        "severity": "high",
+        "severityWithCritical": "high",
+        "title": "Prototype Pollution",
+        "from": [
+          "email-template-manager@0.0.0",
+          "ng2-pdf-viewer@6.0.2",
+          "pdfjs-dist@2.2.228",
+          "worker-loader@2.0.0",
+          "schema-utils@0.4.7",
+          "ajv@6.6.2"
+        ],
+        "upgradePath": [
+          false,
+          "ng2-pdf-viewer@6.0.2",
+          "pdfjs-dist@2.2.228",
+          "worker-loader@2.0.0",
+          "schema-utils@0.4.7",
+          "ajv@6.12.3"
+        ],
+        "isUpgradable": true,
+        "isPatchable": false,
+        "name": "ajv",
+        "version": "6.6.2"
+      },
+      {
+        "CVSSv3": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L/E:P",
+        "creationTime": "2020-10-16T16:48:40.985673Z",
+        "cvssScore": 5.3,
+        "description": "## Overview\n[lodash](https://www.npmjs.com/package/lodash) is a modern JavaScript utility library delivering modularity, performance, & extras.\n\nAffected versio…",
+        "disclosureTime": "2020-10-16T16:47:34Z",
+        "exploit": "Proof of Concept",
+        "fixedIn": [
+          "4.17.21"
+        ],
+        "id": "SNYK-JS-LODASH-1018905",
+        "identifiers": {
+          "CVE": [
+            "CVE-2020-28500"
+          ],
+          "CWE": [
+            "CWE-400"
+          ]
+        },
+        "language": "js",
+        "modificationTime": "2021-02-22T09:58:41.562106Z",
+        "moduleName": "lodash",
+        "packageManager": "npm",
+        "packageName": "lodash",
+        "proprietary": true,
+        "publicationTime": "2021-02-15T11:50:49Z",
+        "severity": "medium",
+        "severityWithCritical": "medium",
+        "title": "Regular Expression Denial of Service (ReDoS)",
+        "from": [
+          "email-template-manager@0.0.0",
+          "node-sass@4.12.0",
+          "lodash@4.17.11"
+        ],
+        "upgradePath": [
+          false,
+          "node-sass@4.12.0",
+          "lodash@4.17.21"
+        ],
+        "isUpgradable": true,
+        "isPatchable": false,
+        "name": "lodash",
+        "version": "4.17.11"
+      },
+      {
+        "CVSSv3": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L/E:P",
+        "creationTime": "2020-10-16T16:48:40.985673Z",
+        "cvssScore": 5.3,
+        "description": "## Overview\n[lodash](https://www.npmjs.com/package/lodash) is a modern JavaScript utility library delivering modularity, performance, & extras.\n\nAffected versio…",
+        "disclosureTime": "2020-10-16T16:47:34Z",
+        "exploit": "Proof of Concept",
+        "fixedIn": [
+          "4.17.21"
+        ],
+        "id": "SNYK-JS-LODASH-1018905",
+        "identifiers": {
+          "CVE": [
+            "CVE-2020-28500"
+          ],
+          "CWE": [
+            "CWE-400"
+          ]
+        },
+        "language": "js",
+        "modificationTime": "2021-02-22T09:58:41.562106Z",
+        "moduleName": "lodash",
+        "packageManager": "npm",
+        "packageName": "lodash",
+        "proprietary": true,
+        "publicationTime": "2021-02-15T11:50:49Z",
+        "severity": "medium",
+        "severityWithCritical": "medium",
+        "title": "Regular Expression Denial of Service (ReDoS)",
+        "from": [
+          "email-template-manager@0.0.0",
+          "node-sass@4.12.0",
+          "sass-graph@2.2.4",
+          "lodash@4.17.11"
+        ],
+        "upgradePath": [
+          false,
+          "node-sass@4.12.0",
+          "sass-graph@2.2.4",
+          "lodash@4.17.21"
+        ],
+        "isUpgradable": true,
+        "isPatchable": false,
+        "name": "lodash",
+        "version": "4.17.11"
+      },
+      {
+        "license": "LGPL-2.1",
+        "id": "snyk:lic:npm:tinymce:LGPL-2.1",
+        "type": "license",
+        "packageManager": "npm",
+        "language": "js",
+        "packageName": "tinymce",
+        "title": "LGPL-2.1 license",
+        "description": "LGPL-2.1 license…",
+        "publicationTime": "2021-03-16T22:57:53.213Z",
+        "creationTime": "2021-03-16T22:57:53.213Z",
+        "licenseTemplateUrl": "https://raw.githubusercontent.com/spdx/license-list/master/LGPL-2.1.txt",
+        "severity": "medium",
+        "from": [
+          "email-template-manager@0.0.0",
+          "tinymce@5.0.4"
+        ],
+        "upgradePath": [],
+        "isUpgradable": false,
+        "isPatchable": false,
+        "name": "tinymce",
+        "version": "5.0.4"
+      }
+    ],
+    "ok": false,
+    "dependencyCount": 218,
+    "org": "company-poc",
+    "policy": "# Snyk (https://snyk.io) policy file, patches or ignores known vulnerabilities.\n",
+    "isPrivate": true,
+    "licensesPolicy": {
+      "severities": {},
+      "orgLicenseRules": {
+        "AGPL-1.0": {
+          "licenseType": "AGPL-1.0",
+          "severity": "high",
+          "instructions": ""
+        },
+        "AGPL-3.0": {
+          "licenseType": "AGPL-3.0",
+          "severity": "high",
+          "instructions": ""
+        },
+        "Artistic-1.0": {
+          "licenseType": "Artistic-1.0",
+          "severity": "medium",
+          "instructions": ""
+        },
+        "Artistic-2.0": {
+          "licenseType": "Artistic-2.0",
+          "severity": "medium",
+          "instructions": ""
+        },
+        "CDDL-1.0": {
+          "licenseType": "CDDL-1.0",
+          "severity": "medium",
+          "instructions": ""
+        },
+        "CPOL-1.02": {
+          "licenseType": "CPOL-1.02",
+          "severity": "high",
+          "instructions": ""
+        },
+        "EPL-1.0": {
+          "licenseType": "EPL-1.0",
+          "severity": "medium",
+          "instructions": ""
+        },
+        "GPL-2.0": {
+          "licenseType": "GPL-2.0",
+          "severity": "high",
+          "instructions": ""
+        },
+        "GPL-3.0": {
+          "licenseType": "GPL-3.0",
+          "severity": "high",
+          "instructions": ""
+        },
+        "LGPL-2.0": {
+          "licenseType": "LGPL-2.0",
+          "severity": "medium",
+          "instructions": ""
+        },
+        "LGPL-2.1": {
+          "licenseType": "LGPL-2.1",
+          "severity": "medium",
+          "instructions": ""
+        },
+        "LGPL-3.0": {
+          "licenseType": "LGPL-3.0",
+          "severity": "medium",
+          "instructions": ""
+        },
+        "MPL-1.1": {
+          "licenseType": "MPL-1.1",
+          "severity": "medium",
+          "instructions": ""
+        },
+        "MPL-2.0": {
+          "licenseType": "MPL-2.0",
+          "severity": "medium",
+          "instructions": ""
+        },
+        "MS-RL": {
+          "licenseType": "MS-RL",
+          "severity": "medium",
+          "instructions": ""
+        },
+        "SimPL-2.0": {
+          "licenseType": "SimPL-2.0",
+          "severity": "high",
+          "instructions": ""
+        }
+      }
+    },
+    "packageManager": "npm",
+    "projectId": "a9d9476f-875b-497f-adab-b83af0336524",
+    "ignoreSettings": null,
+    "summary": "58 vulnerable dependency paths",
+    "filesystemPolicy": false,
+    "filtered": {
+      "ignore": [],
+      "patch": []
+    },
+    "uniqueCount": 36,
+    "projectName": "email-template-manager",
+    "foundProjectCount": 1,
+    "displayTargetFile": "company.Ux.project\\package-lock.json",
+    "path": "C:\\Users\\uac\\source\\repos\\project"
+  }
+]

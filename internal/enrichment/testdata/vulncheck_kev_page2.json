@@ -1,0 +1,44 @@
+{
+  "_benchmark": 0.043915,
+  "_meta": {
+    "timestamp": "2025-10-22T17:30:12.402113871Z",
+    "index": "vulncheck-kev",
+    "limit": 1,
+    "total_documents": 2,
+    "sort": "_timestamp",
+    "order": "desc",
+    "page": 2,
+    "total_pages": 2,
+    "max_pages": 6,
+    "first_item": 2,
+    "last_item": 2
+  },
+  "data": [
+    {
+      "vendorProject": "Apache",
+      "product": "HugeGraph-Server",
+      "shortDescription": "Apache HugeGraph-Server contains an improper access control vulnerability that could allow a remote attacker to execute arbitrary code.",
+      "vulnerabilityName": "Apache HugeGraph-Server Improper Access Control Vulnerability",
+      "required_action": "Apply mitigations per vendor instructions or discontinue use of the product if mitigations are unavailable.",
+      "knownRansomwareCampaignUse": "Unknown",
+      "cve": [
+        "CVE-2024-27348"
+      ],
+      "cwes": [
+        "CWE-284"
+      ],
+      "vulncheck_xdb": [],
+      "vulncheck_reported_exploitation": [
+        {
+          "url": "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
+          "date_added": "2024-09-18T00:00:00Z"
+        }
+      ],
+      "reported_exploited_by_vulncheck_canaries": false,
+      "dueDate": "2024-10-09T00:00:00Z",
+      "cisa_date_added": "2024-09-18T00:00:00Z",
+      "date_added": "2024-06-12T00:00:00Z",
+      "_timestamp": "2025-10-20T09:12:51.774410219Z"
+    }
+  ]
+}

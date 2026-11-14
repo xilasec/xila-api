@@ -1,0 +1,338 @@
+[
+  {
+    "number": "1.19.4",
+    "platform": "ruby",
+    "created_at": "2026-06-18T15:18:58.041Z",
+    "prerelease": false,
+    "sha": "50c951611c92bca05c51411aef45f1cbc50f2821c4802758c5c6d34696533ab5"
+  },
+  {
+    "number": "1.19.4",
+    "platform": "x86_64-linux-musl",
+    "created_at": "2026-06-18T15:18:54.716Z",
+    "prerelease": false,
+    "sha": "17dfb7c1fa194ae02fbf7c51a7afc8d278045ab3fdacfd86f91d02d7b274470b"
+  },
+  {
+    "number": "1.19.4",
+    "platform": "x86_64-linux-gnu",
+    "created_at": "2026-06-18T15:18:50.642Z",
+    "prerelease": false,
+    "sha": "379fae440b28915e3f19d752ce2dcf8465ed2b2fbefd2a7ca0dd497bc981a06a"
+  },
+  {
+    "number": "1.19.4",
+    "platform": "x86_64-darwin",
+    "created_at": "2026-06-18T15:18:44.155Z",
+    "prerelease": false,
+    "sha": "7fd17057d3e1f00e9954a74b3cd76595d3d4a5ef233b7ed9599047c204f70551"
+  },
+  {
+    "number": "1.19.4",
+    "platform": "x64-mingw-ucrt",
+    "created_at": "2026-06-18T15:18:39.632Z",
+    "prerelease": false,
+    "sha": "051da97b8eccfdb5444fed40246a35e10d7298b9efe759b4cd25455ea04c587e"
+  },
+  {
+    "number": "1.19.4",
+    "platform": "java",
+    "created_at": "2026-06-18T15:18:35.798Z",
+    "prerelease": false,
+    "sha": "ce04b9e268c9626852231a48b49128ed52034f1ccb39484a6da3875491cd709e"
+  },
+  {
+    "number": "1.19.4",
+    "platform": "arm64-darwin",
+    "created_at": "2026-06-18T15:18:31.523Z",
+    "prerelease": false,
+    "sha": "a46db9853286e6597b36ebc6953817d15acf3a299583eb3f89fdc6f91dd63527"
+  },
+  {
+    "number": "1.19.4",
+    "platform": "arm-linux-musl",
+    "created_at": "2026-06-18T15:18:27.613Z",
+    "prerelease": false,
+    "sha": "588923c101bcfa78869734d247d25b598674323e7f22474fc468f6e5647311eb"
+  },
+  {
+    "number": "1.19.4",
+    "platform": "arm-linux-gnu",
+    "created_at": "2026-06-18T15:18:23.963Z",
+    "prerelease": false,
+    "sha": "a301313e38bb065d68239e79734bcd6f56fb6efaacebde29e9abf2a4735340ca"
+  },
+  {
+    "number": "1.19.4",
+    "platform": "aarch64-linux-musl",
+    "created_at": "2026-06-18T15:18:18.243Z",
+    "prerelease": false,
+    "sha": "35c65b9ce72b3bb03207bdbe7067915019dc18c1b9b59139684bd6690fdd01af"
+  },
+  {
+    "number": "1.19.4",
+    "platform": "aarch64-linux-gnu",
+    "created_at": "2026-06-18T15:18:13.773Z",
+    "prerelease": false,
+    "sha": "1269fb644a6de405057a53dd5c762b1209b43ca7424f839454d3dbc677c31a8f"
+  },
+  {
+    "number": "1.19.3",
+    "platform": "ruby",
+    "created_at": "2026-04-27T21:16:23.955Z",
+    "prerelease": false,
+    "sha": "78312cbac32a40c812780d9678221b79d51288eec00054c1a8d15f7ce05960e8"
+  },
+  {
+    "number": "1.19.3",
+    "platform": "x86_64-linux-musl",
+    "created_at": "2026-04-27T21:16:20.947Z",
+    "prerelease": false,
+    "sha": "248c906d2166eca5efb56d52fdee5f9a1f51d69a72e2b64fdac647b4ce39ea3f"
+  },
+  {
+    "number": "1.19.3",
+    "platform": "x86_64-linux-gnu",
+    "created_at": "2026-04-27T21:16:18.386Z",
+    "prerelease": false,
+    "sha": "2f5078620fe12e83669b5b17311b32532a8153d02eee7ad06948b926d6080976"
+  },
+  {
+    "number": "1.19.3",
+    "platform": "x86_64-darwin",
+    "created_at": "2026-04-27T21:16:15.533Z",
+    "prerelease": false,
+    "sha": "77f3fba57d46c53ab31e62fc6c28f705109d1bf6264356c76f132b2be5728d4d"
+  },
+  {
+    "number": "1.19.3",
+    "platform": "x64-mingw-ucrt",
+    "created_at": "2026-04-27T21:16:11.954Z",
+    "prerelease": false,
+    "sha": "8bb7132cad356c879a1286eaabcb5e68326cb2490317984280fbc62f456d506a"
+  },
+  {
+    "number": "1.19.3",
+    "platform": "java",
+    "created_at": "2026-04-27T21:16:08.745Z",
+    "prerelease": false,
+    "sha": "40ea6ebf5cf2005dae1dee26dd557d3afb41fb6de6c9764aca8cf06fdb841db1"
+  },
+  {
+    "number": "1.19.3",
+    "platform": "arm64-darwin",
+    "created_at": "2026-04-27T21:16:05.175Z",
+    "prerelease": false,
+    "sha": "71b9bd424b1b7abc18b05052a1a3cfd3627abdca62be280854cc411791357e42"
+  },
+  {
+    "number": "1.19.3",
+    "platform": "arm-linux-musl",
+    "created_at": "2026-04-27T21:16:01.717Z",
+    "prerelease": false,
+    "sha": "9ce1cb6346bb9c67b1550eb537aa183ead91e4b6eadb2f36ade02d8dd2a79fb6"
+  },
+  {
+    "number": "1.19.3",
+    "platform": "arm-linux-gnu",
+    "created_at": "2026-04-27T21:15:58.492Z",
+    "prerelease": false,
+    "sha": "3919d5ffc334ad778a4a9eb88fda7dcb8b1fb58c8a52ac640c6dcd2f038e774f"
+  },
+  {
+    "number": "1.19.3",
+    "platform": "aarch64-linux-musl",
+    "created_at": "2026-04-27T21:15:54.379Z",
+    "prerelease": false,
+    "sha": "8392dfdcd21be7a94dbbe9ccc138dea01b97b24cb2dc02a114ca98bfb1d9a0b7"
+  },
+  {
+    "number": "1.19.3",
+    "platform": "aarch64-linux-gnu",
+    "created_at": "2026-04-27T21:15:50.442Z",
+    "prerelease": false,
+    "sha": "46b89e5d7b9e844c2ee360794240c6ea2a4e6fa0c5892a4ed487db621224b639"
+  },
+  {
+    "number": "1.19.2",
+    "platform": "ruby",
+    "created_at": "2026-03-19T21:12:43.001Z",
+    "prerelease": false,
+    "sha": "38fdd8b59db3d5ea9e7dfb14702e882b9bf819198d5bf976f17ebce12c481756"
+  },
+  {
+    "number": "1.19.2",
+    "platform": "x86_64-linux-musl",
+    "created_at": "2026-03-19T21:12:38.952Z",
+    "prerelease": false,
+    "sha": "93128448e61a9383a30baef041bf1f5817e22f297a1d400521e90294445069a8"
+  },
+  {
+    "number": "1.19.2",
+    "platform": "x86_64-linux-gnu",
+    "created_at": "2026-03-19T21:12:35.341Z",
+    "prerelease": false,
+    "sha": "fa8feca882b73e871a9845f3817a72e9734c8e974bdc4fbad6e4bc6e8076b94f"
+  },
+  {
+    "number": "1.19.2",
+    "platform": "x86_64-darwin",
+    "created_at": "2026-03-19T21:12:32.367Z",
+    "prerelease": false,
+    "sha": "7d9af11fda72dfaa2961d8c4d5380ca0b51bc389dc5f8d4b859b9644f195e7a4"
+  },
+  {
+    "number": "1.19.2",
+    "platform": "x64-mingw-ucrt",
+    "created_at": "2026-03-19T21:12:29.394Z",
+    "prerelease": false,
+    "sha": "8ccf25eea3363a2c7b3f2e173a3400582c633cfead27f805df9a9c56d4852d1a"
+  },
+  {
+    "number": "1.19.2",
+    "platform": "java",
+    "created_at": "2026-03-19T21:12:25.587Z",
+    "prerelease": false,
+    "sha": "e9d67034bc80ca71043040beea8a91be5dc99b662daa38a2bfb361b7a2cc8717"
+  },
+  {
+    "number": "1.19.2",
+    "platform": "arm64-darwin",
+    "created_at": "2026-03-19T21:12:22.178Z",
+    "prerelease": false,
+    "sha": "58d8ea2e31a967b843b70487a44c14c8ba1866daa1b9da9be9dbdf1b43dee205"
+  },
+  {
+    "number": "1.19.2",
+    "platform": "arm-linux-musl",
+    "created_at": "2026-03-19T21:12:19.285Z",
+    "prerelease": false,
+    "sha": "61114d44f6742ff72194a1b3020967201e2eb982814778d130f6471c11f9828c"
+  },
+  {
+    "number": "1.19.2",
+    "platform": "arm-linux-gnu",
+    "created_at": "2026-03-19T21:12:15.269Z",
+    "prerelease": false,
+    "sha": "b7fa1139016f3dc850bda1260988f0d749934a939d04ef2da13bec060d7d5081"
+  },
+  {
+    "number": "1.19.2",
+    "platform": "aarch64-linux-musl",
+    "created_at": "2026-03-19T21:12:11.482Z",
+    "prerelease": false,
+    "sha": "7f6b4b0202d507326841a4f790294bf75098aef50c7173443812e3ac5cb06515"
+  },
+  {
+    "number": "1.19.2",
+    "platform": "aarch64-linux-gnu",
+    "created_at": "2026-03-19T21:12:07.878Z",
+    "prerelease": false,
+    "sha": "c34d5c8208025587554608e98fd88ab125b29c80f9352b821964e9a5d5cfbd19"
+  },
+  {
+    "number": "1.18.10",
+    "platform": "ruby",
+    "created_at": "2025-09-15T01:53:57.224Z",
+    "prerelease": false,
+    "sha": "d5cc0731008aa3b3a87b361203ea3d19b2069628cb55e46ac7d84a0445e69cc1"
+  },
+  {
+    "number": "1.18.10",
+    "platform": "x86_64-linux-musl",
+    "created_at": "2025-09-15T01:53:53.982Z",
+    "prerelease": false,
+    "sha": "0651fccf8c2ebbc2475c8b1dfd7ccac3a0a6d09f8a41b72db8c21808cb483385"
+  },
+  {
+    "number": "1.18.10",
+    "platform": "x86_64-linux-gnu",
+    "created_at": "2025-09-15T01:53:50.697Z",
+    "prerelease": false,
+    "sha": "ff5ba26ba2dbce5c04b9ea200777fd225061d7a3930548806f31db907e500f72"
+  },
+  {
+    "number": "1.18.10",
+    "platform": "x86_64-darwin",
+    "created_at": "2025-09-15T01:53:45.710Z",
+    "prerelease": false,
+    "sha": "536e74bed6db2b5076769cab5e5f5af0cd1dccbbd75f1b3e1fa69d1f5c2d79e2"
+  },
+  {
+    "number": "1.18.10",
+    "platform": "x64-mingw-ucrt",
+    "created_at": "2025-09-15T01:53:41.632Z",
+    "prerelease": false,
+    "sha": "64f40d4a41af9f7f83a4e236ad0cf8cca621b97e31f727b1bebdae565a653104"
+  },
+  {
+    "number": "1.18.10",
+    "platform": "java",
+    "created_at": "2025-09-15T01:53:37.668Z",
+    "prerelease": false,
+    "sha": "cd431a09c45d84a2f870ba0b7e8f571199b3727d530f2b4888a73639f76510b5"
+  },
+  {
+    "number": "1.18.10",
+    "platform": "arm64-darwin",
+    "created_at": "2025-09-15T01:53:33.387Z",
+    "prerelease": false,
+    "sha": "c2b0de30770f50b92c9323fa34a4e1cf5a0af322afcacd239cd66ee1c1b22c85"
+  },
+  {
+    "number": "1.18.10",
+    "platform": "arm-linux-musl",
+    "created_at": "2025-09-15T01:53:29.349Z",
+    "prerelease": false,
+    "sha": "1c6ea754e51cecc85c30ee8ab1e6aa4ce6b6e134d01717e9290e79374a9e00aa"
+  },
+  {
+    "number": "1.18.10",
+    "platform": "arm-linux-gnu",
+    "created_at": "2025-09-15T01:53:25.228Z",
+    "prerelease": false,
+    "sha": "51f4f25ab5d5ba1012d6b16aad96b840a10b067b93f35af6a55a2c104a7ee322"
+  },
+  {
+    "number": "1.18.10",
+    "platform": "aarch64-linux-musl",
+    "created_at": "2025-09-15T01:53:20.851Z",
+    "prerelease": false,
+    "sha": "7e74e58314297cc8a8f1b533f7212d1999dbe2639a9ee6d97b483ea2acc18944"
+  },
+  {
+    "number": "1.18.10",
+    "platform": "aarch64-linux-gnu",
+    "created_at": "2025-09-15T01:53:16.730Z",
+    "prerelease": false,
+    "sha": "7fb87235d729c74a2be635376d82b1d459230cc17c50300f8e4fcaabc6195344"
+  },
+  {
+    "number": "1.9.0.rc1",
+    "platform": "ruby",
+    "created_at": "2018-12-10T06:10:51.714Z",
+    "prerelease": true,
+    "sha": "138f8570c9999c09c3c166fc1847cb90897235ba5f4d6422a62d5a271c8bb09a"
+  },
+  {
+    "number": "1.9.0.rc1",
+    "platform": "x86-mingw32",
+    "created_at": "2018-12-10T06:10:37.686Z",
+    "prerelease": true,
+    "sha": "6a2382fe8e9bf7094ef6893a6a0b127da34dc0f84edf5041a38cdc564e53bd28"
+  },
+  {
+    "number": "1.9.0.rc1",
+    "platform": "x64-mingw32",
+    "created_at": "2018-12-10T06:10:25.758Z",
+    "prerelease": true,
+    "sha": "e5e34c3195cb172f2d1d787899fc18e5e4df022645be54c34f8da706303b62dc"
+  },
+  {
+    "number": "1.9.0.rc1",
+    "platform": "java",
+    "created_at": "2018-12-10T06:10:14.555Z",
+    "prerelease": true,
+    "sha": "bfd0e5db695fa66e3f14e901a623180da37e8baf3652fd75d3316a4b2b7bd4c3"
+  }
+]

@@ -1,0 +1,105 @@
+{
+ "classifications": {
+  "Reflected Cross Site Scripting": {
+   "desc": "Cross-site scripting (XSS) is a type of computer security vulnerability typically found in web applications which allow code injection by malicious web users into the web pages viewed by other users. Examples of such code include HTML code and client-side scripts.",
+   "sol": "The best way to protect a web application from XSS attacks is ensure that the application performs validation of all headers, cookies, query strings, form fields, and hidden fields. Encoding user supplied output in the server side can also defeat XSS vulnerabilities by preventing inserted scripts from being transmitted to users in an executable form. Applications can gain significant protection from javascript based attacks by converting the following characters in all generated output to the appropriate HTML entity encoding: <, >, &, ', (, ), #, %, ; , +, -",
+   "ref": {
+    "OWASP: Cross Site Scripting (XSS)": "https://owasp.org/www-community/attacks/xss/",
+    "Wikipedia: Cross-site scripting": "https://en.wikipedia.org/wiki/Cross-site_scripting",
+    "CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')": "https://cwe.mitre.org/data/definitions/79.html",
+    "OWASP: Reflected Cross Site Scripting": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/01-Testing_for_Reflected_Cross_Site_Scripting"
+   },
+   "wstg": [
+    "WSTG-INPV-01"
+   ]
+  },
+  "Internal Server Error": {
+   "desc": "An error occurred on the server's side, preventing it to process the request. It may be the sign of a vulnerability.",
+   "sol": "More information about the error should be found in the server logs.",
+   "ref": {
+    "Wikipedia: List of 5xx HTTP status codes": "https://en.wikipedia.org/wiki/List_of_HTTP_status_codes#5xx_Server_Error",
+    "OWASP: Improper Error Handling": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/08-Testing_for_Error_Handling/01-Testing_For_Improper_Error_Handling"
+   },
+   "wstg": [
+    "WSTG-ERRH-01"
+   ]
+  },
+  "Fingerprint web technology": {
+   "desc": "The use of a web technology can be deducted due to the presence of its specific fingerprints.",
+   "sol": "This is only for informational purposes.",
+   "ref": {
+    "OWASP: Fingerprint Web Server": "https://owasp.org/www-project-web-security-testing-guide/stable/4-Web_Application_Security_Testing/01-Information_Gathering/02-Fingerprint_Web_Server.html",
+    "OWASP: Fingerprint Web Application Framework": "https://owasp.org/www-project-web-security-testing-guide/stable/4-Web_Application_Security_Testing/01-Information_Gathering/08-Fingerprint_Web_Application_Framework.html"
+   },
+   "wstg": [
+    "WSTG-INFO-02",
+    "WSTG-INFO-08"
+   ]
+  }
+ },
+ "vulnerabilities": {
+  "Reflected Cross Site Scripting": [
+   {
+    "method": "GET",
+    "path": "/riri",
+    "info": "This is dope",
+    "level": 1,
+    "parameter": "foo",
+    "referer": "",
+    "module": "xss",
+    "http_request": "GET /riri?foo=bar HTTP/1.1",
+    "curl_command": "curl \"http://perdu.com/riri?foo=bar\"",
+    "wstg": [
+     "WSTG-INPV-01"
+    ]
+   }
+  ]
+ },
+ "anomalies": {
+  "Internal Server Error": [
+   {
+    "method": "GET",
+    "path": "/fifi",
+    "info": "This is the way",
+    "level": 2,
+    "parameter": null,
+    "referer": "",
+    "module": "xss",
+    "http_request": "GET /fifi HTTP/1.1",
+    "curl_command": "curl \"http://perdu.com/fifi\"",
+    "wstg": [
+     "WSTG-ERRH-01"
+    ]
+   }
+  ]
+ },
+ "additionals": {
+  "Fingerprint web technology": [
+   {
+    "method": "GET",
+    "path": "/",
+    "info": "loulou",
+    "level": 3,
+    "parameter": "foo",
+    "referer": "",
+    "module": "wapp",
+    "http_request": "GET /?foo=bar HTTP/1.1",
+    "curl_command": "curl \"http://perdu.com/?foo=bar\"",
+    "wstg": [
+     "WSTG-INFO-02",
+     "WSTG-INFO-08"
+    ]
+   }
+  ]
+ },
+ "infos": {
+  "target": "http://perdu.com",
+  "date": "Thu, 01 Jan 1970 00:00:00 +0000",
+  "version": "WAPITI_VERSION",
+  "scope": "folder",
+  "auth": null,
+  "crawled_pages_nbr": 123456,
+  "detailed_report_level": 0
+ },
+ "suppressed_findings": {}
+}

@@ -1,0 +1,71 @@
+[
+  {
+    "url": "https://public.vulnerablecode.io/api/packages/1234",
+    "purl": "pkg:npm/lodash@4.17.20",
+    "type": "npm",
+    "namespace": "",
+    "name": "lodash",
+    "version": "4.17.20",
+    "qualifiers": {},
+    "subpath": "",
+    "is_vulnerable": true,
+    "next_non_vulnerable_version": "4.17.21",
+    "latest_non_vulnerable_version": "4.17.21",
+    "affected_by_vulnerabilities": [
+      {
+        "url": "https://public.vulnerablecode.io/api/vulnerabilities/5678",
+        "vulnerability_id": "VCID-k3m6-7u2b-aaak",
+        "summary": "Command Injection in lodash\nlodash versions prior to 4.17.21 are vulnerable to Command Injection via the template function.",
+        "references": [
+          {
+            "reference_url": "https://nvd.nist.gov/vuln/detail/CVE-2021-23337",
+            "reference_id": "CVE-2021-23337",
+            "reference_type": "",
+            "scores": [
+              {"value": "7.2", "scoring_system": "cvssv3.1", "scoring_elements": "CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:U/C:H/I:H/A:H"}
+            ],
+            "url": "https://nvd.nist.gov/vuln/detail/CVE-2021-23337"
+          },
+          {
+            "reference_url": "https://github.com/advisories/GHSA-35jh-r3h4-6jhm",
+            "reference_id": "GHSA-35jh-r3h4-6jhm",
+            "reference_type": "",
+            "scores": [{"value": "HIGH", "scoring_system": "generic_textual", "scoring_elements": ""}],
+            "url": "https://github.com/advisories/GHSA-35jh-r3h4-6jhm"
+          }
+        ],
+        "fixed_packages": [
+          {"url": "https://public.vulnerablecode.io/api/packages/9", "purl": "pkg:npm/lodash@4.17.21", "is_vulnerable": false, "affected_by_vulnerabilities": []}
+        ],
+        "aliases": ["CVE-2021-23337", "GHSA-35jh-r3h4-6jhm"],
+        "risk_score": 3.1,
+        "exploitability": "0.5",
+        "weighted_severity": 6.2
+      },
+      {
+        "url": "https://public.vulnerablecode.io/api/vulnerabilities/5679",
+        "vulnerability_id": "VCID-xyz1-abcd-aaaa",
+        "summary": "Regular Expression Denial of Service (ReDoS) in lodash",
+        "references": [
+          {
+            "reference_url": "https://github.com/advisories/GHSA-29mw-wpgm-hmr9",
+            "reference_id": "GHSA-29mw-wpgm-hmr9",
+            "reference_type": "",
+            "scores": [{"value": "MODERATE", "scoring_system": "generic_textual", "scoring_elements": ""}],
+            "url": "https://github.com/advisories/GHSA-29mw-wpgm-hmr9"
+          }
+        ],
+        "fixed_packages": [
+          {"url": "https://public.vulnerablecode.io/api/packages/9", "purl": "pkg:npm/lodash@4.17.21", "is_vulnerable": false, "affected_by_vulnerabilities": []},
+          {"url": "https://public.vulnerablecode.io/api/packages/10", "purl": "pkg:npm/lodash@4.17.22", "is_vulnerable": false, "affected_by_vulnerabilities": []}
+        ],
+        "aliases": ["CVE-2020-28500", "GHSA-29mw-wpgm-hmr9"],
+        "risk_score": null,
+        "exploitability": null,
+        "weighted_severity": null
+      }
+    ],
+    "fixing_vulnerabilities": [],
+    "risk_score": 3.1
+  }
+]

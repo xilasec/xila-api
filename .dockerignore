@@ -1,0 +1,13 @@
+.git
+.gitignore
+.env
+*.md
+Makefile
+docker-compose.yml
+otel-collector-config.yaml
+scratchpad
+
+# Web artifacts are rebuilt inside the image (see Dockerfile web stage).
+web/node_modules
+web/build
+web/.svelte-kit

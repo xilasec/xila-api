@@ -1,0 +1,9 @@
+# Paths opengrep never scans (scripts/security-scan.sh, pre-commit, CI).
+web/node_modules/
+web/build/
+web/.svelte-kit/
+# Scanner fixtures are third-party sample reports, not our code.
+**/testdata/
+# Tests (opengrep's default ignore, restored because this file replaces it):
+# fake IdPs, httptest servers and negative tests trip web-handler rules by design.
+*_test.go

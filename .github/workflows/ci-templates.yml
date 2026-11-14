@@ -1,0 +1,40 @@
+name: CI templates
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ci/**"
+      - ".github/workflows/ci-templates.yml"
+  pull_request:
+    paths:
+      - "ci/**"
+      - ".github/workflows/ci-templates.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+
+      # actionlint also resolves `uses: ./ci/github/scan`, so the example
+      # workflow checks the composite action's inputs too.
+      - name: actionlint
+        run: >-
+          docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.4 -color
+          ci/github/example-workflow.yml .github/workflows/ci-templates.yml
+
+      - name: Parse every YAML file under ci/
+        run: |
+          python3 -c 'import yaml' 2>/dev/null || python3 -m pip install --quiet --break-system-packages pyyaml
+          find ci -type f \( -name '*.yml' -o -name '*.yaml' \) -print0 \
+            | xargs -0 python3 -c '
+          import sys, yaml
+          for f in sys.argv[1:]:
+              with open(f) as fh:
+                  yaml.safe_load(fh)
+              print("ok", f)
+          '

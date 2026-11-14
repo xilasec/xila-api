@@ -1,0 +1,117 @@
+{
+  "minified": "composer/2.0",
+  "packages": {
+    "monolog/monolog": [
+      {
+        "name": "monolog/monolog",
+        "description": "Sends your logs to files, sockets, inboxes, databases and various web services",
+        "version": "3.12.1",
+        "version_normalized": "3.12.1.0",
+        "time": "2026-09-29T19:21:12+00:00",
+        "published-time": "2026-09-29T19:21:44+00:00"
+      },
+      {
+        "version": "3.12.0",
+        "version_normalized": "3.12.0.0",
+        "time": "2026-09-09T08:34:20+00:00",
+        "published-time": "2026-09-09T08:46:13+00:00"
+      },
+      {
+        "version": "3.11.0",
+        "version_normalized": "3.11.0.0",
+        "time": "2026-09-02T12:39:56+00:00",
+        "published-time": "2026-09-02T12:41:08+00:00"
+      },
+      {
+        "version": "3.10.0",
+        "version_normalized": "3.10.0.0",
+        "time": "2026-01-02T08:56:05+00:00",
+        "published-time": "2026-01-02T08:56:22+00:00"
+      },
+      {
+        "version": "3.9.0",
+        "version_normalized": "3.9.0.0",
+        "time": "2025-03-24T10:02:05+00:00",
+        "published-time": "2025-03-24T10:02:45+00:00"
+      },
+      {
+        "version": "3.8.1",
+        "version_normalized": "3.8.1.0",
+        "time": "2024-12-05T17:15:07+00:00",
+        "published-time": "2024-12-05T17:15:30+00:00"
+      },
+      {
+        "version": "3.8.0",
+        "version_normalized": "3.8.0.0",
+        "time": "2024-11-12T13:57:08+00:00",
+        "published-time": "2024-11-12T13:57:24+00:00"
+      },
+      {
+        "version": "3.7.0",
+        "version_normalized": "3.7.0.0",
+        "time": "2024-06-28T09:40:51+00:00",
+        "published-time": "2024-06-28T09:41:13+00:00"
+      },
+      {
+        "version": "3.6.0",
+        "version_normalized": "3.6.0.0",
+        "time": "2024-04-12T21:02:21+00:00",
+        "published-time": "2024-04-12T21:02:37+00:00"
+      },
+      {
+        "version": "3.5.0",
+        "version_normalized": "3.5.0.0",
+        "time": "2023-10-27T15:32:31+00:00",
+        "published-time": "2023-10-27T15:34:19+00:00"
+      },
+      {
+        "version": "3.4.0",
+        "version_normalized": "3.4.0.0",
+        "time": "2023-06-21T08:46:11+00:00",
+        "published-time": "2023-06-21T09:05:12+00:00"
+      },
+      {
+        "version": "3.3.1",
+        "version_normalized": "3.3.1.0",
+        "time": "2023-02-06T13:46:10+00:00",
+        "published-time": "2023-02-06T13:46:50+00:00"
+      },
+      {
+        "version": "3.3.0",
+        "version_normalized": "3.3.0.0",
+        "time": "2023-02-06T13:12:20+00:00",
+        "published-time": "2023-02-06T13:17:07+00:00"
+      },
+      {
+        "version": "3.2.0",
+        "version_normalized": "3.2.0.0",
+        "time": "2022-07-24T12:00:55+00:00",
+        "published-time": "2022-07-24T12:01:56+00:00"
+      },
+      {
+        "version": "3.1.0",
+        "version_normalized": "3.1.0.0",
+        "time": "2022-06-09T09:09:00+00:00",
+        "published-time": "2022-06-09T09:09:25+00:00"
+      },
+      {
+        "version": "3.0.0",
+        "version_normalized": "3.0.0.0",
+        "time": "2022-05-10T10:39:55+00:00",
+        "published-time": "2022-05-10T10:41:10+00:00"
+      },
+      {
+        "version": "3.0.0-RC1",
+        "version_normalized": "3.0.0.0-RC1",
+        "time": "2022-05-08T21:50:49+00:00",
+        "published-time": "2022-05-08T21:51:37+00:00"
+      },
+      {
+        "version": "2.11.1",
+        "version_normalized": "2.11.1.0",
+        "time": "2026-09-02T07:57:24+00:00",
+        "published-time": "2026-09-02T09:39:43+00:00"
+      }
+    ]
+  }
+}

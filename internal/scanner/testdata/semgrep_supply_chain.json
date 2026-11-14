@@ -1,0 +1,62 @@
+{
+  "engine_requested": "OSS",
+  "errors": [],
+  "paths": {
+    "scanned": [
+      "targets/dependency_aware/requirements/foo.py",
+      "targets/dependency_aware/requirements/requirements.txt"
+    ]
+  },
+  "profiling_results": [],
+  "results": [
+    {
+      "check_id": "rules.dependency_aware.python-requirements-sca",
+      "end": {
+        "col": 6,
+        "line": 1,
+        "offset": 5
+      },
+      "extra": {
+        "engine_kind": "OSS",
+        "fingerprint": "0x42",
+        "lines": "requires login",
+        "message": "oh no",
+        "metadata": {},
+        "sca_info": {
+          "dependency_match": {
+            "dependency_pattern": {
+              "ecosystem": "pypi",
+              "package": "pandas",
+              "semver_range": "<= 1.4.2"
+            },
+            "found_dependency": {
+              "allowed_hashes": {},
+              "ecosystem": "pypi",
+              "line_number": 37,
+              "lockfile_path": "targets/dependency_aware/requirements/requirements.txt",
+              "manifest_path": "targets/dependency_aware/requirements/requirements.in",
+              "package": "pandas",
+              "transitivity": "direct",
+              "version": "1.4.2"
+            },
+            "lockfile": "targets/dependency_aware/requirements/requirements.txt"
+          },
+          "reachability_rule": true,
+          "reachable": true,
+          "sca_finding_schema": 20220913
+        },
+        "severity": "WARNING",
+        "validation_state": "NO_VALIDATOR"
+      },
+      "path": "targets/dependency_aware/requirements/foo.py",
+      "start": {
+        "col": 1,
+        "line": 1,
+        "offset": 0
+      }
+    }
+  ],
+  "skipped_rules": [],
+  "time": "<masked in tests>",
+  "version": "0.42"
+}

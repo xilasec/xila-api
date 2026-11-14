@@ -1,0 +1,147 @@
+{
+  "dependencies": [
+    {
+      "name": "django",
+      "version": "3.2.9",
+      "vulns": [
+        {
+          "id": "PYSEC-2022-2",
+          "fix_versions": [
+            "2.2.26",
+            "3.2.11",
+            "4.0.1"
+          ],
+          "aliases": [
+            "GHSA-8c5j-9r9f-c6w8",
+            "CVE-2021-45116",
+            "BIT-django-2021-45116"
+          ],
+          "description": "An issue was discovered in Django 2.2 before 2.2.26, 3.2 before 3.2.11, and 4.0 before 4.0.1. Due to leveraging the Django Template Language's variable resolution logic, the dictsort template filter w…"
+        },
+        {
+          "id": "PYSEC-2021-439",
+          "fix_versions": [
+            "2.2.25",
+            "3.1.14",
+            "3.2.10"
+          ],
+          "aliases": [
+            "CVE-2021-44420",
+            "BIT-django-2021-44420",
+            "GHSA-v6rh-hp5x-86rv"
+          ],
+          "description": "In Django 2.2 before 2.2.25, 3.1 before 3.1.14, and 3.2 before 3.2.10, HTTP requests for URLs with trailing newlines could bypass upstream access control based on URL paths."
+        },
+        {
+          "id": "PYSEC-2021-439",
+          "fix_versions": [
+            "2.2.25",
+            "3.1.14",
+            "3.2.10"
+          ],
+          "aliases": [
+            "GHSA-v6rh-hp5x-86rv",
+            "CVE-2021-44420",
+            "BIT-django-2021-44420"
+          ],
+          "description": "In Django 2.2 before 2.2.25, 3.1 before 3.1.14, and 3.2 before 3.2.10, HTTP requests for URLs with trailing newlines could bypass upstream access control based on URL paths. This issue has low severit…"
+        },
+        {
+          "id": "PYSEC-2022-2",
+          "fix_versions": [
+            "2.2.26",
+            "3.2.11",
+            "4.0.1"
+          ],
+          "aliases": [
+            "GHSA-8c5j-9r9f-c6w8",
+            "CVE-2021-45116",
+            "BIT-django-2021-45116"
+          ],
+          "description": "An issue was discovered in Django 2.2 before 2.2.26, 3.2 before 3.2.11, and 4.0 before 4.0.1. Due to leveraging the Django Template Language's variable resolution logic, the dictsort template filter w…"
+        }
+      ]
+    },
+    {
+      "name": "requests",
+      "version": "2.25.0",
+      "vulns": [
+        {
+          "id": "PYSEC-2023-74",
+          "fix_versions": [
+            "2.31.0"
+          ],
+          "aliases": [
+            "CVE-2023-32681",
+            "GHSA-j8r2-6x86-q33q"
+          ],
+          "description": "### Impact  Since Requests v2.3.0, Requests has been vulnerable to potentially leaking `Proxy-Authorization` headers to destination servers, specifically during redirects to an HTTPS origin. This is a…"
+        },
+        {
+          "id": "PYSEC-2023-74",
+          "fix_versions": [
+            "2.31.0"
+          ],
+          "aliases": [
+            "CVE-2023-32681",
+            "GHSA-j8r2-6x86-q33q"
+          ],
+          "description": "Requests is a HTTP library. Since Requests 2.3.0, Requests has been leaking Proxy-Authorization headers to destination servers when redirected to an HTTPS endpoint. This is a product of how we use `re…"
+        }
+      ]
+    },
+    {
+      "name": "urllib3",
+      "version": "1.26.4",
+      "vulns": [
+        {
+          "id": "PYSEC-2021-108",
+          "fix_versions": [
+            "1.26.5"
+          ],
+          "aliases": [
+            "CVE-2021-33503",
+            "GHSA-q2q7-5pp4-w6pg"
+          ],
+          "description": "An issue was discovered in urllib3 before 1.26.5. When provided with a URL containing many @ characters in the authority component, the authority regular expression exhibits catastrophic backtracking,…"
+        },
+        {
+          "id": "PYSEC-2021-108",
+          "fix_versions": [
+            "1.26.5"
+          ],
+          "aliases": [
+            "CVE-2021-33503",
+            "GHSA-q2q7-5pp4-w6pg"
+          ],
+          "description": "### Impact  When provided with a URL containing many `@` characters in the authority component the authority regular expression exhibits catastrophic backtracking causing a denial of service if a URL …"
+        },
+        {
+          "id": "PYSEC-2023-192",
+          "fix_versions": [
+            "1.26.17",
+            "2.0.6"
+          ],
+          "aliases": [
+            "GHSA-v845-jxx5-vc9f",
+            "CVE-2023-43804"
+          ],
+          "description": "urllib3 doesn't treat the `Cookie` HTTP header special or provide any helpers for managing cookies over HTTP, that is the responsibility of the user. However, it is possible for a user to specify a `C…"
+        },
+        {
+          "id": "PYSEC-2023-192",
+          "fix_versions": [
+            "1.26.17",
+            "2.0.6"
+          ],
+          "aliases": [
+            "GHSA-v845-jxx5-vc9f",
+            "CVE-2023-43804"
+          ],
+          "description": "urllib3 is a user-friendly HTTP client library for Python. urllib3 doesn't treat the `Cookie` HTTP header special or provide any helpers for managing cookies over HTTP, that is the responsibility of t…"
+        }
+      ]
+    }
+  ],
+  "fixes": []
+}

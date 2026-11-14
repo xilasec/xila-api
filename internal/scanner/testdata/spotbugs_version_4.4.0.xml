@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<BugCollection version="4.4.0" sequence="0" timestamp="1631172733365" analysisTimestamp="1631172801721" release="">
+  <Project projectName="xonotic-parser">
+    <Jar>/home/damien/workspace/xonotic-parser/target/classes</Jar>
+    <AuxClasspathEntry>/home/damien/.m2/repository/org/antlr/antlr4-runtime/4.0/antlr4-runtime-4.0.jar</AuxClasspathEntry>
+    <AuxClasspathEntry>/home/damien/.m2/repository/org/abego/treelayout/org.abego.treelayout.core/1.0.1/org.abego.treelayout.core-1.0.1.jar</AuxClasspathEntry>
+    <AuxClasspathEntry>/home/damien/.m2/repository/org/freemarker/freemarker/2.3.23/freemarker-2.3.23.jar</AuxClasspathEntry>
+    <SrcDir>/home/damien/workspace/xonotic-parser/src/main/java</SrcDir>
+    <WrkDir>/home/damien/workspace/xonotic-parser/target</WrkDir>
+  </Project>
+  <BugInstance type="DMI_HARDCODED_ABSOLUTE_FILENAME" priority="1" rank="15" abbrev="DMI" category="STYLE">
+    <Class classname="Boot">
+      <SourceLine classname="Boot" start="15" end="254" sourcefile="Boot.java" sourcepath="Boot.java"/>
+    </Class>
+    <Method classname="Boot" name="main" signature="([Ljava/lang/String;)V" isStatic="true">
+      <SourceLine classname="Boot" start="21" end="59" startBytecode="0" endBytecode="92" sourcefile="Boot.java" sourcepath="Boot.java"/>
+    </Method>
+    <String value="/home/dcarol/workspace/xonotic-parser/log-2015-12-30-part1.txt" role="FILE_NAME"/>
+    <SourceLine classname="Boot" start="23" end="23" startBytecode="12" endBytecode="12" sourcefile="Boot.java" sourcepath="Boot.java"/>
+  </BugInstance>
+  <BugInstance type="DM_DEFAULT_ENCODING" priority="1" rank="19" abbrev="Dm" category="I18N">
+    <Class classname="Boot">
+      <SourceLine classname="Boot" start="15" end="254" sourcefile="Boot.java" sourcepath="Boot.java"/>
+    </Class>
+    <Method classname="Boot" name="writeFrags" signature="(LLog;Ljava/lang/String;)V" isStatic="true">
+      <SourceLine classname="Boot" start="102" end="119" startBytecode="0" endBytecode="478" sourcefile="Boot.java" sourcepath="Boot.java"/>
+    </Method>
+    <Method classname="java.io.FileWriter" name="&lt;init&gt;" signature="(Ljava/io/File;)V" isStatic="false" role="METHOD_CALLED">
+      <SourceLine classname="java.io.FileWriter" start="96" end="97" startBytecode="0" endBytecode="68" sourcefile="FileWriter.java" sourcepath="java/io/FileWriter.java"/>
+    </Method>
+    <SourceLine classname="Boot" start="104" end="104" startBytecode="18" endBytecode="18" sourcefile="Boot.java" sourcepath="Boot.java"/>
+  </BugInstance>
+  <BugInstance type="WMI_WRONG_MAP_ITERATOR" priority="2" rank="18" abbrev="WMI" category="PERFORMANCE">
+    <Class classname="Boot">
+      <SourceLine classname="Boot" start="15" end="254" sourcefile="Boot.java" sourcepath="Boot.java"/>
+    </Class>
+    <Method classname="Boot" name="getTopFrag" signature="(LLog;Z)Ljava/util/List;" isStatic="true">
+      <SourceLine classname="Boot" start="206" end="218" startBytecode="0" endBytecode="302" sourcefile="Boot.java" sourcepath="Boot.java"/>
+    </Method>
+    <SourceLine classname="Boot" start="210" end="210" startBytecode="59" endBytecode="59" sourcefile="Boot.java" sourcepath="Boot.java"/>
+  </BugInstance>
+  <BugInstance type="EI_EXPOSE_REP" priority="2" rank="18" abbrev="EI" category="MALICIOUS_CODE">
+    <Class classname="Log">
+      <SourceLine classname="Log" start="5" end="22" sourcefile="Log.java" sourcepath="Log.java"/>
+    </Class>
+    <Method classname="Log" name="getMatchs" signature="()Ljava/util/List;" isStatic="false">
+      <SourceLine classname="Log" start="9" end="9" startBytecode="0" endBytecode="46" sourcefile="Log.java" sourcepath="Log.java"/>
+    </Method>
+    <Field classname="Log" name="matchs" signature="Ljava/util/List;" isStatic="false">
+      <SourceLine classname="Log" sourcefile="Log.java" sourcepath="Log.java"/>
+    </Field>
+    <SourceLine classname="Log" start="9" end="9" startBytecode="4" endBytecode="4" sourcefile="Log.java" sourcepath="Log.java"/>
+  </BugInstance>
+  <Errors errors="0" missingClasses="0"></Errors>
+</BugCollection>

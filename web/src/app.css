@@ -1,0 +1,10 @@
+@import 'tailwindcss';
+
+@plugin "daisyui" {
+	themes: winter --default, night --prefersdark;
+}
+
+/* Comfortable defaults */
+html {
+	scroll-behavior: smooth;
+}

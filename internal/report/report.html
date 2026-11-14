@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}}</title>
+<style>
+	:root {
+		--ink: #1f2937; --muted: #6b7280; --line: #e5e7eb; --bg: #f9fafb;
+		--critical: #b91c1c; --high: #ea580c; --medium: #ca8a04; --low: #2563eb; --info: #6b7280;
+	}
+	{{- with .Template.AccentColor}}
+	header { border-bottom-color: {{css .}}; } h2 { border-bottom-color: {{css .}}; }
+	{{- end}}
+	* { box-sizing: border-box; }
+	html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+	body { margin: 0; font: 13px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--ink); background: #fff; }
+	main { max-width: 1040px; margin: 0 auto; padding: 32px 28px 48px; }
+	header { border-bottom: 3px solid var(--ink); padding-bottom: 12px; margin-bottom: 20px; }
+	.brand { font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-size: 11px; }
+	h1 { font-size: 24px; margin: 4px 0 6px; }
+	h2 { font-size: 16px; margin: 0 0 10px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
+	.meta { color: var(--muted); font-size: 12px; }
+	.meta span + span::before { content: " · "; }
+	section { margin: 22px 0; }
+	.kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+	.kpi { border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; background: var(--bg); }
+	.kpi .v { font-size: 22px; font-weight: 700; }
+	.kpi .l { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+	.kpi.bad .v { color: var(--critical); }
+	.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+	table { width: 100%; border-collapse: collapse; }
+	th, td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+	th { font-size: 11px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); font-weight: 600; }
+	td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+	.bar { height: 10px; border-radius: 3px; min-width: 2px; }
+	.sev { display: inline-block; padding: 1px 6px; border-radius: 3px; color: #fff; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+	.sev-critical { background: var(--critical); } .sev-high { background: var(--high); }
+	.sev-medium { background: var(--medium); } .sev-low { background: var(--low); } .sev-info { background: var(--info); }
+	.flag { display: inline-block; padding: 0 5px; border: 1px solid var(--critical); color: var(--critical); border-radius: 3px; font-size: 10px; font-weight: 700; }
+	.small { font-size: 11px; color: var(--muted); }
+	.wrap { word-break: break-word; }
+	.empty { color: var(--muted); font-style: italic; }
+	.score { font-weight: 700; }
+	footer { margin-top: 32px; border-top: 1px solid var(--line); padding-top: 8px; color: var(--muted); font-size: 11px; }
+	.classification { float: right; border: 2px solid var(--critical); color: var(--critical); font-weight: 700; padding: 2px 8px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+	.logo { display: block; max-height: 48px; max-width: 220px; margin-bottom: 8px; }
+	.pre { white-space: pre-wrap; margin: 0 0 6px; }
+	.intro { color: var(--ink); }
+	article.finding { border-top: 1px solid var(--line); padding: 10px 0; break-inside: avoid; }
+	article.finding h3 { font-size: 14px; margin: 0 0 2px; }
+	article.finding h4 { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 8px 0 2px; }
+	@page { size: A4; margin: 14mm 12mm; }
+	@media print {
+		body { font-size: 10.5px; }
+		main { max-width: none; padding: 0; }
+		.kpis { grid-template-columns: repeat(6, 1fr); }
+		section, .kpi, .cols > div { break-inside: avoid; }
+		section.long { break-inside: auto; }
+		.page-break { break-before: page; }
+		thead { display: table-header-group; }
+		tr { break-inside: avoid; }
+		h2 { break-after: avoid; }
+	}
+	@media (max-width: 760px) { .kpis { grid-template-columns: repeat(2, 1fr); } .cols { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+<header>
+	{{- with .Template.Classification}}<div class="classification">{{.}}</div>{{end}}
+	{{- with .Template.Logo}}<img class="logo" src="{{dataURI .}}" alt="">{{end}}
+	<div class="brand">{{with .Template.Brand}}{{.}}{{else}}Xila security report{{end}}</div>
+	<h1>{{.Title}}</h1>
+	<div class="meta">
+		<span>Generated {{date .GeneratedAt}}</span>
+		{{- with .Engagement}}
+		<span>Engagement: <strong>{{.Name}}</strong></span>
+		{{- if or .StartsOn .EndsOn}}<span>{{with .StartsOn}}{{.}}{{else}}…{{end}} → {{with .EndsOn}}{{.}}{{else}}…{{end}}</span>{{end}}
+		{{- with .LeadEmail}}<span>Lead: {{.}}</span>{{end}}
+		{{- end}}
+		{{- with .Project}}
+		<span>{{.Slug}}</span>
+		<span>Business criticality: {{.BusinessCriticality}}</span>
+		{{- else}}
+		<span>{{.Overview.Projects}} project{{if ne .Overview.Projects 1}}s{{end}}</span>
+		{{- end}}
+	</div>
+	<div class="meta">
+		{{- if .Engagement}}
+		<span>Findings sections cover what this engagement found, on every branch; summary figures are the project's default branch</span>
+		{{- else if .Project}}
+		<span>Covers the default branch <strong>{{if .Branch}}{{.Branch}}{{else}}—{{end}}</strong></span>
+		{{- with .OtherBranches}}<span>Not included: {{join . ", "}}</span>{{end}}
+		{{- else}}
+		<span>Covers each project's default branch</span>
+		{{- end}}
+		<span>Cross-tool duplicates counted once</span>
+	</div>
+</header>
+
+{{- with .Template.Intro}}<section class="intro"><p class="pre">{{.}}</p></section>{{end}}
+{{- range .Template.Sections}}
+{{- if eq . "summary"}}{{template "summary" $}}
+{{- else if eq . "severity"}}{{template "severity" $}}
+{{- else if eq . "compliance"}}{{template "compliance" $}}
+{{- else if eq . "findings"}}{{template "findings" $}}
+{{- else if eq . "details"}}{{template "details" $}}
+{{- else if eq . "projects"}}{{template "projects" $}}
+{{- end}}
+{{- end}}
+
+<footer>{{with .Template.Footer}}<p class="pre">{{.}}</p>{{end}}Generated by Xila on {{date .GeneratedAt}}. {{if .Engagement}}Engagement findings span every branch; other figures{{else}}Figures{{end}} reflect each project's default branch with cross-tool duplicates collapsed; risk score weights open findings by severity and business criticality.</footer>
+</main>
+</body>
+</html>
+{{define "summary"}}
+<section>
+	{{- if .Engagement}}<p class="small">Project overview — default branch, all sources</p>{{end}}
+	<div class="kpis">
+		<div class="kpi"><div class="v">{{score .Overview.RiskScore}}</div><div class="l">Risk score</div></div>
+		<div class="kpi"><div class="v">{{.Overview.TotalOpen}}</div><div class="l">Open findings</div></div>
+		<div class="kpi{{if .Overview.KEVOpen}} bad{{end}}"><div class="v">{{.Overview.KEVOpen}}</div><div class="l">Known exploited (KEV)</div></div>
+		<div class="kpi"><div class="v">{{.Overview.ExploitableOpen}}</div><div class="l">Exploitable (KEV / EPSS)</div></div>
+		<div class="kpi{{if .Overview.SLA.Breached}} bad{{end}}"><div class="v">{{.Overview.SLA.Breached}}</div><div class="l">SLA breached</div></div>
+		<div class="kpi"><div class="v">{{pct .Overview.SLA.Compliance}}</div><div class="l">SLA compliance</div></div>
+	</div>
+</section>
+{{end}}
+{{define "severity"}}
+<section class="cols">
+	<div>
+		<h2>Open findings by severity{{if .Engagement}} <span class="small">(this engagement)</span>{{end}}</h2>
+		<table>
+			<thead><tr><th>Severity</th><th class="n">Open</th><th style="width:55%"></th></tr></thead>
+			<tbody>
+			{{- range .Severities}}
+			<tr>
+				<td><span class="sev sev-{{.Severity}}">{{.Severity}}</span></td>
+				<td class="n">{{.Count}}</td>
+				<td><div class="bar sev-{{.Severity}}" style="width: {{bar .BarPct}}%"></div></td>
+			</tr>
+			{{- end}}
+			</tbody>
+		</table>
+	</div>
+	<div>
+		<h2>SLA posture{{if .Engagement}} <span class="small">(project)</span>{{end}}</h2>
+		<table>
+			<tbody>
+			<tr><td>Breached</td><td class="n">{{.Overview.SLA.Breached}}</td></tr>
+			<tr><td>Due soon</td><td class="n">{{.Overview.SLA.DueSoon}}</td></tr>
+			<tr><td>On track</td><td class="n">{{.Overview.SLA.OnTrack}}</td></tr>
+			<tr><td>Paused (accepted / false positive / won't fix)</td><td class="n">{{.Overview.SLA.Paused}}</td></tr>
+			<tr><td>Fixed on time, last {{.Overview.SLA.WindowDays}} days</td><td class="n">{{.Overview.SLA.Met}} of {{add .Overview.SLA.Met .Overview.SLA.Missed}} ({{pct .Overview.SLA.Compliance}})</td></tr>
+			<tr><td>Risk acceptances expiring within 30 days</td><td class="n">{{.Overview.ExpiringSoon}}</td></tr>
+			</tbody>
+		</table>
+		<p class="small">Mean time to remediate:
+		{{- range $i, $m := .MTTR}}{{if $i}},{{end}} {{$m.Severity}} {{days $m.Days}}{{else}} no remediations in the window{{end}}</p>
+	</div>
+</section>
+{{end}}
+{{define "compliance"}}
+<section>
+	<h2>Compliance posture</h2>
+	{{- if .Compliance}}
+	<table>
+		<thead><tr><th>Framework</th><th class="n">Score</th><th>Controls</th></tr></thead>
+		<tbody>
+		{{- range .Compliance}}
+		<tr><td>{{.Name}}</td><td class="n score">{{score .Score}}%</td><td class="small">{{.Detail}}</td></tr>
+		{{- end}}
+		</tbody>
+	</table>
+	{{- else}}
+	<p class="empty">No compliance frameworks configured.</p>
+	{{- end}}
+</section>
+{{end}}
+{{define "findings"}}
+<section class="long{{if .Projects}} page-break{{end}}">
+	<h2>{{if .Engagement}}Findings{{else}}Top {{len .Top}} findings by priority{{end}}</h2>
+	{{- if .Top}}
+	<table>
+		<thead><tr>
+			<th class="n">#</th><th>Severity</th><th>Finding</th>{{if not .Project}}<th>Project</th>{{end}}
+			<th>Package</th><th class="n">Priority</th><th class="n">EPSS</th><th>Exploit</th><th>SLA due</th>
+		</tr></thead>
+		<tbody>
+		{{- $portfolio := not .Project}}
+		{{- range $i, $f := .Top}}
+		<tr>
+			<td class="n">{{add $i 1}}</td>
+			<td><span class="sev sev-{{$f.Severity}}">{{$f.Severity}}</span></td>
+			<td class="wrap">{{$f.Title}}{{with $f.CVE}}<div class="small">{{join . ", "}}</div>{{end}}<div class="small">{{$f.Scanner}} · {{$f.Status}}</div></td>
+			{{- if $portfolio}}<td>{{$f.ProjectName}}</td>{{end}}
+			<td class="wrap">{{if $f.PackageName}}{{$f.PackageName}}{{with $f.PackageVersion}} {{.}}{{end}}{{with $f.FixedVersion}}<div class="small">fix: {{.}}</div>{{end}}{{else}}{{$f.FilePath}}{{end}}</td>
+			<td class="n">{{score $f.Priority}}</td>
+			<td class="n">{{epss $f.EPSS}}</td>
+			<td>{{if $f.KEV}}<span class="flag">KEV</span>{{end}}</td>
+			<td class="small">{{datep $f.SLADueAt}}{{with $f.SLAStatus}}<div>{{.}}</div>{{end}}</td>
+		</tr>
+		{{- end}}
+		</tbody>
+	</table>
+	{{- else}}
+	<p class="empty">No open findings.</p>
+	{{- end}}
+</section>
+{{end}}
+{{define "details"}}
+<section class="long page-break">
+	<h2>Finding details</h2>
+	{{- range $i, $f := .Top}}
+	<article class="finding">
+		<h3><span class="sev sev-{{$f.Severity}}">{{$f.Severity}}</span> {{add $i 1}}. {{$f.Title}}</h3>
+		<div class="small">{{$f.Scanner}} · {{$f.Status}}{{with $f.CVE}} · {{join . ", "}}{{end}}{{with $f.CWE}} · CWE-{{.}}{{end}}
+			{{- if $f.PackageName}} · {{$f.PackageName}}{{with $f.PackageVersion}} {{.}}{{end}}{{end}}
+			{{- with $f.URL}} · {{.}}{{end}}{{with $f.FilePath}} · {{.}}{{with $f.Line}}:{{.}}{{end}}{{end}}</div>
+		{{- with $f.Description}}<h4>Description</h4><p class="pre">{{.}}</p>{{end}}
+		{{- with meta $f.Metadata "steps_to_reproduce"}}<h4>Steps to reproduce</h4><p class="pre">{{.}}</p>{{end}}
+		{{- with meta $f.Metadata "impact"}}<h4>Impact</h4><p class="pre">{{.}}</p>{{end}}
+		{{- with meta $f.Metadata "mitigation"}}<h4>Mitigation</h4><p class="pre">{{.}}</p>{{else}}{{with $f.FixedVersion}}<h4>Mitigation</h4><p>Upgrade to {{.}}.</p>{{end}}{{end}}
+		{{- with meta $f.Metadata "references"}}<h4>References</h4><p class="pre wrap">{{.}}</p>{{end}}
+	</article>
+	{{- else}}
+	<p class="empty">No findings.</p>
+	{{- end}}
+</section>
+{{end}}
+{{define "projects"}}
+{{- if .Projects}}
+<section class="long page-break">
+	<h2>Projects</h2>
+	<table>
+		<thead><tr>
+			<th>Project</th><th>Criticality</th><th>Default branch</th>
+			<th class="n">Crit</th><th class="n">High</th><th class="n">Med</th><th class="n">Low</th>
+			<th class="n">Open</th><th class="n">KEV</th><th class="n">SLA breached</th><th class="n">Risk</th>
+		</tr></thead>
+		<tbody>
+		{{- range .Projects}}
+		<tr>
+			<td class="wrap">{{.Name}}<div class="small">{{.Slug}}</div></td>
+			<td>{{.Criticality}}</td>
+			<td>{{.DefaultBranch}}</td>
+			<td class="n">{{.Critical}}</td><td class="n">{{.High}}</td><td class="n">{{.Medium}}</td><td class="n">{{.Low}}</td>
+			<td class="n">{{.TotalOpen}}</td><td class="n">{{.KEVOpen}}</td><td class="n">{{.SLABreached}}</td>
+			<td class="n score">{{score .RiskScore}}</td>
+		</tr>
+		{{- end}}
+		</tbody>
+	</table>
+</section>
+{{- end}}
+{{end}}

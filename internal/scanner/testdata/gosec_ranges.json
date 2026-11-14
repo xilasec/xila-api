@@ -1,0 +1,45 @@
+{
+  "Issues": [
+    {
+      "severity": "LOW",
+      "confidence": "HIGH",
+      "cwe": {
+        "id": "252",
+        "url": "https://cwe.mitre.org/data/definitions/252.html"
+      },
+      "rule_id": "G104",
+      "details": "Errors unhandled.",
+      "file": "/vagrant/go/src/govwa/setting/setting.go",
+      "code": "db,_ := database.Connect()",
+      "line": "64"
+    },
+    {
+      "severity": "LOW",
+      "confidence": "HIGH",
+      "rule_id": "G104",
+      "details": "Errors unhandled.",
+      "file": "/vagrant/go/src/govwa/setting/setting.go",
+      "code": "_ = db.QueryRow(sql).Scan(&version)",
+      "line": "66"
+    },
+    {
+      "severity": "MEDIUM",
+      "confidence": "HIGH",
+      "cwe": {
+        "id": "89",
+        "url": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "rule_id": "G201",
+      "details": "SQL string formatting",
+      "file": "/vagrant/go/src/govwa/vulnerability/sqli/function.go",
+      "code": "fmt.Sprintf(`SELECT p.user_id, p.full_name, p.city, p.phone_number \n\t\t\t\t\t\t\t\tFROM Profile as p,Users as u \n\t\t\t\t\t\t\t\twhere p.user_id = u.id \n\t\t\t\t\t\t\t\tand u.id=%s`,uid)",
+      "line": "36-39"
+    }
+  ],
+  "Stats": {
+    "files": 20,
+    "lines": 1562,
+    "nosec": 0,
+    "found": 28
+  }
+}

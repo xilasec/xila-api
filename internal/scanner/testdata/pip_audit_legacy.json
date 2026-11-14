@@ -1,0 +1,58 @@
+[
+  {
+    "name": "adal",
+    "version": "1.2.2",
+    "vulns": []
+  },
+  {
+    "name": "aiohttp",
+    "version": "3.6.2",
+    "vulns": [
+      {
+        "id": "PYSEC-2021-76",
+        "fix_versions": [
+          "3.7.4"
+        ],
+        "description": "aiohttp is an asynchronous HTTP client/server framework for asyncio and Python. In aiohttp before version 3.7.4 there is an open redirect vulnerability. A malic…"
+      }
+    ]
+  },
+  {
+    "name": "azure-devops",
+    "skip_reason": "Dependency not found on PyPI and could not be audited: azure-devops (0.17.0)"
+  },
+  {
+    "name": "twisted",
+    "version": "18.9.0",
+    "vulns": [
+      {
+        "id": "PYSEC-2019-128",
+        "fix_versions": [
+          "19.2.1"
+        ],
+        "description": "In Twisted before 19.2.1, twisted.web did not validate or sanitize URIs or HTTP methods, allowing an attacker to inject invalid characters such as CRLF.…"
+      },
+      {
+        "id": "PYSEC-2020-260",
+        "fix_versions": [
+          "20.3.0rc1"
+        ],
+        "description": "In Twisted Web through 19.10.0, there was an HTTP request splitting vulnerability. When presented with a content-length and a chunked encoding header, the conte…"
+      },
+      {
+        "id": "PYSEC-2019-129",
+        "fix_versions": [
+          "19.7.0rc1"
+        ],
+        "description": "In words.protocols.jabber.xmlstream in Twisted through 19.2.1, XMPP support did not verify certificates when used with TLS, allowing an attacker to MITM connect…"
+      },
+      {
+        "id": "PYSEC-2020-259",
+        "fix_versions": [
+          "20.3.0rc1"
+        ],
+        "description": "In Twisted Web through 19.10.0, there was an HTTP request splitting vulnerability. When presented with two content-length headers, it ignored the first header. …"
+      }
+    ]
+  }
+]
