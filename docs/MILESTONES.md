@@ -648,3 +648,19 @@ Xila uses NVD CPE matching).
   `docs/QUICKSTART.md`. ⬜ External penetration test: required before GA; needs an
   outside firm.
 
+## M10: Secrets backends
+
+Today secrets come from the environment, a `.env` file, or `NAME_FILE` (mounted
+files from Docker/Kubernetes secrets, Vault Agent, the Secrets Store CSI driver
+or External Secrets Operator).
+
+- ⬜ 10.1 Native secrets managers: let any secret setting be a reference that Xila
+  resolves at startup, for example `aws-sm://name#key`, `gcp-sm://projects/p/secrets/s`,
+  `vault://kv/data/xila#jwt` and `azure-kv://vault/secret`. Each backend uses its
+  platform's credential chain (IAM role / IRSA, workload identity, Vault
+  Kubernetes or AppRole auth, managed identity). Decide per backend whether to use
+  the official SDK or plain HTTP (the GCP client pulls in gRPC), test against
+  emulators or `httptest` fakes, and keep a failed lookup a startup error.
+- ⬜ 10.2 Rotation: re-read rotatable secrets (database password, API tokens)
+  without a restart; `JWT_SECRET` and `INTEGRATION_SECRET_KEY` need a key ring
+  first, since rotating them today ends sessions or makes stored secrets unreadable.

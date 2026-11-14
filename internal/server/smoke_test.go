@@ -144,6 +144,9 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		Otel: config.Otel{ServiceName: "xila-api-test"},
 
 		PasswordLoginEnabled: true,
+		// The same key trackerCipher is built from below (MFA availability
+		// follows it, as in main).
+		IntegrationSecretKey: "c21va2UtaW50ZWdyYXRpb24ta2V5LTMyLWJ5dGVzISE=", // gitleaks:allow -- fake test key (base64 of the cipher key below)
 		SSO:                  config.SSO{AutoCreateUsers: true},
 		ServiceAccounts:      config.ServiceAccounts{KeyMaxDays: 90, TokenTTL: 15 * time.Minute},
 	}

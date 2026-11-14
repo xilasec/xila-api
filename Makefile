@@ -66,7 +66,7 @@ logs: ## Tail the API logs
 
 PROD_COMPOSE = docker compose -f docker-compose.prod.yml
 
-up-prod: ## Start the hardened production stack (needs DB_PASSWORD + JWT_SECRET in .env/env)
+up-prod: ## Start the hardened production stack (needs DB_PASSWORD, JWT_SECRET, INTEGRATION_SECRET_KEY in .env/env)
 	$(PROD_COMPOSE) up --build -d
 
 down-prod: ## Stop the production stack (Postgres data is kept)

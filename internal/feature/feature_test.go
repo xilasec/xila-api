@@ -54,10 +54,10 @@ func TestFeatureFor(t *testing.T) {
 
 // Features the server isn't configured for read as unavailable.
 func TestUnavailable(t *testing.T) {
-	if got := feature.Unavailable(config.Config{}); !slices.Equal(got, []string{feature.MCP, feature.AITriage}) {
+	if got := feature.Unavailable(config.Config{}); !slices.Equal(got, []string{feature.MCP, feature.AITriage, feature.MFA}) {
 		t.Errorf("unconfigured = %v", got)
 	}
-	cfg := config.Config{MCPEnabled: true}
+	cfg := config.Config{MCPEnabled: true, IntegrationSecretKey: "k"}
 	cfg.AI.Enabled = true
 	if got := feature.Unavailable(cfg); len(got) != 0 {
 		t.Errorf("configured = %v", got)

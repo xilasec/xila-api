@@ -19,6 +19,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.13.0
 	github.com/jimlambrt/gldap v0.1.14
+	github.com/joho/godotenv v1.5.1
 	github.com/mattermost/xml-roundtrip-validator v0.1.0
 	github.com/prometheus/client_golang v1.25.0
 	github.com/russellhaering/goxmldsig v1.6.1
