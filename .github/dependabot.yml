@@ -30,7 +30,7 @@ updates:
         update-types: [minor, patch]
 
   - package-ecosystem: npm
-    directories: ["/web", "/clients/typescript"]
+    directory: "/web"
     schedule:
       interval: weekly
     cooldown:
@@ -38,6 +38,22 @@ updates:
     groups:
       npm-minor-and-patch:
         update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: "/clients/typescript"
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 3 # nosemgrep: package_managers.dependabot.dependabot-missing-cooldown.dependabot-missing-cooldown -- project policy is 3 days, chosen by the maintainer
+    groups:
+      npm-minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # openapi-typescript (the generator) declares a peer dependency on
+      # typescript ^5, so a TypeScript major bump can't install. Remove this
+      # once openapi-typescript supports the newer major.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: docker
     directory: "/"
