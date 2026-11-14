@@ -9,7 +9,7 @@
 	import { fmtDate } from '#lib/format.js';
 
 	const SEVERITIES = ['info', 'low', 'medium', 'high', 'critical'];
-	/** @type {{ id: string, labelKey: import('#lib/i18n.js').MessageKey, shortKey: import('$lib/i18n.js').MessageKey, tone: string }[]} */
+	/** @type {{ id: string, labelKey: import('#lib/i18n.js').MessageKey, shortKey: import('#lib/i18n.js').MessageKey, tone: string }[]} */
 	const STATES = [
 		{ id: 'fail', labelKey: 'pol.state.fail', shortKey: 'pol.stateShort.fail', tone: 'badge-error' },
 		{ id: 'warn', labelKey: 'pol.state.warn', shortKey: 'pol.stateShort.warn', tone: 'badge-warning' },
@@ -17,7 +17,7 @@
 	];
 	// Subjects, their operators, and how the value is entered (mirrors
 	// internal/policy/condition.go — the API validates every condition).
-	/** @type {{ id: string, groupKey: import('#lib/i18n.js').MessageKey, labelKey: import('$lib/i18n.js').MessageKey, ops: string[], input: string, placeholder?: string, min?: number }[]} */
+	/** @type {{ id: string, groupKey: import('#lib/i18n.js').MessageKey, labelKey: import('#lib/i18n.js').MessageKey, ops: string[], input: string, placeholder?: string, min?: number }[]} */
 	const SUBJECTS = [
 		{ id: 'severity', groupKey: 'pol.group.security', labelKey: 'pol.subject.severity', ops: ['gte'], input: 'severity' },
 		{ id: 'vulnerability_id', groupKey: 'pol.group.security', labelKey: 'pol.subject.vulnerabilityId', ops: ['is', 'matches'], input: 'list', placeholder: 'CVE-2021-44228, GHSA-*' },

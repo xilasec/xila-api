@@ -1,6 +1,6 @@
 <script>
 	import { onMount } from 'svelte';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api, errorMessage } from '#lib/api.js';
 	import { me, notify } from '#lib/stores.js';
@@ -11,7 +11,7 @@
 	import { fmtDate } from '#lib/format.js';
 
 	const LIMIT = 50;
-	const sp = $page.url.searchParams;
+	const sp = page.url.searchParams;
 
 	let tab = $state(sp.get('tab') === 'groups' ? 'groups' : 'catalog');
 
@@ -149,7 +149,7 @@
 		if (t === 'groups' && groups.length === 0 && builtin.length === 0) loadGroups();
 	}
 
-	// Initial load runs from the URL; no replaceState here (the router isn't ready).
+	// Initial load runs from the URL; no shallow goto here (the router isn't ready).
 	onMount(() => {
 		loadCatalog(0);
 		if (tab === 'groups') loadGroups();
@@ -158,15 +158,15 @@
 	});
 
 	/** @param {string} cat */
-	const badgeFor = (cat
-	/** @type {Record<string, string>} */) => ({
-		Permissive: 'badge-success',
-		'Public Domain': 'badge-success',
-		'Copyleft Limited': 'badge-warning',
-		Copyleft: 'badge-error',
-		Commercial: 'badge-error',
-		'Non-Commercial': 'badge-error'
-	})[cat] ?? 'badge-ghost';
+	const badgeFor = (cat) =>
+		/** @type {Record<string, string>} */ ({
+			Permissive: 'badge-success',
+			'Public Domain': 'badge-success',
+			'Copyleft Limited': 'badge-warning',
+			Copyleft: 'badge-error',
+			Commercial: 'badge-error',
+			'Non-Commercial': 'badge-error'
+		})[cat] ?? 'badge-ghost';
 </script>
 
 <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
@@ -233,12 +233,7 @@
 		</div>
 	</form>
 
-	<State
-		loading={loading}
-		empty={!loading && licenses.length === 0}
-		emptyText={$t('lic.empty')}
-	/>
-
+	<State {loading} empty={!loading && licenses.length === 0} emptyText={$t('lic.empty')} />
 	{#if !loading && licenses.length > 0}
 		<p class="mb-2 text-sm text-base-content/60">{$t('lic.licenseCount', { count: total })}</p>
 		<div class="overflow-x-auto bg-base-100 rounded-box shadow-sm">
@@ -307,14 +302,7 @@
 						</Field>
 						<div class="flex gap-2">
 							<button class="btn btn-primary btn-sm" disabled={saving}>{form.id ? $t('common.save') : $t('common.create')}</button>
-
-							{#if form.id}
-								<button
-									type="button"
-									class="btn btn-ghost btn-sm"
-									onclick={() => form = blank()}
-								>{$t('common.cancel')}</button>
-							{/if}
+							{#if form.id}<button type="button" class="btn btn-ghost btn-sm" onclick={() => (form = blank())}>{$t('common.cancel')}</button>{/if}
 						</div>
 					</div>
 				</form>
@@ -342,11 +330,7 @@
 					<div class="card-body py-4">
 						<div class="flex items-center justify-between">
 							<h3 class="font-semibold">{$labelOf('licenseCategory', builtinMembers.category)}</h3>
-
-							<button
-								class="btn btn-ghost btn-xs"
-								onclick={() => builtinMembers = null}
-							>✕</button>
+							<button class="btn btn-ghost btn-xs" onclick={() => (builtinMembers = null)}>✕</button>
 						</div>
 						<div class="flex flex-wrap gap-1 max-h-64 overflow-y-auto">
 							{#each builtinMembers.license_ids as id (id)}

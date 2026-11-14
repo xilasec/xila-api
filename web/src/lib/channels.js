@@ -1,6 +1,6 @@
 // Notification channel types: the `url` field is a webhook URL for every type
 // except email, where it holds a comma-separated recipient list. Labels are
-// i18n message keys ($lib/i18n.js).
+// i18n message keys (#lib/i18n.js).
 /** @typedef {import('./i18n.js').MessageKey} MessageKey */
 /** @typedef {import('./i18n.js').Translate} Translate */
 

@@ -1,5 +1,5 @@
 // English UI messages: the source catalogue. Its keys define the MessageKey
-// type ($lib/i18n.js); every other locale must have exactly these keys with
+// type (#lib/i18n.js); every other locale must have exactly these keys with
 // the same {param} placeholders (pnpm check runs scripts/check-i18n.mjs).
 // "one|other" messages are plurals selected by the `count` param.
 export default {

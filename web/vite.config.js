@@ -19,7 +19,7 @@ export default defineConfig({
 		// SPA uses the relative "/api/v1" base and requests are forwarded here.
 		proxy: {
 			// Node global; the UI build has no @types/node.
-			'/api' /** @type {any} */: globalThis.process.env.VITE_API_PROXY || 'http://localhost:8080'
+			'/api': /** @type {any} */ (globalThis).process.env.VITE_API_PROXY || 'http://localhost:8080'
 		}
 	}
 });

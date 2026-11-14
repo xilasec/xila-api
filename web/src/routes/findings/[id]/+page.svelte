@@ -1,5 +1,5 @@
 <script>
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { api, ApiError, errorMessage } from '#lib/api.js';
 	import { notify, features, isOn } from '#lib/stores.js';
 	import { fmtDate, fmtDateOnly, fmtDay, fmtNumber, STATUSES, severityAccent, kevCatalogs } from '#lib/format.js';
@@ -16,7 +16,7 @@
 	import FindingAI from '#lib/components/FindingAI.svelte';
 	import CustomFieldsEditor from '#lib/components/CustomFieldsEditor.svelte';
 
-	const id = $derived($page.params.id ?? '');
+	const id = $derived(page.params.id ?? '');
 
 	let finding = $state(/** @type {any} */ (null));
 	/** Archive instead of delete: the finding leaves every view until restored. */

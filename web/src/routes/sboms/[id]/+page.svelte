@@ -1,6 +1,6 @@
 <script>
 	import { untrack } from 'svelte';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api, ApiError, errorMessage } from '#lib/api.js';
 	import { notify } from '#lib/stores.js';
@@ -16,13 +16,13 @@
 	import IntegrityBadge from '#lib/components/IntegrityBadge.svelte';
 	import AIBadge from '#lib/components/AIBadge.svelte';
 
-	const id = $derived($page.params.id ?? '');
+	const id = $derived(page.params.id ?? '');
 	const TABS = ['vulnerabilities', 'components', 'services', 'changes', 'graph'];
 
 	let sbom = $state(/** @type {any} */ (null));
 	let history = $state(/** @type {any[]} */ ([])); // snapshots of the same artifact, newest first
 	let error = $state('');
-	let tab = $state(/** @type {string} */ (TABS.includes($page.url.searchParams.get('tab') ?? '') ? $page.url.searchParams.get('tab') : 'vulnerabilities'));
+	let tab = $state(/** @type {string} */ (TABS.includes(page.url.searchParams.get('tab') ?? '') ? page.url.searchParams.get('tab') : 'vulnerabilities'));
 	let loading = $state(false);
 	let downloading = $state(false);
 	let bomSpec = $state('1.6');
@@ -63,11 +63,9 @@
 	/** @param {string} f */
 	const flowTitle = (f) => $t(/** @type {import('#lib/i18n.js').MessageKey} */ ((FLOW[f] ?? FLOW.unknown)[1]));
 	/** @param {boolean | null | undefined} b */
-	const yesNo = (b) => b === true
-		? $t('sbomp.yes')
-		: b === false ? $t('sbomp.no') : $t('sbomp.unstated');
-
+	const yesNo = (b) => (b === true ? $t('sbomp.yes') : b === false ? $t('sbomp.no') : $t('sbomp.unstated'));
 	const serviceNames = $derived(new Map((services?.services ?? []).filter((/** @type {any} */ s) => s.bom_ref).map((/** @type {any} */ s) => [s.bom_ref, s.name])));
+
 	const idx = $derived(history.findIndex((s) => s.id === id));
 	const newer = $derived(idx > 0 ? history[idx - 1] : null);
 	const older = $derived(idx >= 0 && idx < history.length - 1 ? history[idx + 1] : null);
@@ -84,7 +82,7 @@
 		try {
 			sbom = await api.getSbom(id);
 			// The outdated count is a header extra: a failure mustn't block the page.
-			api.sbomFreshness(id).then((f) => freshness = f, () => {});
+			api.sbomFreshness(id).then((f) => (freshness = f), () => {});
 			// Prev/next and the diff base stay on this snapshot's branch: another
 			// branch's SBOM of the same artifact is a different line of history.
 			history = (await api.listSboms(sbom.project_id)).filter(
@@ -249,7 +247,7 @@
 </script>
 
 {#if error}
-	<State error={error} />
+	<State {error} />
 {:else if !sbom}
 	<State loading={true} />
 {:else}
@@ -294,12 +292,7 @@
 	</div>
 
 	{#if tab === 'vulnerabilities'}
-		<State
-			loading={loading}
-			empty={!loading && vulns?.length === 0}
-			emptyText={$t('sbomp.noVulns')}
-		/>
-
+		<State {loading} empty={!loading && vulns?.length === 0} emptyText={$t('sbomp.noVulns')} />
 		{#if !loading && vulns?.length}
 			<p class="text-sm text-base-content/60 mb-2">
 				{$t('sbomp.vulnsIntro')}
@@ -360,13 +353,7 @@
 				<ExportMenu run={(format) => api.exportSbomComponents(id, { search: cFilter.search, vulnerable: cFilter.vulnerable, outdated: cFilter.outdated, integrity: cFilter.integrity, kind: cFilter.kind }, format)} />
 			</div>
 		</form>
-
-		<State
-			loading={loading}
-			empty={!loading && comps.length === 0}
-			emptyText={$t('sbomp.noComponents')}
-		/>
-
+		<State {loading} empty={!loading && comps.length === 0} emptyText={$t('sbomp.noComponents')} />
 		{#if !loading && comps.length > 0}
 			<div class="overflow-x-auto bg-base-100 rounded-box shadow-sm">
 				<table class="table table-sm">
@@ -374,34 +361,16 @@
 					<tbody>
 						{#each comps as c (c.id)}
 							<tr class="hover">
-								<td>{c.name} <AIBadge c={c} /></td>
+								<td>{c.name} <AIBadge {c} /></td>
 								<td class="text-xs">{c.version || '—'}</td>
-
-								<td>
-									<OutdatedBadge c={c} />
-									<IntegrityBadge integrity={c.integrity} />
-								</td>
-
-								<td>
-									<VulnBadge
-										count={c.vuln_count}
-										severity={c.max_severity}
-										kev={c.kev}
-										vulns={c.vulns}
-									/>
-								</td>
-
+								<td><OutdatedBadge {c} /> <IntegrityBadge integrity={c.integrity} /></td>
+								<td><VulnBadge count={c.vuln_count} severity={c.max_severity} kev={c.kev} vulns={c.vulns} /></td>
 								<td class="text-xs">
 									{#if c.direct === true}{$t('sbomp.direct')}{:else if c.direct === false}{$t('sbomp.transitive')}{#if c.depth} · {$t('sbomp.depth', { depth: c.depth })}{/if}{:else}—{/if}
 									{#if c.scope === 'dev'}<span class="badge badge-ghost badge-xs ml-1">dev</span>{/if}
 								</td>
-
-								<td><LicenseBadge c={c} /></td>
-
-								<td
-									class="text-xs font-mono text-base-content/60 max-w-xs truncate"
-									title={c.purl}
-								>{c.purl || '—'}</td>
+								<td><LicenseBadge {c} /></td>
+								<td class="text-xs font-mono text-base-content/60 max-w-xs truncate" title={c.purl}>{c.purl || '—'}</td>
 							</tr>
 						{/each}
 					</tbody>
@@ -410,12 +379,7 @@
 			{#if cMeta}<Pagination limit={cMeta.limit} offset={cMeta.offset} count={cMeta.count} hasMore={cMeta.has_more} onchange={compPage} />{/if}
 		{/if}
 	{:else if tab === 'services'}
-		<State
-			loading={loading}
-			empty={!loading && services?.services.length === 0}
-			emptyText={$t('sbomp.noServices')}
-		/>
-
+		<State {loading} empty={!loading && services?.services.length === 0} emptyText={$t('sbomp.noServices')} />
 		{#if !loading && services?.services.length}
 			{@const sum = services.summary}
 			<div class="flex flex-wrap items-center gap-2 mb-3 text-sm">
@@ -477,7 +441,7 @@
 				{/each}
 			</select>
 		</div>
-		<State loading={loading} />
+		<State {loading} />
 		{#if !loading && diff}
 			{@const s = diff.summary}
 			{#if !diff.base}
@@ -574,7 +538,7 @@
 			{/if}
 		{/if}
 	{:else if tab === 'graph'}
-		<State loading={loading} />
+		<State {loading} />
 		{#if !loading && g}
 			{#if graph.edges.length === 0}
 				<p class="text-sm text-base-content/60">{$t('sbomp.noGraph')}</p>
@@ -624,7 +588,7 @@
 	{/if}
 {/if}
 
-{#snippet tree(/** @type {string} */ (ref), /** @type {string} */ (key), /** @type {number} */ (depth))}
+{#snippet tree(/** @type {string} */ ref, /** @type {string} */ key, /** @type {number} */ depth)}
 	{@const node = g?.byRef.get(ref)}
 	{@const kids = visibleChildren(ref)}
 	{@const open = isOpen(key, ref, depth)}

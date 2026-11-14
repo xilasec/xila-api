@@ -1,7 +1,7 @@
 <script>
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { api, ApiError } from '#lib/api.js';
 	import { token } from '#lib/stores.js';
 	import { t, locale, LOCALES } from '#lib/i18n.js';
@@ -30,7 +30,7 @@
 	let config = $state(/** @type {AuthConfig | null} */ (null));
 	let ownerLogin = $state(false); // reveals the password form when it is disabled (break-glass)
 
-	let ssoError = $derived($page.url.searchParams.get('error'));
+	let ssoError = $derived(page.url.searchParams.get('error'));
 	let providers = $derived(config?.providers ?? []);
 	let passwordForm = $derived(config === null || config.password_login_enabled || config.directory_login || ownerLogin);
 

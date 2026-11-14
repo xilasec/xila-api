@@ -1,7 +1,7 @@
 <script>
 	import { onMount, untrack } from 'svelte';
 	import ExploitBadge from '#lib/components/ExploitBadge.svelte';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api, ApiError, errorMessage } from '#lib/api.js';
 	import { notify, me } from '#lib/stores.js';
@@ -52,7 +52,7 @@
 	});
 
 	// Seed filters from the URL so dashboard links (?category=cloud, ?kev=true) work.
-	const p = $page.url.searchParams;
+	const p = page.url.searchParams;
 	let filters = $state({
 		severity: p.get('severity') ?? '',
 		status: p.get('status') ?? '',
@@ -75,15 +75,10 @@
 	let tags = $state(/** @type {{tag: string, count: number}[]} */ ([]));
 	// One custom-field filter (?cf.<key>=value), seeded from the URL.
 	const cfParam = [...p.keys()].find((k) => k.startsWith('cf.'));
-
-	let cf = $state({
-		key: cfParam ? cfParam.slice(3) : '',
-		value: cfParam ? p.get(cfParam) ?? '' : ''
-	});
-
+	let cf = $state({ key: cfParam ? cfParam.slice(3) : '', value: cfParam ? (p.get(cfParam) ?? '') : '' });
 	let cfFields = $state(/** @type {any[]} */ ([]));
 	$effect(() => {
-		api.listCustomFields({ entity: 'finding' }).then((f) => cfFields = f).catch(() => cfFields = []);
+		api.listCustomFields({ entity: 'finding' }).then((f) => (cfFields = f)).catch(() => (cfFields = []));
 	});
 	// Separate, user-editable local state: only seeded from filters.q once (it
 	// should not track later filter changes), so the read is untracked.
@@ -92,8 +87,11 @@
 
 	/** @param {string} id */
 	const projectName = (id) => projects.find((pr) => pr.id === id)?.name ?? '—';
-
-	const anyFilter = $derived(filters.severity || filters.status || filters.category || filters.project_id || filters.sla || filters.exploit || filters.assignee || filters.scanner || filters.rule_id || filters.q || filters.tag || filters.kev || filters.reachable || filters.include_duplicates || filters.all_versions || cf.key && cf.value);
+	const anyFilter = $derived(
+		filters.severity || filters.status || filters.category || filters.project_id || filters.sla || filters.exploit || filters.assignee ||
+			filters.scanner || filters.rule_id || filters.q || filters.tag ||
+			filters.kev || filters.reachable || filters.include_duplicates || filters.all_versions || (cf.key && cf.value)
+	);
 
 	// A finding stays in view after triage only if it still matches the active
 	// status filter (e.g. filtering "open" and marking it FP should drop it).
@@ -117,7 +115,7 @@
 	}
 
 	// Quick-triage actions available for a finding, given its current state.
-	/** @type {{ status: string, label: import('#lib/i18n.js').MessageKey, title: import('$lib/i18n.js').MessageKey }[]} */
+	/** @type {{ status: string, label: import('#lib/i18n.js').MessageKey, title: import('#lib/i18n.js').MessageKey }[]} */
 	const OPEN_ACTIONS = [
 		{ status: 'false_positive', label: 'findings.actFP', title: 'findings.actFPTitle' },
 		{ status: 'risk_accepted', label: 'findings.actAccept', title: 'findings.actAcceptTitle' },
@@ -126,7 +124,7 @@
 	/** @type {typeof OPEN_ACTIONS} */
 	const REOPEN_ACTIONS = [{ status: 'open', label: 'findings.actReopen', title: 'findings.actReopenTitle' }];
 	/** @param {any} f */
-	const actionsFor = (f) => f.status === 'open' || f.status === 'confirmed' ? OPEN_ACTIONS : REOPEN_ACTIONS;
+	const actionsFor = (f) => (f.status === 'open' || f.status === 'confirmed' ? OPEN_ACTIONS : REOPEN_ACTIONS);
 
 	function clearSelection() {
 		selected = {};
@@ -229,8 +227,9 @@
 			}
 			// The server's copy carries what the change implies (SLA paused/resumed).
 			const updated = Object.fromEntries((res.updated ?? []).map((/** @type {any} */ f) => [f.id, f]));
-
-			findings = findings.filter((f) => !updated[f.id] || stillMatches(updated[f.id])).map((f) => updated[f.id] ? { ...f, ...updated[f.id] } : f);
+			findings = findings
+				.filter((f) => !updated[f.id] || stillMatches(updated[f.id]))
+				.map((f) => (updated[f.id] ? { ...f, ...updated[f.id] } : f));
 			clearSelection();
 			refillIfEmpty();
 		} catch (err) {
@@ -275,7 +274,7 @@
 	/** @param {any} f @param {number} at its index before the change */
 	function restoreRow(f, at) {
 		findings = findings.some((x) => x.id === f.id)
-			? findings.map((x) => x.id === f.id ? f : x)
+			? findings.map((x) => (x.id === f.id ? f : x))
 			: [...findings.slice(0, at), f, ...findings.slice(at)];
 	}
 
@@ -297,7 +296,7 @@
 		if (at < 0) return;
 		busy = f.id;
 		findings = matchesFilter(status)
-			? findings.map((x) => x.id === f.id ? { ...x, status } : x)
+			? findings.map((x) => (x.id === f.id ? { ...x, status } : x))
 			: findings.filter((x) => x.id !== f.id);
 		try {
 			const updated = await api.setFindingStatus(f.id, status, opts);
@@ -308,7 +307,7 @@
 				return;
 			}
 			// The server's copy carries what the change implies (SLA paused/resumed).
-			findings = findings.map((x) => x.id === f.id ? { ...x, ...updated } : x);
+			findings = findings.map((x) => (x.id === f.id ? { ...x, ...updated } : x));
 			notify($t('findings.setTo', { status: $labelOf('status', status) }), 'success');
 			refillIfEmpty();
 		} catch (err) {
@@ -325,11 +324,7 @@
 		if (!user) return notify($t('findings.whoAreYou'));
 		if (f.assignee_id === user.id) return;
 		const at = findings.findIndex((x) => x.id === f.id);
-
-		findings = findings.map((x) => x.id === f.id
-			? { ...x, assignee_id: user.id, assignee_email: user.email }
-			: x);
-
+		findings = findings.map((x) => (x.id === f.id ? { ...x, assignee_id: user.id, assignee_email: user.email } : x));
 		try {
 			await api.assignFinding(f.id, user.id);
 			notify($t('findings.assignedToYou'), 'success');
@@ -339,7 +334,7 @@
 		}
 	}
 
-	// Keymap (see $lib/keyboard.js): triage keys act on the selection if any,
+	// Keymap (see #lib/keyboard.js): triage keys act on the selection if any,
 	// else on the highlighted row.
 	/** @param {KeyboardEvent} e */
 	function onkeydown(e) {
@@ -380,12 +375,12 @@
 
 	onMount(async () => {
 		projects = await api.listProjects().catch(() => []);
-		api.findingTags().then((tg) => tags = tg).catch(() => {});
+		api.findingTags().then((tg) => (tags = tg)).catch(() => {});
 		await loadFindings();
 	});
 </script>
 
-<svelte:window onkeydown={onkeydown}></svelte:window>
+<svelte:window {onkeydown} />
 
 <div class="mb-5 flex items-end justify-between gap-3">
 	<div>
@@ -506,12 +501,8 @@
 	{/if}
 </div>
 
-<State
-	loading={loading}
-	error={error}
-	empty={!loading && !error && findings.length === 0}
-	emptyText={$t('findings.empty')}
-/>
+<State {loading} {error} empty={!loading && !error && findings.length === 0}
+	emptyText={$t('findings.empty')} />
 
 {#if !loading && findings.length > 0}
 	<div class="overflow-x-auto rounded-box bg-base-100 shadow-sm">
@@ -526,24 +517,10 @@
 			</thead>
 			<tbody>
 				{#each findings as f, i (f.id)}
-					<tr
-						class="group hover cursor-pointer {selected[f.id] ? 'bg-primary/5' : ''} {cursor.index === i
-							? 'bg-base-200 outline-2 -outline-offset-2 outline-primary'
-							: ''}"
-						aria-selected={cursor.index === i ? 'true' : undefined}
-						onclick={() => goto(`/findings/${f.id}`)}
-					>
-						<td
-							class="border-l-4 {severityAccent(f.severity)}"
-							onclick={(e) => e.stopPropagation()}
-						>
-							<input
-								type="checkbox"
-								class="checkbox checkbox-sm"
-								checked={!!selected[f.id]}
-								onchange={(e) => selected[f.id] = e.currentTarget.checked}
-								aria-label={$t('findings.selectFinding')}
-							/>
+					<tr class="group hover cursor-pointer {selected[f.id] ? 'bg-primary/5' : ''} {cursor.index === i ? 'bg-base-200 outline-2 -outline-offset-2 outline-primary' : ''}"
+						aria-selected={cursor.index === i ? 'true' : undefined} onclick={() => goto(`/findings/${f.id}`)}>
+						<td class="border-l-4 {severityAccent(f.severity)}" onclick={(e) => e.stopPropagation()}>
+							<input type="checkbox" class="checkbox checkbox-sm" checked={!!selected[f.id]} onchange={(e) => (selected[f.id] = e.currentTarget.checked)} aria-label={$t('findings.selectFinding')} />
 						</td>
 						<td>
 							<span class="font-semibold tabular-nums">{fmtNumber(Math.round(f.priority))}</span>
@@ -576,14 +553,8 @@
 							{#if f.duplicate_of}<span class="badge badge-ghost badge-xs ml-1 opacity-60" title={$t('findings.dupTitle')}>{$t('findings.dup')}</span>{/if}
 						</td>
 						<td onclick={(e) => e.stopPropagation()}>
-							<StatusCell
-								status={f.status}
-								editing={editing === f.id}
-								disabled={busy === f.id}
-								onedit={() => editing = f.id}
-								onpick={(s) => triage(f, s)}
-								oncancel={() => editing = ''}
-							/>
+							<StatusCell status={f.status} editing={editing === f.id} disabled={busy === f.id}
+								onedit={() => (editing = f.id)} onpick={(s) => triage(f, s)} oncancel={() => (editing = '')} />
 						</td>
 						<td><SlaBadge status={f.sla_status} due={f.sla_due_at} /></td>
 						<td class="max-w-32 truncate text-xs" title={f.assignee_email ?? $t('findings.unassigned')}>
@@ -617,11 +588,7 @@
 		<div class="pointer-events-auto flex max-w-full items-center gap-1 overflow-x-auto rounded-full bg-base-100 px-3 py-2 shadow-xl ring-1 ring-base-content/10">
 			<span class="whitespace-nowrap px-2 text-sm font-medium">{allMatching ? $t('findings.allMatching') : $t('findings.selected', { count: selectedIds.length })}</span>
 			{#if allSelected && meta.has_more && !allMatching}
-				<button
-					class="btn btn-link btn-sm whitespace-nowrap px-1"
-					title={$t('findings.selectAllMatchingTitle')}
-					onclick={() => allMatching = true}
-				>{$t('findings.selectAllMatching')}</button>
+				<button class="btn btn-link btn-sm whitespace-nowrap px-1" title={$t('findings.selectAllMatchingTitle')} onclick={() => (allMatching = true)}>{$t('findings.selectAllMatching')}</button>
 			{/if}
 			<div class="mx-1 h-5 w-px bg-base-300"></div>
 			<button class="btn btn-ghost btn-sm" disabled={bulkBusy} title={$t('findings.actFPTitle')} onclick={() => bulkTriage('false_positive')}>{$t('findings.actFP')}</button>

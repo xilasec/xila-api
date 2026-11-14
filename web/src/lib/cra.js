@@ -1,8 +1,8 @@
 // EU CRA Article 14 reporting: labels and timers shared by the project's
 // Compliance tab and the /cra case list. Label text follows the page's
-// content locale ($lib/i18n.js) through plain functions (not reactive
+// content locale (#lib/i18n.js) through plain functions (not reactive
 // stores): the layout remounts the page when the locale changes, same as
-// $lib/format.js.
+// #lib/format.js.
 import { translate, activeLocale } from './i18n.js';
 
 /** @param {string} stage */

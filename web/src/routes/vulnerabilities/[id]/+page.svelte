@@ -41,12 +41,8 @@
 	</p>
 </div>
 
-<State
-	loading={loading}
-	error={error}
-	empty={!loading && !error && artifacts.length === 0}
-	emptyText={$t('vulntl.empty')}
-/>
+<State {loading} {error} empty={!loading && !error && artifacts.length === 0}
+	emptyText={$t('vulntl.empty')} />
 
 {#if !loading && artifacts.length > 0}
 	<div class="stats shadow bg-base-100 mb-4">

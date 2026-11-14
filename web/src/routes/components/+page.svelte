@@ -1,6 +1,6 @@
 <script>
 	import { onMount } from 'svelte';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api, errorMessage } from '#lib/api.js';
 	import { notify } from '#lib/stores.js';
@@ -15,7 +15,7 @@
 	import AIBadge from '#lib/components/AIBadge.svelte';
 
 	// Seed the query from the URL so a reload / shared link restores the search.
-	const sp = $page.url.searchParams;
+	const sp = page.url.searchParams;
 	let q = $state({
 		name: sp.get('name') ?? '',
 		contains: sp.get('contains') ?? '',
@@ -63,7 +63,7 @@
 	/** @param {SubmitEvent} [e] */
 	async function search(e) {
 		// A user search updates the URL; the initial one runs from the URL, before
-		// the router is ready for replaceState (which throws during onMount).
+		// the router is ready for a shallow goto (which throws during onMount).
 		if (e) {
 			e.preventDefault();
 			syncURL();
@@ -83,7 +83,7 @@
 	// Auto-run the search when arriving with query params (reload / shared link).
 	onMount(() => {
 		if (q.name || q.contains || q.version || q.purl || q.vulnerable || q.outdated || q.integrity || q.kind || q.license || q.license_category) search();
-		api.listLicenses({ limit: 1 }).then((r) => licenseCategories = r.categories ?? []).catch(() => {});
+		api.listLicenses({ limit: 1 }).then((r) => (licenseCategories = r.categories ?? [])).catch(() => {});
 	});
 
 	/** @param {SubmitEvent} e */
@@ -162,12 +162,7 @@
 	</div>
 </form>
 
-<State
-	loading={loading}
-	empty={searched && !loading && results.length === 0}
-	emptyText={$t('comp.empty')}
-/>
-
+<State {loading} empty={searched && !loading && results.length === 0} emptyText={$t('comp.empty')} />
 {#if !searched && !loading}
 	<p class="text-sm text-base-content/50">
 		{$t('comp.tip1')} <em>{$t('comp.tipVulnOnly')}</em> {$t('comp.tip2')}
@@ -187,52 +182,20 @@
 			<tbody>
 				{#each results as c (c.id)}
 					<tr class="hover">
-						<td>
-							<a
-								class="link link-primary"
-								href={`/projects/${c.project_id}`}
-							>{c.project_name}</a>
-						</td>
-
-						<td>{c.name} <AIBadge c={c} /></td>
+						<td><a class="link link-primary" href={`/projects/${c.project_id}`}>{c.project_name}</a></td>
+						<td>{c.name} <AIBadge {c} /></td>
 						<td class="text-xs">{c.version || '—'}</td>
-
+						<td><OutdatedBadge {c} /> <IntegrityBadge integrity={c.integrity} /></td>
 						<td>
-							<OutdatedBadge c={c} />
-							<IntegrityBadge integrity={c.integrity} />
-						</td>
-
-						<td>
-							<VulnBadge
-								count={c.vuln_count}
-								severity={c.max_severity}
-								kev={c.kev}
-								vulns={c.vulns}
-							/>
-
+							<VulnBadge count={c.vuln_count} severity={c.max_severity} kev={c.kev} vulns={c.vulns} />
 							{#each (c.vulns ?? []).slice(0, 3) as v (v)}
 								<a class="link link-hover text-xs ml-1" href={`/vulnerabilities/${encodeURIComponent(v)}`}>{v}</a>
 							{/each}
 							{#if (c.vulns?.length ?? 0) > 3}<span class="text-xs text-base-content/50"> +{c.vulns.length - 3}</span>{/if}
 						</td>
-
-						<td
-							class="text-xs font-mono text-base-content/70 max-w-xs truncate"
-							title={c.file_path}
-						>{c.file_path || '—'}</td>
-
-						<td class="text-xs">
-							<a
-								class="link link-hover"
-								href={`/sboms/${c.sbom_id}`}
-							>
-								{c.artifact || '—'}{#if c.sbom_version}
-									<span class="text-base-content/50">@{c.sbom_version}</span>
-								{/if}
-							</a>
-						</td>
-
-						<td><LicenseBadge c={c} /></td>
+						<td class="text-xs font-mono text-base-content/70 max-w-xs truncate" title={c.file_path}>{c.file_path || '—'}</td>
+						<td class="text-xs"><a class="link link-hover" href={`/sboms/${c.sbom_id}`}>{c.artifact || '—'}{#if c.sbom_version}<span class="text-base-content/50"> @{c.sbom_version}</span>{/if}</a></td>
+						<td><LicenseBadge {c} /></td>
 						<td class="text-xs text-base-content/60">{fmtDate(c.sbom_created_at)}</td>
 					</tr>
 				{/each}

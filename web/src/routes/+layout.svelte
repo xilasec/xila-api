@@ -39,13 +39,9 @@
 	onMount(() => {
 		theme = localStorage.getItem('xila_theme') ?? 'winter';
 		document.documentElement.setAttribute('data-theme', theme);
-
-		api.authConfig().then(
-			(c) => {
-				if (typeof c?.source_url === 'string' && (/^https?:\/\//).test(c.source_url)) sourceURL = c.source_url;
-			},
-			() => {}
-		);
+		api.authConfig().then((c) => {
+			if (typeof c?.source_url === 'string' && /^https?:\/\//.test(c.source_url)) sourceURL = c.source_url;
+		}, () => {});
 	});
 
 	function toggleTheme() {
@@ -136,44 +132,14 @@
 			<div class="flex-1 items-center min-w-0">
 				<!-- Mobile menu -->
 				<div class="dropdown sm:hidden">
-					<button
-						tabindex="0"
-						class="btn btn-ghost btn-circle btn-sm"
-						aria-label={ts('nav.menu')}
-					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-5 w-5"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M4 6h16M4 12h16M4 18h16"
-							></path>
-						</svg>
+					<button tabindex="0" class="btn btn-ghost btn-circle btn-sm" aria-label={ts('nav.menu')}>
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
 					</button>
 					<ul class="dropdown-content menu menu-sm mt-2 w-52 rounded-box bg-base-100 p-2 shadow-lg z-40">
 						{#each navItems as item}
-							<li>
-								<a
-									href={item.href}
-									class:active={page.url.pathname === item.href}
-									onclick={(e) => e.currentTarget.blur()}
-								>{ts(item.key)}</a>
-							</li>
+							<li><a href={item.href} class:active={page.url.pathname === item.href} onclick={(e) => e.currentTarget.blur()}>{ts(item.key)}</a></li>
 						{/each}
-
-						<li>
-							<a
-								href="/account"
-								class:active={page.url.pathname === '/account'}
-								onclick={(e) => e.currentTarget.blur()}
-							>{ts('nav.account')}</a>
-						</li>
+						<li><a href="/account" class:active={page.url.pathname === '/account'} onclick={(e) => e.currentTarget.blur()}>{ts('nav.account')}</a></li>
 					</ul>
 				</div>
 				<a href="/" class="btn btn-ghost text-xl gap-2">
@@ -184,21 +150,15 @@
 						<a
 							href={item.href}
 							class="btn btn-ghost btn-sm font-normal"
-							class:btn-active={page.url.pathname === item.href}
-						>{ts(item.key)}</a>
+							class:btn-active={page.url.pathname === item.href}>{ts(item.key)}</a
+						>
 					{/each}
 					{#if $me?.is_admin}
 						<div class="dropdown">
 							<button tabindex="0" class="btn btn-ghost btn-sm font-normal" class:btn-active={onAdminPage}>{ts('nav.admin')} ▾</button>
 							<ul class="dropdown-content menu menu-sm mt-1 w-44 rounded-box bg-base-100 p-2 shadow-lg z-40">
 								{#each adminNav.filter(shown) as item}
-									<li>
-										<a
-											href={item.href}
-											class:active={page.url.pathname === item.href}
-											onclick={(e) => e.currentTarget.blur()}
-										>{ts(item.key)}</a>
-									</li>
+									<li><a href={item.href} class:active={page.url.pathname === item.href} onclick={(e) => e.currentTarget.blur()}>{ts(item.key)}</a></li>
 								{/each}
 							</ul>
 						</div>

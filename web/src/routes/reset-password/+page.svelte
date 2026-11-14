@@ -31,12 +31,12 @@
 			if (out.mfa_required) {
 				// Two-factor still applies: sign in with the new password and a code.
 				notify($t('reset.mfaNext'), 'success');
-				goto('/login', { replaceState: true });
+				goto('/login', { replace: true });
 				return;
 			}
 			token.set(out.token);
 			notify($t('reset.signedIn'), 'success');
-			goto('/', { replaceState: true });
+			goto('/', { replace: true });
 		} catch (err) {
 			error = err instanceof Error ? err.message : String(err);
 		} finally {
