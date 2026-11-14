@@ -46,7 +46,7 @@ services:
 
   # Receives OTLP from the API; forwards traces to Jaeger, logs/metrics to stdout.
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.109.0
+    image: otel/opentelemetry-collector-contrib:0.165.0
     command: ["--config=/etc/otel-collector-config.yaml"]
     volumes:
       - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
