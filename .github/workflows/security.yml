@@ -29,7 +29,7 @@ jobs:
     name: grype (dependencies)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Fail on High/Critical vulnerabilities that have a fix
         run: scripts/security-scan.sh grype
 
@@ -37,7 +37,7 @@ jobs:
     name: opengrep (SAST)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Install opengrep (pinned, checksum-verified)
         run: |
           curl -fsSL -o /usr/local/bin/opengrep \
@@ -53,7 +53,7 @@ jobs:
     steps:
       # Every commit, not just the tip: a secret committed and later deleted is
       # still in the history — and still leaked.
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
       - name: Fail on any secret
@@ -63,7 +63,7 @@ jobs:
     name: KICS (infrastructure as code)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Fail on Low and above
         run: scripts/security-scan.sh kics
 
@@ -71,7 +71,7 @@ jobs:
     name: grype (container image)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       # What ships: the Go toolchain's stdlib and the distroless base are only
       # visible in the built image, not in go.mod.
       - name: Build the image
