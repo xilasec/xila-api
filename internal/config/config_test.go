@@ -1,6 +1,8 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -457,5 +459,79 @@ func TestSourceURL(t *testing.T) {
 		if _, err := Load(); err == nil {
 			t.Errorf("SOURCE_URL %q accepted", bad)
 		}
+	}
+}
+
+// unset clears key for this test and restores it afterwards.
+func unset(t *testing.T, key string) {
+	t.Helper()
+	t.Setenv(key, "")
+	os.Unsetenv(key)
+}
+
+// NAME_FILE reads a secret from a mounted file (Docker/Kubernetes secrets,
+// Vault Agent, the Secrets Store CSI driver); one trailing newline is
+// trimmed. Setting both forms, or naming a missing file, refuses to start.
+func TestSecretFromFile(t *testing.T) {
+	t.Setenv("APP_ENV", "development")
+	unset(t, "JWT_SECRET")
+	path := filepath.Join(t.TempDir(), "jwt")
+	if err := os.WriteFile(path, []byte("from-a-file\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("JWT_SECRET_FILE", path)
+	cfg, err := Load()
+	if err != nil || cfg.JWT.Secret != "from-a-file" {
+		t.Fatalf("JWT_SECRET_FILE = %q, %v", cfg.JWT.Secret, err)
+	}
+
+	t.Setenv("JWT_SECRET", "also-set")
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "not both") {
+		t.Errorf("both JWT_SECRET and JWT_SECRET_FILE: %v", err)
+	}
+	unset(t, "JWT_SECRET")
+	t.Setenv("JWT_SECRET_FILE", filepath.Join(t.TempDir(), "missing"))
+	if _, err := Load(); err == nil {
+		t.Error("a missing JWT_SECRET_FILE was accepted")
+	}
+}
+
+// A .env in the working directory (or ENV_FILE) fills settings the real
+// environment doesn't set; the environment always wins, and an explicit
+// ENV_FILE must exist.
+func TestDotEnv(t *testing.T) {
+	t.Setenv("APP_ENV", "development")
+	for _, k := range []string{"ENV_FILE", "DB_NAME", "SOURCE_URL", "JWT_SECRET", "JWT_SECRET_FILE"} {
+		unset(t, k)
+	}
+	dir := t.TempDir()
+	t.Chdir(dir)
+	keyFile := filepath.Join(dir, "jwt")
+	if err := os.WriteFile(keyFile, []byte("jwt-from-file"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	dotenv := "# comment\nDB_NAME=from_dotenv\nSOURCE_URL=\"https://git.example.com/fork\"\nexport JWT_SECRET_FILE=" + keyFile + "\n"
+	if err := os.WriteFile(filepath.Join(dir, ".env"), []byte(dotenv), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("DB_NAME", "from_env")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.DB.Name != "from_env" {
+		t.Errorf("DB_NAME = %q: the real environment must win over .env", cfg.DB.Name)
+	}
+	if cfg.SourceURL != "https://git.example.com/fork" {
+		t.Errorf("SOURCE_URL = %q, want the .env value", cfg.SourceURL)
+	}
+	if cfg.JWT.Secret != "jwt-from-file" {
+		t.Errorf("JWT_SECRET via a _FILE set in .env = %q", cfg.JWT.Secret)
+	}
+
+	t.Setenv("ENV_FILE", filepath.Join(dir, "nope.env"))
+	if _, err := Load(); err == nil {
+		t.Error("a missing ENV_FILE was accepted")
 	}
 }

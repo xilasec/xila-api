@@ -2321,7 +2321,20 @@ port, which the Ingress does not route) and optionally `metrics.serviceMonitor.e
 
 ## Configuration
 
-All configuration is via environment variables (see `.env.example`):
+All configuration is via environment variables (see `.env.example`). Xila also
+reads a `.env` file from its working directory, or the file named by `ENV_FILE`
+(which must exist); variables already set in the environment take precedence.
+
+Secret settings can be read from a file instead: set `NAME_FILE` to its path (for
+example `INTEGRATION_SECRET_KEY_FILE=/run/secrets/xila_key`). One trailing
+newline is trimmed, and setting both `NAME` and `NAME_FILE` is a startup error.
+This is how Docker and Kubernetes secrets, Vault Agent, the Secrets Store CSI
+driver and External Secrets Operator (AWS Secrets Manager, GCP Secret Manager,
+Azure Key Vault, Vault) hand secrets to the app. It applies to `JWT_SECRET`,
+`DB_PASSWORD`, `INTEGRATION_SECRET_KEY`, `SMTP_PASSWORD`, `OIDC_CLIENT_SECRET`,
+`SAML_SP_KEY`, `LDAP_BIND_PASSWORD`, `METRICS_TOKEN`, `AI_API_KEY`,
+`NVD_API_KEY`, `VULNCHECK_API_TOKEN`, `VULNMATCH_GITHUB_TOKEN` and
+`VULNMATCH_VULNERABLECODE_API_KEY`.
 
 | Variable                      | Default              | Notes                                   |
 | ----------------------------- | -------------------- | --------------------------------------- |

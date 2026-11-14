@@ -270,5 +270,9 @@ func Unavailable(cfg config.Config) []string {
 	if !cfg.AI.Enabled {
 		out = append(out, AITriage)
 	}
+	// Two-factor secrets are sealed with INTEGRATION_SECRET_KEY.
+	if cfg.IntegrationSecretKey == "" {
+		out = append(out, MFA)
+	}
 	return out
 }

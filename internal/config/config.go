@@ -5,13 +5,17 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/joho/godotenv"
 
 	"github.com/xilasec/xila-api/internal/domain"
 )
@@ -523,6 +527,10 @@ type Metrics struct {
 // Load reads configuration from the environment, applying sane defaults that
 // tighten automatically in production, and validates the result.
 func Load() (Config, error) {
+	if err := loadDotEnv(); err != nil {
+		return Config{}, err
+	}
+	var sec secretReader
 	env := normalizeEnv(getenv("APP_ENV", EnvDevelopment))
 	prod := env == EnvProduction
 
@@ -555,7 +563,7 @@ func Load() (Config, error) {
 			Host:              getenv("DB_HOST", "localhost"),
 			Port:              getenv("DB_PORT", "5432"),
 			User:              getenv("DB_USER", "xila"),
-			Password:          getenv("DB_PASSWORD", "xila"),
+			Password:          sec.get("DB_PASSWORD", "xila"),
 			Name:              getenv("DB_NAME", "xila"),
 			SSLMode:           getenv("DB_SSLMODE", "disable"),
 			MaxConns:          int32(getint("DB_MAX_CONNS", 20)),
@@ -567,14 +575,14 @@ func Load() (Config, error) {
 			StatementTimeout:  getdur("DB_STATEMENT_TIMEOUT", 30*time.Second),
 		},
 		JWT: JWT{
-			Secret: getenv("JWT_SECRET", ""),
+			Secret: sec.get("JWT_SECRET", ""),
 			TTL:    getdur("JWT_TTL", 24*time.Hour),
 		},
 		OIDC: OIDC{
 			Enabled:      getbool("OIDC_ENABLED", false),
 			Issuer:       getenv("OIDC_ISSUER", ""),
 			ClientID:     getenv("OIDC_CLIENT_ID", ""),
-			ClientSecret: getenv("OIDC_CLIENT_SECRET", ""),
+			ClientSecret: sec.get("OIDC_CLIENT_SECRET", ""),
 			RedirectURL:  getenv("OIDC_REDIRECT_URL", ""),
 			ProviderName: getenv("OIDC_PROVIDER_NAME", "SSO"),
 			Scopes:       oidcScopes(getenv("OIDC_SCOPES", "openid email profile")),
@@ -588,7 +596,7 @@ func Load() (Config, error) {
 			StartTLS:       getbool("LDAP_STARTTLS", true),
 			CACert:         pemValue(getenv("LDAP_CA_CERT", "")),
 			BindDN:         getenv("LDAP_BIND_DN", ""),
-			BindPassword:   getenv("LDAP_BIND_PASSWORD", ""),
+			BindPassword:   sec.get("LDAP_BIND_PASSWORD", ""),
 			BaseDN:         getenv("LDAP_BASE_DN", ""),
 			UserFilter:     getenv("LDAP_USER_FILTER", "(&(objectClass=person)(|(mail={login})(uid={login})(sAMAccountName={login})(userPrincipalName={login})))"),
 			EmailAttribute: getenv("LDAP_EMAIL_ATTRIBUTE", "mail"),
@@ -602,7 +610,7 @@ func Load() (Config, error) {
 			IDPMetadata:       strings.TrimSpace(getenv("SAML_IDP_METADATA", "")),
 			EntityID:          strings.TrimSpace(getenv("SAML_ENTITY_ID", "")),
 			SPCert:            pemValue(getenv("SAML_SP_CERT", "")),
-			SPKey:             pemValue(getenv("SAML_SP_KEY", "")),
+			SPKey:             pemValue(sec.get("SAML_SP_KEY", "")),
 			ProviderName:      getenv("SAML_PROVIDER_NAME", "SAML SSO"),
 			EmailAttribute:    strings.TrimSpace(getenv("SAML_EMAIL_ATTRIBUTE", "")),
 			GroupsAttributes:  getlist("SAML_GROUPS_ATTRIBUTE", []string{"groups"}),
@@ -619,7 +627,7 @@ func Load() (Config, error) {
 			Host:     getenv("SMTP_HOST", ""),
 			Port:     getint("SMTP_PORT", 587),
 			Username: getenv("SMTP_USERNAME", ""),
-			Password: getenv("SMTP_PASSWORD", ""),
+			Password: sec.get("SMTP_PASSWORD", ""),
 			From:     getenv("SMTP_FROM", ""),
 			TLS:      strings.ToLower(strings.TrimSpace(getenv("SMTP_TLS", "starttls"))),
 		},
@@ -632,7 +640,7 @@ func Load() (Config, error) {
 		Metrics: Metrics{
 			Enabled: getbool("METRICS_ENABLED", false),
 			Addr:    getenv("METRICS_ADDR", ""),
-			Token:   getenv("METRICS_TOKEN", ""),
+			Token:   sec.get("METRICS_TOKEN", ""),
 		},
 		Policy: Policy{
 			EvalInterval: getdur("POLICY_EVAL_INTERVAL", 6*time.Hour),
@@ -640,13 +648,13 @@ func Load() (Config, error) {
 		Enrich: Enrich{
 			Enabled:    getbool("ENRICH_ENABLED", true),
 			Interval:   getdur("ENRICH_INTERVAL", 6*time.Hour),
-			KEVSources: getlist("KEV_SOURCES", defaultKEVSources(getenv("VULNCHECK_API_TOKEN", ""))),
+			KEVSources: getlist("KEV_SOURCES", defaultKEVSources(sec.get("VULNCHECK_API_TOKEN", ""))),
 			KEVURLs: map[string]string{
 				"cisa":      getenv("KEV_CISA_URL", ""),
 				"enisa":     getenv("KEV_ENISA_URL", ""),
 				"vulncheck": getenv("KEV_VULNCHECK_URL", ""),
 			},
-			VulnCheckToken: getenv("VULNCHECK_API_TOKEN", ""),
+			VulnCheckToken: sec.get("VULNCHECK_API_TOKEN", ""),
 		},
 		Exploit: ExploitIntel{
 			Enabled:  getbool("EXPLOIT_INTEL_ENABLED", true),
@@ -674,7 +682,7 @@ func Load() (Config, error) {
 		},
 		NVD: NVD{
 			Enabled: getbool("NVD_ENABLED", false),
-			APIKey:  getenv("NVD_API_KEY", ""),
+			APIKey:  sec.get("NVD_API_KEY", ""),
 			URL:     getenv("NVD_URL", ""),
 		},
 		AI: AI{
@@ -682,7 +690,7 @@ func Load() (Config, error) {
 			Provider:  strings.ToLower(strings.TrimSpace(getenv("AI_PROVIDER", AIProviderOpenAI))),
 			BaseURL:   strings.TrimRight(strings.TrimSpace(getenv("AI_BASE_URL", "")), "/"),
 			Model:     strings.TrimSpace(getenv("AI_MODEL", "")),
-			APIKey:    strings.TrimSpace(getenv("AI_API_KEY", "")),
+			APIKey:    strings.TrimSpace(sec.get("AI_API_KEY", "")),
 			RateLimit: getint("AI_RATE_LIMIT", 30),
 			Timeout:   getdur("AI_TIMEOUT", 90*time.Second),
 		},
@@ -692,12 +700,12 @@ func Load() (Config, error) {
 			Sources:              getlist("VULNMATCH_SOURCES", []string{"osv"}),
 			OSVURL:               getenv("VULNMATCH_OSV_URL", ""),
 			GitHubURL:            getenv("VULNMATCH_GITHUB_URL", ""),
-			GitHubToken:          getenv("VULNMATCH_GITHUB_TOKEN", ""),
+			GitHubToken:          sec.get("VULNMATCH_GITHUB_TOKEN", ""),
 			OSVMirrorURL:         getenv("VULNMATCH_OSV_MIRROR_URL", ""),
 			OSVEcosystems:        getlist("VULNMATCH_OSV_ECOSYSTEMS", nil),
 			OSVMirrorInterval:    getdur("VULNMATCH_OSV_MIRROR_INTERVAL", 24*time.Hour),
 			VulnerableCodeURL:    getenv("VULNMATCH_VULNERABLECODE_URL", ""),
-			VulnerableCodeAPIKey: getenv("VULNMATCH_VULNERABLECODE_API_KEY", ""),
+			VulnerableCodeAPIKey: sec.get("VULNMATCH_VULNERABLECODE_API_KEY", ""),
 			JVNURL:               getenv("VULNMATCH_JVN_URL", ""),
 			JVNFromYear:          getint("VULNMATCH_JVN_FROM_YEAR", 2015),
 			JVNInterval:          getdur("VULNMATCH_JVN_INTERVAL", 24*time.Hour),
@@ -759,7 +767,7 @@ func Load() (Config, error) {
 		AssessmentRequiresApproval:     getbool("ASSESSMENT_REQUIRES_APPROVAL", false),
 		RiskAcceptanceRequiresApproval: getbool("RISK_ACCEPTANCE_REQUIRES_APPROVAL", prod),
 		RiskAcceptanceExpiryWarning:    getdur("RISK_ACCEPTANCE_EXPIRY_WARNING", 7*24*time.Hour),
-		IntegrationSecretKey:           strings.TrimSpace(getenv("INTEGRATION_SECRET_KEY", "")),
+		IntegrationSecretKey:           strings.TrimSpace(sec.get("INTEGRATION_SECRET_KEY", "")),
 		PublicURL:                      strings.TrimRight(strings.TrimSpace(getenv("PUBLIC_URL", "")), "/"),
 		SourceURL:                      strings.TrimSpace(getenv("SOURCE_URL", DefaultSourceURL)),
 		IssueSyncInterval:              getdur("ISSUE_SYNC_INTERVAL", 15*time.Minute),
@@ -781,6 +789,9 @@ func Load() (Config, error) {
 		cfg.JWT.Secret = insecureDevSecret
 	}
 
+	if sec.err != nil {
+		return Config{}, sec.err
+	}
 	if err := cfg.validate(); err != nil {
 		return Config{}, err
 	}
@@ -1028,6 +1039,55 @@ func (c Config) Warnings() []string {
 		w = append(w, "INTEGRATION_SECRET_KEY is unset — two-factor sign-in, issue trackers and connectors can't be configured (their secrets are encrypted with it)")
 	}
 	return w
+}
+
+// loadDotEnv reads ENV_FILE, or ./.env when ENV_FILE is unset and the file
+// exists, into the process environment. Variables already set in the real
+// environment win, so a deployment can always override the file. ENV_FILE must
+// exist; a missing ./.env is not an error.
+func loadDotEnv() error {
+	path, explicit := os.LookupEnv("ENV_FILE")
+	if !explicit {
+		path = ".env"
+	}
+	err := godotenv.Load(filepath.Clean(path))
+	if err != nil && !explicit && errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("reading %s: %w", path, err)
+	}
+	return nil
+}
+
+// secretReader reads a secret setting from NAME, or from the file named by
+// NAME_FILE: the convention Docker and Kubernetes secrets, Vault Agent, the
+// Secrets Store CSI driver and External Secrets Operator all write to. One
+// trailing newline is trimmed. Setting both, or naming a file that can't be
+// read, is an error (kept in err) rather than a silent fallback.
+type secretReader struct{ err error }
+
+func (r *secretReader) get(key, fallback string) string {
+	path, fromFile := os.LookupEnv(key + "_FILE")
+	if !fromFile {
+		return getenv(key, fallback)
+	}
+	if _, both := os.LookupEnv(key); both {
+		r.fail(fmt.Errorf("set %s or %s_FILE, not both", key, key))
+		return fallback
+	}
+	b, err := os.ReadFile(filepath.Clean(path))
+	if err != nil {
+		r.fail(fmt.Errorf("%s_FILE: %w", key, err))
+		return fallback
+	}
+	return strings.TrimSuffix(strings.TrimSuffix(string(b), "\n"), "\r")
+}
+
+func (r *secretReader) fail(err error) {
+	if r.err == nil {
+		r.err = err
+	}
 }
 
 func getenv(key, fallback string) string {
