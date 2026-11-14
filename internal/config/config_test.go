@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func TestLoadPoolAndHTTPDefaults(t *testing.T) {
@@ -533,5 +535,21 @@ func TestDotEnv(t *testing.T) {
 	t.Setenv("ENV_FILE", filepath.Join(dir, "nope.env"))
 	if _, err := Load(); err == nil {
 		t.Error("a missing ENV_FILE was accepted")
+	}
+}
+
+// A generated password can hold any URL-special character; the DSN must
+// round-trip it (and the rest) through the driver's own parser.
+func TestDSNEscapesEveryPart(t *testing.T) {
+	d := DB{User: "xila", Password: "a/b+c=@#?%d:e", Host: "db.internal", Port: "6543", Name: "xila prod", SSLMode: "require", ConnectTimeout: 5 * time.Second}
+	cfg, err := pgconn.ParseConfig(d.DSN())
+	if err != nil {
+		t.Fatalf("parse %q: %v", d.DSN(), err)
+	}
+	if cfg.User != d.User || cfg.Password != d.Password || cfg.Host != d.Host || cfg.Port != 6543 || cfg.Database != d.Name {
+		t.Errorf("round trip = %s/%s@%s:%d/%s", cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.Database)
+	}
+	if cfg.ConnectTimeout != 5*time.Second {
+		t.Errorf("connect_timeout = %v", cfg.ConnectTimeout)
 	}
 }

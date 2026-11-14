@@ -52,7 +52,7 @@ hooks: ## Install the pre-commit security hooks (grype, opengrep, KICS, gitleaks
 docker-build: ## Build the distroless image
 	docker build -t xila-api:latest .
 
-up: ## Start the full stack (api, postgres, collector, jaeger)
+up: ## Start the dev stack with every feature on (api, postgres, collector, jaeger, mailpit)
 	docker compose up --build -d
 
 down: ## Stop the stack (Postgres data is kept)
@@ -66,7 +66,7 @@ logs: ## Tail the API logs
 
 PROD_COMPOSE = docker compose -f docker-compose.prod.yml
 
-up-prod: ## Start the hardened production stack (needs DB_PASSWORD, JWT_SECRET, INTEGRATION_SECRET_KEY in .env/env)
+up-prod: ## Start the production stack (needs DB_PASSWORD, JWT_SECRET, INTEGRATION_SECRET_KEY, PUBLIC_URL in .env/env)
 	$(PROD_COMPOSE) up --build -d
 
 down-prod: ## Stop the production stack (Postgres data is kept)

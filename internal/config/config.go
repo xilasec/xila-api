@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -395,16 +396,24 @@ type DB struct {
 	StatementTimeout time.Duration
 }
 
-// DSN builds a libpq-style connection string. connect_timeout is libpq-standard
-// (safe for both the pool and the migration driver); pool_* tuning is applied
-// programmatically, not here, so it doesn't reach the database/sql migrator.
+// DSN builds a libpq-style connection URL with every part escaped, so a
+// password containing "/", "@", "#" or "?" (as `openssl rand -base64` output
+// does) still parses. connect_timeout is libpq-standard (safe for both the pool
+// and the migration driver); pool_* tuning is applied programmatically, not
+// here, so it doesn't reach the database/sql migrator.
 func (d DB) DSN() string {
-	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
-		d.User, d.Password, d.Host, d.Port, d.Name, d.SSLMode)
+	q := url.Values{"sslmode": {d.SSLMode}}
 	if secs := int(d.ConnectTimeout.Seconds()); secs > 0 {
-		dsn += fmt.Sprintf("&connect_timeout=%d", secs)
+		q.Set("connect_timeout", strconv.Itoa(secs))
 	}
-	return dsn
+	u := url.URL{
+		Scheme:   "postgres",
+		User:     url.UserPassword(d.User, d.Password),
+		Host:     net.JoinHostPort(d.Host, d.Port),
+		Path:     "/" + d.Name,
+		RawQuery: q.Encode(),
+	}
+	return u.String()
 }
 
 // JWT holds token signing settings.

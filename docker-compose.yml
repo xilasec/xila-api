@@ -1,3 +1,20 @@
+# Development stack with every feature on: API + UI, Postgres, an OpenTelemetry
+# collector with Jaeger, and Mailpit catching all outgoing mail.
+#
+#   make up                      # or: docker compose up -d --build
+#
+#   http://localhost:8080        Xila (the first account you register is the owner)
+#   http://localhost:8025        Mailpit: password resets, email alerts, summaries
+#   http://localhost:16686       Jaeger: traces
+#   http://localhost:9090/metrics Prometheus metrics
+#
+# Features that need your own credentials turn on when you set them in your shell
+# or a .env file next to this one: AI triage (AI_API_KEY, plus AI_PROVIDER /
+# AI_MODEL / AI_BASE_URL), NVD (NVD_API_KEY), VulnCheck (VULNCHECK_API_TOKEN) and
+# GitHub advisories (VULNMATCH_GITHUB_TOKEN). SSO providers (OIDC, SAML) are added
+# on the SSO page.
+#
+# Every secret here is a fixed, public development value. Never reuse them.
 services:
   postgres:
     image: postgres:18-alpine
@@ -28,21 +45,32 @@ services:
       timeout: 5s
       retries: 10
 
-  # Traces UI at http://localhost:16686
-  jaeger:
-    image: jaegertracing/all-in-one:1.60
-    environment:
-      COLLECTOR_OTLP_ENABLED: "true"
+  # Catches every email Xila sends; nothing leaves your machine.
+  mailpit:
+    image: axllent/mailpit:v1.33.1
     ports:
-      - "127.0.0.1:16686:16686"
+      - "127.0.0.1:8025:8025" # web UI
     cap_drop: [ALL]
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:14269/"]
+      test: ["CMD", "/mailpit", "readyz"]
       interval: 10s
       timeout: 5s
       retries: 10
+
+  # Jaeger v2: receives traces from the collector over OTLP.
+  jaeger:
+    image: jaegertracing/jaeger:2.23.0
+    ports:
+      - "127.0.0.1:16686:16686" # web UI
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    # Distroless image: no shell or HTTP client to probe with.
+    healthcheck:
+      # kics-scan ignore-line
+      disable: true
 
   # Receives OTLP from the API; forwards traces to Jaeger, logs/metrics to stdout.
   otel-collector:
@@ -56,8 +84,7 @@ services:
     cap_drop: [ALL]
     security_opt:
       - no-new-privileges:true
-    # The contrib image is distroless (no shell / wget), so there is nothing to
-    # probe with; liveness is "process running".
+    # Distroless image: no shell or HTTP client to probe with.
     healthcheck:
       # kics-scan ignore-line
       disable: true
@@ -71,6 +98,7 @@ services:
       APP_ENV: development
       HTTP_HOST: 0.0.0.0
       HTTP_PORT: "8080"
+      PUBLIC_URL: http://localhost:8080
       DB_HOST: postgres
       DB_PORT: "5432"
       DB_USER: xila
@@ -79,12 +107,44 @@ services:
       DB_SSLMODE: disable
       JWT_SECRET: change-me-in-production
       JWT_TTL: 24h
+      # Development-only key: seals two-factor secrets, tracker/connector tokens
+      # and SSO provider secrets. Generate your own for anything else.
+      INTEGRATION_SECRET_KEY: ZGV2LW9ubHktaW50ZWdyYXRpb24ta2V5LTMyLWJ5dGU= # gitleaks:allow -- public development key
+      # Telemetry
       OTEL_ENABLED: "true"
       OTEL_SERVICE_NAME: xila-api
       OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4317
       OTEL_EXPORTER_OTLP_INSECURE: "true"
+      METRICS_ENABLED: "true"
+      METRICS_ADDR: ":9090"
+      # Email: everything goes to Mailpit.
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_TLS: none
+      SMTP_FROM: Xila <xila@localhost>
+      # MCP endpoint for AI agents.
+      MCP_ENABLED: "true"
+      # PSIRT advisories with the public CSAF directory, and CRA reporting.
+      PSIRT_PUBLIC: "true"
+      PSIRT_PUBLISHER_NAME: Xila Dev PSIRT
+      PSIRT_PUBLISHER_NAMESPACE: http://localhost:8080
+      PSIRT_PUBLISHER_CONTACT: psirt@localhost
+      CRA_MANUFACTURER_NAME: Xila Dev
+      CRA_MANUFACTURER_CONTACT: psirt@localhost
+      CRA_MANUFACTURER_MEMBER_STATE: DE
+      # Optional, need your own credentials (see the top of this file).
+      AI_TRIAGE_ENABLED: ${AI_TRIAGE_ENABLED:-false}
+      AI_PROVIDER: ${AI_PROVIDER:-openai-compatible}
+      AI_MODEL: ${AI_MODEL:-}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+      NVD_ENABLED: ${NVD_ENABLED:-false}
+      NVD_API_KEY: ${NVD_API_KEY:-}
+      VULNCHECK_API_TOKEN: ${VULNCHECK_API_TOKEN:-}
+      VULNMATCH_GITHUB_TOKEN: ${VULNMATCH_GITHUB_TOKEN:-}
     ports:
       - "127.0.0.1:8080:8080"
+      - "127.0.0.1:9090:9090" # /metrics
     cap_drop: [ALL]
     security_opt:
       - no-new-privileges:true
@@ -95,6 +155,8 @@ services:
       retries: 5
     depends_on:
       postgres:
+        condition: service_healthy
+      mailpit:
         condition: service_healthy
       otel-collector:
         condition: service_started

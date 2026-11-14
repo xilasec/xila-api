@@ -25,7 +25,7 @@ suppression needs an inline reason (`nosemgrep: <rule> -- why`,
 docs/SECURITY_SCANNING.md.
 
 ```bash
-make up              # docker compose: api + postgres + otel-collector + jaeger (localhost:8080)
+make up              # docker compose: api (all features on) + postgres + otel-collector + jaeger + mailpit (localhost:8080, mail on :8025)
 make down            # stop, keep data   |   make purge = stop + drop the DB volume
 make run             # go run ./cmd/api  (API only, no UI; see the "UI" gotcha)
 make bundle          # build SPA + one binary that serves UI+API (-tags embedfrontend)
