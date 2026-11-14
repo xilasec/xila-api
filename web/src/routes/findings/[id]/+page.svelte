@@ -1,20 +1,20 @@
 <script>
 	import { page } from '$app/stores';
-	import { api, ApiError, errorMessage } from '$lib/api.js';
-	import { notify, features, isOn } from '$lib/stores.js';
-	import { fmtDate, fmtDateOnly, fmtDay, fmtNumber, STATUSES, severityAccent, kevCatalogs } from '$lib/format.js';
-	import { t, labelOf } from '$lib/i18n.js';
-	import Badge from '$lib/components/Badge.svelte';
-	import SlaBadge from '$lib/components/SlaBadge.svelte';
-	import State from '$lib/components/State.svelte';
-	import FindingIssue from '$lib/components/FindingIssue.svelte';
-	import FindingWorkflow from '$lib/components/FindingWorkflow.svelte';
-	import FindingWriteup from '$lib/components/FindingWriteup.svelte';
-	import ExploitBadge from '$lib/components/ExploitBadge.svelte';
-	import FindingExploits from '$lib/components/FindingExploits.svelte';
-	import FindingFieldsEditor from '$lib/components/FindingFieldsEditor.svelte';
-	import FindingAI from '$lib/components/FindingAI.svelte';
-	import CustomFieldsEditor from '$lib/components/CustomFieldsEditor.svelte';
+	import { api, ApiError, errorMessage } from '#lib/api.js';
+	import { notify, features, isOn } from '#lib/stores.js';
+	import { fmtDate, fmtDateOnly, fmtDay, fmtNumber, STATUSES, severityAccent, kevCatalogs } from '#lib/format.js';
+	import { t, labelOf } from '#lib/i18n.js';
+	import Badge from '#lib/components/Badge.svelte';
+	import SlaBadge from '#lib/components/SlaBadge.svelte';
+	import State from '#lib/components/State.svelte';
+	import FindingIssue from '#lib/components/FindingIssue.svelte';
+	import FindingWorkflow from '#lib/components/FindingWorkflow.svelte';
+	import FindingWriteup from '#lib/components/FindingWriteup.svelte';
+	import ExploitBadge from '#lib/components/ExploitBadge.svelte';
+	import FindingExploits from '#lib/components/FindingExploits.svelte';
+	import FindingFieldsEditor from '#lib/components/FindingFieldsEditor.svelte';
+	import FindingAI from '#lib/components/FindingAI.svelte';
+	import CustomFieldsEditor from '#lib/components/CustomFieldsEditor.svelte';
 
 	const id = $derived($page.params.id ?? '');
 

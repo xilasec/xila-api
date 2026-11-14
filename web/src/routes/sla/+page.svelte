@@ -1,11 +1,11 @@
 <script>
 	import { onMount } from 'svelte';
-	import { api, ApiError, errorMessage } from '$lib/api.js';
-	import { me, notify } from '$lib/stores.js';
-	import { t } from '$lib/i18n.js';
-	import State from '$lib/components/State.svelte';
-	import SlaPolicyEditor from '$lib/components/SlaPolicyEditor.svelte';
-	import SlaScalingEditor from '$lib/components/SlaScalingEditor.svelte';
+	import { api, ApiError, errorMessage } from '#lib/api.js';
+	import { me, notify } from '#lib/stores.js';
+	import { t } from '#lib/i18n.js';
+	import State from '#lib/components/State.svelte';
+	import SlaPolicyEditor from '#lib/components/SlaPolicyEditor.svelte';
+	import SlaScalingEditor from '#lib/components/SlaScalingEditor.svelte';
 
 	let loading = $state(true);
 	let error = $state('');

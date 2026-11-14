@@ -2,11 +2,11 @@
 	// Risk acceptances: the approval queue (no projectId: requested ones across
 	// visible projects) or one project's list. Expand a row for its ledger.
 	import { onMount } from 'svelte';
-	import { api, ApiError, errorMessage } from '$lib/api.js';
-	import { notify } from '$lib/stores.js';
-	import { t, labelOf } from '$lib/i18n.js';
-	import { fmtDate } from '$lib/format.js';
-	import State from '$lib/components/State.svelte';
+	import { api, ApiError, errorMessage } from '#lib/api.js';
+	import { notify } from '#lib/stores.js';
+	import { t, labelOf } from '#lib/i18n.js';
+	import { fmtDate } from '#lib/format.js';
+	import State from '#lib/components/State.svelte';
 
 	/** @type {{ projectId?: string, only?: string }} */
 	let { projectId = '', only = '' } = $props();
@@ -18,7 +18,7 @@
 	let members = $state(/** @type {any[]} */ ([]));
 	let busy = $state('');
 
-	/** @type {Record<string, import('$lib/i18n.js').MessageKey>} */
+	/** @type {Record<string, import('#lib/i18n.js').MessageKey>} */
 	const STATE_KEY = { requested: 'ra.state.requested', approved: 'ra.state.approved', rejected: 'ra.state.rejected', revoked: 'ra.state.revoked' };
 
 	async function load() {

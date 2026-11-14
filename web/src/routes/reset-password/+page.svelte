@@ -1,9 +1,9 @@
 <script>
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { api } from '$lib/api.js';
-	import { token, notify } from '$lib/stores.js';
-	import { t } from '$lib/i18n.js';
+	import { api } from '#lib/api.js';
+	import { token, notify } from '#lib/stores.js';
+	import { t } from '#lib/i18n.js';
 
 	// The link carries the token in the fragment (#token=…), which browsers never
 	// send to a server or leak in a Referer.

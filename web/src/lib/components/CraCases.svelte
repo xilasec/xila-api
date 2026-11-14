@@ -1,13 +1,13 @@
 <script>
 	// A project's EU CRA Article 14 reporting: the product declaration and the
 	// cases opened for actively exploited vulnerabilities, with their clocks.
-	import { api, ApiError, errorMessage } from '$lib/api.js';
-	import { notify } from '$lib/stores.js';
-	import { fmtDate } from '$lib/format.js';
-	import { t } from '$lib/i18n.js';
-	import { stateLabel, stateClass, deadlineClass, deadlineLabel, countdown, nextDeadline } from '$lib/cra.js';
-	import State from '$lib/components/State.svelte';
-	import CraCaseDetail from '$lib/components/CraCaseDetail.svelte';
+	import { api, ApiError, errorMessage } from '#lib/api.js';
+	import { notify } from '#lib/stores.js';
+	import { fmtDate } from '#lib/format.js';
+	import { t } from '#lib/i18n.js';
+	import { stateLabel, stateClass, deadlineClass, deadlineLabel, countdown, nextDeadline } from '#lib/cra.js';
+	import State from '#lib/components/State.svelte';
+	import CraCaseDetail from '#lib/components/CraCaseDetail.svelte';
 
 	/** @type {{ projectId: string }} */
 	let { projectId } = $props();

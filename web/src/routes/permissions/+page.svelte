@@ -2,12 +2,12 @@
 	// Permission audit (admin): every principal, every project they can reach,
 	// the effective role and each grant that gives it.
 	import { onMount } from 'svelte';
-	import { api, ApiError } from '$lib/api.js';
-	import { t, labelOf } from '$lib/i18n.js';
-	import State from '$lib/components/State.svelte';
-	import Pagination from '$lib/components/Pagination.svelte';
-	import ExportMenu from '$lib/components/ExportMenu.svelte';
-	import AccessTable from '$lib/components/AccessTable.svelte';
+	import { api, ApiError } from '#lib/api.js';
+	import { t, labelOf } from '#lib/i18n.js';
+	import State from '#lib/components/State.svelte';
+	import Pagination from '#lib/components/Pagination.svelte';
+	import ExportMenu from '#lib/components/ExportMenu.svelte';
+	import AccessTable from '#lib/components/AccessTable.svelte';
 
 	const LIMIT = 50;
 	let loading = $state(true);

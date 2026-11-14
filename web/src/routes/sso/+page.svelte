@@ -1,11 +1,11 @@
 <script>
 	import { onMount } from 'svelte';
-	import { api, errorMessage } from '$lib/api.js';
-	import { notify } from '$lib/stores.js';
-	import { fmtDate } from '$lib/format.js';
-	import { t, labelOf } from '$lib/i18n.js';
-	import State from '$lib/components/State.svelte';
-	import Field from '$lib/components/Field.svelte';
+	import { api, errorMessage } from '#lib/api.js';
+	import { notify } from '#lib/stores.js';
+	import { fmtDate } from '#lib/format.js';
+	import { t, labelOf } from '#lib/i18n.js';
+	import State from '#lib/components/State.svelte';
+	import Field from '#lib/components/Field.svelte';
 
 	// { providers, auto_create_users, password_login_enabled, public_url, secrets_configured, cookie_secure }
 	let info = $state(/** @type {any} */ (null));
@@ -59,7 +59,7 @@
 		}
 	}
 
-	/** @type {Record<string, { cls: string, label: import('$lib/i18n.js').MessageKey }>} */
+	/** @type {Record<string, { cls: string, label: import('#lib/i18n.js').MessageKey }>} */
 	const STATUS = {
 		ok: { cls: 'badge-success', label: 'sso.statusOk' },
 		error: { cls: 'badge-error', label: 'sso.statusError' },
@@ -426,7 +426,7 @@
 
 	// ---- group mappings ------------------------------------------------------
 
-	/** @type {{ id: string, label: import('$lib/i18n.js').MessageKey }[]} */
+	/** @type {{ id: string, label: import('#lib/i18n.js').MessageKey }[]} */
 	const KINDS = [
 		{ id: 'instance_admin', label: 'sso.kindInstanceAdmin' },
 		{ id: 'org', label: 'sso.kindOrg' },
@@ -493,7 +493,7 @@
 		return m.provider === 'any' ? $t('sso.anyProviderScope') : $t('sso.everyProviderKind', { kind: m.provider.toUpperCase() });
 	}
 
-	/** @type {Record<string, import('$lib/i18n.js').MessageKey>} */
+	/** @type {Record<string, import('#lib/i18n.js').MessageKey>} */
 	const KIND_LABEL = Object.fromEntries(KINDS.map((k) => [k.id, k.label]));
 	/** @param {any} m */
 	function targetLabel(m) {

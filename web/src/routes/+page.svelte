@@ -1,16 +1,16 @@
 <script>
 	import { onMount } from 'svelte';
-	import { api, ApiError, errorMessage } from '$lib/api.js';
-	import { notify, me } from '$lib/stores.js';
-	import { criticalityClass, riskTone, slugify, fmtNumber, fmtDateOnly } from '$lib/format.js';
-	import { t, labelOf } from '$lib/i18n.js';
-	import State from '$lib/components/State.svelte';
-	import Field from '$lib/components/Field.svelte';
-	import SeverityDots from '$lib/components/SeverityDots.svelte';
-	import TrendChart from '$lib/components/TrendChart.svelte';
-	import ReportMenu from '$lib/components/ReportMenu.svelte';
-	import { OPEN_BY_SEVERITY, RISK, fmtCount, fmtRisk, windowStats } from '$lib/trends.js';
-	import { flattenTree, parentChoices } from '$lib/projectTree.js';
+	import { api, ApiError, errorMessage } from '#lib/api.js';
+	import { notify, me } from '#lib/stores.js';
+	import { criticalityClass, riskTone, slugify, fmtNumber, fmtDateOnly } from '#lib/format.js';
+	import { t, labelOf } from '#lib/i18n.js';
+	import State from '#lib/components/State.svelte';
+	import Field from '#lib/components/Field.svelte';
+	import SeverityDots from '#lib/components/SeverityDots.svelte';
+	import TrendChart from '#lib/components/TrendChart.svelte';
+	import ReportMenu from '#lib/components/ReportMenu.svelte';
+	import { OPEN_BY_SEVERITY, RISK, fmtCount, fmtRisk, windowStats } from '#lib/trends.js';
+	import { flattenTree, parentChoices } from '#lib/projectTree.js';
 
 	let loading = $state(true);
 	let error = $state('');
@@ -23,7 +23,7 @@
 	// { development, ... } from the public /auth/config — used only to show the
 	// `xila-api demo-seed` hint to admins outside production.
 	let authCfg = $state(/** @type {{ development?: boolean } | null} */ (null));
-	/** @type {Record<string, import('$lib/i18n.js').MessageKey>} */
+	/** @type {Record<string, import('#lib/i18n.js').MessageKey>} */
 	const ANOMALY_LABEL = {
 		stale: 'home.anomaly.stale',
 		volume_drop: 'home.anomaly.volume_drop',
@@ -35,7 +35,7 @@
 	const trendStats = $derived(windowStats(trend));
 	let saving = $state(false);
 
-	/** @type {Record<string, import('$lib/i18n.js').MessageKey>} */
+	/** @type {Record<string, import('#lib/i18n.js').MessageKey>} */
 	const CATEGORY_LABELS = {
 		sast: 'home.cat.sast',
 		dast: 'home.cat.dast',

@@ -3,10 +3,10 @@
 	// runtime. Off, a feature's API answers 404, its background work stops and
 	// its pages and sections disappear; its data is kept for when it comes back.
 	import { onMount } from 'svelte';
-	import { api, errorMessage } from '$lib/api.js';
-	import { notify, me, features as featureStore } from '$lib/stores.js';
-	import { t } from '$lib/i18n.js';
-	import State from '$lib/components/State.svelte';
+	import { api, errorMessage } from '#lib/api.js';
+	import { notify, me, features as featureStore } from '#lib/stores.js';
+	import { t } from '#lib/i18n.js';
+	import State from '#lib/components/State.svelte';
 
 	/** @typedef {{ key: string, enabled: boolean, available: boolean, owner_only: boolean, updated_at: string | null }} Feature */
 
@@ -16,7 +16,7 @@
 	let busy = $state('');
 
 	/** @param {string} key @param {'name' | 'desc'} part */
-	const text = (key, part) => $t(/** @type {import('$lib/i18n.js').MessageKey} */ (`feat.${key}.${part}`));
+	const text = (key, part) => $t(/** @type {import('#lib/i18n.js').MessageKey} */ (`feat.${key}.${part}`));
 
 	/** @param {Feature[]} fs */
 	function publish(fs) {

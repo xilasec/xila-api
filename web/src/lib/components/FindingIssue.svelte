@@ -1,9 +1,9 @@
 <script>
 	// The finding's linked tracker issue (Jira / GitHub / GitLab): a link + its
 	// last synced state, or a "Create issue" button when the project has a tracker.
-	import { api, ApiError, errorMessage } from '$lib/api.js';
-	import { notify } from '$lib/stores.js';
-	import { t } from '$lib/i18n.js';
+	import { api, ApiError, errorMessage } from '#lib/api.js';
+	import { notify } from '#lib/stores.js';
+	import { t } from '#lib/i18n.js';
 
 	/** @type {{ findingId: string, projectId?: string | null }} */
 	let { findingId, projectId } = $props();

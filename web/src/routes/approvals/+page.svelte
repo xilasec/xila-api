@@ -2,14 +2,14 @@
 	// The manual-assessment review queue (ASSESSMENT_REQUIRES_APPROVAL): status /
 	// severity changes analysts asked for, waiting for a second person.
 	import { onMount } from 'svelte';
-	import { api, ApiError, errorMessage } from '$lib/api.js';
-	import { notify } from '$lib/stores.js';
-	import { t } from '$lib/i18n.js';
-	import { fmtDate, prettyStatus } from '$lib/format.js';
-	import Badge from '$lib/components/Badge.svelte';
-	import State from '$lib/components/State.svelte';
-	import Pagination from '$lib/components/Pagination.svelte';
-	import RiskAcceptances from '$lib/components/RiskAcceptances.svelte';
+	import { api, ApiError, errorMessage } from '#lib/api.js';
+	import { notify } from '#lib/stores.js';
+	import { t } from '#lib/i18n.js';
+	import { fmtDate, prettyStatus } from '#lib/format.js';
+	import Badge from '#lib/components/Badge.svelte';
+	import State from '#lib/components/State.svelte';
+	import Pagination from '#lib/components/Pagination.svelte';
+	import RiskAcceptances from '#lib/components/RiskAcceptances.svelte';
 
 	const LIMIT = 50;
 	let loading = $state(true);
@@ -20,7 +20,7 @@
 	let hasMore = $state(false);
 	let busy = $state('');
 
-	/** @type {Record<string, import('$lib/i18n.js').MessageKey>} */
+	/** @type {Record<string, import('#lib/i18n.js').MessageKey>} */
 	const STATE_KEY = { pending: 'appr.statePending', approved: 'appr.stateApproved', rejected: 'appr.stateRejected' };
 
 	async function load() {

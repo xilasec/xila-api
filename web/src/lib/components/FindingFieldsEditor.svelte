@@ -3,10 +3,10 @@
 	// A title / severity set here overrides the scanner's and survives re-scans
 	// until reset. Saves with If-Match: if someone else changed the finding in
 	// the meantime, nothing is written and the page reloads with their version.
-	import { api, ApiError, errorMessage } from '$lib/api.js';
-	import { notify } from '$lib/stores.js';
-	import { SEVERITIES } from '$lib/format.js';
-	import { t, labelOf } from '$lib/i18n.js';
+	import { api, ApiError, errorMessage } from '#lib/api.js';
+	import { notify } from '#lib/stores.js';
+	import { SEVERITIES } from '#lib/format.js';
+	import { t, labelOf } from '#lib/i18n.js';
 
 	/** @type {{ finding: any, onsaved: (f: any) => void, onconflict: () => void }} */
 	let { finding, onsaved, onconflict } = $props();

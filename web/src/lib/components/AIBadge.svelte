@@ -1,7 +1,7 @@
 <script>
 	// A component's AI inventory kind (model / dataset / AI service) as a badge;
 	// clicking it opens the model card the ML-BOM carried. Nothing for software.
-	import { t } from '$lib/i18n.js';
+	import { t } from '#lib/i18n.js';
 
 	/** @type {{ c: any }} */
 	let { c } = $props();
@@ -9,7 +9,7 @@
 	/** @type {HTMLDialogElement | undefined} */
 	let dialog = $state();
 
-	/** @type {Record<string, import('$lib/i18n.js').MessageKey>} */
+	/** @type {Record<string, import('#lib/i18n.js').MessageKey>} */
 	const LABEL_KEY = { model: 'aibadge.model', dataset: 'aibadge.dataset', 'ai-service': 'aibadge.aiService' };
 	const styles = /** @type {Record<string, string>} */ ({ model: 'badge-secondary', dataset: 'badge-accent', 'ai-service': 'badge-info' });
 	const labelKey = $derived(LABEL_KEY[c?.kind ?? '']);

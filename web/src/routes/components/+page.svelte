@@ -2,17 +2,17 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { api, errorMessage } from '$lib/api.js';
-	import { notify } from '$lib/stores.js';
-	import { t } from '$lib/i18n.js';
-	import { fmtDate } from '$lib/format.js';
-	import State from '$lib/components/State.svelte';
-	import VulnBadge from '$lib/components/VulnBadge.svelte';
-	import ExportMenu from '$lib/components/ExportMenu.svelte';
-	import LicenseBadge from '$lib/components/LicenseBadge.svelte';
-	import OutdatedBadge from '$lib/components/OutdatedBadge.svelte';
-	import IntegrityBadge from '$lib/components/IntegrityBadge.svelte';
-	import AIBadge from '$lib/components/AIBadge.svelte';
+	import { api, errorMessage } from '#lib/api.js';
+	import { notify } from '#lib/stores.js';
+	import { t } from '#lib/i18n.js';
+	import { fmtDate } from '#lib/format.js';
+	import State from '#lib/components/State.svelte';
+	import VulnBadge from '#lib/components/VulnBadge.svelte';
+	import ExportMenu from '#lib/components/ExportMenu.svelte';
+	import LicenseBadge from '#lib/components/LicenseBadge.svelte';
+	import OutdatedBadge from '#lib/components/OutdatedBadge.svelte';
+	import IntegrityBadge from '#lib/components/IntegrityBadge.svelte';
+	import AIBadge from '#lib/components/AIBadge.svelte';
 
 	// Seed the query from the URL so a reload / shared link restores the search.
 	const sp = $page.url.searchParams;

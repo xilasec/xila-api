@@ -2,12 +2,12 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { api, ApiError } from '$lib/api.js';
-	import { token } from '$lib/stores.js';
-	import { t, locale, LOCALES } from '$lib/i18n.js';
+	import { api, ApiError } from '#lib/api.js';
+	import { token } from '#lib/stores.js';
+	import { t, locale, LOCALES } from '#lib/i18n.js';
 
 	// Why an SSO login bounced back here (/login?error=<code>).
-	/** @type {Record<string, import('$lib/i18n.js').MessageKey>} */
+	/** @type {Record<string, import('#lib/i18n.js').MessageKey>} */
 	const ssoErrors = {
 		sso_failed: 'login.sso_failed',
 		sso_no_account: 'login.sso_no_account',

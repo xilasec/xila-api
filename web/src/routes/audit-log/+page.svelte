@@ -2,12 +2,12 @@
 	// The instance audit log (admin): every mutating API request and every
 	// sign-in event — who, what, before → after, from where, with what result.
 	import { onMount } from 'svelte';
-	import { api, ApiError } from '$lib/api.js';
-	import { t } from '$lib/i18n.js';
-	import { fmtDate } from '$lib/format.js';
-	import State from '$lib/components/State.svelte';
-	import Pagination from '$lib/components/Pagination.svelte';
-	import ExportMenu from '$lib/components/ExportMenu.svelte';
+	import { api, ApiError } from '#lib/api.js';
+	import { t } from '#lib/i18n.js';
+	import { fmtDate } from '#lib/format.js';
+	import State from '#lib/components/State.svelte';
+	import Pagination from '#lib/components/Pagination.svelte';
+	import ExportMenu from '#lib/components/ExportMenu.svelte';
 
 	const LIMIT = 50;
 	let loading = $state(true);
@@ -28,7 +28,7 @@
 		to: ''
 	});
 
-	/** @type {Record<string, import('$lib/i18n.js').MessageKey>} */
+	/** @type {Record<string, import('#lib/i18n.js').MessageKey>} */
 	const ACTOR_KIND_KEY = {
 		user: 'audit.actorKind.user',
 		service_account: 'audit.actorKind.service_account',

@@ -2,10 +2,10 @@
 	// A channel's delivery rules: the lowest severity it wants, an optional CEL
 	// filter over the event, and an optional scheduled summary (daily or
 	// weekly, at an hour in UTC).
-	import { SEVERITIES } from '$lib/format.js';
-	import { weekday } from '$lib/channels.js';
-	import { t, labelOf, contentLocale } from '$lib/i18n.js';
-	import Field from '$lib/components/Field.svelte';
+	import { SEVERITIES } from '#lib/format.js';
+	import { weekday } from '#lib/channels.js';
+	import { t, labelOf, contentLocale } from '#lib/i18n.js';
+	import Field from '#lib/components/Field.svelte';
 
 	/** @type {{ rules: { min_severity: string, filter: string, summary: string, summary_hour: number, summary_weekday: number } }} */
 	let { rules = $bindable() } = $props();

@@ -1,8 +1,8 @@
 <script>
 	// The findings tables' keymap. Owns the `?` key (toggle); Esc closes it
 	// natively. `enabled` lets a page with tabs scope it to the findings tab.
-	import { SHORTCUTS, ignoreKey, releaseFocus } from '$lib/keyboard.js';
-	import { t } from '$lib/i18n.js';
+	import { SHORTCUTS, ignoreKey, releaseFocus } from '#lib/keyboard.js';
+	import { t } from '#lib/i18n.js';
 
 	/** @type {{ search?: boolean, enabled?: boolean }} */
 	let { search = false, enabled = true } = $props();

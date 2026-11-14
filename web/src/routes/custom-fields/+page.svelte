@@ -4,15 +4,15 @@
 	// ?cf.<key>= on the lists, exported as columns, and readable in CEL as
 	// project.custom.<key> / finding.custom.<key>.
 	import { onMount } from 'svelte';
-	import { api, errorMessage } from '$lib/api.js';
-	import { notify } from '$lib/stores.js';
-	import { t } from '$lib/i18n.js';
-	import State from '$lib/components/State.svelte';
-	import Field from '$lib/components/Field.svelte';
+	import { api, errorMessage } from '#lib/api.js';
+	import { notify } from '#lib/stores.js';
+	import { t } from '#lib/i18n.js';
+	import State from '#lib/components/State.svelte';
+	import Field from '#lib/components/Field.svelte';
 
 	const ENTITIES = ['finding', 'project', 'asset'];
 	/** @param {string} e */
-	const entityLabel = (e) => $t(/** @type {import('$lib/i18n.js').MessageKey} */ (`customfields.entity.${e}`));
+	const entityLabel = (e) => $t(/** @type {import('#lib/i18n.js').MessageKey} */ (`customfields.entity.${e}`));
 	const TYPES = ['text', 'number', 'date', 'enum', 'user'];
 
 	let loading = $state(true);
@@ -106,7 +106,7 @@
 		</Field>
 		<Field label={$t('customfields.typeLabel')}>
 			<select bind:value={form.type} class="select select-bordered select-sm w-full" disabled={!!editing}>
-				{#each TYPES as ty}<option value={ty}>{$t(/** @type {import('$lib/i18n.js').MessageKey} */ ('customfields.type.' + ty))}</option>{/each}
+				{#each TYPES as ty}<option value={ty}>{$t(/** @type {import('#lib/i18n.js').MessageKey} */ ('customfields.type.' + ty))}</option>{/each}
 			</select>
 		</Field>
 		{#if form.type === 'enum'}
@@ -136,7 +136,7 @@
 						<td>{entityLabel(f.entity)}</td>
 						<td class="font-medium">{f.label}</td>
 						<td class="font-mono text-xs">{f.key}</td>
-						<td>{$t(/** @type {import('$lib/i18n.js').MessageKey} */ ('customfields.type.' + f.type))}{#if f.type === 'enum'} <span class="text-xs text-base-content/60">({f.options.join(', ')})</span>{/if}</td>
+						<td>{$t(/** @type {import('#lib/i18n.js').MessageKey} */ ('customfields.type.' + f.type))}{#if f.type === 'enum'} <span class="text-xs text-base-content/60">({f.options.join(', ')})</span>{/if}</td>
 						<td>{f.required ? $t('customfields.yes') : ''}</td>
 						<td class="text-right whitespace-nowrap">
 							<button class="btn btn-ghost btn-xs" onclick={() => edit(f)}>{$t('customfields.editButton')}</button>

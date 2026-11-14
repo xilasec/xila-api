@@ -1,6 +1,6 @@
 <script>
-	import { severityClass, statusClass, criticalityClass } from '$lib/format.js';
-	import { labelOf } from '$lib/i18n.js';
+	import { severityClass, statusClass, criticalityClass } from '#lib/format.js';
+	import { labelOf } from '#lib/i18n.js';
 
 	/** @type {{ kind?: 'severity'|'status'|'criticality'|'scan'|'plain', value: string, size?: string }} */
 	let { kind = 'plain', value, size = 'badge-sm' } = $props();

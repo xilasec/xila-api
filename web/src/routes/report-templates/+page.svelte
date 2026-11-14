@@ -3,14 +3,14 @@
 	// Anyone printing a report picks one in the Report menu; only instance
 	// admins manage them.
 	import { onMount } from 'svelte';
-	import { api, errorMessage } from '$lib/api.js';
-	import { notify } from '$lib/stores.js';
-	import { t, labelOf } from '$lib/i18n.js';
-	import { SEVERITIES } from '$lib/format.js';
-	import State from '$lib/components/State.svelte';
-	import Field from '$lib/components/Field.svelte';
+	import { api, errorMessage } from '#lib/api.js';
+	import { notify } from '#lib/stores.js';
+	import { t, labelOf } from '#lib/i18n.js';
+	import { SEVERITIES } from '#lib/format.js';
+	import State from '#lib/components/State.svelte';
+	import Field from '#lib/components/Field.svelte';
 
-	/** @type {Record<string, import('$lib/i18n.js').MessageKey>} */
+	/** @type {Record<string, import('#lib/i18n.js').MessageKey>} */
 	const SECTION_LABELS = {
 		summary: 'reporttpl.section.summary',
 		severity: 'reporttpl.section.severity',

@@ -2,13 +2,13 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { api, errorMessage } from '$lib/api.js';
-	import { me, notify } from '$lib/stores.js';
-	import { t, labelOf } from '$lib/i18n.js';
-	import State from '$lib/components/State.svelte';
-	import Field from '$lib/components/Field.svelte';
-	import Pagination from '$lib/components/Pagination.svelte';
-	import { fmtDate } from '$lib/format.js';
+	import { api, errorMessage } from '#lib/api.js';
+	import { me, notify } from '#lib/stores.js';
+	import { t, labelOf } from '#lib/i18n.js';
+	import State from '#lib/components/State.svelte';
+	import Field from '#lib/components/Field.svelte';
+	import Pagination from '#lib/components/Pagination.svelte';
+	import { fmtDate } from '#lib/format.js';
 
 	const LIMIT = 50;
 	const sp = $page.url.searchParams;

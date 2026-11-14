@@ -2,15 +2,15 @@
 	// README badges for a project: an owner issues (or rotates / revokes) a
 	// badge token; the token is shown once, with Markdown to paste. Anyone with
 	// the token sees the badges' numbers — that's the point of a README badge.
-	import { api, ApiError, errorMessage } from '$lib/api.js';
-	import { notify } from '$lib/stores.js';
-	import { fmtDate } from '$lib/format.js';
-	import { t } from '$lib/i18n.js';
+	import { api, ApiError, errorMessage } from '#lib/api.js';
+	import { notify } from '#lib/stores.js';
+	import { fmtDate } from '#lib/format.js';
+	import { t } from '#lib/i18n.js';
 
 	/** @type {{ projectId: string }} */
 	let { projectId } = $props();
 
-	/** @type {[string, import('$lib/i18n.js').MessageKey][]} */
+	/** @type {[string, import('#lib/i18n.js').MessageKey][]} */
 	const KINDS = [
 		['findings', 'readme.findings'],
 		['gate', 'readme.gate'],

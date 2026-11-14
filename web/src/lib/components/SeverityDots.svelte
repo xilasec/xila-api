@@ -1,12 +1,12 @@
 <script>
 	// Compact, colored severity counts for at-a-glance scanning. Only non-zero
 	// severities render; nothing open shows a subtle "clean".
-	import { t, labelOf } from '$lib/i18n.js';
+	import { t, labelOf } from '#lib/i18n.js';
 
 	/** @type {{ counts?: Record<string, number>, emptyLabel?: string }} */
 	let { counts = {}, emptyLabel = '' } = $props();
 
-	/** @type {[string, import('$lib/i18n.js').MessageKey, string][]} */
+	/** @type {[string, import('#lib/i18n.js').MessageKey, string][]} */
 	const ORDER = [
 		['critical', 'dots.abbr.critical', 'bg-error/15 text-error'],
 		['high', 'dots.abbr.high', 'bg-warning/15 text-warning'],

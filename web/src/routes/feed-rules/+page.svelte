@@ -2,12 +2,12 @@
 	// Advisory feed rules (admin): mute, re-rate or tag incoming advisories
 	// before they're matched against inventory.
 	import { onMount } from 'svelte';
-	import { api, errorMessage } from '$lib/api.js';
-	import { notify } from '$lib/stores.js';
-	import { t, labelOf } from '$lib/i18n.js';
-	import State from '$lib/components/State.svelte';
-	import Field from '$lib/components/Field.svelte';
-	import { SEVERITIES } from '$lib/format.js';
+	import { api, errorMessage } from '#lib/api.js';
+	import { notify } from '#lib/stores.js';
+	import { t, labelOf } from '#lib/i18n.js';
+	import State from '#lib/components/State.svelte';
+	import Field from '#lib/components/Field.svelte';
+	import { SEVERITIES } from '#lib/format.js';
 
 	const ACTIONS = [
 		{ id: 'mute', label: 'feedrules.muteAction' },
@@ -116,7 +116,7 @@
 		<Field label={$t('feedrules.nameLabel')} required><input bind:value={form.name} required class="input input-bordered input-sm w-full" /></Field>
 		<Field label={$t('feedrules.actionLabel')}>
 			<select bind:value={form.action} class="select select-bordered select-sm w-full">
-				{#each ACTIONS as a}<option value={a.id}>{$t(/** @type {import('$lib/i18n.js').MessageKey} */ (a.label))}</option>{/each}
+				{#each ACTIONS as a}<option value={a.id}>{$t(/** @type {import('#lib/i18n.js').MessageKey} */ (a.label))}</option>{/each}
 			</select>
 		</Field>
 		{#if form.action === 'set_severity'}

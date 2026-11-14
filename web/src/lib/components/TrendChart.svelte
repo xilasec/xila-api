@@ -7,9 +7,9 @@
 	// stacked: draw series as stacked areas (e.g. open findings by severity)
 	//          instead of independent lines.
 	// Reconstructed days (the first-run backfill) are shaded faintly.
-	import { t, activeLocale } from '$lib/i18n.js';
+	import { t, activeLocale } from '#lib/i18n.js';
 
-	/** @type {{ points?: any[], series?: import('$lib/trends.js').Series[], stacked?: boolean, height?: number, format?: (v: number) => string }} */
+	/** @type {{ points?: any[], series?: import('#lib/trends.js').Series[], stacked?: boolean, height?: number, format?: (v: number) => string }} */
 	let { points = [], series = [], stacked = false, height = 180, format = (/** @type {number} */ v) => String(v) } = $props();
 
 	const DAY = 86_400_000;

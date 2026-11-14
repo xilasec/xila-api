@@ -7,7 +7,7 @@
 	// own:      the scope this editor writes ('project' | 'org' | 'global')
 	// onsave:   async (days) => void
 	// onreset:  async () => void
-	import { t, labelOf } from '$lib/i18n.js';
+	import { t, labelOf } from '#lib/i18n.js';
 
 	let { policy, own, onsave, onreset } = $props();
 
@@ -18,16 +18,16 @@
 		['low_days', 'low'],
 		['info_days', 'info']
 	];
-	/** @type {Record<string, import('$lib/i18n.js').MessageKey>} */
+	/** @type {Record<string, import('#lib/i18n.js').MessageKey>} */
 	const INHERITED = { project: 'slaed.inherit.project', org: 'slaed.inherit.org', global: 'slaed.inherit.global' };
-	/** @type {Record<string, import('$lib/i18n.js').MessageKey>} */
+	/** @type {Record<string, import('#lib/i18n.js').MessageKey>} */
 	const SCOPE_LABEL = {
 		project: 'slaed.scope.project',
 		org: 'slaed.scope.org',
 		global: 'slaed.scope.global',
 		default: 'slaed.scope.default'
 	};
-	/** @type {Record<string, import('$lib/i18n.js').MessageKey>} */
+	/** @type {Record<string, import('#lib/i18n.js').MessageKey>} */
 	const SAVE_LABEL = { project: 'slaed.save.project', org: 'slaed.save.org', global: 'slaed.save.global' };
 
 	let form = $state(/** @type {Record<string, any>} */ ({}));

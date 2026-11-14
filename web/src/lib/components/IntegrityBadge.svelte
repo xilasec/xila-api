@@ -1,7 +1,7 @@
 <script>
 	// A component's hashes against the digests its registry publishes for the
 	// version: nothing when unknown (no comparable hash), never "verified".
-	import { t } from '$lib/i18n.js';
+	import { t } from '#lib/i18n.js';
 
 	/** @type {{ integrity?: string }} */
 	let { integrity = '' } = $props();

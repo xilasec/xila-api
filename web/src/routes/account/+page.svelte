@@ -1,12 +1,12 @@
 <script>
-	import { api } from '$lib/api.js';
-	import { me, token, notify, features, isOn } from '$lib/stores.js';
-	import Field from '$lib/components/Field.svelte';
+	import { api } from '#lib/api.js';
+	import { me, token, notify, features, isOn } from '#lib/stores.js';
+	import Field from '#lib/components/Field.svelte';
 	import { onMount } from 'svelte';
 	import QRCode from 'qrcode';
-	import MyNotifications from '$lib/components/MyNotifications.svelte';
-	import { t, locale, LOCALES } from '$lib/i18n.js';
-	import { fmtDate } from '$lib/format.js';
+	import MyNotifications from '#lib/components/MyNotifications.svelte';
+	import { t, locale, LOCALES } from '#lib/i18n.js';
+	import { fmtDate } from '#lib/format.js';
 
 	/** @param {unknown} err */
 	const errorText = (err) => (err instanceof Error ? err.message : String(err));
@@ -22,7 +22,7 @@
 
 	// Both actions revoke every other session; the server returns a fresh token
 	// for this one, so swap it in before anything else calls the API.
-	/** @param {{ token: string, user: import('$lib/stores.js').User }} out */
+	/** @param {{ token: string, user: import('#lib/stores.js').User }} out */
 	function adopt(out) {
 		token.set(out.token);
 		me.set(out.user);

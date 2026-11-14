@@ -2,13 +2,13 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { api, errorMessage } from '$lib/api.js';
-	import { me, notify } from '$lib/stores.js';
-	import { t } from '$lib/i18n.js';
-	import State from '$lib/components/State.svelte';
-	import Badge from '$lib/components/Badge.svelte';
-	import AdvisoryEditor from '$lib/components/AdvisoryEditor.svelte';
-	import { fmtDate } from '$lib/format.js';
+	import { api, errorMessage } from '#lib/api.js';
+	import { me, notify } from '#lib/stores.js';
+	import { t } from '#lib/i18n.js';
+	import State from '#lib/components/State.svelte';
+	import Badge from '#lib/components/Badge.svelte';
+	import AdvisoryEditor from '#lib/components/AdvisoryEditor.svelte';
+	import { fmtDate } from '#lib/format.js';
 
 	const id = $derived($page.params.id ?? '');
 	const isNew = $derived(id === 'new');

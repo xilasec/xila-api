@@ -1,8 +1,8 @@
 <script>
 	// Where a finding stands against its remediation deadline: "3d left",
 	// "2d overdue", "paused", "met"/"missed". Renders nothing when no SLA applies.
-	import { t } from '$lib/i18n.js';
-	import { fmtDate } from '$lib/format.js';
+	import { t } from '#lib/i18n.js';
+	import { fmtDate } from '#lib/format.js';
 
 	let { status, due = null, compact = false } = $props();
 

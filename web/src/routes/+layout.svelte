@@ -3,10 +3,10 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { token, toast, me, loadMe, features, loadFeatures, isOn } from '$lib/stores.js';
-	import { api } from '$lib/api.js';
-	import CommandPalette from '$lib/components/CommandPalette.svelte';
-	import { locale, contentLocale, routeLocale, translate, LOCALES } from '$lib/i18n.js';
+	import { token, toast, me, loadMe, features, loadFeatures, isOn } from '#lib/stores.js';
+	import { api } from '#lib/api.js';
+	import CommandPalette from '#lib/components/CommandPalette.svelte';
+	import { locale, contentLocale, routeLocale, translate, LOCALES } from '#lib/i18n.js';
 
 	let { children } = $props();
 
@@ -14,7 +14,7 @@
 
 	// The shell speaks the user's language; the page does too unless it is one
 	// of the pages still English-only (then all of it is English).
-	/** @param {import('$lib/i18n.js').MessageKey} key */
+	/** @param {import('#lib/i18n.js').MessageKey} key */
 	const ts = (key) => translate($locale, key);
 	let pageLocale = $derived(routeLocale($page.route.id, $locale));
 	$effect.pre(() => {
@@ -83,7 +83,7 @@
 		return f && !isOn($features, f) ? f : '';
 	});
 
-	/** @type {{ href: string, key: import('$lib/i18n.js').MessageKey }[]} */
+	/** @type {{ href: string, key: import('#lib/i18n.js').MessageKey }[]} */
 	const baseNav = [
 		{ href: '/', key: 'nav.projects' },
 		{ href: '/findings', key: 'nav.findings' },
@@ -103,7 +103,7 @@
 	// Instance admins get the triage-rule policy, user management and SSO pages:
 	// flat in the mobile menu, grouped under one "Admin" menu on wider screens
 	// so the bar fits.
-	/** @type {{ href: string, key: import('$lib/i18n.js').MessageKey }[]} */
+	/** @type {{ href: string, key: import('#lib/i18n.js').MessageKey }[]} */
 	const adminNav = [
 		{ href: '/triage-rules', key: 'nav.triageRules' },
 		{ href: '/custom-fields', key: 'nav.customFields' },

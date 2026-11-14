@@ -2,8 +2,8 @@
 	/** Editor for a private advisory in OSV shape: summary/severity/aliases and
 	 *  the affected packages with their ranges (introduced / fixed /
 	 *  last_affected / limit events) and explicit version lists. */
-	import Field from '$lib/components/Field.svelte';
-	import { t, labelOf } from '$lib/i18n.js';
+	import Field from '#lib/components/Field.svelte';
+	import { t, labelOf } from '#lib/i18n.js';
 
 	/** @type {{ value: any, readonly?: boolean, onsubmit: (body: any) => void, saving?: boolean, submitLabel?: string }} */
 	let { value, readonly = false, onsubmit, saving = false, submitLabel = '' } = $props();

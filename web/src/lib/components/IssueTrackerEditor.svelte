@@ -2,12 +2,12 @@
 	// Configures a project's issue tracker (Jira / GitHub / GitLab). The token is
 	// write-only: the API only says whether one is stored, and leaving the field
 	// blank on save keeps it. Saving / testing / removing need project owner.
-	import { api, ApiError, errorMessage } from '$lib/api.js';
-	import { notify } from '$lib/stores.js';
-	import { SEVERITIES } from '$lib/format.js';
-	import { t, labelOf } from '$lib/i18n.js';
-	import Field from '$lib/components/Field.svelte';
-	import State from '$lib/components/State.svelte';
+	import { api, ApiError, errorMessage } from '#lib/api.js';
+	import { notify } from '#lib/stores.js';
+	import { SEVERITIES } from '#lib/format.js';
+	import { t, labelOf } from '#lib/i18n.js';
+	import Field from '#lib/components/Field.svelte';
+	import State from '#lib/components/State.svelte';
 
 	/** @type {{ projectId: string }} */
 	let { projectId } = $props();
@@ -80,7 +80,7 @@
 		notify(err instanceof ApiError && err.status === 403 ? $t(`it.owner.${what}`) : errorMessage(err));
 	}
 	/** @param {string} target a placeholder, or the message key of a described one */
-	const targetHint = (target) => (target.startsWith('it.') ? $t(/** @type {import('$lib/i18n.js').MessageKey} */ (target)) : target);
+	const targetHint = (target) => (target.startsWith('it.') ? $t(/** @type {import('#lib/i18n.js').MessageKey} */ (target)) : target);
 
 	/** @param {SubmitEvent} e */
 	async function save(e) {

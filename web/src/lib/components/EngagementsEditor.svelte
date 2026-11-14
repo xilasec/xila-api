@@ -3,20 +3,20 @@
 	// a pentest, an audit, a CI/CD pipeline. Scans uploaded with
 	// ?engagement_id= are its tests; manual findings can be filed under it.
 	// Viewing needs project viewer; creating, editing and reporting need editor.
-	import { api, ApiError, errorMessage } from '$lib/api.js';
-	import { notify } from '$lib/stores.js';
-	import { fmtDate, fmtDateOnly } from '$lib/format.js';
-	import { t, labelOf } from '$lib/i18n.js';
-	import Badge from '$lib/components/Badge.svelte';
-	import Field from '$lib/components/Field.svelte';
-	import State from '$lib/components/State.svelte';
-	import ManualFindingDialog from '$lib/components/ManualFindingDialog.svelte';
-	import ReportMenu from '$lib/components/ReportMenu.svelte';
+	import { api, ApiError, errorMessage } from '#lib/api.js';
+	import { notify } from '#lib/stores.js';
+	import { fmtDate, fmtDateOnly } from '#lib/format.js';
+	import { t, labelOf } from '#lib/i18n.js';
+	import Badge from '#lib/components/Badge.svelte';
+	import Field from '#lib/components/Field.svelte';
+	import State from '#lib/components/State.svelte';
+	import ManualFindingDialog from '#lib/components/ManualFindingDialog.svelte';
+	import ReportMenu from '#lib/components/ReportMenu.svelte';
 
 	/** @type {{ projectId: string, onchanged?: () => void }} */
 	let { projectId, onchanged = () => {} } = $props();
 
-	/** @typedef {import('$lib/i18n.js').MessageKey} MessageKey */
+	/** @typedef {import('#lib/i18n.js').MessageKey} MessageKey */
 	const STATUSES = ['not_started', 'in_progress', 'on_hold', 'completed', 'cancelled'];
 	/** @type {Record<string, MessageKey>} */
 	const STATUS_KEY = {

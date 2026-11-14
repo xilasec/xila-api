@@ -1,12 +1,12 @@
 <script>
 	// One CRA Article 14 reporting case: its clock, the report content, the
 	// next submission, and the history of who did what.
-	import { api, ApiError, errorMessage } from '$lib/api.js';
-	import { notify } from '$lib/stores.js';
-	import { t, labelOf } from '$lib/i18n.js';
-	import { fmtDate } from '$lib/format.js';
-	import { stageLabel, stateLabel, stateClass, deadlineClass, deadlineLabel, countdown } from '$lib/cra.js';
-	import State from '$lib/components/State.svelte';
+	import { api, ApiError, errorMessage } from '#lib/api.js';
+	import { notify } from '#lib/stores.js';
+	import { t, labelOf } from '#lib/i18n.js';
+	import { fmtDate } from '#lib/format.js';
+	import { stageLabel, stateLabel, stateClass, deadlineClass, deadlineLabel, countdown } from '#lib/cra.js';
+	import State from '#lib/components/State.svelte';
 
 	/** @type {{ caseId: string, onchange?: () => void }} */
 	let { caseId, onchange } = $props();

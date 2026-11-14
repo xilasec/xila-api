@@ -2,13 +2,13 @@
 	// Finding templates: a team's standard write-ups for manual findings. Anyone
 	// reporting a finding can pick one; only instance admins manage them.
 	import { onMount } from 'svelte';
-	import { api, errorMessage } from '$lib/api.js';
-	import { notify } from '$lib/stores.js';
-	import { t, labelOf } from '$lib/i18n.js';
-	import { SEVERITIES, CATEGORIES } from '$lib/format.js';
-	import State from '$lib/components/State.svelte';
-	import Field from '$lib/components/Field.svelte';
-	import Badge from '$lib/components/Badge.svelte';
+	import { api, errorMessage } from '#lib/api.js';
+	import { notify } from '#lib/stores.js';
+	import { t, labelOf } from '#lib/i18n.js';
+	import { SEVERITIES, CATEGORIES } from '#lib/format.js';
+	import State from '#lib/components/State.svelte';
+	import Field from '#lib/components/Field.svelte';
+	import Badge from '#lib/components/Badge.svelte';
 
 	const blank = () => ({ title: '', severity: 'medium', category: 'dast', cwe: '', cve: '', description: '', impact: '', mitigation: '', references: '', tags: '' });
 

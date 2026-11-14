@@ -1,12 +1,12 @@
 <script>
 	// An asset's exposure (internet / internal / isolated); nothing when unknown.
 	// Inferred values say so in the tooltip, with the evidence.
-	import { t } from '$lib/i18n.js';
+	import { t } from '#lib/i18n.js';
 
 	/** @type {{ exposure?: string | null, source?: string | null, reason?: string, size?: 'xs' | 'sm' }} */
 	let { exposure = null, source = null, reason = '', size = 'sm' } = $props();
 
-	/** @type {Record<string, { cls: string, label: import('$lib/i18n.js').MessageKey, multiplier: number }>} */
+	/** @type {Record<string, { cls: string, label: import('#lib/i18n.js').MessageKey, multiplier: number }>} */
 	const STYLES = {
 		internet: { cls: 'badge-error', label: 'exposure.internet', multiplier: 1.25 },
 		internal: { cls: 'badge-info', label: 'exposure.internal', multiplier: 1 },

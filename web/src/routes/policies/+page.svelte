@@ -1,15 +1,15 @@
 <script>
 	import { onMount } from 'svelte';
-	import { api, errorMessage } from '$lib/api.js';
-	import { me, notify } from '$lib/stores.js';
-	import { t, labelOf } from '$lib/i18n.js';
-	import State from '$lib/components/State.svelte';
-	import Field from '$lib/components/Field.svelte';
-	import Badge from '$lib/components/Badge.svelte';
-	import { fmtDate } from '$lib/format.js';
+	import { api, errorMessage } from '#lib/api.js';
+	import { me, notify } from '#lib/stores.js';
+	import { t, labelOf } from '#lib/i18n.js';
+	import State from '#lib/components/State.svelte';
+	import Field from '#lib/components/Field.svelte';
+	import Badge from '#lib/components/Badge.svelte';
+	import { fmtDate } from '#lib/format.js';
 
 	const SEVERITIES = ['info', 'low', 'medium', 'high', 'critical'];
-	/** @type {{ id: string, labelKey: import('$lib/i18n.js').MessageKey, shortKey: import('$lib/i18n.js').MessageKey, tone: string }[]} */
+	/** @type {{ id: string, labelKey: import('#lib/i18n.js').MessageKey, shortKey: import('$lib/i18n.js').MessageKey, tone: string }[]} */
 	const STATES = [
 		{ id: 'fail', labelKey: 'pol.state.fail', shortKey: 'pol.stateShort.fail', tone: 'badge-error' },
 		{ id: 'warn', labelKey: 'pol.state.warn', shortKey: 'pol.stateShort.warn', tone: 'badge-warning' },
@@ -17,7 +17,7 @@
 	];
 	// Subjects, their operators, and how the value is entered (mirrors
 	// internal/policy/condition.go — the API validates every condition).
-	/** @type {{ id: string, groupKey: import('$lib/i18n.js').MessageKey, labelKey: import('$lib/i18n.js').MessageKey, ops: string[], input: string, placeholder?: string, min?: number }[]} */
+	/** @type {{ id: string, groupKey: import('#lib/i18n.js').MessageKey, labelKey: import('$lib/i18n.js').MessageKey, ops: string[], input: string, placeholder?: string, min?: number }[]} */
 	const SUBJECTS = [
 		{ id: 'severity', groupKey: 'pol.group.security', labelKey: 'pol.subject.severity', ops: ['gte'], input: 'severity' },
 		{ id: 'vulnerability_id', groupKey: 'pol.group.security', labelKey: 'pol.subject.vulnerabilityId', ops: ['is', 'matches'], input: 'list', placeholder: 'CVE-2021-44228, GHSA-*' },
@@ -46,13 +46,13 @@
 	];
 	/** @param {string} id */
 	const subject = (id) => SUBJECTS.find((s) => s.id === id) ?? SUBJECTS[0];
-	/** @type {Record<string, import('$lib/i18n.js').MessageKey>} */
+	/** @type {Record<string, import('#lib/i18n.js').MessageKey>} */
 	const OP_LABEL_KEY = {
 		is: 'pol.op.is', is_not: 'pol.op.isNot', matches: 'pol.op.matches', no_match: 'pol.op.noMatch',
 		in: 'pol.op.in', not_in: 'pol.op.notIn', gte: 'pol.op.gte'
 	};
 	const EXPR_OP_LABEL_KEY = 'pol.op.holds';
-	/** @type {Record<string, Record<string, import('$lib/i18n.js').MessageKey>>} */
+	/** @type {Record<string, Record<string, import('#lib/i18n.js').MessageKey>>} */
 	const OP_HINT_KEY = {
 		license: { is: 'pol.hint.licenseIs', is_not: 'pol.hint.licenseIsNot' },
 		'model.name': { no_match: 'pol.hint.modelNameNoMatch', matches: 'pol.hint.modelNameMatches' },

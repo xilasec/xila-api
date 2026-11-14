@@ -1,47 +1,47 @@
 <script>
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { api, ApiError, errorMessage } from '$lib/api.js';
-	import { notify, me, features, isOn } from '$lib/stores.js';
-	import { handleListKey, createListCursor, isExceptionStatus, scrollCursorIntoView } from '$lib/keyboard.js';
-	import TriageDialog from '$lib/components/TriageDialog.svelte';
-	import KeyboardHelp from '$lib/components/KeyboardHelp.svelte';
-	import StatusCell from '$lib/components/StatusCell.svelte';
-	import { criticalityClass, severityClass, riskTone, fmtDate, fmtNumber, SEVERITIES, STATUSES, CATEGORIES, SLA_STATUSES } from '$lib/format.js';
-	import { t, labelOf, contentLocale } from '$lib/i18n.js';
-	import { SCAN_PRESETS } from '$lib/scanners.js';
-	import { CHANNEL_TYPES, EVENT_TYPES, channelHint, channelPlaceholder, channelInputType, describeRules } from '$lib/channels.js';
-	import Badge from '$lib/components/Badge.svelte';
-	import SlaBadge from '$lib/components/SlaBadge.svelte';
-	import SlaPolicyEditor from '$lib/components/SlaPolicyEditor.svelte';
-	import IssueTrackerEditor from '$lib/components/IssueTrackerEditor.svelte';
-	import ConnectorsEditor from '$lib/components/ConnectorsEditor.svelte';
-	import VulnBadge from '$lib/components/VulnBadge.svelte';
-	import State from '$lib/components/State.svelte';
-	import Field from '$lib/components/Field.svelte';
-	import Pagination from '$lib/components/Pagination.svelte';
-	import TrendChart from '$lib/components/TrendChart.svelte';
-	import ExportMenu from '$lib/components/ExportMenu.svelte';
-	import LicenseBadge from '$lib/components/LicenseBadge.svelte';
-	import OutdatedBadge from '$lib/components/OutdatedBadge.svelte';
-	import IntegrityBadge from '$lib/components/IntegrityBadge.svelte';
-	import AIBadge from '$lib/components/AIBadge.svelte';
-	import ReportMenu from '$lib/components/ReportMenu.svelte';
-	import EngagementsEditor from '$lib/components/EngagementsEditor.svelte';
-	import RiskAcceptances from '$lib/components/RiskAcceptances.svelte';
-	import ManualFindingDialog from '$lib/components/ManualFindingDialog.svelte';
-	import BadgesCard from '$lib/components/BadgesCard.svelte';
-	import FixPlan from '$lib/components/FixPlan.svelte';
-	import Remediation from '$lib/components/Remediation.svelte';
-	import ExploitBadge from '$lib/components/ExploitBadge.svelte';
-	import ExposureBadge from '$lib/components/ExposureBadge.svelte';
-	import AssetDetail from '$lib/components/AssetDetail.svelte';
-	import CraCases from '$lib/components/CraCases.svelte';
-	import AccessTable from '$lib/components/AccessTable.svelte';
-	import CustomFieldsEditor from '$lib/components/CustomFieldsEditor.svelte';
-	import ManualControls from '$lib/components/ManualControls.svelte';
-	import { OPEN_BY_SEVERITY, RISK, FLOW, fmtCount, fmtRisk, windowStats } from '$lib/trends.js';
-	import { parentChoices } from '$lib/projectTree.js';
+	import { api, ApiError, errorMessage } from '#lib/api.js';
+	import { notify, me, features, isOn } from '#lib/stores.js';
+	import { handleListKey, createListCursor, isExceptionStatus, scrollCursorIntoView } from '#lib/keyboard.js';
+	import TriageDialog from '#lib/components/TriageDialog.svelte';
+	import KeyboardHelp from '#lib/components/KeyboardHelp.svelte';
+	import StatusCell from '#lib/components/StatusCell.svelte';
+	import { criticalityClass, severityClass, riskTone, fmtDate, fmtNumber, SEVERITIES, STATUSES, CATEGORIES, SLA_STATUSES } from '#lib/format.js';
+	import { t, labelOf, contentLocale } from '#lib/i18n.js';
+	import { SCAN_PRESETS } from '#lib/scanners.js';
+	import { CHANNEL_TYPES, EVENT_TYPES, channelHint, channelPlaceholder, channelInputType, describeRules } from '#lib/channels.js';
+	import Badge from '#lib/components/Badge.svelte';
+	import SlaBadge from '#lib/components/SlaBadge.svelte';
+	import SlaPolicyEditor from '#lib/components/SlaPolicyEditor.svelte';
+	import IssueTrackerEditor from '#lib/components/IssueTrackerEditor.svelte';
+	import ConnectorsEditor from '#lib/components/ConnectorsEditor.svelte';
+	import VulnBadge from '#lib/components/VulnBadge.svelte';
+	import State from '#lib/components/State.svelte';
+	import Field from '#lib/components/Field.svelte';
+	import Pagination from '#lib/components/Pagination.svelte';
+	import TrendChart from '#lib/components/TrendChart.svelte';
+	import ExportMenu from '#lib/components/ExportMenu.svelte';
+	import LicenseBadge from '#lib/components/LicenseBadge.svelte';
+	import OutdatedBadge from '#lib/components/OutdatedBadge.svelte';
+	import IntegrityBadge from '#lib/components/IntegrityBadge.svelte';
+	import AIBadge from '#lib/components/AIBadge.svelte';
+	import ReportMenu from '#lib/components/ReportMenu.svelte';
+	import EngagementsEditor from '#lib/components/EngagementsEditor.svelte';
+	import RiskAcceptances from '#lib/components/RiskAcceptances.svelte';
+	import ManualFindingDialog from '#lib/components/ManualFindingDialog.svelte';
+	import BadgesCard from '#lib/components/BadgesCard.svelte';
+	import FixPlan from '#lib/components/FixPlan.svelte';
+	import Remediation from '#lib/components/Remediation.svelte';
+	import ExploitBadge from '#lib/components/ExploitBadge.svelte';
+	import ExposureBadge from '#lib/components/ExposureBadge.svelte';
+	import AssetDetail from '#lib/components/AssetDetail.svelte';
+	import CraCases from '#lib/components/CraCases.svelte';
+	import AccessTable from '#lib/components/AccessTable.svelte';
+	import CustomFieldsEditor from '#lib/components/CustomFieldsEditor.svelte';
+	import ManualControls from '#lib/components/ManualControls.svelte';
+	import { OPEN_BY_SEVERITY, RISK, FLOW, fmtCount, fmtRisk, windowStats } from '#lib/trends.js';
+	import { parentChoices } from '#lib/projectTree.js';
 
 	const id = $derived(/** @type {string} */ ($page.params.id)); // the [id] route always has it
 
@@ -1009,7 +1009,7 @@
 				role="tab"
 				class="tab"
 				class:tab-active={tab === tb}
-				onclick={() => switchTab(tb)}>{$t(/** @type {import('$lib/i18n.js').MessageKey} */ (`proj.tab.${tb}`))}</button
+				onclick={() => switchTab(tb)}>{$t(/** @type {import('#lib/i18n.js').MessageKey} */ (`proj.tab.${tb}`))}</button
 			>
 		{/each}
 	</div>
@@ -1586,7 +1586,7 @@
 						{gateResult.passed ? $t('proj.pass') : $t('proj.failUpper')}
 					</span>
 					<span class="text-sm text-base-content/60">
-						{$t('proj.policyLabel', { scope: ['none', 'project', 'global'].includes(gateScope) ? $t(/** @type {import('$lib/i18n.js').MessageKey} */ ('proj.gateScope.' + gateScope)) : gateScope })}{#if gateResult.new_only} · {$t('proj.newOnly')}{/if}{#if gateResult.baseline} ({$t('proj.gateBaseline', { branch: gateResult.baseline })}){/if}
+						{$t('proj.policyLabel', { scope: ['none', 'project', 'global'].includes(gateScope) ? $t(/** @type {import('#lib/i18n.js').MessageKey} */ ('proj.gateScope.' + gateScope)) : gateScope })}{#if gateResult.new_only} · {$t('proj.newOnly')}{/if}{#if gateResult.baseline} ({$t('proj.gateBaseline', { branch: gateResult.baseline })}){/if}
 						{#if gateRunning}· <span class="loading loading-spinner loading-xs"></span>{/if}
 					</span>
 					<button class="btn btn-ghost btn-xs ml-auto" onclick={runGate} disabled={gateRunning}>{$t('proj.rerun')}</button>

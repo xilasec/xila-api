@@ -2,19 +2,19 @@
 	import { untrack } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { api, ApiError, errorMessage } from '$lib/api.js';
-	import { notify } from '$lib/stores.js';
-	import { fmtDate, fmtNumber, severityClass } from '$lib/format.js';
-	import { t } from '$lib/i18n.js';
-	import Badge from '$lib/components/Badge.svelte';
-	import State from '$lib/components/State.svelte';
-	import Pagination from '$lib/components/Pagination.svelte';
-	import VulnBadge from '$lib/components/VulnBadge.svelte';
-	import ExportMenu from '$lib/components/ExportMenu.svelte';
-	import LicenseBadge from '$lib/components/LicenseBadge.svelte';
-	import OutdatedBadge from '$lib/components/OutdatedBadge.svelte';
-	import IntegrityBadge from '$lib/components/IntegrityBadge.svelte';
-	import AIBadge from '$lib/components/AIBadge.svelte';
+	import { api, ApiError, errorMessage } from '#lib/api.js';
+	import { notify } from '#lib/stores.js';
+	import { fmtDate, fmtNumber, severityClass } from '#lib/format.js';
+	import { t } from '#lib/i18n.js';
+	import Badge from '#lib/components/Badge.svelte';
+	import State from '#lib/components/State.svelte';
+	import Pagination from '#lib/components/Pagination.svelte';
+	import VulnBadge from '#lib/components/VulnBadge.svelte';
+	import ExportMenu from '#lib/components/ExportMenu.svelte';
+	import LicenseBadge from '#lib/components/LicenseBadge.svelte';
+	import OutdatedBadge from '#lib/components/OutdatedBadge.svelte';
+	import IntegrityBadge from '#lib/components/IntegrityBadge.svelte';
+	import AIBadge from '#lib/components/AIBadge.svelte';
 
 	const id = $derived($page.params.id ?? '');
 	const TABS = ['vulnerabilities', 'components', 'services', 'changes', 'graph'];
@@ -61,7 +61,7 @@
 	/** @param {string} f */
 	const flowArrow = (f) => (FLOW[f] ?? FLOW.unknown)[0];
 	/** @param {string} f */
-	const flowTitle = (f) => $t(/** @type {import('$lib/i18n.js').MessageKey} */ ((FLOW[f] ?? FLOW.unknown)[1]));
+	const flowTitle = (f) => $t(/** @type {import('#lib/i18n.js').MessageKey} */ ((FLOW[f] ?? FLOW.unknown)[1]));
 	/** @param {boolean | null | undefined} b */
 	const yesNo = (b) => b === true
 		? $t('sbomp.yes')
@@ -75,7 +75,7 @@
 	const label = (s) => s.version || fmtDate(s.created_at);
 	/** @param {string} c */
 	const changeLabel = (c) =>
-		['added', 'removed', 'upgraded', 'downgraded', 'changed'].includes(c) ? $t(/** @type {import('$lib/i18n.js').MessageKey} */ ('sbomp.change.' + c)) : c;
+		['added', 'removed', 'upgraded', 'downgraded', 'changed'].includes(c) ? $t(/** @type {import('#lib/i18n.js').MessageKey} */ ('sbomp.change.' + c)) : c;
 
 	async function load() {
 		error = '';
@@ -289,7 +289,7 @@
 
 	<div role="tablist" class="tabs tabs-bordered mb-4">
 		{#each TABS as tb (tb)}
-			<button role="tab" class="tab" class:tab-active={tab === tb} onclick={() => openTab(tb)}>{$t(/** @type {import('$lib/i18n.js').MessageKey} */ ('sbomp.tab.' + tb))}</button>
+			<button role="tab" class="tab" class:tab-active={tab === tb} onclick={() => openTab(tb)}>{$t(/** @type {import('#lib/i18n.js').MessageKey} */ ('sbomp.tab.' + tb))}</button>
 		{/each}
 	</div>
 

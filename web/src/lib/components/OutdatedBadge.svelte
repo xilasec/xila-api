@@ -2,8 +2,8 @@
 	// A component's freshness against its package registry: an "Outdated" badge
 	// with "latest x.y (N behind)", "latest" when it is on the newest release,
 	// and a dash when unknown (never shown as up to date).
-	import { fmtDate } from '$lib/format.js';
-	import { t } from '$lib/i18n.js';
+	import { fmtDate } from '#lib/format.js';
+	import { t } from '#lib/i18n.js';
 
 	/** @type {{ c: { latest_version?: string|null, outdated?: boolean|null, versions_behind?: number|null, version_published_at?: string|null } }} */
 	let { c } = $props();

@@ -5,11 +5,11 @@
 	//
 	// settings: { scale_by_criticality, factors: {critical, high, medium, low}, matrix }
 	// onsave:   async ({ scale_by_criticality, factors }) => void
-	import { t, labelOf } from '$lib/i18n.js';
+	import { t, labelOf } from '#lib/i18n.js';
 
 	let { settings, onsave } = $props();
 
-	/** @type {[string, import('$lib/i18n.js').MessageKey][]} */
+	/** @type {[string, import('#lib/i18n.js').MessageKey][]} */
 	const CRITS = [
 		['critical', 'scaling.crit.critical'],
 		['high', 'scaling.crit.high'],

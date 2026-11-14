@@ -1,10 +1,10 @@
 <script>
 	// Analyst workflow on one finding: who owns it, the discussion, evidence
 	// files, and the full history of what happened (by whom, and why).
-	import { api, ApiError, errorMessage } from '$lib/api.js';
-	import { notify } from '$lib/stores.js';
-	import { fmtDate, fmtNumber } from '$lib/format.js';
-	import { t, labelOf } from '$lib/i18n.js';
+	import { api, ApiError, errorMessage } from '#lib/api.js';
+	import { notify } from '#lib/stores.js';
+	import { fmtDate, fmtNumber } from '#lib/format.js';
+	import { t, labelOf } from '#lib/i18n.js';
 
 	/** @type {{ finding: any, onchange: (f: any) => void, revision?: number, onconflict?: () => void }} */
 	let { finding, onchange, revision = 0, onconflict = () => {} } = $props();

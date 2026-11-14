@@ -1,6 +1,6 @@
 <script>
 	/** Loading / error / empty helper for async sections. */
-	import { t } from '$lib/i18n.js';
+	import { t } from '#lib/i18n.js';
 	let { loading = false, error = '', empty = false, emptyText = '' } = $props();
 </script>
 

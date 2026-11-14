@@ -2,9 +2,9 @@
 	// A findings-table Status cell that turns into a compact <select> to change
 	// the status in place. The page applies the pick (and asks for a reason when
 	// it is an exception); Esc or leaving the select cancels.
-	import { STATUSES } from '$lib/format.js';
-	import { t, labelOf } from '$lib/i18n.js';
-	import Badge from '$lib/components/Badge.svelte';
+	import { STATUSES } from '#lib/format.js';
+	import { t, labelOf } from '#lib/i18n.js';
+	import Badge from '#lib/components/Badge.svelte';
 
 	/** @type {{ status: string, editing: boolean, disabled?: boolean, onedit: () => void, onpick: (status: string) => void, oncancel: () => void }} */
 	let { status, editing, disabled = false, onedit, onpick, oncancel } = $props();

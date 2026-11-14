@@ -1,12 +1,12 @@
 <script>
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { api } from '$lib/api.js';
-	import { me } from '$lib/stores.js';
-	import { locale, translate } from '$lib/i18n.js';
+	import { api } from '#lib/api.js';
+	import { me } from '#lib/stores.js';
+	import { locale, translate } from '#lib/i18n.js';
 
 	// Part of the app shell: speaks the user's language on every page.
-	/** @param {import('$lib/i18n.js').MessageKey} key @param {import('$lib/i18n.js').MessageParams} [params] */
+	/** @param {import('#lib/i18n.js').MessageKey} key @param {import('$lib/i18n.js').MessageParams} [params] */
 	const ts = (key, params) => translate($locale, key, params);
 
 	let open = $state(false);
