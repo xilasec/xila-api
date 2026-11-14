@@ -1,6 +1,6 @@
 <script>
 	import { page } from '$app/stores';
-	import { goto, replaceState } from '$app/navigation';
+	import { goto } from '$app/navigation';
 	import { api, ApiError, errorMessage } from '$lib/api.js';
 	import { notify, me, features, isOn } from '$lib/stores.js';
 	import { handleListKey, createListCursor, isExceptionStatus, scrollCursorIntoView } from '$lib/keyboard.js';
@@ -54,10 +54,10 @@
 	let includeChildren = $state(/** @type {boolean | null} */ (null));
 	const rollingUp = $derived(includeChildren ?? !!project?.is_collection);
 	/** The include_children query of every rollup on this page. @returns {Record<string, boolean>} */
-	const rollupQuery = () => (includeChildren === null ? {} : { include_children: includeChildren });
+	const rollupQuery = () => includeChildren === null ? {} : { include_children: includeChildren };
 	/** @param {Event} e */
 	async function toggleChildren(e) {
-		includeChildren = /** @type {HTMLInputElement} */ (e.target).checked;
+		includeChildren = /** @type {HTMLInputElement} */ (e.target.checked);
 		for (const t of ['components', 'policies', 'trends']) loaded[t] = false;
 		await Promise.all([loadHeader(), reloadFindings()]);
 		if (['components', 'policies', 'trends'].includes(tab)) await switchTab(tab);
@@ -215,7 +215,7 @@
 	let watching = $state(false);
 	let watchBusy = $state(false);
 	$effect(() => {
-		if (id && isOn($features, 'personal_notifications')) api.watchingProject(id).then((w) => (watching = w)).catch(() => {});
+		if (id && isOn($features, 'personal_notifications')) api.watchingProject(id).then((w) => watching = w).catch(() => {});
 	});
 	async function toggleWatch() {
 		watchBusy = true;
@@ -422,7 +422,7 @@
 	}
 	/** @param {any} updated */
 	function assetChanged(updated) {
-		assets = assets.map((a) => (a.id === updated.id ? updated : a));
+		assets = assets.map((a) => a.id === updated.id ? updated : a);
 		detailAsset = updated;
 	}
 
@@ -431,11 +431,19 @@
 	/** @type {HTMLDialogElement} */
 	let sbomDialog;
 	let saving = $state(false);
-	let scanForm = $state({ preset: 'trivy', scanner: '', format: '', branch: '', commit: '', asset_id: '', raw: '' });
+
+	let scanForm = $state({
+		preset: 'trivy',
+		scanner: '',
+		format: '',
+		branch: '',
+		commit: '',
+		asset_id: '',
+		raw: ''
+	});
+
 	let sbomForm = $state({ artifact: '', version: '', raw: '' });
-
 	const selectedPreset = $derived(SCAN_PRESETS.find((p) => p.id === scanForm.preset));
-
 	let enriching = $state(false);
 	async function enrichNow() {
 		enriching = true;
@@ -452,18 +460,18 @@
 
 	/** @param {Event} e */
 	async function readScanFile(e) {
-		const file = /** @type {HTMLInputElement} */ (e.target).files?.[0];
+		const file = /** @type {HTMLInputElement} */ (e.target.files?.[0]);
 		if (file) scanForm.raw = await file.text();
 	}
 	/** @param {Event} e */
 	async function readSbomFile(e) {
-		const file = /** @type {HTMLInputElement} */ (e.target).files?.[0];
+		const file = /** @type {HTMLInputElement} */ (e.target.files?.[0]);
 		if (file) sbomForm.raw = await file.text();
 	}
 
 	/** @param {Event} e */
 	async function readVexFile(e) {
-		const file = /** @type {HTMLInputElement} */ (e.target).files?.[0];
+		const file = /** @type {HTMLInputElement} */ (e.target.files?.[0]);
 		if (file) vexForm.raw = await file.text();
 	}
 
@@ -483,8 +491,8 @@
 			}
 			ancestors = up;
 			// Best-effort: a project without SBOMs simply has no services.
-			api.projectServices(id).then((r) => (serviceSummary = r.summary)).catch(() => (serviceSummary = null));
-		} catch (err) {
+			api.projectServices(id).then((r) => serviceSummary = r.summary).catch(() => serviceSummary = null);
+		} catch(err) {
 			error = err instanceof ApiError ? err.message : $t('proj.loadFailed');
 		}
 	}
@@ -557,7 +565,7 @@
 	/** @param {any} f @param {number} at */
 	function restoreFinding(f, at) {
 		findings = findings.some((x) => x.id === f.id)
-			? findings.map((x) => (x.id === f.id ? f : x))
+			? findings.map((x) => x.id === f.id ? f : x)
 			: [...findings.slice(0, at), f, ...findings.slice(at)];
 	}
 
@@ -572,7 +580,7 @@
 		if (at < 0) return;
 		fBusy = f.id;
 		findings = fMatches(status)
-			? findings.map((x) => (x.id === f.id ? { ...x, status } : x))
+			? findings.map((x) => x.id === f.id ? { ...x, status } : x)
 			: findings.filter((x) => x.id !== f.id);
 		try {
 			const updated = await api.setFindingStatus(f.id, status, opts);
@@ -582,7 +590,7 @@
 				notify(updated.state === 'requested' ? $t('findings.raRequested') : $t('findings.forApproval'), 'success');
 				return;
 			}
-			findings = findings.map((x) => (x.id === f.id ? { ...x, ...updated } : x));
+			findings = findings.map((x) => x.id === f.id ? { ...x, ...updated } : x);
 			notify($t('findings.setTo', { status: $labelOf('status', status) }), 'success');
 		} catch (err) {
 			restoreFinding(f, at);
@@ -609,9 +617,8 @@
 			else if (failed === 0) notify($t('proj.bulkSet', { count: ok, status: $labelOf('status', status) }), 'success');
 			else notify($t('findings.bulkPartial', { ok, failed }));
 			const updated = Object.fromEntries((res.updated ?? []).map((/** @type {any} */ f) => [f.id, f]));
-			findings = findings
-				.filter((f) => !updated[f.id] || fMatches(updated[f.id].status))
-				.map((f) => (updated[f.id] ? { ...f, ...updated[f.id] } : f));
+
+			findings = findings.filter((f) => !updated[f.id] || fMatches(updated[f.id].status)).map((f) => updated[f.id] ? { ...f, ...updated[f.id] } : f);
 			fSelected = {};
 		} catch (err) {
 			notify(errorMessage(err));
@@ -628,11 +635,15 @@
 			.filter((f) => f.assignee_id !== user.id);
 		if (targets.length === 0) return;
 		const before = new Map(targets.map((f) => [f.id, f]));
-		findings = findings.map((x) => (before.has(x.id) ? { ...x, assignee_id: user.id, assignee_email: user.email } : x));
+
+		findings = findings.map((x) => before.has(x.id)
+			? { ...x, assignee_id: user.id, assignee_email: user.email }
+			: x);
+
 		const results = await Promise.allSettled(targets.map((f) => api.assignFinding(f.id, user.id)));
 		const failed = targets.filter((_, i) => results[i].status === 'rejected');
 		if (failed.length) {
-			findings = findings.map((x) => (failed.some((f) => f.id === x.id) ? /** @type {any} */ (before.get(x.id)) : x));
+			findings = findings.map((x) => failed.some((f) => f.id === x.id) ? /** @type {any} */ (before.get(x.id)) : x);
 			const first = /** @type {PromiseRejectedResult} */ (results.find((r) => r.status === 'rejected'));
 			notify(errorMessage(first.reason));
 		} else notify($t('proj.assignedMany', { count: targets.length }), 'success');
@@ -670,7 +681,12 @@
 	/** @param {string} name */
 	async function switchTab(name) {
 		tab = name;
-		replaceState('?tab=' + name, {}); // deep-link + survive reload
+
+		goto(
+			'?tab=' + name, // deep-link + survive reload
+			{ shallow: true, replace: true }
+		);
+
 		if (loaded[name]) return;
 		tabLoading = true;
 		try {
@@ -865,7 +881,7 @@
 	}
 </script>
 
-<svelte:window onkeydown={onFindingsKey} />
+<svelte:window onkeydown={onFindingsKey}></svelte:window>
 
 <div class="breadcrumbs text-sm text-base-content/60 py-0">
 	<ul>
@@ -975,8 +991,14 @@
 
 	{#if isOn($features, 'custom_fields')}
 		<div class="mb-4">
-			<CustomFieldsEditor kind="projects" id={project.id} projectId={project.id} values={project.custom} canEdit
-				onsaved={(v) => (project = { ...project, custom: v })} />
+			<CustomFieldsEditor
+				kind="projects"
+				id={project.id}
+				projectId={project.id}
+				values={project.custom}
+				canEdit
+				onsaved={(v) => project = { ...project, custom: v }}
+			/>
 		</div>
 	{/if}
 
@@ -1045,7 +1067,13 @@
 							<tr class="hover cursor-pointer {fSelected[f.id] ? 'bg-primary/5' : ''} {fCursor.index === i ? 'bg-base-200 outline-2 -outline-offset-2 outline-primary' : ''}"
 								aria-selected={fCursor.index === i ? 'true' : undefined} onclick={() => goto(`/findings/${f.id}`)}>
 								<td onclick={(e) => e.stopPropagation()}>
-									<input type="checkbox" class="checkbox checkbox-sm" checked={!!fSelected[f.id]} onchange={(e) => (fSelected[f.id] = e.currentTarget.checked)} aria-label={$t('findings.selectFinding')} />
+									<input
+										type="checkbox"
+										class="checkbox checkbox-sm"
+										checked={!!fSelected[f.id]}
+										onchange={(e) => fSelected[f.id] = e.currentTarget.checked}
+										aria-label={$t('findings.selectFinding')}
+									/>
 								</td>
 								<td>
 									<span class="font-semibold">{fmtNumber(Math.round(f.priority))}</span>
@@ -1058,8 +1086,14 @@
 								<td class="text-xs">{f.package_name || '—'}{#if f.package_version}<span class="text-base-content/50"> @{f.package_version}</span>{/if}</td>
 								<td class="text-xs">{f.scanner}</td>
 								<td onclick={(e) => e.stopPropagation()}>
-									<StatusCell status={f.status} editing={fEditing === f.id} disabled={fBusy === f.id}
-										onedit={() => (fEditing = f.id)} onpick={(s) => triageFinding(f, s)} oncancel={() => (fEditing = '')} />
+									<StatusCell
+										status={f.status}
+										editing={fEditing === f.id}
+										disabled={fBusy === f.id}
+										onedit={() => fEditing = f.id}
+										onpick={(s) => triageFinding(f, s)}
+										oncancel={() => fEditing = ''}
+									/>
 								</td>
 								<td><SlaBadge status={f.sla_status} due={f.sla_due_at} /></td>
 								<td class="max-w-32 truncate text-xs" title={f.assignee_email ?? $t('findings.unassigned')}>
@@ -1083,14 +1117,58 @@
 				<div class="pointer-events-auto flex max-w-full items-center gap-1 overflow-x-auto rounded-full bg-base-100 px-3 py-2 shadow-xl ring-1 ring-base-content/10">
 					<span class="whitespace-nowrap px-2 text-sm font-medium">{$t('findings.selected', { count: fSelectedIds.length })}</span>
 					<div class="mx-1 h-5 w-px bg-base-300"></div>
-					<button class="btn btn-ghost btn-sm" disabled={fBulkBusy} title={$t('proj.confirmTitle')} onclick={() => triageSelected('confirmed')}>{$t('proj.confirmBtn')}</button>
-					<button class="btn btn-ghost btn-sm" disabled={fBulkBusy} title={$t('proj.fpTitle')} onclick={() => triageSelected('false_positive')}>{$t('findings.actFP')}</button>
-					<button class="btn btn-ghost btn-sm" disabled={fBulkBusy} title={$t('proj.acceptTitle')} onclick={() => triageSelected('risk_accepted')}>{$t('findings.actAccept')}</button>
-					<button class="btn btn-ghost btn-sm" disabled={fBulkBusy} title={$t('proj.wontTitle')} onclick={() => triageSelected('wont_fix')}>{$t('findings.actWont')}</button>
-					<button class="btn btn-ghost btn-sm" disabled={fBulkBusy} title={$t('proj.reopenTitle')} onclick={() => triageSelected('open')}>{$t('findings.actReopen')}</button>
-					<button class="btn btn-ghost btn-sm whitespace-nowrap" disabled={fBulkBusy || !$me} title={$t('proj.takeTitle')} onclick={assignToMe}>{$t('findings.take')}</button>
-					{#if fBulkBusy}<span class="loading loading-spinner loading-sm mx-1"></span>{/if}
-					<button class="btn btn-ghost btn-circle btn-sm" onclick={() => (fSelected = {})} aria-label={$t('findings.clearSelection')}>✕</button>
+
+					<button
+						class="btn btn-ghost btn-sm"
+						disabled={fBulkBusy}
+						title={$t('proj.confirmTitle')}
+						onclick={() => triageSelected('confirmed')}
+					>{$t('proj.confirmBtn')}</button>
+
+					<button
+						class="btn btn-ghost btn-sm"
+						disabled={fBulkBusy}
+						title={$t('proj.fpTitle')}
+						onclick={() => triageSelected('false_positive')}
+					>{$t('findings.actFP')}</button>
+
+					<button
+						class="btn btn-ghost btn-sm"
+						disabled={fBulkBusy}
+						title={$t('proj.acceptTitle')}
+						onclick={() => triageSelected('risk_accepted')}
+					>{$t('findings.actAccept')}</button>
+
+					<button
+						class="btn btn-ghost btn-sm"
+						disabled={fBulkBusy}
+						title={$t('proj.wontTitle')}
+						onclick={() => triageSelected('wont_fix')}
+					>{$t('findings.actWont')}</button>
+
+					<button
+						class="btn btn-ghost btn-sm"
+						disabled={fBulkBusy}
+						title={$t('proj.reopenTitle')}
+						onclick={() => triageSelected('open')}
+					>{$t('findings.actReopen')}</button>
+
+					<button
+						class="btn btn-ghost btn-sm whitespace-nowrap"
+						disabled={fBulkBusy || !$me}
+						title={$t('proj.takeTitle')}
+						onclick={assignToMe}
+					>{$t('findings.take')}</button>
+
+					{#if fBulkBusy}
+						<span class="loading loading-spinner loading-sm mx-1"></span>
+					{/if}
+
+					<button
+						class="btn btn-ghost btn-circle btn-sm"
+						onclick={() => fSelected = {}}
+						aria-label={$t('findings.clearSelection')}
+					>✕</button>
 				</div>
 			</div>
 		{/if}
@@ -1173,7 +1251,10 @@
 					<thead><tr><th>{$t('proj.colArtifact')}</th><th>{$t('proj.colVersion')}</th><th>{$t('proj.colBranch')}</th><th>{$t('proj.colFormat')}</th><th>{$t('proj.colComponents')}</th><th>{$t('proj.colWhen')}</th><th></th></tr></thead>
 					<tbody>
 						{#each sboms as s (s.id)}
-							<tr class="hover cursor-pointer" onclick={() => (location.href = `/sboms/${s.id}`)}>
+							<tr
+								class="hover cursor-pointer"
+								onclick={() => location.href = `/sboms/${s.id}`}
+							>
 								<td><a class="link link-hover" href={`/sboms/${s.id}`}>{s.artifact || '—'}</a></td>
 								<td>{s.version || '—'}</td>
 								<td class="text-xs">{versionName(s.version_id)}</td>
@@ -1351,13 +1432,33 @@
 					<tbody>
 						{#each components as c (c.id)}
 							<tr class="hover">
-								<td>{c.name} <AIBadge {c} /></td>
+								<td>{c.name} <AIBadge c={c} /></td>
 								<td class="text-xs">{c.version || '—'}</td>
-								<td><OutdatedBadge {c} /> <IntegrityBadge integrity={c.integrity} /></td>
-								<td><VulnBadge count={c.vuln_count} severity={c.max_severity} kev={c.kev} vulns={c.vulns} /></td>
-								<td class="text-xs font-mono text-base-content/70 max-w-xs truncate" title={c.file_path}>{c.file_path || '—'}</td>
-								<td><LicenseBadge {c} /></td>
-								<td class="text-xs text-base-content/50 max-w-xs truncate">{c.purl || '—'}</td>
+
+								<td>
+									<OutdatedBadge c={c} />
+									<IntegrityBadge integrity={c.integrity} />
+								</td>
+
+								<td>
+									<VulnBadge
+										count={c.vuln_count}
+										severity={c.max_severity}
+										kev={c.kev}
+										vulns={c.vulns}
+									/>
+								</td>
+
+								<td
+									class="text-xs font-mono text-base-content/70 max-w-xs truncate"
+									title={c.file_path}
+								>{c.file_path || '—'}</td>
+
+								<td><LicenseBadge c={c} /></td>
+
+								<td
+									class="text-xs text-base-content/50 max-w-xs truncate"
+								>{c.purl || '—'}</td>
 							</tr>
 						{/each}
 					</tbody>
@@ -1758,7 +1859,12 @@
 </dialog>
 
 <!-- Asset exposure / relationships / blast radius -->
-<dialog bind:this={assetDetailDialog} class="modal" onclose={() => (detailAsset = null)}>
+
+<dialog
+	bind:this={assetDetailDialog}
+	class="modal"
+	onclose={() => detailAsset = null}
+>
 	<div class="modal-box max-w-4xl">
 		<h3 class="font-bold text-lg mb-4">{detailAsset?.name ?? $t('proj.assetFallback')}</h3>
 		{#if detailAsset}
@@ -1872,8 +1978,11 @@
 			</Field>
 			<Field label={$t('home.parent')} hint={$t('proj.editParentHint')}>
 				<select bind:value={editForm.parent_id} class="select select-bordered w-full">
-				<option value="">{$t('home.parentNone')}</option>
-					{#each editParents as { project: pp, depth } (pp.id)}<option value={pp.id}>{'\u00a0\u00a0'.repeat(depth)}{pp.name}</option>{/each}
+					<option value="">{$t('home.parentNone')}</option>
+
+					{#each editParents as { project: pp, depth } (pp.id)}
+						<option value={pp.id}>{('\u00a0\u00a0').repeat(depth)}{pp.name}</option>
+					{/each}
 				</select>
 			</Field>
 			<label class="label cursor-pointer justify-start gap-2">

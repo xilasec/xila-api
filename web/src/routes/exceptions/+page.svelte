@@ -1,7 +1,7 @@
 <script>
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
-	import { goto, replaceState } from '$app/navigation';
+	import { goto } from '$app/navigation';
 	import { api, ApiError } from '$lib/api.js';
 	import { t } from '$lib/i18n.js';
 	import { fmtDate, prettyStatus } from '$lib/format.js';
@@ -16,7 +16,7 @@
 
 	// Persist the window in the URL, then reload — so a refresh keeps it.
 	function applyDays() {
-		replaceState('?days=' + days, {});
+		goto('?days=' + days, { shallow: true, replace: true });
 		load();
 	}
 
@@ -57,8 +57,12 @@
 	</select>
 </div>
 
-<State {loading} {error} empty={!loading && !error && findings.length === 0}
-	emptyText={$t('exc.empty')} />
+<State
+	loading={loading}
+	error={error}
+	empty={!loading && !error && findings.length === 0}
+	emptyText={$t('exc.empty')}
+/>
 
 {#if !loading && findings.length > 0}
 	<div class="overflow-x-auto bg-base-100 rounded-box shadow-sm">
