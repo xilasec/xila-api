@@ -691,8 +691,14 @@ and `internal/server/smoke_test.go` (missing smoke wiring causes a nil panic in 
 - Releases: `.github/workflows/release.yml` runs on `v*` tags, calls `ci.yml`
   (`workflow_call`) first, then builds the multi-arch image (the Dockerfile
   cross-compiles from `$BUILDPLATFORM`; keep it that way, no QEMU), binaries
-  (`-X main.version`), the chart (versioned from the tag) and an SBOM. Pin every
-  action by commit SHA (`git ls-remote`; peel annotated tags with `^{}`).
+  (`-X main.version`), the chart (versioned from the tag) and an SBOM.
+- Actions: `uses:` lines are SHA pins only, never tags (`git ls-remote`; peel
+  annotated tags with `^{}`; keep the `# vX.Y.Z` comment). Workflows are also
+  recorded in `.github/workflows/actions.lock`: after adding or changing a
+  `uses:`, run `gh actions-lock --no-narrow` (without `--no-narrow` it rewrites
+  SHA pins to tags), and CI's `actions-lock` job runs `--verify`. Dependabot
+  (`.github/dependabot.yml`, 3-day cooldown) updates pins and the lockfile
+  together, and its PRs auto-merge after the required checks pass.
 - svelte-check is at zero: CI runs `pnpm check` (in `web/`), which fails if
   the error count exceeds `web/.svelte-check-baseline` (now `0`). Type new UI
   code with JSDoc (`$state(/** @type {any[]} */ ([]))`, typed `$props()`,

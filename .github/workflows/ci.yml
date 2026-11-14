@@ -80,6 +80,20 @@ jobs:
         working-directory: clients/typescript
         run: npm ci --no-audit --no-fund && npm run check
 
+  # Every action is SHA-pinned in the workflows and recorded, with its
+  # transitive actions, in .github/workflows/actions.lock. Fails if the lockfile
+  # is out of date or a pin no longer verifies upstream.
+  actions-lock:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+      - run: gh extension install github/gh-actions-lock --pin v0.4.1
+      - run: gh actions-lock --verify
+
   helm:
     runs-on: ubuntu-latest
     steps:

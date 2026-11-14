@@ -1,0 +1,21 @@
+name: Dependabot auto-merge
+
+# Turns on auto-merge for every Dependabot PR (majors included). GitHub merges
+# it only after the checks that the main branch ruleset requires have passed.
+on: pull_request
+
+permissions:
+  contents: read
+
+jobs:
+  automerge:
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ github.token }}
