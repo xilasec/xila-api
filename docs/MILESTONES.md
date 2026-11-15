@@ -687,10 +687,20 @@ For 1,000 repositories (one node):
 
 For 100,000 and more (several nodes):
 
-- ⬜ 11.4 Skip unchanged scans: when a report's content hash matches the previous
-  scan for the same project, branch, scanner and target, record the scan and
-  refresh `last_seen_at` without running the pipeline. Most CI reruns report
-  exactly what they did last time.
+- ✅ 11.4 Skip unchanged scans: a report's content hash (over the parsed
+  findings, not the raw bytes, so a scanner-embedded timestamp like Trivy's
+  `CreatedAt` doesn't matter) is compared against the target's (project version
+  + scanner + asset) *latest* completed scan only. A match skips upsert,
+  auto-close, appliers, dedup and the alert: the scan is recorded completed
+  with the previous summary and `unchanged_of` set, and the target's live
+  findings have their `last_scan_id`/`last_seen_at` moved onto it in one
+  UPDATE, so they still look seen without counting as newly introduced and a
+  later different scan's auto-close keeps working. `INGEST_SKIP_UNCHANGED`
+  (default on) and a per-upload `force=true` (`xila upload --force`) opt out;
+  works for both sync and async ingest. A match is only skipped if none of the
+  previous scan's findings (or its asset's exposure) changed since it finished
+  and all of them still exist, so manual closes, field resets and cleared
+  exposure still get the full pipeline.
 - ✅ 11.5 Web and worker roles: `INGEST_WORKERS=0` makes a node that only accepts
   uploads (negative is refused; async with 0 workers logs a warning). The Helm
   chart's `ingest.workerDeployment` runs a separate worker Deployment, with an

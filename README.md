@@ -2503,6 +2503,7 @@ Azure Key Vault, Vault) hand secrets to the app. It applies to `JWT_SECRET`,
 | `METRICS_SNAPSHOT_INTERVAL`   | `1h`                 | how often today's and yesterday's metric snapshots are recomputed; the first run backfills 90 days (`0` = off) |
 | `INGEST_MAX_QUEUE_DEPTH`      | `10000`              | pending job count at which uploads are rejected with `429` (`0` = unbounded) |
 | `INGEST_QUEUE_SAMPLE_INTERVAL`| `5s`                 | how often queue depth is measured             |
+| `INGEST_SKIP_UNCHANGED`       | `true`               | skip the pipeline when a report's content hash matches its target's previous completed scan (see "Skip unchanged scans"); a per-upload `force=true` always processes in full |
 
 ## Scaling ingestion (async)
 
@@ -2536,6 +2537,34 @@ with pipelined batch upserts, and the post-ingest tail (auto-triage and
 cross-tool dedup) is scoped to the scan's findings rather than the whole
 project. Ingest cost therefore tracks the size of the upload, not the project's
 accumulated history.
+
+
+### Skip unchanged scans
+
+Most CI reruns report exactly what the previous scan of the same target did.
+Each upload hashes the parsed findings (every field the upsert would write,
+keyed by dedup fingerprint, plus `close_missing`) rather than the raw bytes, so
+a report that differs only in a scanner-embedded value we don't read (Trivy's
+top-level `CreatedAt`, for example) still counts as unchanged, while a parser
+upgrade that extracts something new counts as a change. If the hash matches the
+target's (project version + scanner + asset) previous completed scan, the
+pipeline is skipped entirely: no upsert, auto-close, appliers, dedup or alert.
+The scan is recorded completed with the previous summary, `unchanged_of` set
+to the scan it repeated, and the target's live findings get their
+`last_scan_id`/`last_seen_at` moved onto it in one UPDATE, so they still look
+seen by this scan (and a later, different scan's auto-close still works) without
+ever counting as newly introduced (`first_scan_id` is untouched). Only ever
+compared against the *latest* completed scan of the target, so an A, B, A
+sequence reprocesses the third upload rather than matching the stale first one.
+A matching hash alone isn't enough: if anyone changed one of those findings
+since the previous scan (a status, a reset title or severity, archiving) or the
+asset's exposure, or a finding has been deleted, the upload is processed in full
+so the scanner's view is restored (a manually closed finding that is still
+reported reopens, a reset field gets the scanner's value back).
+
+`INGEST_SKIP_UNCHANGED` (default `true`) controls this; a per-upload
+`force=true` (`xila upload --force`) always processes in full. Works the same
+whether ingestion is sync or async.
 
 ### Backpressure & queue visibility
 

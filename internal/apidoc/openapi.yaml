@@ -2188,6 +2188,14 @@ paths:
         auto-close what the scanner no longer reports → reachability → VEX →
         auto-triage rules → cross-tool dedup → priority → alerts.
 
+        If the parsed report is identical to the target's previous scan (same
+        project version, scanner and asset) — a report that differs only in a
+        scanner-embedded timestamp still counts as identical — the pipeline is
+        skipped: the scan is recorded completed with the previous summary and
+        `unchanged_of` set, and its findings are carried onto it without a full
+        re-run (`INGEST_SKIP_UNCHANGED`, default on; `force=true` always
+        processes in full).
+
         With `INGEST_ASYNC=true` the server returns **202** with a `processing`
         scan and a worker finishes the job; poll `GET /scans/{id}` until it is
         `completed`. If the ingest queue is saturated you get **429** with
@@ -2242,6 +2250,13 @@ paths:
             partial/incremental scans, or you will close findings that simply
             weren't scanned.
           schema: { type: boolean, default: true }
+        - name: force
+          in: query
+          description: |
+            Always run the full pipeline, even if this report's content hash
+            matches the target's previous completed scan (bypasses
+            `INGEST_SKIP_UNCHANGED`).
+          schema: { type: boolean, default: false }
       requestBody:
         required: true
         description: The raw scanner output.
@@ -9345,7 +9360,7 @@ components:
     Scan:
       type: object
       examples:
-        - {"id": "4077d267-587a-415b-bf7d-36858ba00837", "project_id": "af938283-73e9-4d55-ba64-07a1658d69ce", "asset_id": null, "scanner": "trivy", "category": "sca", "status": "completed", "commit_sha": "", "branch": "", "version_id": "9f56646c-6102-42eb-8077-4dca83013b3e", "engagement_id": null, "summary": {"critical": 2, "high": 2}, "error": "", "started_at": "2026-11-13T01:41:56.635752+01:00", "finished_at": "2026-11-13T01:41:56.664762+01:00", "created_at": "2026-11-13T01:41:56.635752+01:00", "archived_at": null, "archived_by": null}
+        - {"id": "4077d267-587a-415b-bf7d-36858ba00837", "project_id": "af938283-73e9-4d55-ba64-07a1658d69ce", "asset_id": null, "scanner": "trivy", "category": "sca", "status": "completed", "commit_sha": "", "branch": "", "version_id": "9f56646c-6102-42eb-8077-4dca83013b3e", "engagement_id": null, "summary": {"critical": 2, "high": 2}, "error": "", "started_at": "2026-11-13T01:41:56.635752+01:00", "finished_at": "2026-11-13T01:41:56.664762+01:00", "created_at": "2026-11-13T01:41:56.635752+01:00", "archived_at": null, "archived_by": null, "content_hash": "8f3a2e1c4b5d6a7f0e1d2c3b4a5968778899aabbccddeeff00112233445566", "unchanged_of": null}
       properties:
         started_at: { type: [string, "null"], format: date-time }
         finished_at: { type: [string, "null"], format: date-time, description: Set once ingestion completed or failed. }
@@ -9367,6 +9382,22 @@ components:
         branch: { type: string }
         commit_sha: { type: string }
         created_at: { type: string, format: date-time }
+        content_hash:
+          type: [string, "null"]
+          readOnly: true
+          description: |
+            Digest of the parsed report's findings, set once ingestion finishes.
+            `null` for a scan with no raw report (manual findings, the OSV
+            matcher) or where hashing failed. See `unchanged_of`.
+        unchanged_of:
+          type: [string, "null"]
+          format: uuid
+          readOnly: true
+          description: |
+            Set when this scan's content hash matched its target's previous
+            completed scan: the pipeline was skipped (`INGEST_SKIP_UNCHANGED`)
+            and this scan merely carried the earlier findings forward. `null`
+            for a normally processed scan.
 
     OSVEvent:
       type: object

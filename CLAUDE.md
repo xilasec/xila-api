@@ -702,6 +702,27 @@ and `internal/server/smoke_test.go` (missing smoke wiring causes a nil panic in 
   closing scan (no last scan ⇒ the project-level target: no asset, no branch). A
   project-wide close would let a feature-branch or second-image scan remediate
   findings it never looked at. `TestCloseMissingScopedToScanTarget` pins this.
+- Skip-unchanged compares against the *latest* completed scan of the target
+  only (`scan.LatestCompletedTarget`: project version + scanner + asset, same
+  scoping `CloseMissing` uses), never any earlier one. An A, B, A sequence of
+  uploads must reprocess the third: it differs from B, the scan it is actually
+  being compared against, even though it repeats A. The content hash is over
+  the *parsed* findings (`scan.contentHash`), not the raw bytes, so a
+  scanner-embedded timestamp never present in `ParsedFinding` (Trivy's
+  top-level `CreatedAt`) does not defeat it, while a parser upgrade that
+  extracts a new field does. A skipped scan still has to carry its target's
+  live findings forward (`finding.CarryForward`: `last_scan_id`/`last_seen_at`
+  only, `first_scan_id` untouched) so a later, different scan's `CloseMissing`
+  still finds the right `asset_id` through the chain, and the skipped scan
+  itself never looks like it introduced anything new. A matching hash is not
+  enough: skip only if nothing a re-ingest acts on changed since the previous
+  scan finished (`finding.ChangedSince`: `findings.state_changed_at`, stamped by
+  the `findings_state` trigger on status, severity, title, description, the
+  manual flags and archiving, plus the asset's `exposure_updated_at`), and only
+  if every finding is still there to carry (`CarryForward` moves them in one
+  transaction and refuses on a count mismatch). A reset field, a manual close or
+  a cleared exposure must get the full pipeline. A new column that ingest
+  rewrites belongs in that trigger.
 - Dedup writes only what changes. Its statements are guarded with
   `IS DISTINCT FROM`. Do not rewrite a row to store the value it already has, or
   each scan churns the project's findings (dead tuples, WAL, vacuum).

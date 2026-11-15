@@ -814,6 +814,8 @@ export default {
 	"proj.colStatus": "Status",
 	"proj.colFindings": "Findings",
 	"proj.colWhen": "Zeitpunkt",
+	"proj.unchangedScan": "Unverändert, wiederholt Scan {id}",
+	"proj.unchanged": "unverändert",
 	"proj.noSboms": "Noch keine SBOMs hochgeladen.",
 	"proj.colArtifact": "Artefakt",
 	"proj.colVersion": "Version",

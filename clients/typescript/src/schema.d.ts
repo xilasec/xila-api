@@ -1731,6 +1731,14 @@ export interface paths {
          *     auto-close what the scanner no longer reports → reachability → VEX →
          *     auto-triage rules → cross-tool dedup → priority → alerts.
          *
+         *     If the parsed report is identical to the target's previous scan (same
+         *     project version, scanner and asset) — a report that differs only in a
+         *     scanner-embedded timestamp still counts as identical — the pipeline is
+         *     skipped: the scan is recorded completed with the previous summary and
+         *     `unchanged_of` set, and its findings are carried onto it without a full
+         *     re-run (`INGEST_SKIP_UNCHANGED`, default on; `force=true` always
+         *     processes in full).
+         *
          *     With `INGEST_ASYNC=true` the server returns **202** with a `processing`
          *     scan and a worker finishes the job; poll `GET /scans/{id}` until it is
          *     `completed`. If the ingest queue is saturated you get **429** with
@@ -7550,7 +7558,9 @@ export interface components {
          *       "finished_at": "2026-11-13T01:41:56.664762+01:00",
          *       "created_at": "2026-11-13T01:41:56.635752+01:00",
          *       "archived_at": null,
-         *       "archived_by": null
+         *       "archived_by": null,
+         *       "content_hash": "8f3a2e1c4b5d6a7f0e1d2c3b4a5968778899aabbccddeeff00112233445566",
+         *       "unchanged_of": null
          *     }
          */
         Scan: {
@@ -7596,6 +7606,20 @@ export interface components {
             commit_sha?: string;
             /** Format: date-time */
             created_at?: string;
+            /**
+             * @description Digest of the parsed report's findings, set once ingestion finishes.
+             *     `null` for a scan with no raw report (manual findings, the OSV
+             *     matcher) or where hashing failed. See `unchanged_of`.
+             */
+            readonly content_hash?: string | null;
+            /**
+             * Format: uuid
+             * @description Set when this scan's content hash matched its target's previous
+             *     completed scan: the pipeline was skipped (`INGEST_SKIP_UNCHANGED`)
+             *     and this scan merely carried the earlier findings forward. `null`
+             *     for a normally processed scan.
+             */
+            readonly unchanged_of?: string | null;
         };
         /** @description One OSV range event; exactly one field is set. `introduced: "0"` = from the first version; `limit: "*"` = unbounded. */
         OSVEvent: {
@@ -12335,6 +12359,12 @@ export interface operations {
                  *     weren't scanned.
                  */
                 close_missing?: boolean;
+                /**
+                 * @description Always run the full pipeline, even if this report's content hash
+                 *     matches the target's previous completed scan (bypasses
+                 *     `INGEST_SKIP_UNCHANGED`).
+                 */
+                force?: boolean;
             };
             header?: never;
             path: {
