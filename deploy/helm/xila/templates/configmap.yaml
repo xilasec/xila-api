@@ -23,6 +23,9 @@
 {{- with include "xila.publicUrl" . }}{{ $_ := set $fixed "PUBLIC_URL" . }}{{ end }}
 {{- with .Values.corsAllowedOrigins }}{{ $_ := set $fixed "CORS_ALLOWED_ORIGINS" (join "," .) }}{{ end }}
 {{- with .Values.trustedProxies }}{{ $_ := set $fixed "TRUSTED_PROXIES" (join "," .) }}{{ end }}
+{{- $_ := set $fixed "INGEST_ASYNC" (toString .Values.ingest.async) }}
+{{- $_ := set $fixed "INGEST_WORKERS" (toString .Values.ingest.workers) }}
+{{- $_ := set $fixed "INGEST_MAX_QUEUE_DEPTH" (toString .Values.ingest.maxQueueDepth) }}
 {{- if .Values.metrics.enabled }}
 {{- $_ := set $fixed "METRICS_ENABLED" "true" }}
 {{- $_ := set $fixed "METRICS_ADDR" (printf ":%d" (int .Values.metrics.port)) }}

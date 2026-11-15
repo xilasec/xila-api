@@ -674,13 +674,16 @@ items. Server-side `Retry-After` and queue backpressure already exist.
 
 For 1,000 repositories (one node):
 
-- ⬜ 11.1 CLI retries: `xila upload` retries 429/502/503/504 and connection errors
-  with exponential backoff and jitter, honouring `Retry-After`, up to a time
-  budget. Today it fails on the first 429.
-- ⬜ 11.2 Asynchronous ingest by default in the production compose file and Helm
-  values, with the queue depth sized for the install.
-- ⬜ 11.3 `ingest-bench --concurrency N`, so the parallel measurement is one
-  command.
+- ✅ 11.1 CLI retries: every `xila` request retries 429/502/503/504 and
+  connection errors with exponential backoff and full jitter, honouring
+  `Retry-After` (seconds or a date), each wait capped at 60 s, for up to
+  `--retry-for` (default 10 minutes, `XILA_RETRY_FOR`, 0 disables). The async
+  processing wait (`--timeout`) is now 10 minutes.
+- ✅ 11.2 Asynchronous ingest by default: `.env.example` (and so the production
+  compose file) and the Helm chart (`ingest.async`, `ingest.workers`,
+  `ingest.maxQueueDepth`). The bare binary and the dev stack stay inline.
+- ✅ 11.3 `ingest-bench --concurrency N --projects a,b,…` runs parallel
+  uploaders, retries 429 and reports how often it had to.
 
 For 100,000 and more (several nodes):
 
