@@ -9539,7 +9539,7 @@ components:
           description: Did the project ask for this dependency, or did it come along? Null = no SBOM data.
         dep_depth: { type: [integer, "null"], description: Hops from the root component. }
         dep_scope: { $ref: "#/components/schemas/DepScope" }
-        correlation_key: { type: [string, "null"], description: Groups the same CVE+package across scanners. }
+        correlation_key: { type: [string, "null"], description: "Groups the same CVE+package, or the same non-CVE finding location+CWE, across scanners." }
         duplicate_of:
           type: [string, "null"]
           format: uuid

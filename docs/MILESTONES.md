@@ -716,10 +716,15 @@ gaps that are still open are listed; each was checked against the code.
 
 Tier 1:
 
-- ⬜ 12.1 Cross-tool dedup without a CVE (SecObserve): group findings across
-  scanners by file and line, or by title and component, so SAST, secrets and DAST
-  duplicates collapse like CVE findings do. Today `correlation_key` is NULL for
-  any finding without a CVE.
+- ✅ 12.1 Cross-tool dedup without a CVE (SecObserve): SAST/secrets/IaC
+  findings without a CVE now group across scanners too. `correlation_key`
+  keys them on category + file_path + line, plus CWE when the finding has
+  one (a CWE-bearing and a CWE-less report at the same line never share a
+  key; two CWE-less reports there still fall back to location alone). Election
+  never marks a finding the duplicate of another report from its own scanner,
+  so one tool's two rules on one line stay visible as separate findings. CVE
+  grouping is unchanged. Findings with no file_path/line (most DAST without a
+  CVE) still get no key.
 - ⬜ 12.2 Upload-only role (SecObserve): a project grant that can upload scans
   and SBOMs and nothing else, for CI tokens. Today CI needs `editor`, which can
   also triage.
