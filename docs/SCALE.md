@@ -142,3 +142,36 @@ The two list indexes add no measurable write cost. `findings` updates were
 already mostly non-HOT (88% at seed time) because upserts change other indexed
 columns.
 
+## Parallel ingest (November 2026)
+
+One API process, synchronous ingest, `DB_MAX_CONNS=60`, Postgres 16 with default
+settings (`shared_buffers` 128 MB) on the same 16-core machine. Each uploader
+sends 5 scans of 1,000 findings to its own project (16 projects of 5,000
+findings), the shape of many repositories uploading at once:
+
+| Parallel uploaders | Findings/s (all uploaders) | Per-scan p50 | p95 (worst uploader) |
+|---|---|---|---|
+| 1 | 1,531 | 655 ms | 682 ms |
+| 2 | 2,896 | 685 ms | 710 ms |
+| 4 | 5,605 | 701 ms | 722 ms |
+| 8 | 7,786 | 993 ms | 1,062 ms |
+| 16 | 9,414 | 1,659 ms | 1,772 ms |
+
+Throughput scales almost linearly to 4 uploaders and flattens past 8: the
+machine (API, Postgres and the load generator share 16 cores) saturates, not a
+lock. Uploads to different projects don't contend; uploads to one project
+serialize on its dedup lock by design. Reproduce by running several
+`ingest-bench` processes in parallel, one project each.
+
+What this means for bursts (a scan of about 1,000 findings each):
+
+- 1,000 repositories at once is about 1M findings: roughly 2 minutes of work for
+  one node like this. With `INGEST_ASYNC=true` every upload is accepted in
+  seconds and the queue drains in minutes; with synchronous ingest most of the
+  1,000 requests would wait minutes for a connection and many CI clients would
+  time out.
+- 1,000,000 repositories at once is about 1B findings: roughly 30 node-hours at
+  this rate, and about 1 TB of raw reports waiting in the queue. That needs the
+  work in milestone M11 (horizontal workers, reports outside Postgres, skipping
+  unchanged scans, fair queueing per tenant).
+

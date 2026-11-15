@@ -664,3 +664,96 @@ or External Secrets Operator).
 - ⬜ 10.2 Rotation: re-read rotatable secrets (database password, API tokens)
   without a restart; `JWT_SECRET` and `INTEGRATION_SECRET_KEY` need a key ring
   first, since rotating them today ends sessions or makes stored secrets unreadable.
+
+## M11: Ingest at scale (1,000 to 1,000,000 repositories at once)
+
+Measured in `docs/SCALE.md` (Parallel ingest): one node ingests about 9,400
+findings/s with 16 parallel uploaders. A burst from 1,000 repositories is minutes
+of work; a burst from 1,000,000 is about a billion findings and needs the later
+items. Server-side `Retry-After` and queue backpressure already exist.
+
+For 1,000 repositories (one node):
+
+- ⬜ 11.1 CLI retries: `xila upload` retries 429/502/503/504 and connection errors
+  with exponential backoff and jitter, honouring `Retry-After`, up to a time
+  budget. Today it fails on the first 429.
+- ⬜ 11.2 Asynchronous ingest by default in the production compose file and Helm
+  values, with the queue depth sized for the install.
+- ⬜ 11.3 `ingest-bench --concurrency N`, so the parallel measurement is one
+  command.
+
+For 100,000 and more (several nodes):
+
+- ⬜ 11.4 Skip unchanged scans: when a report's content hash matches the previous
+  scan for the same project, branch, scanner and target, record the scan and
+  refresh `last_seen_at` without running the pipeline. Most CI reruns report
+  exactly what they did last time.
+- ⬜ 11.5 Web and worker roles: allow `INGEST_WORKERS=0` (today it is clamped to 1)
+  so API nodes only accept uploads and worker nodes scale on queue age. Document
+  a KEDA recipe on `xila_ingest_queue_oldest_wait_seconds` and PgBouncer for more
+  than about 5 nodes.
+- ⬜ 11.6 Fair queueing: claim jobs round-robin per organization (and at most one
+  in flight per project), so one tenant's burst can't starve the others.
+- ⬜ 11.7 Live tuning: change the queue depth limit and worker count without a
+  restart (Dependency-Track 5 has this).
+
+For 1,000,000 (bursts of a billion findings):
+
+- ⬜ 11.8 Reports outside Postgres: store raw uploads in S3-compatible object
+  storage and queue only a reference. A million 1 MB reports is a terabyte of
+  queue traffic in the database today.
+- ⬜ 11.9 Data lifecycle past 100M findings: serve the portfolio from metric
+  snapshots, archive or partition closed findings, cap read queries with a
+  statement timeout, move reporting to a read replica.
+- ⬜ 11.10 Multi-node load test: 10M findings, 3 API nodes, 1,000-scan bursts;
+  record the results in `docs/SCALE.md`.
+
+## M12: Parity review 3 (November 2026)
+
+Compared with DefectDojo Pro 3.5.103, Dependency-Track 5.2.1 and SecObserve
+1.64.0 (sources and evidence in the review notes of this milestone's PR). Only
+gaps that are still open are listed; each was checked against the code.
+
+Tier 1:
+
+- ⬜ 12.1 Cross-tool dedup without a CVE (SecObserve): group findings across
+  scanners by file and line, or by title and component, so SAST, secrets and DAST
+  duplicates collapse like CVE findings do. Today `correlation_key` is NULL for
+  any finding without a CVE.
+- ⬜ 12.2 Upload-only role (SecObserve): a project grant that can upload scans
+  and SBOMs and nothing else, for CI tokens. Today CI needs `editor`, which can
+  also triage.
+- ⬜ 12.3 Cross-project root causes (DefectDojo Pro): one work item per shared
+  cause (CVE, component version) across every project, beyond the per-project
+  remediation actions.
+- ⬜ 12.4 No-code parser (DefectDojo Pro "Universal Parser"): map fields of any
+  CSV, JSON or XML report to findings from the UI.
+- ⬜ 12.5 Vulnerability policies (Dependency-Track 5): CEL rules on a component and
+  vulnerability pair that set an analysis or rating atomically at ingest, with a
+  validity window, priority, and GitOps policy bundles.
+- ⬜ 12.6 More pull connectors: Snyk, GitHub code scanning and Dependabot alerts,
+  GitLab vulnerability reports, Wiz, Tenable (DefectDojo Pro has 140+; Xila pulls
+  from Dependency-Track and DefectDojo only).
+
+Tier 2:
+
+- ⬜ 12.7 More issue trackers: Azure DevOps, Linear, ServiceNow.
+- ⬜ 12.8 Custom roles and user groups, and SCIM provisioning.
+- ⬜ 12.9 Security gate caps for every severity (medium, low, unknown), not only
+  critical and high.
+- ⬜ 12.10 Links out to NVD, GitHub Advisories and deps.dev from findings and
+  components.
+- ⬜ 12.11 KEV ransomware-use flag (`knownRansomwareCampaignUse`) on findings.
+- ⬜ 12.12 A "My work" page: assigned findings, approvals, expiring acceptances
+  and AI proposals in one queue.
+- ⬜ 12.13 Kafka notification publisher.
+- ⬜ 12.14 Strict CycloneDX schema validation on upload, with field paths in errors.
+- ⬜ 12.15 Per-project priority weights.
+- ⬜ 12.16 Smaller items: computed custom fields, triage rule chaining, splitting
+  a multi-host infrastructure scan per asset, re-authentication before creating
+  API tokens, CryptoLyzer and DrHeader parsers.
+
+Deliberately not pursued: FedRAMP POA&M and OSCAL export (US federal niche),
+threat modeling, AI-generated fix pull requests, active cloud scanning (Xila
+ingests scanner output and doesn't scan), pushing findings to other platforms.
+
