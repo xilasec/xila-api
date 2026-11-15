@@ -502,7 +502,8 @@ public; the UI renders it at `/docs`). This step is required:
 a route is undocumented or a documented path no longer exists. Conditionally
 registered routes (OIDC) go in that test's `optional` set. Quote YAML flow
 scalars that contain a colon (`description: "…Authorization: Bearer…"`).
-Otherwise the spec silently stops parsing.
+Otherwise the spec silently stops parsing. After any spec change, including descriptions, run `make clients`
+and commit the regenerated `clients/`: CI's `clients` check fails otherwise.
 
 Export what a list shows: exports (`internal/export`, `/…/export`) and the
 HTML reports (`internal/report`) must share the list endpoint's filter parsing
