@@ -691,10 +691,11 @@ For 100,000 and more (several nodes):
   scan for the same project, branch, scanner and target, record the scan and
   refresh `last_seen_at` without running the pipeline. Most CI reruns report
   exactly what they did last time.
-- ⬜ 11.5 Web and worker roles: allow `INGEST_WORKERS=0` (today it is clamped to 1)
-  so API nodes only accept uploads and worker nodes scale on queue age. Document
-  a KEDA recipe on `xila_ingest_queue_oldest_wait_seconds` and PgBouncer for more
-  than about 5 nodes.
+- ✅ 11.5 Web and worker roles: `INGEST_WORKERS=0` makes a node that only accepts
+  uploads (negative is refused; async with 0 workers logs a warning). The Helm
+  chart's `ingest.workerDeployment` runs a separate worker Deployment, with an
+  optional KEDA `ScaledObject` on `xila_ingest_queue_oldest_wait_seconds`.
+  `docs/SCALE.md` covers the split and PgBouncer past about 5 nodes.
 - ⬜ 11.6 Fair queueing: claim jobs round-robin per organization (and at most one
   in flight per project), so one tenant's burst can't starve the others.
 - ⬜ 11.7 Live tuning: change the queue depth limit and worker count without a

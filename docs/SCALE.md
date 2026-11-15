@@ -184,3 +184,23 @@ What this means for bursts (a scan of about 1,000 findings each):
   work in milestone M11 (horizontal workers, reports outside Postgres, skipping
   unchanged scans, fair queueing per tenant).
 
+## Web and worker nodes
+
+Every node serves the API and, with `INGEST_ASYNC=true`, drains the queue with
+`INGEST_WORKERS` workers. To scale the two separately, run nodes that only
+accept uploads (`INGEST_WORKERS=0`, behind the load balancer) and worker nodes
+(`INGEST_WORKERS` > 0, no traffic needed) against the same database. Uploads
+land in the shared Postgres queue and any worker claims them
+(`FOR UPDATE SKIP LOCKED`). Checked: a scan uploaded to a web-only node stayed
+`processing` until a worker node started, then completed within a second.
+
+In Kubernetes, `ingest.workerDeployment.enabled=true` in the Helm chart does
+this, and `ingest.workerDeployment.keda` scales the workers on
+`xila_ingest_queue_oldest_wait_seconds` (smoothed over 2 minutes). Scale on
+queue age rather than depth: one large report and a hundred small ones look
+the same in depth but not in how long uploads wait.
+
+Connections: each node opens up to `DB_MAX_CONNS` (default 20). Past about 5
+nodes, put PgBouncer (transaction pooling) in front of Postgres and lower
+`DB_MAX_CONNS` per node, so the total stays below Postgres `max_connections`.
+

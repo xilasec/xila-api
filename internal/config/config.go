@@ -831,6 +831,9 @@ func (c Config) validate() error {
 	if c.Env != EnvDevelopment && c.Env != EnvProduction && c.Env != EnvTest {
 		return fmt.Errorf("invalid APP_ENV %q (want development, production or test)", c.Env)
 	}
+	if c.Ingest.Workers < 0 {
+		return fmt.Errorf("INGEST_WORKERS must be 0 or more, got %d", c.Ingest.Workers)
+	}
 	if u, err := url.Parse(c.SourceURL); err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
 		return fmt.Errorf("SOURCE_URL must be an absolute http(s) URL, got %q", c.SourceURL)
 	}
@@ -993,6 +996,9 @@ func (c Config) IntegrationKey() ([]byte, error) {
 // environment), and production hardening. main logs each at startup.
 func (c Config) Warnings() []string {
 	var w []string
+	if c.Ingest.Async && c.Ingest.Workers == 0 {
+		w = append(w, "INGEST_ASYNC=true with INGEST_WORKERS=0: this node only queues uploads; run worker nodes (INGEST_WORKERS > 0) against the same database or the queue never drains")
+	}
 	if c.LegacyLicenseDenylist {
 		w = append(w, `LICENSE_DENYLIST is no longer supported and is ignored — license rules are component policies now (/policies; the seeded "Strong copyleft licenses" policy replaces its default)`)
 	}

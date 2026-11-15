@@ -1,11 +1,28 @@
+{{- /*
+One pod template, two roles. "app" serves the API and UI (and, unless a worker
+Deployment exists, drains the ingest queue too). "worker" runs only when
+ingest.workerDeployment.enabled: it takes the queue, serves no traffic (the
+Service selects component=app), and can be autoscaled on queue age with KEDA.
+*/}}
+{{- $roles := list "app" }}
+{{- if .Values.ingest.workerDeployment.enabled }}{{ $roles = append $roles "worker" }}{{ end }}
+{{- range $role := $roles }}
+{{- with $ }}
+{{- $worker := eq $role "worker" }}
+{{- $name := ternary (printf "%s-worker" (include "xila.fullname" .)) (include "xila.fullname" .) $worker }}
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "xila.fullname" . }}
+  name: {{ $name }}
   labels:
-    {{- include "xila.labels" . | nindent 4 }}
+    {{- include "xila.labels" . | replace "app.kubernetes.io/component: app" (printf "app.kubernetes.io/component: %s" $role) | nindent 4 }}
 spec:
-  {{- if not .Values.autoscaling.enabled }}
+  {{- if $worker }}
+  {{- if not .Values.ingest.workerDeployment.keda.enabled }}
+  replicas: {{ .Values.ingest.workerDeployment.replicas }}
+  {{- end }}
+  {{- else if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
   revisionHistoryLimit: 5
@@ -18,7 +35,7 @@ spec:
       maxSurge: 1
   selector:
     matchLabels:
-      {{- include "xila.selectorLabels" . | nindent 6 }}
+      {{- include "xila.selectorLabels" . | replace "app.kubernetes.io/component: app" (printf "app.kubernetes.io/component: %s" $role) | nindent 6 }}
   template:
     metadata:
       annotations:
@@ -30,7 +47,7 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
       labels:
-        {{- include "xila.selectorLabels" . | nindent 8 }}
+        {{- include "xila.selectorLabels" . | replace "app.kubernetes.io/component: app" (printf "app.kubernetes.io/component: %s" $role) | nindent 8 }}
         {{- with .Values.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -74,6 +91,11 @@ spec:
                 secretKeyRef:
                   {{- include "xila.db.passwordSecret" . | nindent 18 }}
             {{- end }}
+            {{- if .Values.ingest.workerDeployment.enabled }}
+            # The worker Deployment drains the queue; the app pods only accept uploads.
+            - name: INGEST_WORKERS
+              value: {{ ternary (toString .Values.ingest.workers) "0" $worker | quote }}
+            {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -84,7 +106,7 @@ spec:
           readinessProbe:
             {{- toYaml .Values.probes.readiness | nindent 12 }}
           resources:
-            {{- toYaml .Values.resources | nindent 12 }}
+            {{- toYaml (ternary (.Values.ingest.workerDeployment.resources | default .Values.resources) .Values.resources $worker) | nindent 12 }}
           volumeMounts:
             # Read-only root filesystem; large multipart uploads may spill here.
             - name: tmp
@@ -108,7 +130,7 @@ spec:
           whenUnsatisfiable: ScheduleAnyway
           labelSelector:
             matchLabels:
-              {{- include "xila.selectorLabels" . | nindent 14 }}
+              {{- include "xila.selectorLabels" . | replace "app.kubernetes.io/component: app" (printf "app.kubernetes.io/component: %s" $role) | nindent 14 }}
       {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
@@ -122,3 +144,5 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+{{- end }}
+{{- end }}

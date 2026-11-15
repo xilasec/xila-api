@@ -564,7 +564,9 @@ func run() error {
 	// Async ingestion: a worker pool drains the durable scan-job queue so uploads
 	// return immediately and processing scales with worker count, not request rate.
 	if cfg.Ingest.Async {
-		for i := 0; i < max(1, cfg.Ingest.Workers); i++ {
+		// INGEST_WORKERS=0 makes a web-only node: it accepts and queues uploads,
+		// and dedicated worker nodes drain the queue.
+		for i := 0; i < cfg.Ingest.Workers; i++ {
 			go runScanWorker(rootCtx, scanRepo, ingestSvc, cfg.Ingest.PollInterval, cfg.Ingest.MaxAttempts)
 		}
 		// Watch the backlog: the gauges say how far behind we are, and the same

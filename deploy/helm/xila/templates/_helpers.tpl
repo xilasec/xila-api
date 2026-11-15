@@ -114,6 +114,18 @@ Args: (list $ secretName key generator)
 {{- if and (not .Values.postgresql.enabled) (not .Values.database.password) (not .Values.database.passwordSecret.name) (not .Values.existingSecret) -}}
 {{- fail "set database.password, database.passwordSecret.name, or DB_PASSWORD in existingSecret" -}}
 {{- end -}}
+{{- if and .Values.ingest.workerDeployment.enabled (not .Values.ingest.async) -}}
+{{- fail "ingest.workerDeployment needs ingest.async=true (inline ingest has no queue to drain)" -}}
+{{- end -}}
+{{- if and .Values.ingest.workerDeployment.enabled (lt (int .Values.ingest.workers) 1) -}}
+{{- fail "ingest.workerDeployment needs ingest.workers of at least 1" -}}
+{{- end -}}
+{{- if and .Values.ingest.workerDeployment.keda.enabled (not .Values.ingest.workerDeployment.keda.prometheusServer) -}}
+{{- fail "ingest.workerDeployment.keda needs keda.prometheusServer" -}}
+{{- end -}}
+{{- if and .Values.ingest.workerDeployment.keda.enabled (not .Values.metrics.enabled) -}}
+{{- fail "ingest.workerDeployment.keda scales on the queue metrics: set metrics.enabled=true" -}}
+{{- end -}}
 {{- if not (has .Values.appEnv (list "development" "production")) -}}
 {{- fail "appEnv must be development or production" -}}
 {{- end -}}

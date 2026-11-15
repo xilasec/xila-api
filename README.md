@@ -2517,7 +2517,10 @@ path. As a result:
 - upload latency is about one insert (request rate is decoupled from processing cost),
 - bursts are absorbed by the queue instead of exhausting the DB pool,
 - throughput scales with `INGEST_WORKERS`, and multiple API instances can run
-  workers that pull jobs safely in parallel (the app is stateless),
+  workers that pull jobs safely in parallel (the app is stateless). Set
+  `INGEST_WORKERS=0` on nodes that should only accept uploads and run dedicated
+  worker nodes against the same database (the Helm chart does this with
+  `ingest.workerDeployment`, optionally autoscaled by KEDA on queue age),
 - crashed jobs are reclaimed (stale-lock timeout) and retried up to
   `INGEST_MAX_ATTEMPTS` before being parked as `failed`.
 

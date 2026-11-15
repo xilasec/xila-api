@@ -553,3 +553,22 @@ func TestDSNEscapesEveryPart(t *testing.T) {
 		t.Errorf("connect_timeout = %v", cfg.ConnectTimeout)
 	}
 }
+
+// INGEST_WORKERS=0 is a web-only node (warned about, not refused); a negative
+// count is a mistake.
+func TestIngestWorkersZero(t *testing.T) {
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("INGEST_ASYNC", "true")
+	t.Setenv("INGEST_WORKERS", "0")
+	cfg, err := Load()
+	if err != nil || cfg.Ingest.Workers != 0 {
+		t.Fatalf("INGEST_WORKERS=0: %d, %v", cfg.Ingest.Workers, err)
+	}
+	if !slices.ContainsFunc(cfg.Warnings(), func(w string) bool { return strings.Contains(w, "INGEST_WORKERS=0") }) {
+		t.Errorf("no warning for an async node without workers: %v", cfg.Warnings())
+	}
+	t.Setenv("INGEST_WORKERS", "-1")
+	if _, err := Load(); err == nil {
+		t.Error("INGEST_WORKERS=-1 accepted")
+	}
+}
