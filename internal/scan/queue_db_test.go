@@ -90,7 +90,7 @@ func TestJobRetryAndPark(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create scan: %v", err)
 	}
-	if err := scanRepo.EnqueueJob(ctx, sc.ID, []byte(trivyReport), "", true); err != nil {
+	if err := scanRepo.EnqueueJob(ctx, sc.ID, []byte(trivyReport), "", true, false); err != nil {
 		t.Fatalf("enqueue: %v", err)
 	}
 

@@ -6,7 +6,7 @@ description: >-
   is the only dependency.
 type: application
 # Chart version: bump on every chart change.
-version: 0.1.1
+version: 0.1.2
 # Default image tag (image.tag overrides it).
 appVersion: "0.1.0"
 kubeVersion: ">=1.25.0-0"

@@ -31,6 +31,15 @@ export class ApiError extends Error {
 	}
 }
 
+/** Base64url, no padding — matches the API's path-segment decoding for a root
+ * cause's key (which may hold "/" or "@"). @param {string} s */
+function b64url(s) {
+	return btoa(unescape(encodeURIComponent(s)))
+		.replace(/\+/g, '-')
+		.replace(/\//g, '_')
+		.replace(/=+$/, '');
+}
+
 /** @typedef {Record<string, string | number | boolean | null | undefined>} Query */
 
 /** @param {string} path @param {Query} [query] */
@@ -608,6 +617,13 @@ export const api = {
 	remediationFindings: (id) => request('GET', `/remediation/${id}/findings`).then((d) => d.findings ?? []),
 	/** @param {string} id */
 	fileRemediationIssue: (id) => request('POST', `/remediation/${id}/issue`),
+	// Root causes: the same change merged across every project you can see.
+	/** @param {Record<string, any>} [query] */
+	rootCauses: (query = {}) => request('GET', '/root-causes', { query }),
+	/** @param {string} kind @param {string} key */
+	rootCause: (kind, key) => request('GET', `/root-causes/${kind}/${b64url(key)}`),
+	/** @param {string} kind @param {string} key */
+	createRootCauseRemediation: (kind, key) => request('POST', `/root-causes/${kind}/${b64url(key)}/remediation`),
 	/** @param {string} [projectId] */
 	findingTags: (projectId) =>
 		request('GET', '/findings/tags', { query: { project_id: projectId } }).then((d) => d.tags ?? []),

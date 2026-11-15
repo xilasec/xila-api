@@ -63,6 +63,7 @@ import (
 	"github.com/xilasec/xila-api/internal/remediation"
 	"github.com/xilasec/xila-api/internal/report"
 	"github.com/xilasec/xila-api/internal/retention"
+	"github.com/xilasec/xila-api/internal/rootcause"
 	"github.com/xilasec/xila-api/internal/saml"
 	"github.com/xilasec/xila-api/internal/sbom"
 	"github.com/xilasec/xila-api/internal/scan"
@@ -230,7 +231,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 	ingestSvc := scan.NewService(scanRepo, findingRepo, projectRepo, parsers, notifySvc,
 		[]scan.Applier{correlation.NewReacher(findingRepo, findingRepo), exploitSvc, vexSvc, triageSvc, assetSvc,
 			connector.NewRemoteTriage(connectorRepo, findingRepo).WithApproval(cfg.RiskAcceptanceRequiresApproval),
-			enrichment.NewNVD(findingRepo, nil)}, scanRepo).WithFollowUps(remediationSvc)
+			enrichment.NewNVD(findingRepo, nil)}, scanRepo).WithFollowUps(remediationSvc).WithSkipUnchanged(true)
 	// Advisory sources without network: the local OSV mirror + private advisories.
 	osvMirrorRepo := vulnmatch.NewOSVRepository(pool)
 	advisoryRepo := vulnmatch.NewAdvisoryRepository(pool, "")
@@ -299,6 +300,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		Badge:        badge.NewHandler(badge.NewRepository(pool), portfolio.NewRepository(pool), gateRepo, findingRepo),
 		FixPlan:      fixplan.NewHandler(findingRepo),
 		Remediation:  remediation.NewHandler(remediationRepo, remediationSvc, membershipRepo),
+		RootCauses:   rootcause.NewHandler(rootcause.NewService(findingRepo, remediationRepo, remediationSvc, membershipRepo)),
 		Exploits:     exploitintel.NewHandler(exploitRepo, exploitSvc, findingRepo),
 		Evidence:     evidence.NewHandler(evidence.NewRepository(pool), projectRepo, complianceRepo, portfolio.NewRepository(pool), craRepo),
 		CRACases:     cra.NewCaseHandler(craSvc),

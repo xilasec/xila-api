@@ -483,6 +483,20 @@ ingest pass runs after dedup (`scan.Service.WithFollowUps`), not as an applier.
 Action tickets sync through `issuetracker.LinkSyncer`, reusing
 `issuetracker.Decide`.
 
+Root causes: `internal/rootcause` answers "what's the same problem
+everywhere?" by merging every visible project's `fixplan.Changes` into one row
+per (kind, key) in `fixplan.RootCauses` (pure, table-tested); no second grouping
+decision. `GET /root-causes` and `GET /root-causes/{kind}/{key}` are
+portfolio-wide lists scoped by `authz.VisibleScope`, like the fix plan and
+remediation; `POST /root-causes/{kind}/{key}/remediation` spans the caller's
+visible projects carrying the change (`routeScope{}`, editor checked per
+project in the handler, like `POST /findings/bulk`; never load or name a project
+outside the visible scope) and reuses `remediation.Service.Accept` so its
+invariants (one live action per change, idempotent) hold rather than writing a
+second path to the same table. A change's key can hold `/` and `@` (scoped
+npm packages, purl bases), so it's a base64url path segment, not raw. Gated by
+the `remediation` feature switch, not a feature of its own.
+
 PR comments: `cmd/xila` (`upload --comment`) posts the gate result and the
 findings this scan introduced (`GET /findings?scan_id=…&new=true`) to the pull
 request. `github.go` is a stdlib GitHub client. The comment carries a hidden
@@ -702,6 +716,27 @@ and `internal/server/smoke_test.go` (missing smoke wiring causes a nil panic in 
   closing scan (no last scan ⇒ the project-level target: no asset, no branch). A
   project-wide close would let a feature-branch or second-image scan remediate
   findings it never looked at. `TestCloseMissingScopedToScanTarget` pins this.
+- Skip-unchanged compares against the *latest* completed scan of the target
+  only (`scan.LatestCompletedTarget`: project version + scanner + asset, same
+  scoping `CloseMissing` uses), never any earlier one. An A, B, A sequence of
+  uploads must reprocess the third: it differs from B, the scan it is actually
+  being compared against, even though it repeats A. The content hash is over
+  the *parsed* findings (`scan.contentHash`), not the raw bytes, so a
+  scanner-embedded timestamp never present in `ParsedFinding` (Trivy's
+  top-level `CreatedAt`) does not defeat it, while a parser upgrade that
+  extracts a new field does. A skipped scan still has to carry its target's
+  live findings forward (`finding.CarryForward`: `last_scan_id`/`last_seen_at`
+  only, `first_scan_id` untouched) so a later, different scan's `CloseMissing`
+  still finds the right `asset_id` through the chain, and the skipped scan
+  itself never looks like it introduced anything new. A matching hash is not
+  enough: skip only if nothing a re-ingest acts on changed since the previous
+  scan finished (`finding.ChangedSince`: `findings.state_changed_at`, stamped by
+  the `findings_state` trigger on status, severity, title, description, the
+  manual flags and archiving, plus the asset's `exposure_updated_at`), and only
+  if every finding is still there to carry (`CarryForward` moves them in one
+  transaction and refuses on a count mismatch). A reset field, a manual close or
+  a cleared exposure must get the full pipeline. A new column that ingest
+  rewrites belongs in that trigger.
 - Dedup writes only what changes. Its statements are guarded with
   `IS DISTINCT FROM`. Do not rewrite a row to store the value it already has, or
   each scan churns the project's findings (dead tuples, WAL, vacuum).
@@ -786,6 +821,7 @@ internal/secretbox                     AES-GCM for integration tokens at rest
 internal/engagement                    DefectDojo-style engagements (scans as tests) + manual findings
 internal/findingtemplate               reusable write-ups for manual findings
 internal/fixplan                       fix-first plan: upgrades ranked by risk removed
+internal/rootcause                     cross-project root causes: fixplan.Changes merged by (kind, key) over every visible project
 internal/exploitintel                  ExploitDB / Metasploit / Nuclei → finding exploit_maturity → priority
 internal/badge                         token-gated public README badges (SVG)
 internal/cra                           EU CRA evidence report (framework eu-cra)

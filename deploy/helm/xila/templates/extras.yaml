@@ -90,3 +90,24 @@ spec:
         - port: postgresql
 {{- end }}
 {{- end }}
+{{- if and .Values.ingest.workerDeployment.enabled .Values.ingest.workerDeployment.keda.enabled }}
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ include "xila.fullname" . }}-worker
+  labels:
+    {{- include "xila.labels" . | replace "app.kubernetes.io/component: app" "app.kubernetes.io/component: worker" | nindent 4 }}
+spec:
+  scaleTargetRef:
+    name: {{ include "xila.fullname" . }}-worker
+  minReplicaCount: {{ .Values.ingest.workerDeployment.keda.minReplicas }}
+  maxReplicaCount: {{ .Values.ingest.workerDeployment.keda.maxReplicas }}
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: {{ .Values.ingest.workerDeployment.keda.prometheusServer | quote }}
+        # Smoothed so one large upload doesn't flap the worker count.
+        query: max(avg_over_time(xila_ingest_queue_oldest_wait_seconds{namespace="{{ .Release.Namespace }}"}[2m]))
+        threshold: {{ .Values.ingest.workerDeployment.keda.targetOldestWaitSeconds | quote }}
+{{- end }}

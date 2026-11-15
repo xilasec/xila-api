@@ -65,6 +65,7 @@ import (
 	"github.com/xilasec/xila-api/internal/remediation"
 	"github.com/xilasec/xila-api/internal/report"
 	"github.com/xilasec/xila-api/internal/retention"
+	"github.com/xilasec/xila-api/internal/rootcause"
 	"github.com/xilasec/xila-api/internal/saml"
 	"github.com/xilasec/xila-api/internal/sbom"
 	"github.com/xilasec/xila-api/internal/scan"
@@ -267,7 +268,8 @@ func run() error {
 		appliers = append(appliers, nvdSvc)
 	}
 	ingestSvc := scan.NewService(scanRepo, findingRepo, projectRepo, parsers, notifySvc, appliers, scanRepo).
-		WithFollowUps(remediationSvc)
+		WithFollowUps(remediationSvc).
+		WithSkipUnchanged(cfg.Ingest.SkipUnchanged)
 	connectorSvc := connector.NewService(connectorRepo, ingestSvc, trackerCipher)
 	// Component policies: evaluated on every SBOM upload (the sbom post-ingest
 	// hook), after each policy change, and on POLICY_EVAL_INTERVAL.
@@ -418,6 +420,7 @@ func run() error {
 		Badge:        badge.NewHandler(badge.NewRepository(db), portfolioRepo, gateRepo, findingRepo).WithPublicURL(cfg.PublicURL),
 		FixPlan:      fixplan.NewHandler(findingRepo),
 		Remediation:  remediation.NewHandler(remediationRepo, remediationSvc, membershipRepo),
+		RootCauses:   rootcause.NewHandler(rootcause.NewService(findingRepo, remediationRepo, remediationSvc, membershipRepo)),
 		Exploits:     exploitintel.NewHandler(exploitRepo, exploitSvc, findingRepo),
 		Evidence:     evidence.NewHandler(evidence.NewRepository(db), projectRepo, complianceRepo, portfolioRepo, craRepo),
 		CRACases:     cra.NewCaseHandler(craSvc),
@@ -564,7 +567,9 @@ func run() error {
 	// Async ingestion: a worker pool drains the durable scan-job queue so uploads
 	// return immediately and processing scales with worker count, not request rate.
 	if cfg.Ingest.Async {
-		for i := 0; i < max(1, cfg.Ingest.Workers); i++ {
+		// INGEST_WORKERS=0 makes a web-only node: it accepts and queues uploads,
+		// and dedicated worker nodes drain the queue.
+		for i := 0; i < cfg.Ingest.Workers; i++ {
 			go runScanWorker(rootCtx, scanRepo, ingestSvc, cfg.Ingest.PollInterval, cfg.Ingest.MaxAttempts)
 		}
 		// Watch the backlog: the gauges say how far behind we are, and the same

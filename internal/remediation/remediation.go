@@ -290,18 +290,21 @@ func (r *Repository) Findings(ctx context.Context, actionID string) ([]ActionFin
 	return out, rows.Err()
 }
 
-// LiveAction is the identity of a live action, for matching new findings to it.
+// LiveAction is the identity of a live action, for matching new findings to
+// it; Status distinguishes open from in_progress for callers that display it
+// (both count as "live").
 type LiveAction struct {
 	ID        string
 	ProjectID string
 	Kind      fixplan.Kind
 	Key       string
 	Target    string
+	Status    Status
 }
 
 // LiveActions returns the live actions of a project ("" = every project).
 func (r *Repository) LiveActions(ctx context.Context, projectID string) ([]LiveAction, error) {
-	rows, err := r.db.Query(ctx, `SELECT id, project_id, kind, key, target FROM remediation_actions
+	rows, err := r.db.Query(ctx, `SELECT id, project_id, kind, key, target, status FROM remediation_actions
 		WHERE status IN `+liveStatuses+` AND ($1 = '' OR project_id::text = $1)`, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("list live actions: %w", err)
@@ -310,7 +313,7 @@ func (r *Repository) LiveActions(ctx context.Context, projectID string) ([]LiveA
 	out := []LiveAction{}
 	for rows.Next() {
 		var a LiveAction
-		if err := rows.Scan(&a.ID, &a.ProjectID, &a.Kind, &a.Key, &a.Target); err != nil {
+		if err := rows.Scan(&a.ID, &a.ProjectID, &a.Kind, &a.Key, &a.Target, &a.Status); err != nil {
 			return nil, err
 		}
 		out = append(out, a)

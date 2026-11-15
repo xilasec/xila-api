@@ -146,6 +146,7 @@ func cmdUpload(args []string, out, errw io.Writer) int {
 	commit := fs.String("commit", "", "source commit")
 	artifact := fs.String("artifact", "", "artifact name")
 	engagement := fs.String("engagement", "", "engagement id: file the scan as one of its tests")
+	force := fs.Bool("force", false, "process in full even if this report's content hash matches the previous scan (bypasses skip-unchanged)")
 	gate := fs.Bool("gate", false, "run the gate after upload; non-zero exit on failure")
 	newOnly := fs.Bool("new", false, "with --gate: evaluate only newly-introduced findings")
 	baseline := fs.String("baseline", "", "with --gate: compare against this baseline branch for new-only (overrides the stored policy's baseline_branch)")
@@ -176,6 +177,9 @@ func cmdUpload(args []string, out, errw io.Writer) int {
 		if v != "" {
 			q.Set(k, v)
 		}
+	}
+	if *force {
+		q.Set("force", "true")
 	}
 	bearer, err := resolveToken(*url, *token, *oidcToken, out)
 	if err != nil {

@@ -343,6 +343,9 @@ roles, and password login can optionally be turned off. See [Single sign-on](#si
 | GET    | `/api/v1/remediation/{id}/findings` | The findings an action closes |
 | POST   | `/api/v1/remediation/{id}/issue`    | File the action as one tracker ticket (editor; idempotent) |
 | POST   | `/api/v1/remediation/sweep`         | Group findings + refresh actions now (admin; also runs on `REMEDIATION_SWEEP_INTERVAL` and per ingest) |
+| GET    | `/api/v1/root-causes`               | The same change merged across every project you can see (`?kind=`, `?ecosystem=`, `?q=`, `?kev=`, `?min_severity=`) |
+| GET    | `/api/v1/root-causes/{kind}/{key}`  | One root cause's affected projects (`key` base64url-encoded; findings, priority, live action if any) |
+| POST   | `/api/v1/root-causes/{kind}/{key}/remediation` | Create the missing remediation action everywhere you can edit; skips and reports the rest, idempotent |
 | GET/POST | `/api/v1/projects/{id}/connectors` | The project's Dependency-Track / DefectDojo pull connectors (token write-only); adding needs project owner |
 | PUT/DELETE | `/api/v1/projects/{id}/connectors/{connectorID}` | Change / remove a connector (owner; its imported findings stay) |
 | POST   | `/api/v1/projects/{id}/connectors/{connectorID}/test` | Verify the stored connector credentials (owner; `502` with the remote's error) |
@@ -814,6 +817,24 @@ action (`issue_closed`), and reopening the ticket reopens the action. The projec
 Remediation tab (proposals and actions, expandable to their findings); the
 portfolio list is under Remediation in the nav. The fix plan endpoints still
 list package upgrades (distro packages included, as individual upgrades).
+
+Root causes (`internal/rootcause`): the same package upgrade, base-image
+rebuild or rule fix needed in more than one project is one row instead of one
+per project, merging `fixplan.Changes` over every project you can see, with no
+second grouping logic. `GET /root-causes` lists them, sorted by priority
+removed then projects affected, with filters for kind, ecosystem, a text
+search, KEV-only and a minimum severity; `GET /root-causes/{kind}/{key}`
+(`key` base64url-encoded, since it can hold `/` and `@`) shows the affected
+projects, each with its findings, priority removed and live remediation
+action if it has one. `POST /root-causes/{kind}/{key}/remediation` creates the
+missing action in every visible project you hold at least editor on, reusing
+`remediation.Service.Accept` so its invariants hold (one live action per
+change, idempotent). Visible projects that are already live, or that you can't
+edit, are reported in `skipped`; projects you can't see are never touched or
+named. Gated by the `remediation` feature switch
+alongside remediation actions; the nav has a Root Causes page with the same
+list, an expandable row per change for its affected projects, and a button to
+create the missing actions.
 
 Pull connectors (Dependency-Track, DefectDojo): point a project at a running
 Dependency-Track project (by UUID) or DefectDojo product (`42`) or engagement
@@ -2503,6 +2524,7 @@ Azure Key Vault, Vault) hand secrets to the app. It applies to `JWT_SECRET`,
 | `METRICS_SNAPSHOT_INTERVAL`   | `1h`                 | how often today's and yesterday's metric snapshots are recomputed; the first run backfills 90 days (`0` = off) |
 | `INGEST_MAX_QUEUE_DEPTH`      | `10000`              | pending job count at which uploads are rejected with `429` (`0` = unbounded) |
 | `INGEST_QUEUE_SAMPLE_INTERVAL`| `5s`                 | how often queue depth is measured             |
+| `INGEST_SKIP_UNCHANGED`       | `true`               | skip the pipeline when a report's content hash matches its target's previous completed scan (see "Skip unchanged scans"); a per-upload `force=true` always processes in full |
 
 ## Scaling ingestion (async)
 
@@ -2517,7 +2539,10 @@ path. As a result:
 - upload latency is about one insert (request rate is decoupled from processing cost),
 - bursts are absorbed by the queue instead of exhausting the DB pool,
 - throughput scales with `INGEST_WORKERS`, and multiple API instances can run
-  workers that pull jobs safely in parallel (the app is stateless),
+  workers that pull jobs safely in parallel (the app is stateless). Set
+  `INGEST_WORKERS=0` on nodes that should only accept uploads and run dedicated
+  worker nodes against the same database (the Helm chart does this with
+  `ingest.workerDeployment`, optionally autoscaled by KEDA on queue age),
 - crashed jobs are reclaimed (stale-lock timeout) and retried up to
   `INGEST_MAX_ATTEMPTS` before being parked as `failed`.
 
@@ -2533,6 +2558,34 @@ with pipelined batch upserts, and the post-ingest tail (auto-triage and
 cross-tool dedup) is scoped to the scan's findings rather than the whole
 project. Ingest cost therefore tracks the size of the upload, not the project's
 accumulated history.
+
+
+### Skip unchanged scans
+
+Most CI reruns report exactly what the previous scan of the same target did.
+Each upload hashes the parsed findings (every field the upsert would write,
+keyed by dedup fingerprint, plus `close_missing`) rather than the raw bytes, so
+a report that differs only in a scanner-embedded value we don't read (Trivy's
+top-level `CreatedAt`, for example) still counts as unchanged, while a parser
+upgrade that extracts something new counts as a change. If the hash matches the
+target's (project version + scanner + asset) previous completed scan, the
+pipeline is skipped entirely: no upsert, auto-close, appliers, dedup or alert.
+The scan is recorded completed with the previous summary, `unchanged_of` set
+to the scan it repeated, and the target's live findings get their
+`last_scan_id`/`last_seen_at` moved onto it in one UPDATE, so they still look
+seen by this scan (and a later, different scan's auto-close still works) without
+ever counting as newly introduced (`first_scan_id` is untouched). Only ever
+compared against the *latest* completed scan of the target, so an A, B, A
+sequence reprocesses the third upload rather than matching the stale first one.
+A matching hash alone isn't enough: if anyone changed one of those findings
+since the previous scan (a status, a reset title or severity, archiving) or the
+asset's exposure, or a finding has been deleted, the upload is processed in full
+so the scanner's view is restored (a manually closed finding that is still
+reported reopens, a reset field gets the scanner's value back).
+
+`INGEST_SKIP_UNCHANGED` (default `true`) controls this; a per-upload
+`force=true` (`xila upload --force`) always processes in full. Works the same
+whether ingestion is sync or async.
 
 ### Backpressure & queue visibility
 
@@ -2919,7 +2972,7 @@ restart. All are on by default:
 | `badges` | README badges | Badge images answer 404 (tokens are kept). |
 | `custom_fields` | Custom fields | Definitions and values are kept but hidden. |
 | `personal_notifications` | Assignee / watcher alerts | Events go to the admin-managed channels only. |
-| `remediation` | Remediation actions | The ingest pass, the sweep, and the ticket sync stop. |
+| `remediation` | Remediation actions | The ingest pass, the sweep, the ticket sync, and root causes stop. |
 | `engagements` | Engagements | Manual findings can still be reported. |
 
 A switched-off feature's routes answer 404 (public ones too), its background

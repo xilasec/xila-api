@@ -85,6 +85,7 @@ func (h *Handler) Ingest(c *fiber.Ctx) error {
 		Release:      strings.TrimSpace(c.Query("release")),
 		EngagementID: c.Query("engagement_id"),
 		CloseMissing: c.QueryBool("close_missing", true),
+		Force:        c.QueryBool("force", false),
 	}
 	if req.EngagementID != "" {
 		if uuid.Validate(req.EngagementID) != nil {

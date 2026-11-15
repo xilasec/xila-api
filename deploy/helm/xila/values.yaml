@@ -131,8 +131,26 @@ otel:
 # (the xila CLI retries). Set async: false to process uploads inline.
 ingest:
   async: true
+  # Workers per pod that drain the queue.
   workers: 4
   maxQueueDepth: 10000
+  # Split roles: a separate worker Deployment drains the queue, and the app
+  # pods only accept uploads (INGEST_WORKERS=0 there), so the two scale
+  # independently: app pods on request load, workers on queue age.
+  workerDeployment:
+    enabled: false
+    replicas: 2
+    # Defaults to the app pods' resources when empty.
+    resources: {}
+    # Scale workers on queue age with KEDA (needs KEDA installed and Prometheus
+    # scraping /metrics, i.e. metrics.enabled). Scales out once the oldest
+    # waiting upload is older than targetOldestWaitSeconds.
+    keda:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 20
+      prometheusServer: ""   # e.g. http://prometheus-operated.monitoring:9090
+      targetOldestWaitSeconds: 60
 
 metrics:
   enabled: false

@@ -1064,6 +1064,53 @@ func (r *Repository) CloseMissing(ctx context.Context, projectID, scanner, scanI
 	return ids, rows.Err()
 }
 
+// CarryForward moves every finding still pointing at an earlier scan onto a new
+// one that repeated it exactly (scan.Service's skip-unchanged short-circuit):
+// refreshes last_seen_at as if the new scan had reported them, without
+// touching first_scan_id (so they never start counting as "new") or anything a
+// full re-ingest would otherwise redo — status, priority, correlation are
+// already settled from the scan being repeated.
+//
+// want is how many distinct findings the new report holds. The move happens in
+// one transaction and only if exactly that many findings still point at the
+// earlier scan; otherwise (one was deleted or moved meanwhile) nothing changes
+// and ok is false, so the caller runs the full pipeline instead.
+func (r *Repository) CarryForward(ctx context.Context, prevScanID, newScanID string, want int) (ok bool, err error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return false, fmt.Errorf("carry forward findings: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	tag, err := tx.Exec(ctx, `UPDATE findings SET last_scan_id = $2, last_seen_at = now() WHERE last_scan_id = $1`, prevScanID, newScanID)
+	if err != nil {
+		return false, fmt.Errorf("carry forward findings: %w", err)
+	}
+	if tag.RowsAffected() != int64(want) {
+		return false, nil
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return false, fmt.Errorf("carry forward findings: %w", err)
+	}
+	return true, nil
+}
+
+// ChangedSince reports whether anything a re-ingest would act on changed after
+// since for the findings an earlier scan reported (their state_changed_at,
+// stamped by the findings_state trigger: status, severity, title,
+// description, the manual-override flags, archiving) or for the scan's asset
+// (its exposure). A repeat of that scan may only skip the pipeline when this is
+// false: a reset field, a manually closed finding or a cleared exposure all need
+// the full pipeline to put the scanner's view back.
+func (r *Repository) ChangedSince(ctx context.Context, prevScanID string, since time.Time, assetID *string) (bool, error) {
+	const q = `SELECT EXISTS (SELECT 1 FROM findings WHERE last_scan_id = $1 AND state_changed_at > $2)
+		OR ($3::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM assets WHERE id = $3 AND exposure_updated_at > $2))`
+	var changed bool
+	if err := r.db.QueryRow(ctx, q, prevScanID, since, assetID).Scan(&changed); err != nil {
+		return false, fmt.Errorf("findings changed since scan: %w", err)
+	}
+	return changed, nil
+}
+
 // Enrichable is the minimal finding data needed to compute enrichment.
 type Enrichable struct {
 	ID       string

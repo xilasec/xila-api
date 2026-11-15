@@ -64,6 +64,8 @@ tags:
     description: The deduplicated, prioritized backlog and its triage lifecycle.
   - name: Remediation
     description: Remediation work items — findings grouped by the change that fixes them.
+  - name: Root Causes
+    description: The same change (package upgrade, rule fix) merged across every project it affects.
   - name: SBOM
     description: Component inventory, kept current against OSV advisories.
   - name: Licenses
@@ -2188,6 +2190,14 @@ paths:
         auto-close what the scanner no longer reports → reachability → VEX →
         auto-triage rules → cross-tool dedup → priority → alerts.
 
+        If the parsed report is identical to the target's previous scan (same
+        project version, scanner and asset) — a report that differs only in a
+        scanner-embedded timestamp still counts as identical — the pipeline is
+        skipped: the scan is recorded completed with the previous summary and
+        `unchanged_of` set, and its findings are carried onto it without a full
+        re-run (`INGEST_SKIP_UNCHANGED`, default on; `force=true` always
+        processes in full).
+
         With `INGEST_ASYNC=true` the server returns **202** with a `processing`
         scan and a worker finishes the job; poll `GET /scans/{id}` until it is
         `completed`. If the ingest queue is saturated you get **429** with
@@ -2242,6 +2252,13 @@ paths:
             partial/incremental scans, or you will close findings that simply
             weren't scanned.
           schema: { type: boolean, default: true }
+        - name: force
+          in: query
+          description: |
+            Always run the full pipeline, even if this report's content hash
+            matches the target's previous completed scan (bypasses
+            `INGEST_SKIP_UNCHANGED`).
+          schema: { type: boolean, default: false }
       requestBody:
         required: true
         description: The raw scanner output.
@@ -3198,6 +3215,77 @@ paths:
         "400": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
         "502": { $ref: "#/components/responses/Error" }
+
+  /root-causes:
+    get:
+      operationId: listRootCauses
+      tags: [Root Causes]
+      summary: Cross-project root causes
+      description: |
+        Merges `fixplan.Changes` over every project you can see into one row per
+        (kind, key): the same package upgrade, base-image rebuild, or rule fix
+        needed in more than one project is one row instead of one per project.
+        Sorted by priority removed, then projects affected.
+      parameters:
+        - { name: kind, in: query, schema: { $ref: "#/components/schemas/RemediationKind" } }
+        - { name: ecosystem, in: query, schema: { type: string } }
+        - { name: q, in: query, description: Substring of the title, package, rule id, file path or key., schema: { type: string } }
+        - { name: kev, in: query, schema: { type: boolean } }
+        - { name: min_severity, in: query, schema: { $ref: "#/components/schemas/Severity" } }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Offset" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RootCauseList" }
+
+  /root-causes/{kind}/{key}:
+    get:
+      operationId: getRootCause
+      tags: [Root Causes]
+      summary: One root cause's affected projects
+      description: |
+        The projects you can see that carry this change, with each one's
+        findings, priority removed, and live remediation action if it has one.
+        404 when none of the projects you can see carries it — including when
+        every project that does is outside what you can see.
+      parameters:
+        - { $ref: "#/components/parameters/RootCauseKind" }
+        - { $ref: "#/components/parameters/RootCauseKey" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RootCauseDetail" }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /root-causes/{kind}/{key}/remediation:
+    post:
+      operationId: createRootCauseRemediation
+      tags: [Root Causes, Remediation]
+      summary: Create the missing remediation action everywhere you can
+      description: |
+        Creates the live remediation action (`remediation.Service.Accept`, same
+        invariants: one live action per change, idempotent) in every project
+        you can see that carries this change and where you hold at least
+        editor. The other visible projects are reported in `skipped` with a
+        reason (`forbidden`, or `already_live` when that project's change
+        already has a live action); projects you can't see are never touched
+        or named. A second call creates 0. 404 when no visible project
+        carries the change.
+      parameters:
+        - { $ref: "#/components/parameters/RootCauseKind" }
+        - { $ref: "#/components/parameters/RootCauseKey" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RootCauseRemediationResult" }
+        "404": { $ref: "#/components/responses/Error" }
 
   /projects/{projectID}/badge-token:
     get:
@@ -8148,6 +8236,13 @@ components:
       name: kind
       in: query
       schema: { $ref: "#/components/schemas/RemediationKind" }
+    RootCauseKind: { name: kind, in: path, required: true, schema: { $ref: "#/components/schemas/RemediationKind" } }
+    RootCauseKey:
+      name: key
+      in: path
+      required: true
+      description: The change's key, base64url-encoded (no padding) — it can contain slashes and "@".
+      schema: { type: string }
     TemplateID: { name: templateID, in: path, required: true, schema: { type: string, format: uuid } }
     ExploitFilter:
       name: exploit
@@ -9237,6 +9332,76 @@ components:
         duplicate_of: { type: [string, "null"], format: uuid }
         added_at: { type: string, format: date-time }
 
+    RootCause:
+      type: object
+      properties:
+        kind: { $ref: "#/components/schemas/RemediationKind" }
+        key: { type: string, description: Identifies the change within the kind, stably across scans. }
+        title: { type: string }
+        target: { type: string, description: The highest of the affected projects' minimal fixes (package_upgrade). }
+        package: { type: string }
+        purl: { type: string }
+        ecosystem: { type: string }
+        installed: { type: string }
+        image: { type: string }
+        os: { type: string }
+        file_path: { type: string }
+        resource: { type: string }
+        rule_id: { type: string }
+        projects: { type: integer, description: How many projects you can see carry this change. }
+        project_ids: { type: array, items: { type: string, format: uuid } }
+        findings: { type: integer, description: Summed over every affected project. }
+        by_severity: { type: object, additionalProperties: { type: integer } }
+        max_severity: { $ref: "#/components/schemas/Severity" }
+        priority_removed: { type: number }
+        kev: { type: integer }
+        max_epss: { type: [number, "null"] }
+        all_actioned: { type: boolean, description: Every affected project already has a live remediation action for this change. }
+
+    RootCauseList:
+      type: object
+      properties:
+        root_causes: { type: array, items: { $ref: "#/components/schemas/RootCause" } }
+        pagination: { $ref: "#/components/schemas/Pagination" }
+
+    RootCauseProjectShare:
+      type: object
+      properties:
+        project_id: { type: string, format: uuid }
+        project_name: { type: string }
+        findings: { type: integer }
+        max_severity: { $ref: "#/components/schemas/Severity" }
+        priority_removed: { type: number }
+        kev: { type: integer }
+        action:
+          description: The live remediation action already tracking this project's share, if any.
+          oneOf:
+            - type: object
+              properties:
+                id: { type: string, format: uuid }
+                status: { $ref: "#/components/schemas/RemediationStatus" }
+            - type: "null"
+
+    RootCauseDetail:
+      allOf:
+        - $ref: "#/components/schemas/RootCause"
+        - type: object
+          properties:
+            affected_projects: { type: array, items: { $ref: "#/components/schemas/RootCauseProjectShare" } }
+
+    RootCauseRemediationResult:
+      type: object
+      properties:
+        created: { type: integer, description: New remediation actions created. }
+        skipped:
+          type: array
+          items:
+            type: object
+            properties:
+              project_id: { type: string, format: uuid }
+              project_name: { type: string, description: Omitted when you can't edit that project. }
+              reason: { type: string, enum: [forbidden, already_live] }
+
     Engagement:
       type: object
       required: [name]
@@ -9345,7 +9510,7 @@ components:
     Scan:
       type: object
       examples:
-        - {"id": "4077d267-587a-415b-bf7d-36858ba00837", "project_id": "af938283-73e9-4d55-ba64-07a1658d69ce", "asset_id": null, "scanner": "trivy", "category": "sca", "status": "completed", "commit_sha": "", "branch": "", "version_id": "9f56646c-6102-42eb-8077-4dca83013b3e", "engagement_id": null, "summary": {"critical": 2, "high": 2}, "error": "", "started_at": "2026-11-13T01:41:56.635752+01:00", "finished_at": "2026-11-13T01:41:56.664762+01:00", "created_at": "2026-11-13T01:41:56.635752+01:00", "archived_at": null, "archived_by": null}
+        - {"id": "4077d267-587a-415b-bf7d-36858ba00837", "project_id": "af938283-73e9-4d55-ba64-07a1658d69ce", "asset_id": null, "scanner": "trivy", "category": "sca", "status": "completed", "commit_sha": "", "branch": "", "version_id": "9f56646c-6102-42eb-8077-4dca83013b3e", "engagement_id": null, "summary": {"critical": 2, "high": 2}, "error": "", "started_at": "2026-11-13T01:41:56.635752+01:00", "finished_at": "2026-11-13T01:41:56.664762+01:00", "created_at": "2026-11-13T01:41:56.635752+01:00", "archived_at": null, "archived_by": null, "content_hash": "8f3a2e1c4b5d6a7f0e1d2c3b4a5968778899aabbccddeeff00112233445566", "unchanged_of": null}
       properties:
         started_at: { type: [string, "null"], format: date-time }
         finished_at: { type: [string, "null"], format: date-time, description: Set once ingestion completed or failed. }
@@ -9367,6 +9532,22 @@ components:
         branch: { type: string }
         commit_sha: { type: string }
         created_at: { type: string, format: date-time }
+        content_hash:
+          type: [string, "null"]
+          readOnly: true
+          description: |
+            Digest of the parsed report's findings, set once ingestion finishes.
+            `null` for a scan with no raw report (manual findings, the OSV
+            matcher) or where hashing failed. See `unchanged_of`.
+        unchanged_of:
+          type: [string, "null"]
+          format: uuid
+          readOnly: true
+          description: |
+            Set when this scan's content hash matched its target's previous
+            completed scan: the pipeline was skipped (`INGEST_SKIP_UNCHANGED`)
+            and this scan merely carried the earlier findings forward. `null`
+            for a normally processed scan.
 
     OSVEvent:
       type: object
