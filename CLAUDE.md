@@ -272,6 +272,25 @@ filter**. A new per-resource route is covered automatically if its path carries 
 `membership.resourceTables` + `parseScope` for a new resource type). Instance
 admin (`IsAdmin`) bypasses all of these checks.
 
+Uploader role: `domain.TeamRole` is `viewer < uploader < editor < owner`
+(`TeamRole.rank`). `uploader` is "viewer plus uploads", for CI tokens: it
+passes `AtLeast(viewer)` (reads the project, its findings, scans, SBOMs, VEX
+like any viewer) but not `AtLeast(editor)`. `authz.Middleware` has a per-route
+`allowUploader` opt-in (`parseScope` in `authz.go`, checked as
+`role.AtLeast(domain.TeamUploader)`) for exactly the routes that would
+otherwise need `editor`: `POST /projects/{id}/scans|sboms|vex|gate`. Every
+other read (`GET /scans/{id}`, `GET /projects/{id}/findings`, the global
+`GET /findings?project_id=&scan_id=&new=true`) needs no carve-out: `uploader`
+already clears the `viewer` bar those routes set. Because roles only add
+access, `MaxTeamRole` picks the single highest-ranked role when a user holds
+more than one, so `uploader` + `viewer` is still `uploader` (keeps the upload
+grant, not demoted to read-only) and `uploader` + `editor` is `editor` (which
+already includes upload). The combination is never weaker than its strongest
+grant. Any hand-rolled SQL that ranks roles by a `CASE ... WHEN 'owner' ...
+WHEN 'editor' ... ELSE` (the permission audit's `accessSQL`,
+`membership.UsersWithProjectAccess`) must bucket `uploader` between `editor`
+and `viewer` explicitly, or it silently reports an uploader grant as `viewer`.
+
 SSO (OIDC + SAML): `internal/oidc` and `internal/saml` only handle the protocol.
 Both hand a verified identity to the shared layer in `internal/sso`, which calls
 `user.LinkIdentity` (identity → user by (provider, issuer, subject) in

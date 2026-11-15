@@ -141,7 +141,13 @@ func Middleware(m resolver) fiber.Handler {
 			return fiber.NewError(fiber.StatusForbidden, "no access to this project")
 		}
 		if !role.AtLeast(s.minRole) {
-			return fiber.NewError(fiber.StatusForbidden, "insufficient role for this action")
+			// uploader is viewer plus uploads: it never reaches editor on its
+			// own, so only the specific upload/gate routes that opt in
+			// (allowUploader) accept it in place of the editor they'd
+			// otherwise require.
+			if !(s.allowUploader && role.AtLeast(domain.TeamUploader)) {
+				return fiber.NewError(fiber.StatusForbidden, "insufficient role for this action")
+			}
 		}
 		return c.Next()
 	}
@@ -163,6 +169,10 @@ type routeScope struct {
 	resource   string
 	resourceID string
 	minRole    domain.TeamRole
+	// allowUploader lets an uploader-only project grant satisfy this route
+	// even though it fails minRole: the specific scan/SBOM/VEX upload, the
+	// gate run, and reading the scan it just pushed.
+	allowUploader bool
 }
 
 // resolveProject finds the project a request targets: named in the path, or the
@@ -253,6 +263,14 @@ func parseScope(path, method string) routeScope {
 			return routeScope{globalList: true}
 		}
 		s := routeScope{projectID: segs[1], minRole: mut()}
+		// uploader is viewer plus uploads: it already reads everything under
+		// /projects/{id} via minRole viewer, but a push/gate POST still
+		// defaults to editor, so opt those specific routes into the
+		// allowUploader carve-out.
+		if len(segs) == 3 && method == fiber.MethodPost &&
+			(segs[2] == "scans" || segs[2] == "sboms" || segs[2] == "vex" || segs[2] == "gate") {
+			s.allowUploader = true
+		}
 		// Archiving a project takes it (and its findings) out of every view
 		// for everyone; restoring it is owner-level like every restore.
 		if len(segs) == 2 && method == fiber.MethodDelete {

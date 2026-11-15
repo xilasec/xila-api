@@ -421,10 +421,12 @@ export default {
 	"role.viewer": "Betrachter",
 	"role.editor": "Bearbeiter",
 	"role.owner": "Owner",
+	"role.uploader": "Uploader",
 	// Role labels
 	"enum.role.viewer": "Betrachter",
 	"enum.role.editor": "Bearbeiter",
 	"enum.role.owner": "Owner",
+	"enum.role.uploader": "Uploader",
 	"enum.role.admin": "Admin",
 	"enum.role.member": "Mitglied",
 	// Findings list
@@ -830,6 +832,7 @@ export default {
 	"proj.roleViewer": "Betrachter – nur lesen",
 	"proj.roleEditor": "Bearbeiter – hochladen &amp; sichten",
 	"proj.roleOwner": "Owner – darf auch Zugriff gewähren",
+	"proj.roleUploader": "Uploader – Lesezugriff, außerdem Scans/SBOMs/VEX hochladen und das Gate ausführen (für CI)",
 	"proj.grant": "Zugriff gewähren",
 	"proj.noGrants": "Keine direkten Berechtigungen. Alle mit Zugriff erreichen dieses Projekt über das Team.",
 	"proj.colUser": "Benutzer",

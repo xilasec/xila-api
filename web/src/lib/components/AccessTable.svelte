@@ -9,7 +9,7 @@
 	/** @type {Record<string, import('#lib/i18n.js').MessageKey>} */
 	const KIND = { project: 'access.kind.project', team: 'access.kind.team', org_admin: 'access.kind.org_admin', instance_admin: 'access.kind.instance_admin' };
 	/** @type {Record<string, string>} */
-	const ROLE_TONE = { admin: 'badge-error', owner: 'badge-warning', editor: 'badge-info', viewer: 'badge-ghost' };
+	const ROLE_TONE = { admin: 'badge-error', owner: 'badge-warning', editor: 'badge-info', viewer: 'badge-ghost', uploader: 'badge-accent' };
 </script>
 
 <div class="overflow-x-auto bg-base-100 rounded-box shadow-sm">

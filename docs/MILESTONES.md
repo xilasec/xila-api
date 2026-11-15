@@ -720,9 +720,19 @@ Tier 1:
   scanners by file and line, or by title and component, so SAST, secrets and DAST
   duplicates collapse like CVE findings do. Today `correlation_key` is NULL for
   any finding without a CVE.
-- ⬜ 12.2 Upload-only role (SecObserve): a project grant that can upload scans
-  and SBOMs and nothing else, for CI tokens. Today CI needs `editor`, which can
-  also triage.
+- ✅ 12.2 Upload-only role (SecObserve): a new `uploader` project/team role is
+  "viewer plus uploads" for CI tokens: it reads everything a viewer can (the
+  project, its findings, scans, SBOMs, VEX) and on top of that may push scans,
+  SBOMs and VEX and run the gate, the minimum a CI build needs; it still can't
+  triage, comment, change settings or manage members. `domain.TeamRole` is now
+  `viewer < uploader < editor < owner`; `authz.Middleware` carves out exactly
+  the upload/gate POST routes that would otherwise need `editor`, so combined
+  with a higher role it behaves as that role (`uploader`+`viewer` keeps the
+  upload grant, `uploader`+`editor` acts like `editor`), so a weaker grant
+  elsewhere never takes the upload grant away. Migration 000090 extends the
+  role CHECK on `project_members`, `team_members` and `sso_group_mappings`;
+  the permission audit (`internal/access`) and `UsersWithProjectAccess`
+  report it correctly.
 - ⬜ 12.3 Cross-project root causes (DefectDojo Pro): one work item per shared
   cause (CVE, component version) across every project, beyond the per-project
   remediation actions.

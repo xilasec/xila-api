@@ -68,17 +68,17 @@ func TestAuditAgreesWithAuthorization(t *testing.T) {
 	w.exec(`UPDATE projects SET parent_id = $1 WHERE id = $2`, w.projects[0], w.projects[2])
 	w.exec(`UPDATE projects SET parent_id = $1 WHERE id = $2`, w.projects[2], w.projects[3])
 	w.exec(`UPDATE projects SET parent_id = $1 WHERE id = $2`, w.projects[1], w.projects[4])
-	roles := []string{"owner", "editor", "viewer"}
+	roles := []string{"owner", "editor", "viewer", "uploader"}
 	r := rand.New(rand.NewPCG(8, 18))
 	for _, u := range w.users {
 		for _, p := range w.projects {
 			if r.IntN(4) == 0 {
-				w.exec(`INSERT INTO project_members (project_id, user_id, role) VALUES ($1, $2, $3)`, p, u, roles[r.IntN(3)])
+				w.exec(`INSERT INTO project_members (project_id, user_id, role) VALUES ($1, $2, $3)`, p, u, roles[r.IntN(4)])
 			}
 		}
 		for _, tm := range w.teams {
 			if r.IntN(3) == 0 {
-				w.exec(`INSERT INTO team_members (team_id, user_id, role) VALUES ($1, $2, $3)`, tm, u, roles[r.IntN(3)])
+				w.exec(`INSERT INTO team_members (team_id, user_id, role) VALUES ($1, $2, $3)`, tm, u, roles[r.IntN(4)])
 			}
 		}
 		for _, o := range w.orgs {

@@ -421,10 +421,12 @@ export default {
 	"role.viewer": "viewer",
 	"role.editor": "editor",
 	"role.owner": "owner",
+	"role.uploader": "uploader",
 	// Role labels
 	"enum.role.viewer": "viewer",
 	"enum.role.editor": "editor",
 	"enum.role.owner": "owner",
+	"enum.role.uploader": "uploader",
 	"enum.role.admin": "admin",
 	"enum.role.member": "member",
 	// Findings list
@@ -830,6 +832,7 @@ export default {
 	"proj.roleViewer": "viewer — read only",
 	"proj.roleEditor": "editor — upload &amp; triage",
 	"proj.roleOwner": "owner — also grant access",
+	"proj.roleUploader": "uploader — read access, plus uploading scans/SBOMs/VEX and running the gate (for CI)",
 	"proj.grant": "Grant access",
 	"proj.noGrants": "No direct grants. Everyone with access reaches this project through its team.",
 	"proj.colUser": "User",

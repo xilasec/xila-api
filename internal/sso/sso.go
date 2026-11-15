@@ -115,7 +115,7 @@ func (m *GroupMapping) Validate() error {
 		}
 	case TargetTeam, TargetProject:
 		if !domain.TeamRole(m.Role).Valid() {
-			return fmt.Errorf("%w: role must be owner, editor or viewer", ErrInvalid)
+			return fmt.Errorf("%w: role must be owner, editor, viewer or uploader", ErrInvalid)
 		}
 	default:
 		return fmt.Errorf("%w: target_kind must be instance_admin, org, team or project", ErrInvalid)
