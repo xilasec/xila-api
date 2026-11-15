@@ -6,7 +6,7 @@
 #
 # Every setting in .env reaches the app, so .env.example is the full reference.
 # With it as a starting point every feature that needs no credentials is on:
-# two-factor, MCP, metrics (internal port 9090), advisory matching, enrichment,
+# two-factor, MCP, metrics (internal port 9090), async ingestion, advisory matching, enrichment,
 # exploit intel and registry metadata. Add your own values to turn on email
 # (SMTP_*), PSIRT publishing (PSIRT_*), CRA reporting identity (CRA_*), AI triage
 # (AI_*), NVD, VulnCheck and GitHub advisories. SSO providers are added on the SSO

@@ -83,33 +83,40 @@ func run(args []string, out, errw io.Writer) int {
 	}
 }
 
-// client talks to the Xila API with an API token.
+// client talks to the Xila API with an API token, retrying overload and
+// connection failures for up to retryFor (retry.go).
 type client struct {
 	base, token string
 	hc          *http.Client
+	retryFor    time.Duration
+	log         io.Writer // retry notices
+	sleep       func(time.Duration)
+	now         func() time.Time
+	rnd         func(int64) int64
 }
 
-func newClient(url, token string) *client {
-	return &client{base: url, token: token, hc: &http.Client{Timeout: 60 * time.Second}}
+func newClient(url, token string, retryFor time.Duration, log io.Writer) *client {
+	return &client{base: url, token: token, hc: &http.Client{Timeout: 60 * time.Second},
+		retryFor: retryFor, log: log, sleep: time.Sleep, now: time.Now, rnd: defaultRand}
 }
 
-// do sends a request and returns the status + body.
+// do sends a request (retrying per retry.go) and returns the status + body.
 func (c *client) do(method, path, query string, body []byte) (int, []byte, error) {
-	req, err := http.NewRequest(method, c.base+path+query, bytes.NewReader(body))
-	if err != nil {
-		return 0, nil, err
-	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-	resp, err := c.hc.Do(req)
-	if err != nil {
-		return 0, nil, err
-	}
-	defer resp.Body.Close()
-	b, _ := io.ReadAll(resp.Body)
-	return resp.StatusCode, b, nil
+	return c.send(func() (*http.Request, error) {
+		var rd io.Reader
+		if body != nil {
+			rd = bytes.NewReader(body)
+		}
+		req, err := http.NewRequest(method, c.base+path+query, rd)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Authorization", "Bearer "+c.token)
+		if body != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
+		return req, nil
+	})
 }
 
 func env(key, def string) string {
@@ -145,7 +152,8 @@ func cmdUpload(args []string, out, errw io.Writer) int {
 	wait := fs.Bool("wait", false, "wait for background processing to finish (implied by --gate)")
 	comment := fs.Bool("comment", false, "post the result as a pull-request comment (GitHub Actions)")
 	check := fs.Bool("check", false, "create/update a GitHub check run with inline annotations (GitHub Actions; needs permissions: checks: write)")
-	timeout := fs.Duration("timeout", 120*time.Second, "max time to wait for processing")
+	timeout := fs.Duration("timeout", 10*time.Minute, "max time to wait for processing")
+	retryFor := retryFlag(fs)
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -174,7 +182,7 @@ func cmdUpload(args []string, out, errw io.Writer) int {
 		fmt.Fprintf(errw, "error: %v\n", err)
 		return 2
 	}
-	c := newClient(*url, bearer)
+	c := newClient(*url, bearer, *retryFor, errw)
 	status, body, err := c.do(http.MethodPost, "/api/v1/projects/"+*project+"/scans", "?"+q.Encode(), data)
 	if err != nil {
 		fmt.Fprintf(errw, "error: upload failed: %v\n", err)
@@ -323,6 +331,7 @@ func cmdGate(args []string, out, errw io.Writer) int {
 	branch := fs.String("branch", "", "gate this branch instead of the project's default (must have been uploaded)")
 	release := fs.String("release", "", "gate this release instead of the project's default")
 	check := fs.Bool("check", false, "create/update a GitHub check run with the gate verdict (GitHub Actions; needs permissions: checks: write)")
+	retryFor := retryFlag(fs)
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -370,7 +379,7 @@ func cmdGate(args []string, out, errw io.Writer) int {
 		fmt.Fprintf(errw, "error: %v\n", err)
 		return 2
 	}
-	c := newClient(*url, bearer)
+	c := newClient(*url, bearer, *retryFor, errw)
 	result, code := evaluateGate(c, *project, versionQuery(*branch, *release, "", *baseline), gateBody(policy, *newOnly), out, errw)
 	if *check {
 		if err := postCheckRun(c, *url, *project, "", result, out); err != nil {

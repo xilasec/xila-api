@@ -45,7 +45,6 @@ trustedProxies: []
 #   config:
 #     ENRICH_INTERVAL: 12h
 #     SLA_SWEEP_INTERVAL: 30m
-#     INGEST_ASYNC: "true"
 #     OIDC_ENABLED: "true"
 #     OIDC_ISSUER: https://accounts.google.com
 config: {}
@@ -126,6 +125,15 @@ otel:
 # (METRICS_ADDR), which the Service exposes as "metrics" and the Ingress never
 # routes. Same instruments as the OTLP export: HTTP by route, ingest queue,
 # notification outbox, background jobs and feed freshness, Go runtime.
+# Scan ingestion. Async (the default) answers uploads with 202 and drains a
+# durable Postgres queue on every pod, so a burst of CI uploads is accepted in
+# seconds; uploads get 429 with Retry-After once maxQueueDepth jobs are waiting
+# (the xila CLI retries). Set async: false to process uploads inline.
+ingest:
+  async: true
+  workers: 4
+  maxQueueDepth: 10000
+
 metrics:
   enabled: false
   port: 9090

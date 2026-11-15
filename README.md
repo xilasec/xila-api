@@ -2486,9 +2486,10 @@ Azure Key Vault, Vault) hand secrets to the app. It applies to `JWT_SECRET`,
 
 ## Scaling ingestion (async)
 
-By default a scan upload is processed inline and returns `201` with the
-finished scan. This is simple and fine for modest volume. For high upload rates, set
-`INGEST_ASYNC=true`. The endpoint then persists the raw payload and a
+Uploads can be processed inline (`INGEST_ASYNC=false`, the default for the bare
+binary and the dev compose stack), which returns `201` with the finished scan, or
+queued (`INGEST_ASYNC=true`, the default in the production compose file, the Helm
+chart and `.env.example`). Queued, the endpoint persists the raw payload and a
 `processing` scan row and returns `202` immediately. A worker pool drains a
 durable Postgres job queue (`SELECT … FOR UPDATE SKIP LOCKED`) off the request
 path. As a result:
@@ -2502,7 +2503,10 @@ path. As a result:
 
 This needs no new infrastructure, only Postgres. The `xila` CLI's `--gate` (and
 `--wait`) poll the scan to completion before gating, so CI works with either
-mode.
+mode. Once `INGEST_MAX_QUEUE_DEPTH` jobs are waiting, uploads get `429` with
+`Retry-After`. The CLI retries that (and 502/503/504 and connection errors) with
+exponential backoff and jitter for up to `--retry-for` (default 10 minutes,
+`XILA_RETRY_FOR`), so a burst of CI jobs is delayed rather than failed.
 
 The write path is sized for the volume this mode implies. Findings are persisted
 with pipelined batch upserts, and the post-ingest tail (auto-triage and
