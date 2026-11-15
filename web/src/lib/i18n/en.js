@@ -2646,7 +2646,7 @@ export default {
 	"remed.actionCreated": "Action created",
 	"remed.ticketFiled": "Ticket filed",
 	// Root causes
-	"rootcause.intro": "The same package upgrade, base-image rebuild or rule fix merged across every project you can see — fix it once instead of once per project.",
+	"rootcause.intro": "The same package upgrade, base-image rebuild or rule fix merged across every project you can see: fix it once instead of once per project.",
 	"rootcause.empty": "No shared root causes among your projects' open findings.",
 	"rootcause.searchPlaceholder": "Search title, package, rule, file…",
 	"rootcause.colProjects": "Projects",

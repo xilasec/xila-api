@@ -2646,7 +2646,7 @@ export default {
 	"remed.actionCreated": "Aktion erstellt",
 	"remed.ticketFiled": "Ticket angelegt",
 	// Root causes
-	"rootcause.intro": "Dieselbe Paket-Aktualisierung, Basis-Image-Neubau oder Regel-Behebung, projektübergreifend zusammengeführt — einmal beheben statt einmal pro Projekt.",
+	"rootcause.intro": "Dieselbe Paket-Aktualisierung, Basis-Image-Neubau oder Regel-Behebung, projektübergreifend zusammengeführt: einmal beheben statt einmal pro Projekt.",
 	"rootcause.empty": "Keine geteilten Ursachen unter den offenen Findings deiner Projekte.",
 	"rootcause.searchPlaceholder": "Titel, Paket, Regel, Datei suchen…",
 	"rootcause.colProjects": "Projekte",
