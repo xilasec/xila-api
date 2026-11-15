@@ -70,7 +70,7 @@ var Defs = []Def{
 	{Key: Badges, Routes: []string{`^/api/v1/projects/[^/]+/badge-token(/|$)`}, Public: []string{`^/api/v1/badges(/|$)`}},
 	{Key: CustomFields, Routes: []string{`^/api/v1/(custom-fields|(assets|findings|projects)/[^/]+/custom)(/|$)`}},
 	{Key: PersonalNotifications, Routes: []string{`^/api/v1/(me/notifications|projects/[^/]+/watch)(/|$)`}},
-	{Key: Remediation, Routes: []string{`^/api/v1/(remediation|projects/[^/]+/remediation)(/|$)`}},
+	{Key: Remediation, Routes: []string{`^/api/v1/(remediation|projects/[^/]+/remediation|root-causes)(/|$)`}},
 	{Key: Engagements, Routes: []string{`^/api/v1/(engagements|projects/[^/]+/engagements)(/|$)`}},
 }
 

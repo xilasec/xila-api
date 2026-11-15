@@ -76,6 +76,7 @@ export default {
 	"nav.findings": "Findings",
 	"nav.fixPlan": "Fix Plan",
 	"nav.remediation": "Remediation",
+	"nav.rootCauses": "Root Causes",
 	"nav.approvals": "Approvals",
 	"nav.components": "Components",
 	"nav.licenses": "Licenses",
@@ -2642,6 +2643,16 @@ export default {
 	"remed.proposedHeading": "Proposed ({count})",
 	"remed.actionCreated": "Action created",
 	"remed.ticketFiled": "Ticket filed",
+	// Root causes
+	"rootcause.intro": "The same package upgrade, base-image rebuild or rule fix merged across every project you can see — fix it once instead of once per project.",
+	"rootcause.empty": "No shared root causes among your projects' open findings.",
+	"rootcause.searchPlaceholder": "Search title, package, rule, file…",
+	"rootcause.colProjects": "Projects",
+	"rootcause.colActioned": "Tracked",
+	"rootcause.allActioned": "Every project tracked",
+	"rootcause.createMissing": "Create missing",
+	"rootcause.noAction": "not tracked",
+	"rootcause.createdResult": "{created} action(s) created, {skipped} skipped",
 	// RiskAcceptances
 	"racc.emptyRequested": "No risk acceptance waiting for approval.",
 	"racc.emptyAll": "No risk acceptances.",
@@ -2920,7 +2931,7 @@ export default {
 	"feat.personal_notifications.name": "Personal notifications",
 	"feat.personal_notifications.desc": "People's own alerts as assignee or project watcher. Off: only the admin-managed channels receive alerts.",
 	"feat.remediation.name": "Remediation actions",
-	"feat.remediation.desc": "Findings grouped by the change that fixes them, with owners, due dates and tickets. Off: the grouping, sweep and ticket sync stop.",
+	"feat.remediation.desc": "Findings grouped by the change that fixes them, with owners, due dates and tickets, plus cross-project root causes for a change shared by several projects. Off: the grouping, sweep, ticket sync and root causes stop.",
 	"feat.engagements.name": "Engagements",
 	"feat.engagements.desc": "DefectDojo-style engagements grouping scans and manual findings. Off: manual findings can still be reported."
 };

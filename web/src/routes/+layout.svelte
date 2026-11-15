@@ -77,7 +77,7 @@
 	// Pages that belong to a switchable feature: hidden from the menus while it
 	// is off, and replaced by a notice if opened directly.
 	/** @type {Record<string, string>} */
-	const pageFeature = { '/remediation': 'remediation', '/cra': 'cra', '/custom-fields': 'custom_fields', '/psirt': 'psirt' };
+	const pageFeature = { '/remediation': 'remediation', '/root-causes': 'remediation', '/cra': 'cra', '/custom-fields': 'custom_fields', '/psirt': 'psirt' };
 	let offFeature = $derived.by(() => {
 		const f = pageFeature[page.url.pathname];
 		return f && !isOn($features, f) ? f : '';
@@ -89,6 +89,7 @@
 		{ href: '/findings', key: 'nav.findings' },
 		{ href: '/fix-plan', key: 'nav.fixPlan' },
 		{ href: '/remediation', key: 'nav.remediation' },
+		{ href: '/root-causes', key: 'nav.rootCauses' },
 		{ href: '/approvals', key: 'nav.approvals' },
 		{ href: '/components', key: 'nav.components' },
 		{ href: '/licenses', key: 'nav.licenses' },

@@ -76,6 +76,7 @@ export default {
 	"nav.findings": "Findings",
 	"nav.fixPlan": "Behebungsplan",
 	"nav.remediation": "Behebung",
+	"nav.rootCauses": "Ursachen",
 	"nav.approvals": "Freigaben",
 	"nav.components": "Komponenten",
 	"nav.licenses": "Lizenzen",
@@ -2642,6 +2643,16 @@ export default {
 	"remed.proposedHeading": "Vorgeschlagen ({count})",
 	"remed.actionCreated": "Aktion erstellt",
 	"remed.ticketFiled": "Ticket angelegt",
+	// Root causes
+	"rootcause.intro": "Dieselbe Paket-Aktualisierung, Basis-Image-Neubau oder Regel-Behebung, projektübergreifend zusammengeführt — einmal beheben statt einmal pro Projekt.",
+	"rootcause.empty": "Keine geteilten Ursachen unter den offenen Findings deiner Projekte.",
+	"rootcause.searchPlaceholder": "Titel, Paket, Regel, Datei suchen…",
+	"rootcause.colProjects": "Projekte",
+	"rootcause.colActioned": "Erfasst",
+	"rootcause.allActioned": "Jedes Projekt erfasst",
+	"rootcause.createMissing": "Fehlende erstellen",
+	"rootcause.noAction": "nicht erfasst",
+	"rootcause.createdResult": "{created} Aktion(en) erstellt, {skipped} übersprungen",
 	// RiskAcceptances
 	"racc.emptyRequested": "Keine Risikoakzeptanz wartet auf Genehmigung.",
 	"racc.emptyAll": "Keine Risikoakzeptanzen.",
@@ -2920,7 +2931,7 @@ export default {
 	"feat.personal_notifications.name": "Persönliche Benachrichtigungen",
 	"feat.personal_notifications.desc": "Eigene Benachrichtigungen als Zuständige oder Beobachter eines Projekts. Aus: nur die von Admins verwalteten Kanäle erhalten Warnungen.",
 	"feat.remediation.name": "Behebungsmaßnahmen",
-	"feat.remediation.desc": "Findings, gruppiert nach der Änderung, die sie behebt, mit Verantwortlichen, Fälligkeiten und Tickets. Aus: Gruppierung, Lauf und Ticket-Abgleich halten an.",
+	"feat.remediation.desc": "Findings, gruppiert nach der Änderung, die sie behebt, mit Verantwortlichen, Fälligkeiten und Tickets, plus projektübergreifende Ursachen für eine von mehreren Projekten geteilte Änderung. Aus: Gruppierung, Lauf, Ticket-Abgleich und Ursachen halten an.",
 	"feat.engagements.name": "Engagements",
 	"feat.engagements.desc": "Engagements nach DefectDojo-Art, die Scans und manuelle Findings bündeln. Aus: manuelle Findings lassen sich weiterhin melden."
 };

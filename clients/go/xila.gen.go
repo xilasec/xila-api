@@ -1977,6 +1977,24 @@ func (e RiskAcceptanceState) Valid() bool {
 	}
 }
 
+// Defines values for RootCauseRemediationResultSkippedReason.
+const (
+	AlreadyLive RootCauseRemediationResultSkippedReason = "already_live"
+	Forbidden   RootCauseRemediationResultSkippedReason = "forbidden"
+)
+
+// Valid indicates whether the value is a known member of the RootCauseRemediationResultSkippedReason enum.
+func (e RootCauseRemediationResultSkippedReason) Valid() bool {
+	switch e {
+	case AlreadyLive:
+		return true
+	case Forbidden:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SLAPolicyScope.
 const (
 	SLAPolicyScopeDefault SLAPolicyScope = "default"
@@ -6617,6 +6635,118 @@ type RiskAcceptanceLedgerEntry struct {
 	RemovedBy       *string             `json:"removed_by,omitempty"`
 }
 
+// RootCause defines model for RootCause.
+type RootCause struct {
+	// AllActioned Every affected project already has a live remediation action for this change.
+	AllActioned *bool           `json:"all_actioned,omitempty"`
+	BySeverity  *map[string]int `json:"by_severity,omitempty"`
+	Ecosystem   *string         `json:"ecosystem,omitempty"`
+	FilePath    *string         `json:"file_path,omitempty"`
+
+	// Findings Summed over every affected project.
+	Findings  *int    `json:"findings,omitempty"`
+	Image     *string `json:"image,omitempty"`
+	Installed *string `json:"installed,omitempty"`
+	Kev       *int    `json:"kev,omitempty"`
+
+	// Key Identifies the change within the kind
+	Key             *string               `json:"key,omitempty"`
+	Kind            *RemediationKind      `json:"kind,omitempty"`
+	MaxEpss         *float32              `json:"max_epss,omitempty"`
+	MaxSeverity     *Severity             `json:"max_severity,omitempty"`
+	Os              *string               `json:"os,omitempty"`
+	Package         *string               `json:"package,omitempty"`
+	PriorityRemoved *float32              `json:"priority_removed,omitempty"`
+	ProjectIds      *[]openapi_types.UUID `json:"project_ids,omitempty"`
+
+	// Projects How many projects you can see carry this change.
+	Projects *int    `json:"projects,omitempty"`
+	Purl     *string `json:"purl,omitempty"`
+	Resource *string `json:"resource,omitempty"`
+	RuleId   *string `json:"rule_id,omitempty"`
+
+	// Target The highest of the affected projects' minimal fixes (package_upgrade).
+	Target *string `json:"target,omitempty"`
+	Title  *string `json:"title,omitempty"`
+}
+
+// RootCauseDetail defines model for RootCauseDetail.
+type RootCauseDetail struct {
+	AffectedProjects *[]RootCauseProjectShare `json:"affected_projects,omitempty"`
+
+	// AllActioned Every affected project already has a live remediation action for this change.
+	AllActioned *bool           `json:"all_actioned,omitempty"`
+	BySeverity  *map[string]int `json:"by_severity,omitempty"`
+	Ecosystem   *string         `json:"ecosystem,omitempty"`
+	FilePath    *string         `json:"file_path,omitempty"`
+
+	// Findings Summed over every affected project.
+	Findings  *int    `json:"findings,omitempty"`
+	Image     *string `json:"image,omitempty"`
+	Installed *string `json:"installed,omitempty"`
+	Kev       *int    `json:"kev,omitempty"`
+
+	// Key Identifies the change within the kind
+	Key             *string               `json:"key,omitempty"`
+	Kind            *RemediationKind      `json:"kind,omitempty"`
+	MaxEpss         *float32              `json:"max_epss,omitempty"`
+	MaxSeverity     *Severity             `json:"max_severity,omitempty"`
+	Os              *string               `json:"os,omitempty"`
+	Package         *string               `json:"package,omitempty"`
+	PriorityRemoved *float32              `json:"priority_removed,omitempty"`
+	ProjectIds      *[]openapi_types.UUID `json:"project_ids,omitempty"`
+
+	// Projects How many projects you can see carry this change.
+	Projects *int    `json:"projects,omitempty"`
+	Purl     *string `json:"purl,omitempty"`
+	Resource *string `json:"resource,omitempty"`
+	RuleId   *string `json:"rule_id,omitempty"`
+
+	// Target The highest of the affected projects' minimal fixes (package_upgrade).
+	Target *string `json:"target,omitempty"`
+	Title  *string `json:"title,omitempty"`
+}
+
+// RootCauseList defines model for RootCauseList.
+type RootCauseList struct {
+	// Pagination `has_more` tells you whether another page exists, without a count query.
+	//
+	// Example: {"count":1,"has_more":true,"limit":1,"offset":0}
+	Pagination *Pagination  `json:"pagination,omitempty"`
+	RootCauses *[]RootCause `json:"root_causes,omitempty"`
+}
+
+// RootCauseProjectShare defines model for RootCauseProjectShare.
+type RootCauseProjectShare struct {
+	// Action The live remediation action already tracking this project's share, if any.
+	Action *struct {
+		Id     *openapi_types.UUID `json:"id,omitempty"`
+		Status *RemediationStatus  `json:"status,omitempty"`
+	} `json:"action,omitempty"`
+	Findings        *int                `json:"findings,omitempty"`
+	Kev             *int                `json:"kev,omitempty"`
+	MaxSeverity     *Severity           `json:"max_severity,omitempty"`
+	PriorityRemoved *float32            `json:"priority_removed,omitempty"`
+	ProjectId       *openapi_types.UUID `json:"project_id,omitempty"`
+	ProjectName     *string             `json:"project_name,omitempty"`
+}
+
+// RootCauseRemediationResult defines model for RootCauseRemediationResult.
+type RootCauseRemediationResult struct {
+	// Created New remediation actions created.
+	Created *int `json:"created,omitempty"`
+	Skipped *[]struct {
+		ProjectId *openapi_types.UUID `json:"project_id,omitempty"`
+
+		// ProjectName Omitted when you can't edit that project.
+		ProjectName *string                                  `json:"project_name,omitempty"`
+		Reason      *RootCauseRemediationResultSkippedReason `json:"reason,omitempty"`
+	} `json:"skipped,omitempty"`
+}
+
+// RootCauseRemediationResultSkippedReason defines model for RootCauseRemediationResult.Skipped.Reason.
+type RootCauseRemediationResultSkippedReason string
+
 // SAMLPost defines model for SAMLPost.
 type SAMLPost struct {
 	RelayState *string `json:"RelayState,omitempty"`
@@ -7483,6 +7613,12 @@ type RemediationStatusFilter = string
 
 // RiskAcceptanceID defines model for RiskAcceptanceID.
 type RiskAcceptanceID = openapi_types.UUID
+
+// RootCauseKey defines model for RootCauseKey.
+type RootCauseKey = string
+
+// RootCauseKind defines model for RootCauseKind.
+type RootCauseKind = RemediationKind
 
 // RuleID defines model for RuleID.
 type RuleID = openapi_types.UUID
@@ -9161,6 +9297,21 @@ type ListRiskAcceptancesParams struct {
 
 // ListRiskAcceptancesParamsState defines parameters for ListRiskAcceptances.
 type ListRiskAcceptancesParamsState string
+
+// ListRootCausesParams defines parameters for ListRootCauses.
+type ListRootCausesParams struct {
+	Kind      *RemediationKind `form:"kind,omitempty" json:"kind,omitempty"`
+	Ecosystem *string          `form:"ecosystem,omitempty" json:"ecosystem,omitempty"`
+
+	// Q Substring of the title
+	Q           *string   `form:"q,omitempty" json:"q,omitempty"`
+	Kev         *bool     `form:"kev,omitempty" json:"kev,omitempty"`
+	MinSeverity *Severity `form:"min_severity,omitempty" json:"min_severity,omitempty"`
+
+	// Limit Page size (max 200).
+	Limit  *Limit  `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
 
 // ListSbomComponentsParams defines parameters for ListSbomComponents.
 type ListSbomComponentsParams struct {
@@ -13639,6 +13790,40 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /risk-acceptances (the `ListRiskAcceptances` operationId).
 	ListRiskAcceptances(ctx context.Context, params *ListRiskAcceptancesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListRootCauses Cross-project root causes
+	//
+	// Merges `fixplan.Changes` over every project you can see into one row per
+	// (kind, key): the same package upgrade, base-image rebuild, or rule fix
+	// needed in more than one project is one row instead of one per project.
+	// Sorted by priority removed, then projects affected.
+	//
+	// Corresponds with GET /root-causes (the `ListRootCauses` operationId).
+	ListRootCauses(ctx context.Context, params *ListRootCausesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetRootCause One root cause's affected projects
+	//
+	// The projects you can see that carry this change, with each one's
+	// findings, priority removed, and live remediation action if it has one.
+	// 404 when none of the projects you can see carries it — including when
+	// every project that does is outside what you can see.
+	//
+	// Corresponds with GET /root-causes/{kind}/{key} (the `GetRootCause` operationId).
+	GetRootCause(ctx context.Context, kind RootCauseKind, key RootCauseKey, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateRootCauseRemediation Create the missing remediation action everywhere you can
+	//
+	// Creates the live remediation action (`remediation.Service.Accept`, same
+	// invariants: one live action per change, idempotent) in every project
+	// you can see that carries this change and where you hold at least
+	// editor. The other visible projects are reported in `skipped` with a
+	// reason (`forbidden`, or `already_live` when that project's change
+	// already has a live action); projects you can't see are never touched
+	// or named. A second call creates 0. 404 when no visible project
+	// carries the change.
+	//
+	// Corresponds with POST /root-causes/{kind}/{key}/remediation (the `CreateRootCauseRemediation` operationId).
+	CreateRootCauseRemediation(ctx context.Context, kind RootCauseKind, key RootCauseKey, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetSbom Read an SBOM snapshot
 	//
@@ -22202,6 +22387,70 @@ func (c *Client) RunRetention(ctx context.Context, reqEditors ...RequestEditorFn
 // Corresponds with GET /risk-acceptances (the `ListRiskAcceptances` operationId).
 func (c *Client) ListRiskAcceptances(ctx context.Context, params *ListRiskAcceptancesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListRiskAcceptancesRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListRootCauses Cross-project root causes
+//
+// Merges `fixplan.Changes` over every project you can see into one row per
+// (kind, key): the same package upgrade, base-image rebuild, or rule fix
+// needed in more than one project is one row instead of one per project.
+// Sorted by priority removed, then projects affected.
+//
+// Corresponds with GET /root-causes (the `ListRootCauses` operationId).
+func (c *Client) ListRootCauses(ctx context.Context, params *ListRootCausesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListRootCausesRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetRootCause One root cause's affected projects
+//
+// The projects you can see that carry this change, with each one's
+// findings, priority removed, and live remediation action if it has one.
+// 404 when none of the projects you can see carries it — including when
+// every project that does is outside what you can see.
+//
+// Corresponds with GET /root-causes/{kind}/{key} (the `GetRootCause` operationId).
+func (c *Client) GetRootCause(ctx context.Context, kind RootCauseKind, key RootCauseKey, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetRootCauseRequest(c.Server, kind, key)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateRootCauseRemediation Create the missing remediation action everywhere you can
+//
+// Creates the live remediation action (`remediation.Service.Accept`, same
+// invariants: one live action per change, idempotent) in every project
+// you can see that carries this change and where you hold at least
+// editor. The other visible projects are reported in `skipped` with a
+// reason (`forbidden`, or `already_live` when that project's change
+// already has a live action); projects you can't see are never touched
+// or named. A second call creates 0. 404 when no visible project
+// carries the change.
+//
+// Corresponds with POST /root-causes/{kind}/{key}/remediation (the `CreateRootCauseRemediation` operationId).
+func (c *Client) CreateRootCauseRemediation(ctx context.Context, kind RootCauseKind, key RootCauseKey, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateRootCauseRemediationRequest(c.Server, kind, key)
 	if err != nil {
 		return nil, err
 	}
@@ -39595,6 +39844,214 @@ func NewListRiskAcceptancesRequest(server string, params *ListRiskAcceptancesPar
 	return req, nil
 }
 
+// NewListRootCausesRequest constructs an http.Request for the ListRootCauses method
+func NewListRootCausesRequest(server string, params *ListRootCausesParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/root-causes")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Kind != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "kind", *params.Kind, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Ecosystem != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "ecosystem", *params.Ecosystem, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Q != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "q", *params.Q, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Kev != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "kev", *params.Kev, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.MinSeverity != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "min_severity", *params.MinSeverity, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "offset", *params.Offset, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetRootCauseRequest constructs an http.Request for the GetRootCause method
+func NewGetRootCauseRequest(server string, kind RootCauseKind, key RootCauseKey) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "kind", kind, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "key", key, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/root-causes/%s/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateRootCauseRemediationRequest constructs an http.Request for the CreateRootCauseRemediation method
+func NewCreateRootCauseRemediationRequest(server string, kind RootCauseKind, key RootCauseKey) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "kind", kind, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "key", key, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/root-causes/%s/%s/remediation", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetSbomRequest constructs an http.Request for the GetSbom method
 func NewGetSbomRequest(server string, sbomID SbomID) (*http.Request, error) {
 	var err error
@@ -46956,6 +47413,46 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /risk-acceptances (the `ListRiskAcceptances` operationId).
 	ListRiskAcceptancesWithResponse(ctx context.Context, params *ListRiskAcceptancesParams, reqEditors ...RequestEditorFn) (*ListRiskAcceptancesResponse, error)
+
+	// ListRootCausesWithResponse Cross-project root causes
+	//
+	// Merges `fixplan.Changes` over every project you can see into one row per
+	// (kind, key): the same package upgrade, base-image rebuild, or rule fix
+	// needed in more than one project is one row instead of one per project.
+	// Sorted by priority removed, then projects affected.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /root-causes (the `ListRootCauses` operationId).
+	ListRootCausesWithResponse(ctx context.Context, params *ListRootCausesParams, reqEditors ...RequestEditorFn) (*ListRootCausesResponse, error)
+
+	// GetRootCauseWithResponse One root cause's affected projects
+	//
+	// The projects you can see that carry this change, with each one's
+	// findings, priority removed, and live remediation action if it has one.
+	// 404 when none of the projects you can see carries it — including when
+	// every project that does is outside what you can see.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /root-causes/{kind}/{key} (the `GetRootCause` operationId).
+	GetRootCauseWithResponse(ctx context.Context, kind RootCauseKind, key RootCauseKey, reqEditors ...RequestEditorFn) (*GetRootCauseResponse, error)
+
+	// CreateRootCauseRemediationWithResponse Create the missing remediation action everywhere you can
+	//
+	// Creates the live remediation action (`remediation.Service.Accept`, same
+	// invariants: one live action per change, idempotent) in every project
+	// you can see that carries this change and where you hold at least
+	// editor. The other visible projects are reported in `skipped` with a
+	// reason (`forbidden`, or `already_live` when that project's change
+	// already has a live action); projects you can't see are never touched
+	// or named. A second call creates 0. 404 when no visible project
+	// carries the change.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /root-causes/{kind}/{key}/remediation (the `CreateRootCauseRemediation` operationId).
+	CreateRootCauseRemediationWithResponse(ctx context.Context, kind RootCauseKind, key RootCauseKey, reqEditors ...RequestEditorFn) (*CreateRootCauseRemediationResponse, error)
 
 	// GetSbomWithResponse Read an SBOM snapshot
 	//
@@ -63637,6 +64134,143 @@ func (r ListRiskAcceptancesResponse) ContentType() string {
 	return ""
 }
 
+type ListRootCausesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *RootCauseList
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListRootCausesResponse) GetJSON200() *RootCauseList {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ListRootCausesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListRootCausesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListRootCausesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListRootCausesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetRootCauseResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *RootCauseDetail
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetRootCauseResponse) GetJSON200() *RootCauseDetail {
+	return r.JSON200
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r GetRootCauseResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetRootCauseResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetRootCauseResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetRootCauseResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetRootCauseResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateRootCauseRemediationResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *RootCauseRemediationResult
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CreateRootCauseRemediationResponse) GetJSON200() *RootCauseRemediationResult {
+	return r.JSON200
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r CreateRootCauseRemediationResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateRootCauseRemediationResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateRootCauseRemediationResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateRootCauseRemediationResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateRootCauseRemediationResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetSbomResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -74121,6 +74755,64 @@ func (c *ClientWithResponses) ListRiskAcceptancesWithResponse(ctx context.Contex
 		return nil, err
 	}
 	return ParseListRiskAcceptancesResponse(rsp)
+}
+
+// ListRootCausesWithResponse Cross-project root causes
+//
+// Merges `fixplan.Changes` over every project you can see into one row per
+// (kind, key): the same package upgrade, base-image rebuild, or rule fix
+// needed in more than one project is one row instead of one per project.
+// Sorted by priority removed, then projects affected.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /root-causes (the `ListRootCauses` operationId).
+func (c *ClientWithResponses) ListRootCausesWithResponse(ctx context.Context, params *ListRootCausesParams, reqEditors ...RequestEditorFn) (*ListRootCausesResponse, error) {
+	rsp, err := c.ListRootCauses(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListRootCausesResponse(rsp)
+}
+
+// GetRootCauseWithResponse One root cause's affected projects
+//
+// The projects you can see that carry this change, with each one's
+// findings, priority removed, and live remediation action if it has one.
+// 404 when none of the projects you can see carries it — including when
+// every project that does is outside what you can see.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /root-causes/{kind}/{key} (the `GetRootCause` operationId).
+func (c *ClientWithResponses) GetRootCauseWithResponse(ctx context.Context, kind RootCauseKind, key RootCauseKey, reqEditors ...RequestEditorFn) (*GetRootCauseResponse, error) {
+	rsp, err := c.GetRootCause(ctx, kind, key, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetRootCauseResponse(rsp)
+}
+
+// CreateRootCauseRemediationWithResponse Create the missing remediation action everywhere you can
+//
+// Creates the live remediation action (`remediation.Service.Accept`, same
+// invariants: one live action per change, idempotent) in every project
+// you can see that carries this change and where you hold at least
+// editor. The other visible projects are reported in `skipped` with a
+// reason (`forbidden`, or `already_live` when that project's change
+// already has a live action); projects you can't see are never touched
+// or named. A second call creates 0. 404 when no visible project
+// carries the change.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /root-causes/{kind}/{key}/remediation (the `CreateRootCauseRemediation` operationId).
+func (c *ClientWithResponses) CreateRootCauseRemediationWithResponse(ctx context.Context, kind RootCauseKind, key RootCauseKey, reqEditors ...RequestEditorFn) (*CreateRootCauseRemediationResponse, error) {
+	rsp, err := c.CreateRootCauseRemediation(ctx, kind, key, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateRootCauseRemediationResponse(rsp)
 }
 
 // GetSbomWithResponse Read an SBOM snapshot
@@ -86477,6 +87169,98 @@ func ParseListRiskAcceptancesResponse(rsp *http.Response) (*ListRiskAcceptancesR
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListRootCausesResponse parses an HTTP response from a ListRootCausesWithResponse call
+func ParseListRootCausesResponse(rsp *http.Response) (*ListRootCausesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListRootCausesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RootCauseList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetRootCauseResponse parses an HTTP response from a GetRootCauseWithResponse call
+func ParseGetRootCauseResponse(rsp *http.Response) (*GetRootCauseResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetRootCauseResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RootCauseDetail
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateRootCauseRemediationResponse parses an HTTP response from a CreateRootCauseRemediationWithResponse call
+func ParseCreateRootCauseRemediationResponse(rsp *http.Response) (*CreateRootCauseRemediationResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateRootCauseRemediationResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RootCauseRemediationResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	}
 

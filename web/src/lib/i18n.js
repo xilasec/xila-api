@@ -66,6 +66,7 @@ export const TRANSLATED_ROUTES = new Set([
 	'/projects/[id]',
 	'/fix-plan',
 	'/remediation',
+	'/root-causes',
 	'/vulnerabilities/[id]',
 	'/sboms/[id]'
 ]);

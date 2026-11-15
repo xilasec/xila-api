@@ -364,6 +364,14 @@ func parseScope(path, method string) routeScope {
 			return routeScope{adminOnly: true} // portfolio-wide maintenance
 		}
 		return routeScope{resource: "remediation", resourceID: segs[1], minRole: mut()}
+	case "root-causes":
+		// Cross-project root causes: the list, the detail (one change's affected
+		// projects) and creating the missing remediation actions all work on
+		// the caller's visible projects, which globalList stashes for the
+		// handler. "kind"/"key" aren't resource ids, so there is no path
+		// resource to check; creating checks editor on each project in the
+		// handler, like POST /findings/bulk.
+		return routeScope{globalList: true}
 	case "findings":
 		if len(segs) == 1 {
 			return routeScope{globalList: true}
