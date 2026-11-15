@@ -121,6 +121,7 @@ session-level advisory locks, which transaction-mode PgBouncer breaks.
 | `database.*` | | external PostgreSQL (`host`, `port`, `name`, `user`, `password` or `passwordSecret`, `sslmode`, `maxConns`, `minConns`) |
 | `postgresql.enabled` | `true` | bundled `postgres:18-alpine` StatefulSet, `persistence.size` 8Gi |
 | `otel.enabled` / `otel.endpoint` | `false` | OTLP/gRPC collector `host:port` |
+| `ingest.async` / `ingest.workers` / `ingest.maxQueueDepth` | `true` / `4` / `10000` | Queue uploads (202) and drain them with workers on every pod; past the depth uploads get 429 with `Retry-After`, which the `xila` CLI retries |
 | `metrics.enabled` / `metrics.port` | `false` / `9090` | Prometheus `/metrics` on its own port (Service port `metrics`, not routed by the Ingress) |
 | `metrics.serviceMonitor.*` | disabled | Prometheus Operator `ServiceMonitor` (`interval`, `scrapeTimeout`, `labels`, `bearerTokenSecret` for `METRICS_TOKEN`) |
 | `ingress.*` | disabled | standard `networking.k8s.io/v1` Ingress |

@@ -160,8 +160,17 @@ findings), the shape of many repositories uploading at once:
 Throughput scales almost linearly to 4 uploaders and flattens past 8: the
 machine (API, Postgres and the load generator share 16 cores) saturates, not a
 lock. Uploads to different projects don't contend; uploads to one project
-serialize on its dedup lock by design. Reproduce by running several
-`ingest-bench` processes in parallel, one project each.
+serialize on its dedup lock by design. Reproduce with one command:
+
+```bash
+/tmp/xila-loadtest ingest-bench --base-url http://127.0.0.1:18099 \
+  --projects <id1>,<id2>,… --concurrency 16 --scans 5 --findings-per-scan 1000
+```
+
+With `INGEST_ASYNC=true` (8 workers) the same 16 uploaders reached 8,427
+findings/s end to end. With 1 worker and `INGEST_MAX_QUEUE_DEPTH=5`, 60 parallel
+`xila upload --wait` runs all succeeded: the 30 that arrived after the queue
+filled got `429`, waited the `Retry-After` 30 s and went through on the retry.
 
 What this means for bursts (a scan of about 1,000 findings each):
 
