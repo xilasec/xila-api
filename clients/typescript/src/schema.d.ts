@@ -7868,7 +7868,7 @@ export interface components {
             /** @description Hops from the root component. */
             dep_depth?: number | null;
             dep_scope?: components["schemas"]["DepScope"];
-            /** @description Groups the same CVE+package across scanners. */
+            /** @description Groups the same CVE+package, or the same non-CVE finding location+CWE, across scanners. */
             correlation_key?: string | null;
             /**
              * Format: uuid
