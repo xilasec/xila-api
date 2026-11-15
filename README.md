@@ -879,15 +879,25 @@ appsec, SCA, and CSPM/KSPM findings.
 
 Cross-tool dedup: the same CVE in the same package reported by two scanners
 (e.g. Trivy *and* Grype) is one issue, not two. On every ingest, findings are
-grouped by a scanner-agnostic correlation key (min CVE + package). Within each
-active group a primary is elected (highest priority, stable) and the rest are
-linked to it (`duplicate_of`). Duplicates are hidden from lists, counts, risk,
-alerts, and triage, so metrics reflect issues rather than report copies. Each
-scanner's report is still preserved (its own lifecycle + provenance). Primaries are
-badged with how many tools agree. Grouping is recomputed each ingest, so it
-self-heals when a scanner stops reporting. See `?include_duplicates=true` and
-`GET /findings/{id}/duplicates`. Scoped to CVE-bearing findings (SAST/secret/IaC
-have no reliable cross-tool identity, so they are not merged).
+grouped by a scanner-agnostic correlation key: CVE findings key on min CVE +
+package (or + location for a package-less CVE, e.g. network/DAST); findings
+with no CVE (SAST, secrets, IaC) key on category + file path + line, plus CWE
+when the finding has one (a CWE-bearing and a CWE-less report at the same line
+never share a key; two CWE-less reports there still fall back to location
+alone). Within each active CVE-keyed group a primary is elected (highest
+priority, stable) and the rest are linked to it (`duplicate_of`), same scanner
+or not. A location-keyed group (no CVE) collapses the same way, but only when
+every one of its members is from a *different* scanner: two rules from the
+same tool sharing a line/CWE must never hide one another, so if a group has
+more than one report from the same tool, none of its members is marked a
+duplicate at all (visible as separate findings). Duplicates are hidden from
+lists, counts, risk, alerts, and triage, so metrics reflect issues rather than
+report copies. Each scanner's report is still preserved (its own lifecycle +
+provenance). Primaries are badged with how many tools agree. Grouping is
+recomputed each ingest, so it self-heals when a scanner stops reporting. See
+`?include_duplicates=true` and `GET /findings/{id}/duplicates`. A finding with
+neither a CVE nor a file path/line (most DAST without a CVE) still gets no key:
+matching by title alone is not a sound cross-tool signal.
 
 Security gates (break the build): a per-project (or global-default) policy
 that CI evaluates to fail a pipeline on unacceptable risk. `POST /projects/{id}/gate`
@@ -916,8 +926,8 @@ branch has been scanned more than once. The identity compared is the finding's
 fingerprint (scanner, category, rule, file path, package; see "Add a
 column to `findings`"). This is the same cross-scan identity `Upsert`/`CloseMissing`
 already use to recognize the same finding reappearing. Unlike
-`correlation_key` (CVE-only, so every SAST/secrets finding would look
-new), it covers every finding type and is already branch-independent. A
+`correlation_key` (grouped by CVE or by category+file+line+CWE, not by
+exact fingerprint), it covers every finding type and is already branch-independent. A
 baseline finding only excuses the reappearance while it is open or
 confirmed there. Once triaged away (false positive, won't-fix,
 risk-accepted, remediated), it no longer vouches for the fingerprint resurfacing

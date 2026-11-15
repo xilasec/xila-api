@@ -719,10 +719,15 @@ gaps that are still open are listed; each was checked against the code.
 
 Tier 1:
 
-- ⬜ 12.1 Cross-tool dedup without a CVE (SecObserve): group findings across
-  scanners by file and line, or by title and component, so SAST, secrets and DAST
-  duplicates collapse like CVE findings do. Today `correlation_key` is NULL for
-  any finding without a CVE.
+- ✅ 12.1 Cross-tool dedup without a CVE (SecObserve): SAST, secrets and IaC
+  findings without a CVE now group across scanners too. `correlation_key` keys
+  them on category, file path and line, plus CWE when the finding has one (a
+  CWE-bearing and a CWE-less report at the same line never share a key; two
+  CWE-less reports there fall back to location alone). A location group
+  collapses only when every member comes from a different scanner, so two rules
+  from one tool on one line never hide each other. CVE grouping is unchanged.
+  Findings with no file path or line (most DAST without a CVE) still get no key.
+  Migration 000089 backfilled existing findings.
 - ✅ 12.2 Upload-only role (SecObserve): a new `uploader` project/team role is
   "viewer plus uploads" for CI tokens: it reads everything a viewer can (the
   project, its findings, scans, SBOMs, VEX) and on top of that may push scans,

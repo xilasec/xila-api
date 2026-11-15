@@ -1424,11 +1424,28 @@ func (r *Repository) deduplicate(ctx context.Context, projectID, scanID string, 
 		scan = &scanID
 	}
 
-	// 1. Correlation key: CVE findings only — min CVE (for determinism) plus
-	// what the CVE is *in*: the package, or, for a package-less finding (network,
-	// DAST: OpenVAS, Nessus, nuclei), its location. The same CVE on two hosts is
-	// two vulnerabilities, never one another's duplicate. Keep in sync with
-	// migration 000056's backfill.
+	// 1. Correlation key. Two shapes:
+	//   - CVE findings: min CVE (for determinism) plus what the CVE is *in*: the
+	//     package, or, for a package-less finding (network, DAST: OpenVAS,
+	//     Nessus, nuclei), its location. The same CVE on two hosts is two
+	//     vulnerabilities, never one another's duplicate. Keep in sync with
+	//     migration 000056's backfill.
+	//   - Non-CVE findings (SAST, secrets, IaC, ...): category + file_path +
+	//     line, plus CWE when the finding has one. A finding's key simply omits
+	//     the CWE segment when it has none, so a CWE-bearing and a CWE-less
+	//     report at the same line never share a key (no forced match on an
+	//     absent CWE); two CWE-less reports at the same spot still fall back to
+	//     grouping by location alone. This branch only fires when cve is empty,
+	//     so it never touches a CVE-keyed finding; findings with no
+	//     file_path/line (most DAST without a CVE) still get no key, same as
+	//     before (no fuzzy title matching). Keep in sync with migration
+	//     000089's backfill. A location-keyed group only ever collapses when
+	//     every one of its members is from a *different* scanner (step 2's
+	//     scanner_counts): two rules from the same tool sharing a line/CWE must
+	//     never hide one another, even when a third tool's report is also in
+	//     the group, so the whole group stays ungrouped rather than guess which
+	//     pair to collapse. CVE-keyed groups never consult scanner identity, same
+	//     as before this feature.
 	// Only rows whose key actually changes are written: dedup runs after every
 	// ingest, and rewriting a whole project's findings each time would churn the
 	// table (dead tuples, WAL, bloat) to store values identical to the old ones.
@@ -1445,6 +1462,10 @@ func (r *Repository) deduplicate(ctx context.Context, projectID, scanID string, 
 					THEN lower((SELECT min(c) FROM unnest(cve) c)) || '@' || lower(file_path)
 				WHEN cardinality(cve) > 0
 					THEN lower((SELECT min(c) FROM unnest(cve) c))
+				WHEN cardinality(cve) = 0 AND file_path <> '' AND line IS NOT NULL AND cwe IS NOT NULL
+					THEN 'loc|' || category || '|' || lower(file_path) || '|' || line::text || '|' || cwe::text
+				WHEN cardinality(cve) = 0 AND file_path <> '' AND line IS NOT NULL
+					THEN 'loc|' || category || '|' || lower(file_path) || '|' || line::text
 				ELSE NULL END AS key
 			FROM findings
 			WHERE project_id = $1
@@ -1495,21 +1516,41 @@ func (r *Repository) deduplicate(ctx context.Context, projectID, scanID string, 
 			       OR f.version_id::text || '|' || f.correlation_key IN (SELECT grp FROM affected)
 			       OR f.last_scan_id = $2 OR f.id = ANY($3))
 		),
+		scanner_counts AS (
+			-- Per correlation group among electable (open/confirmed, non-archived)
+			-- findings: how many rows, and how many distinct scanners reported
+			-- them. A CVE-keyed group collapses whenever it has more than one
+			-- member, same scanner or not (unchanged from before this feature). A
+			-- location-keyed group (no CVE: category+file+line[+CWE]) collapses
+			-- only when grp = distinct_scanners, i.e. every member is a different
+			-- tool; otherwise none of its members is marked a duplicate, so one
+			-- tool's second rule on the same line never disappears behind another
+			-- tool's report of a third.
+			SELECT version_id, correlation_key,
+				count(*) AS grp,
+				count(DISTINCT scanner) AS distinct_scanners
+			FROM scoped
+			WHERE correlation_key IS NOT NULL AND status IN ('open', 'confirmed') AND`+archive.Finding("")+`
+			GROUP BY version_id, correlation_key
+		),
 		ranked AS (
 			SELECT id,
 				first_value(id) OVER (
 					PARTITION BY version_id, correlation_key ORDER BY priority DESC, created_at ASC, id ASC
-				) AS primary_id,
-				count(*) OVER (PARTITION BY version_id, correlation_key) AS grp
+				) AS primary_id
 			FROM scoped
 			-- An archived finding is never elected, nor anyone's duplicate.
 			WHERE correlation_key IS NOT NULL AND status IN ('open', 'confirmed') AND`+archive.Finding("")+`
 		),
 		target AS (
 			SELECT s.id, CASE
-				WHEN r.grp > 1 AND s.id <> r.primary_id THEN r.primary_id
+				WHEN sc.grp > 1 AND s.id <> r.primary_id
+				     AND (s.correlation_key NOT LIKE 'loc|%' OR sc.grp = sc.distinct_scanners)
+					THEN r.primary_id
 				ELSE NULL END AS dup
-			FROM scoped s LEFT JOIN ranked r ON r.id = s.id
+			FROM scoped s
+			LEFT JOIN ranked r ON r.id = s.id
+			LEFT JOIN scanner_counts sc ON sc.version_id = s.version_id AND sc.correlation_key = s.correlation_key
 		)
 		UPDATE findings f SET duplicate_of = t.dup
 		FROM target t
