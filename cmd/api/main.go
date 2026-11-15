@@ -267,7 +267,8 @@ func run() error {
 		appliers = append(appliers, nvdSvc)
 	}
 	ingestSvc := scan.NewService(scanRepo, findingRepo, projectRepo, parsers, notifySvc, appliers, scanRepo).
-		WithFollowUps(remediationSvc)
+		WithFollowUps(remediationSvc).
+		WithSkipUnchanged(cfg.Ingest.SkipUnchanged)
 	connectorSvc := connector.NewService(connectorRepo, ingestSvc, trackerCipher)
 	// Component policies: evaluated on every SBOM upload (the sbom post-ingest
 	// hook), after each policy change, and on POLICY_EVAL_INTERVAL.

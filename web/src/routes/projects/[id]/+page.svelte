@@ -1146,7 +1146,12 @@
 								<td>{s.scanner}</td>
 								<td class="text-xs">{versionName(s.version_id) || s.branch || '—'}</td>
 								<td class="uppercase text-xs">{$labelOf('category', s.category)}</td>
-								<td><Badge kind="scan" value={s.status} /></td>
+								<td>
+									<Badge kind="scan" value={s.status} />
+									{#if s.unchanged_of}
+										<span class="badge badge-ghost badge-sm ml-1" title={$t('proj.unchangedScan', { id: s.unchanged_of })}>{$t('proj.unchanged')}</span>
+									{/if}
+								</td>
 								<td class="text-xs">
 									{#each Object.entries(s.summary ?? {}) as [sev, n]}
 										<span class="badge badge-sm mr-1 whitespace-nowrap capitalize {severityClass(sev)}">{$labelOf('severity', sev)}: {fmtNumber(Number(n))}</span>

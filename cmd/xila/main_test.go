@@ -197,3 +197,34 @@ func TestUploadBaselineFlagPassesThrough(t *testing.T) {
 		t.Errorf("gate request query %q missing baseline=main", gotQuery)
 	}
 }
+
+// --force bypasses skip-unchanged (M11 11.4): the CLI must send force=true on
+// the upload request.
+func TestUploadForceFlagSendsForceTrue(t *testing.T) {
+	var gotQuery string
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/projects/", func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/scans") {
+			gotQuery = r.URL.RawQuery
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"id":"scan-1","status":"completed","version_id":"v1"}`))
+		}
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	tmp := filepath.Join(t.TempDir(), "trivy.json")
+	if err := os.WriteFile(tmp, []byte(`{"Results":[]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var out, errw bytes.Buffer
+	code := run([]string{"upload", "--url", srv.URL, "--token", "t", "--project", "p1",
+		"--scanner", "trivy", "--force", tmp}, &out, &errw)
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0 (stderr: %s)", code, errw.String())
+	}
+	if !strings.Contains(gotQuery, "force=true") {
+		t.Errorf("upload request query %q missing force=true", gotQuery)
+	}
+}

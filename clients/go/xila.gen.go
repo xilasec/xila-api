@@ -7033,7 +7033,7 @@ type SbomServiceSummary struct {
 	UnauthenticatedExternal *int `json:"unauthenticated_external,omitempty"`
 }
 
-// Scan Example: {"archived_at":null,"archived_by":null,"asset_id":null,"branch":"","category":"sca","commit_sha":"","created_at":"2026-11-13T01:41:56.635752+01:00","engagement_id":null,"error":"","finished_at":"2026-11-13T01:41:56.664762+01:00","id":"4077d267-587a-415b-bf7d-36858ba00837","project_id":"af938283-73e9-4d55-ba64-07a1658d69ce","scanner":"trivy","started_at":"2026-11-13T01:41:56.635752+01:00","status":"completed","summary":{"critical":2,"high":2},"version_id":"9f56646c-6102-42eb-8077-4dca83013b3e"}
+// Scan Example: {"archived_at":null,"archived_by":null,"asset_id":null,"branch":"","category":"sca","commit_sha":"","content_hash":"8f3a2e1c4b5d6a7f0e1d2c3b4a5968778899aabbccddeeff00112233445566","created_at":"2026-11-13T01:41:56.635752+01:00","engagement_id":null,"error":"","finished_at":"2026-11-13T01:41:56.664762+01:00","id":"4077d267-587a-415b-bf7d-36858ba00837","project_id":"af938283-73e9-4d55-ba64-07a1658d69ce","scanner":"trivy","started_at":"2026-11-13T01:41:56.635752+01:00","status":"completed","summary":{"critical":2,"high":2},"unchanged_of":null,"version_id":"9f56646c-6102-42eb-8077-4dca83013b3e"}
 type Scan struct {
 	// ArchivedAt Set while archived.
 	ArchivedAt *time.Time          `json:"archived_at,omitempty"`
@@ -7042,9 +7042,14 @@ type Scan struct {
 	Branch     *string             `json:"branch,omitempty"`
 
 	// Category `cloud` is CSPM, `kubernetes` is KSPM.
-	Category  *Category  `json:"category,omitempty"`
-	CommitSha *string    `json:"commit_sha,omitempty"`
-	CreatedAt *time.Time `json:"created_at,omitempty"`
+	Category  *Category `json:"category,omitempty"`
+	CommitSha *string   `json:"commit_sha,omitempty"`
+
+	// ContentHash Digest of the parsed report's findings, set once ingestion finishes.
+	// `null` for a scan with no raw report (manual findings, the OSV
+	// matcher) or where hashing failed. See `unchanged_of`.
+	ContentHash *string    `json:"content_hash,omitempty"`
+	CreatedAt   *time.Time `json:"created_at,omitempty"`
 
 	// EngagementId The engagement this scan is a test of.
 	EngagementId *openapi_types.UUID `json:"engagement_id,omitempty"`
@@ -7060,6 +7065,12 @@ type Scan struct {
 
 	// Summary Findings per severity in this scan.
 	Summary *map[string]int `json:"summary,omitempty"`
+
+	// UnchangedOf Set when this scan's content hash matched its target's previous
+	// completed scan: the pipeline was skipped (`INGEST_SKIP_UNCHANGED`)
+	// and this scan merely carried the earlier findings forward. `null`
+	// for a normally processed scan.
+	UnchangedOf *openapi_types.UUID `json:"unchanged_of,omitempty"`
 
 	// VersionId The branch / release this scan is of.
 	VersionId *openapi_types.UUID `json:"version_id,omitempty"`
@@ -9069,6 +9080,11 @@ type CreateProjectScanParams struct {
 	// partial/incremental scans, or you will close findings that simply
 	// weren't scanned.
 	CloseMissing *bool `form:"close_missing,omitempty" json:"close_missing,omitempty"`
+
+	// Force Always run the full pipeline, even if this report's content hash
+	// matches the target's previous completed scan (bypasses
+	// `INGEST_SKIP_UNCHANGED`).
+	Force *bool `form:"force,omitempty" json:"force,omitempty"`
 }
 
 // CreateProjectScanParamsFormat defines parameters for CreateProjectScan.
@@ -13192,6 +13208,14 @@ type ClientInterface interface {
 	// auto-close what the scanner no longer reports → reachability → VEX →
 	// auto-triage rules → cross-tool dedup → priority → alerts.
 	//
+	// If the parsed report is identical to the target's previous scan (same
+	// project version, scanner and asset) — a report that differs only in a
+	// scanner-embedded timestamp still counts as identical — the pipeline is
+	// skipped: the scan is recorded completed with the previous summary and
+	// `unchanged_of` set, and its findings are carried onto it without a full
+	// re-run (`INGEST_SKIP_UNCHANGED`, default on; `force=true` always
+	// processes in full).
+	//
 	// With `INGEST_ASYNC=true` the server returns **202** with a `processing`
 	// scan and a worker finishes the job; poll `GET /scans/{id}` until it is
 	// `completed`. If the ingest queue is saturated you get **429** with
@@ -13210,6 +13234,14 @@ type ClientInterface interface {
 	// The upload runs the whole pipeline: parse → upsert (dedup by fingerprint) →
 	// auto-close what the scanner no longer reports → reachability → VEX →
 	// auto-triage rules → cross-tool dedup → priority → alerts.
+	//
+	// If the parsed report is identical to the target's previous scan (same
+	// project version, scanner and asset) — a report that differs only in a
+	// scanner-embedded timestamp still counts as identical — the pipeline is
+	// skipped: the scan is recorded completed with the previous summary and
+	// `unchanged_of` set, and its findings are carried onto it without a full
+	// re-run (`INGEST_SKIP_UNCHANGED`, default on; `force=true` always
+	// processes in full).
 	//
 	// With `INGEST_ASYNC=true` the server returns **202** with a `processing`
 	// scan and a worker finishes the job; poll `GET /scans/{id}` until it is
@@ -21264,6 +21296,14 @@ func (c *Client) ListProjectScans(ctx context.Context, projectID ProjectID, para
 // auto-close what the scanner no longer reports → reachability → VEX →
 // auto-triage rules → cross-tool dedup → priority → alerts.
 //
+// If the parsed report is identical to the target's previous scan (same
+// project version, scanner and asset) — a report that differs only in a
+// scanner-embedded timestamp still counts as identical — the pipeline is
+// skipped: the scan is recorded completed with the previous summary and
+// `unchanged_of` set, and its findings are carried onto it without a full
+// re-run (`INGEST_SKIP_UNCHANGED`, default on; `force=true` always
+// processes in full).
+//
 // With `INGEST_ASYNC=true` the server returns **202** with a `processing`
 // scan and a worker finishes the job; poll `GET /scans/{id}` until it is
 // `completed`. If the ingest queue is saturated you get **429** with
@@ -21292,6 +21332,14 @@ func (c *Client) CreateProjectScanWithBody(ctx context.Context, projectID Projec
 // The upload runs the whole pipeline: parse → upsert (dedup by fingerprint) →
 // auto-close what the scanner no longer reports → reachability → VEX →
 // auto-triage rules → cross-tool dedup → priority → alerts.
+//
+// If the parsed report is identical to the target's previous scan (same
+// project version, scanner and asset) — a report that differs only in a
+// scanner-embedded timestamp still counts as identical — the pipeline is
+// skipped: the scan is recorded completed with the previous summary and
+// `unchanged_of` set, and its findings are carried onto it without a full
+// re-run (`INGEST_SKIP_UNCHANGED`, default on; `force=true` always
+// processes in full).
 //
 // With `INGEST_ASYNC=true` the server returns **202** with a `processing`
 // scan and a worker finishes the job; poll `GET /scans/{id}` until it is
@@ -37958,6 +38006,18 @@ func NewCreateProjectScanRequestWithBody(server string, projectID ProjectID, par
 
 		}
 
+		if params.Force != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "force", *params.Force, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
 		if encoded := queryValues.Encode(); encoded != "" {
 			rawQueryFragments = append(rawQueryFragments, encoded)
 		}
@@ -46453,6 +46513,14 @@ type ClientWithResponsesInterface interface {
 	// auto-close what the scanner no longer reports → reachability → VEX →
 	// auto-triage rules → cross-tool dedup → priority → alerts.
 	//
+	// If the parsed report is identical to the target's previous scan (same
+	// project version, scanner and asset) — a report that differs only in a
+	// scanner-embedded timestamp still counts as identical — the pipeline is
+	// skipped: the scan is recorded completed with the previous summary and
+	// `unchanged_of` set, and its findings are carried onto it without a full
+	// re-run (`INGEST_SKIP_UNCHANGED`, default on; `force=true` always
+	// processes in full).
+	//
 	// With `INGEST_ASYNC=true` the server returns **202** with a `processing`
 	// scan and a worker finishes the job; poll `GET /scans/{id}` until it is
 	// `completed`. If the ingest queue is saturated you get **429** with
@@ -46471,6 +46539,14 @@ type ClientWithResponsesInterface interface {
 	// The upload runs the whole pipeline: parse → upsert (dedup by fingerprint) →
 	// auto-close what the scanner no longer reports → reachability → VEX →
 	// auto-triage rules → cross-tool dedup → priority → alerts.
+	//
+	// If the parsed report is identical to the target's previous scan (same
+	// project version, scanner and asset) — a report that differs only in a
+	// scanner-embedded timestamp still counts as identical — the pipeline is
+	// skipped: the scan is recorded completed with the previous summary and
+	// `unchanged_of` set, and its findings are carried onto it without a full
+	// re-run (`INGEST_SKIP_UNCHANGED`, default on; `force=true` always
+	// processes in full).
 	//
 	// With `INGEST_ASYNC=true` the server returns **202** with a `processing`
 	// scan and a worker finishes the job; poll `GET /scans/{id}` until it is
@@ -73319,6 +73395,14 @@ func (c *ClientWithResponses) ListProjectScansWithResponse(ctx context.Context, 
 // auto-close what the scanner no longer reports → reachability → VEX →
 // auto-triage rules → cross-tool dedup → priority → alerts.
 //
+// If the parsed report is identical to the target's previous scan (same
+// project version, scanner and asset) — a report that differs only in a
+// scanner-embedded timestamp still counts as identical — the pipeline is
+// skipped: the scan is recorded completed with the previous summary and
+// `unchanged_of` set, and its findings are carried onto it without a full
+// re-run (`INGEST_SKIP_UNCHANGED`, default on; `force=true` always
+// processes in full).
+//
 // With `INGEST_ASYNC=true` the server returns **202** with a `processing`
 // scan and a worker finishes the job; poll `GET /scans/{id}` until it is
 // `completed`. If the ingest queue is saturated you get **429** with
@@ -73343,6 +73427,14 @@ func (c *ClientWithResponses) CreateProjectScanWithBodyWithResponse(ctx context.
 // The upload runs the whole pipeline: parse → upsert (dedup by fingerprint) →
 // auto-close what the scanner no longer reports → reachability → VEX →
 // auto-triage rules → cross-tool dedup → priority → alerts.
+//
+// If the parsed report is identical to the target's previous scan (same
+// project version, scanner and asset) — a report that differs only in a
+// scanner-embedded timestamp still counts as identical — the pipeline is
+// skipped: the scan is recorded completed with the previous summary and
+// `unchanged_of` set, and its findings are carried onto it without a full
+// re-run (`INGEST_SKIP_UNCHANGED`, default on; `force=true` always
+// processes in full).
 //
 // With `INGEST_ASYNC=true` the server returns **202** with a `processing`
 // scan and a worker finishes the job; poll `GET /scans/{id}` until it is

@@ -814,6 +814,8 @@ export default {
 	"proj.colStatus": "Status",
 	"proj.colFindings": "Findings",
 	"proj.colWhen": "When",
+	"proj.unchangedScan": "Unchanged, repeated scan {id}",
+	"proj.unchanged": "unchanged",
 	"proj.noSboms": "No SBOMs uploaded yet.",
 	"proj.colArtifact": "Artifact",
 	"proj.colVersion": "Version",

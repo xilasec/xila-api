@@ -52,6 +52,16 @@ type Scan struct {
 	// ArchivedAt / ArchivedBy: set while the scan is archived (internal/archive).
 	ArchivedAt *time.Time `json:"archived_at"`
 	ArchivedBy *string    `json:"archived_by"`
+	// ContentHash is a deterministic digest of everything a report's upsert
+	// would write (see scan.contentHash), set once parsing finishes — even on a
+	// scan that was NOT skipped, so the *next* upload has something to compare
+	// against. nil for scans with no raw report (manual findings, ApplyFindings)
+	// and for ones where hashing itself failed.
+	ContentHash *string `json:"content_hash"`
+	// UnchangedOf is set when this scan's content hash matched its target's
+	// previous completed scan: the pipeline was skipped and this scan merely
+	// carried the earlier findings forward (see scan.Service.runPipeline).
+	UnchangedOf *string `json:"unchanged_of"`
 }
 
 // Repository provides access to the scans table.
@@ -65,12 +75,14 @@ func NewRepository(db *pgxpool.Pool) *Repository {
 }
 
 const scanColumns = `id, project_id, asset_id, scanner, category, status, commit_sha,
-	branch, summary, error, started_at, finished_at, created_at, version_id, engagement_id, archived_at, archived_by`
+	branch, summary, error, started_at, finished_at, created_at, version_id, engagement_id, archived_at, archived_by,
+	content_hash, unchanged_of`
 
 func scanScan(row pgx.Row) (Scan, error) {
 	var s Scan
 	err := row.Scan(&s.ID, &s.ProjectID, &s.AssetID, &s.Scanner, &s.Category, &s.Status, &s.CommitSHA,
-		&s.Branch, &s.Summary, &s.Error, &s.StartedAt, &s.FinishedAt, &s.CreatedAt, &s.VersionID, &s.EngagementID, &s.ArchivedAt, &s.ArchivedBy)
+		&s.Branch, &s.Summary, &s.Error, &s.StartedAt, &s.FinishedAt, &s.CreatedAt, &s.VersionID, &s.EngagementID, &s.ArchivedAt, &s.ArchivedBy,
+		&s.ContentHash, &s.UnchangedOf)
 	return s, err
 }
 
@@ -99,19 +111,64 @@ func (r *Repository) Create(ctx context.Context, s Scan) (Scan, error) {
 }
 
 // Finalize records the outcome of processing: status, per-severity summary and
-// any error, stamping finished_at.
-func (r *Repository) Finalize(ctx context.Context, id string, status domain.ScanStatus, summary map[string]int, errMsg string) (Scan, error) {
+// any error, stamping finished_at. contentHash ("" = leave it NULL) is the
+// digest runPipeline computed from the parsed report, stored so the *next*
+// upload for this target has something to compare against — see
+// LatestCompletedTarget and Service.contentHash.
+func (r *Repository) Finalize(ctx context.Context, id string, status domain.ScanStatus, summary map[string]int, errMsg, contentHash string) (Scan, error) {
 	const q = `
 		UPDATE scans
-		SET status = $2, summary = $3, error = $4, finished_at = now()
+		SET status = $2, summary = $3, error = $4, finished_at = now(), content_hash = NULLIF($5, '')
 		WHERE id = $1
 		RETURNING ` + scanColumns
 	if summary == nil {
 		summary = map[string]int{}
 	}
-	out, err := scanScan(r.db.QueryRow(ctx, q, id, status, summary, errMsg))
+	out, err := scanScan(r.db.QueryRow(ctx, q, id, status, summary, errMsg, contentHash))
 	if err != nil {
 		return Scan{}, fmt.Errorf("finalize scan: %w", err)
+	}
+	return out, nil
+}
+
+// LatestCompletedTarget returns the most recently completed scan for the same
+// target CloseMissing would use — project, scanner, version and asset (NULL
+// asset matches NULL asset only) — the previous run a new upload might be
+// repeating. ok is false when the target has no completed scan yet.
+func (r *Repository) LatestCompletedTarget(ctx context.Context, projectID, scannerName, versionID string, assetID *string) (Scan, bool, error) {
+	const q = `SELECT ` + scanColumns + ` FROM scans
+		WHERE project_id = $1 AND scanner = $2 AND version_id = $3
+		  AND asset_id IS NOT DISTINCT FROM $4
+		  AND status = 'completed'
+		ORDER BY created_at DESC
+		LIMIT 1`
+	s, err := scanScan(r.db.QueryRow(ctx, q, projectID, scannerName, versionID, assetID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Scan{}, false, nil
+	}
+	if err != nil {
+		return Scan{}, false, fmt.Errorf("latest completed scan for target: %w", err)
+	}
+	return s, true, nil
+}
+
+// MarkUnchanged finalizes a scan as a cheap repeat of an earlier one with an
+// identical content hash: completed, the same summary, content_hash carried
+// over, and unchanged_of pointing at the scan it repeated. The caller is
+// responsible for moving the target's findings onto this scan first (see
+// findingWriter.CarryForward) — this only touches the scan row.
+func (r *Repository) MarkUnchanged(ctx context.Context, id, repeatOf, contentHash string, summary map[string]int) (Scan, error) {
+	const q = `
+		UPDATE scans
+		SET status = 'completed', summary = $3, content_hash = $4, unchanged_of = $2, finished_at = now()
+		WHERE id = $1
+		RETURNING ` + scanColumns
+	if summary == nil {
+		summary = map[string]int{}
+	}
+	out, err := scanScan(r.db.QueryRow(ctx, q, id, repeatOf, summary, contentHash))
+	if err != nil {
+		return Scan{}, fmt.Errorf("mark scan unchanged: %w", err)
 	}
 	return out, nil
 }

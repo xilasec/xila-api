@@ -17,13 +17,17 @@ type Job struct {
 	Payload      []byte
 	Format       string
 	CloseMissing bool
-	Attempts     int
+	// Force skips the skip-unchanged check: always run the full pipeline (the
+	// upload's force=true query parameter, carried through to the worker since
+	// the content hash is only known after this payload is parsed).
+	Force    bool
+	Attempts int
 }
 
 // EnqueueJob stores a job for later processing by a worker.
-func (r *Repository) EnqueueJob(ctx context.Context, scanID string, payload []byte, format string, closeMissing bool) error {
-	const q = `INSERT INTO scan_jobs (scan_id, payload, format, close_missing) VALUES ($1, $2, $3, $4)`
-	if _, err := r.db.Exec(ctx, q, scanID, payload, format, closeMissing); err != nil {
+func (r *Repository) EnqueueJob(ctx context.Context, scanID string, payload []byte, format string, closeMissing, force bool) error {
+	const q = `INSERT INTO scan_jobs (scan_id, payload, format, close_missing, force) VALUES ($1, $2, $3, $4, $5)`
+	if _, err := r.db.Exec(ctx, q, scanID, payload, format, closeMissing, force); err != nil {
 		return fmt.Errorf("enqueue job: %w", err)
 	}
 	return nil
@@ -44,10 +48,10 @@ func (r *Repository) ClaimJob(ctx context.Context, staleAfter time.Duration) (*J
 			FOR UPDATE SKIP LOCKED
 			LIMIT 1
 		)
-		RETURNING id, scan_id, payload, format, close_missing, attempts`
+		RETURNING id, scan_id, payload, format, close_missing, force, attempts`
 	var j Job
 	err := r.db.QueryRow(ctx, q, staleAfter.Seconds()).
-		Scan(&j.ID, &j.ScanID, &j.Payload, &j.Format, &j.CloseMissing, &j.Attempts)
+		Scan(&j.ID, &j.ScanID, &j.Payload, &j.Format, &j.CloseMissing, &j.Force, &j.Attempts)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}

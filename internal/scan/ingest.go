@@ -5,10 +5,12 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -37,6 +39,14 @@ type findingWriter interface {
 	CloseMissing(ctx context.Context, projectID, scanner, scanID string) ([]string, error)
 	ListNewHighSeverity(ctx context.Context, scanID string) ([]finding.Finding, error)
 	DeduplicateScan(ctx context.Context, projectID, scanID string, closedIDs []string) (int, error)
+	// CarryForward moves the target's live findings from a repeated scan onto
+	// the new one that matched its content hash (see Service.runPipeline's
+	// skip-unchanged path), refreshing last_seen_at without touching
+	// first_scan_id.
+	CarryForward(ctx context.Context, prevScanID, newScanID string, want int) (bool, error)
+	// ChangedSince reports whether the earlier scan's findings (or its asset's
+	// exposure) changed after it finished, which rules out skipping.
+	ChangedSince(ctx context.Context, prevScanID string, since time.Time, assetID *string) (bool, error)
 }
 
 // eventNotifier dispatches events (notify.Service satisfies it). Optional.
@@ -48,7 +58,12 @@ type eventNotifier interface {
 type scanStore interface {
 	Create(ctx context.Context, s Scan) (Scan, error)
 	Get(ctx context.Context, id string) (Scan, error)
-	Finalize(ctx context.Context, id string, status domain.ScanStatus, summary map[string]int, errMsg string) (Scan, error)
+	Finalize(ctx context.Context, id string, status domain.ScanStatus, summary map[string]int, errMsg, contentHash string) (Scan, error)
+	// LatestCompletedTarget finds the previous completed scan of the same
+	// target (project, scanner, version, asset) — see Service.runPipeline.
+	LatestCompletedTarget(ctx context.Context, projectID, scannerName, versionID string, assetID *string) (Scan, bool, error)
+	// MarkUnchanged finalizes a scan as a skipped repeat of an earlier one.
+	MarkUnchanged(ctx context.Context, id, repeatOf, contentHash string, summary map[string]int) (Scan, error)
 }
 
 // IngestRequest carries the metadata accompanying a raw scan upload.
@@ -70,6 +85,9 @@ type IngestRequest struct {
 	// CloseMissing auto-remediates this scanner's findings that were not seen in
 	// this scan (treating the scan as the scanner's complete current view).
 	CloseMissing bool
+	// Force bypasses skip-unchanged: always run the full pipeline even if this
+	// report's content hash matches the target's previous scan.
+	Force bool
 }
 
 // parserKey selects the parser: an explicit format wins, else the scanner name.
@@ -91,6 +109,11 @@ type Service struct {
 	// followUps run after dedup, on the scan's final findings (see WithFollowUps).
 	followUps []Applier
 	jobs      jobStore // optional (required for async Enqueue)
+	// skipUnchanged short-circuits the pipeline when a report's content hash
+	// matches its target's previous completed scan (INGEST_SKIP_UNCHANGED; see
+	// WithSkipUnchanged and runPipeline). Off by default: callers that want it
+	// opt in explicitly.
+	skipUnchanged bool
 }
 
 // Applier is a post-ingest pass over the findings a scan just reported: auto-
@@ -107,7 +130,7 @@ type Applier interface {
 // jobStore persists queued ingest jobs (scan.Repository satisfies it). Only used
 // by the async Enqueue path.
 type jobStore interface {
-	EnqueueJob(ctx context.Context, scanID string, payload []byte, format string, closeMissing bool) error
+	EnqueueJob(ctx context.Context, scanID string, payload []byte, format string, closeMissing, force bool) error
 }
 
 // NewService wires the ingestion dependencies. notifier, appliers and jobs may be nil.
@@ -124,13 +147,22 @@ func (s *Service) WithFollowUps(p ...Applier) *Service {
 	return s
 }
 
+// WithSkipUnchanged enables the skip-unchanged short-circuit (see
+// runPipeline): a report whose content hash matches its target's previous
+// completed scan records the repeat cheaply instead of re-running the whole
+// pipeline. Individual uploads can still force a full run (IngestRequest.Force).
+func (s *Service) WithSkipUnchanged(enabled bool) *Service {
+	s.skipUnchanged = enabled
+	return s
+}
+
 // Ingest synchronously parses + processes a scan and returns the finalized scan.
 func (s *Service) Ingest(ctx context.Context, req IngestRequest, raw io.Reader) (Scan, error) {
 	sc, err := s.createScan(ctx, req)
 	if err != nil {
 		return Scan{}, err
 	}
-	return s.runPipeline(ctx, sc, raw, req.Format, req.CloseMissing)
+	return s.runPipeline(ctx, sc, raw, req.Format, req.CloseMissing, s.skipUnchanged && !req.Force)
 }
 
 // Enqueue persists the raw payload + a scan row and returns immediately; a worker
@@ -141,8 +173,8 @@ func (s *Service) Enqueue(ctx context.Context, req IngestRequest, payload []byte
 	if err != nil {
 		return Scan{}, err
 	}
-	if err := s.jobs.EnqueueJob(ctx, sc.ID, payload, req.Format, req.CloseMissing); err != nil {
-		_, _ = s.scans.Finalize(ctx, sc.ID, domain.ScanFailed, nil, err.Error())
+	if err := s.jobs.EnqueueJob(ctx, sc.ID, payload, req.Format, req.CloseMissing, req.Force); err != nil {
+		_, _ = s.scans.Finalize(ctx, sc.ID, domain.ScanFailed, nil, err.Error(), "")
 		return Scan{}, err
 	}
 	return sc, nil
@@ -156,7 +188,7 @@ func (s *Service) ProcessJob(ctx context.Context, job Job) (err error) {
 	if err != nil {
 		return err
 	}
-	_, err = s.runPipeline(ctx, sc, bytes.NewReader(job.Payload), job.Format, job.CloseMissing)
+	_, err = s.runPipeline(ctx, sc, bytes.NewReader(job.Payload), job.Format, job.CloseMissing, s.skipUnchanged && !job.Force)
 	return err
 }
 
@@ -199,16 +231,24 @@ func (s *Service) createScan(ctx context.Context, req IngestRequest) (Scan, erro
 
 // runPipeline parses the payload, upserts findings, auto-closes/triages/dedups,
 // finalizes the scan and fires alerts. Shared by the sync and async paths.
-func (s *Service) runPipeline(ctx context.Context, sc Scan, raw io.Reader, format string, closeMissing bool) (Scan, error) {
+//
+// trySkip is INGEST_SKIP_UNCHANGED (Service.skipUnchanged) with the upload's
+// own force=false — when true, a report whose content hash matches its
+// target's previous completed scan short-circuits: no upsert, no auto-close,
+// no appliers, no dedup, no follow-ups, no alert. The scan is recorded
+// completed with the previous summary and unchanged_of set, and the target's
+// live findings are carried onto it (see findingWriter.CarryForward) so they
+// look seen by this scan without counting as newly introduced by it.
+func (s *Service) runPipeline(ctx context.Context, sc Scan, raw io.Reader, format string, closeMissing, trySkip bool) (Scan, error) {
 	parser, ok := s.parsers.Get(IngestRequest{Scanner: sc.Scanner, Format: format}.parserKey())
 	if !ok {
-		_, _ = s.scans.Finalize(ctx, sc.ID, domain.ScanFailed, nil, "unknown scanner")
+		_, _ = s.scans.Finalize(ctx, sc.ID, domain.ScanFailed, nil, "unknown scanner", "")
 		return Scan{}, fmt.Errorf("%w: %q", ErrUnknownScanner, sc.Scanner)
 	}
 
 	parsed, err := parser.Parse(raw)
 	if err != nil {
-		if _, ferr := s.scans.Finalize(ctx, sc.ID, domain.ScanFailed, nil, err.Error()); ferr != nil {
+		if _, ferr := s.scans.Finalize(ctx, sc.ID, domain.ScanFailed, nil, err.Error(), ""); ferr != nil {
 			return Scan{}, errors.Join(err, ferr)
 		}
 		return Scan{}, fmt.Errorf("parse scan: %w", err)
@@ -220,12 +260,73 @@ func (s *Service) runPipeline(ctx context.Context, sc Scan, raw io.Reader, forma
 		findings = append(findings, toFinding(sc.ProjectID, sc.Scanner, sc.ID, sc.AssetID, pf))
 		summary[string(pf.Severity)]++
 	}
+
+	// Hashing the parsed findings rather than the raw bytes means a report that
+	// differs only in a scanner-embedded timestamp (e.g. Trivy's top-level
+	// CreatedAt, which we never parse into a ParsedFinding) still counts as
+	// unchanged. A hashing failure (should not happen — it's pure encoding) just
+	// disables the optimization for this scan; it still runs and finalizes
+	// normally, just without a content_hash for future comparisons.
+	hash, hashErr := contentHash(sc.Scanner, parsed, closeMissing)
+	if hashErr != nil {
+		slog.WarnContext(ctx, "content hash failed; processing normally", "error", hashErr, "scan_id", sc.ID)
+		hash = ""
+	}
+
+	if trySkip && hashErr == nil {
+		prev, ok, err := s.scans.LatestCompletedTarget(ctx, sc.ProjectID, sc.Scanner, sc.VersionID, sc.AssetID)
+		if err != nil {
+			slog.WarnContext(ctx, "latest completed scan lookup failed; processing normally", "error", err, "scan_id", sc.ID)
+		} else if ok && prev.ContentHash != nil && *prev.ContentHash == hash && prev.FinishedAt != nil {
+			if final, skipped, err := s.repeat(ctx, sc, prev, hash, summary, findings); err != nil || skipped {
+				return final, err
+			}
+		}
+	}
+
 	if err := s.findings.UpsertBatch(ctx, findings, ""); err != nil {
-		_, _ = s.scans.Finalize(ctx, sc.ID, domain.ScanFailed, summary, err.Error())
+		_, _ = s.scans.Finalize(ctx, sc.ID, domain.ScanFailed, summary, err.Error(), "")
 		return Scan{}, err
 	}
 
-	return s.finish(ctx, sc, summary, closeMissing)
+	return s.finish(ctx, sc, summary, closeMissing, hash)
+}
+
+// repeat records sc as an unchanged repeat of prev when that is safe: nobody
+// changed prev's findings or its asset's exposure since it finished (a reset
+// field, a manually closed finding or a cleared exposure all need the full
+// pipeline to restore the scanner's view), and every one of this report's
+// findings is still there to carry forward. skipped is false when the caller
+// should run the full pipeline.
+func (s *Service) repeat(ctx context.Context, sc, prev Scan, hash string, summary map[string]int, findings []finding.Finding) (Scan, bool, error) {
+	changed, err := s.findings.ChangedSince(ctx, prev.ID, *prev.FinishedAt, sc.AssetID)
+	if err != nil {
+		slog.WarnContext(ctx, "change check failed; processing normally", "error", err, "scan_id", sc.ID)
+		return Scan{}, false, nil
+	}
+	if changed {
+		return Scan{}, false, nil
+	}
+	distinct := map[string]struct{}{}
+	for _, f := range findings {
+		distinct[f.Fingerprint] = struct{}{}
+	}
+	moved, err := s.findings.CarryForward(ctx, prev.ID, sc.ID, len(distinct))
+	if err != nil {
+		_, _ = s.scans.Finalize(ctx, sc.ID, domain.ScanFailed, summary, err.Error(), "")
+		return Scan{}, true, err
+	}
+	if !moved {
+		slog.InfoContext(ctx, "unchanged report but its findings moved; processing normally", "scan_id", sc.ID, "repeats", prev.ID)
+		return Scan{}, false, nil
+	}
+	final, err := s.scans.MarkUnchanged(ctx, sc.ID, prev.ID, hash, prev.Summary)
+	if err != nil {
+		return Scan{}, true, err
+	}
+	slog.InfoContext(ctx, "scan unchanged; pipeline skipped",
+		"scan_id", sc.ID, "repeats", prev.ID, "scanner", sc.Scanner, "project_id", sc.ProjectID)
+	return final, true, nil
 }
 
 // ApplyFindings records findings produced *without* a raw scanner report — e.g.
@@ -289,15 +390,17 @@ func (s *Service) applyFindings(ctx context.Context, t Target, scannerName strin
 		summary[string(findings[i].Severity)]++
 	}
 	if err := s.findings.UpsertBatch(ctx, findings, t.Actor); err != nil {
-		_, _ = s.scans.Finalize(ctx, sc.ID, domain.ScanFailed, summary, err.Error())
+		_, _ = s.scans.Finalize(ctx, sc.ID, domain.ScanFailed, summary, err.Error(), "")
 		return Scan{}, err
 	}
-	return s.finish(ctx, sc, summary, closeMissing)
+	return s.finish(ctx, sc, summary, closeMissing, "")
 }
 
 // finish runs the shared pipeline tail: auto-close, auto-triage, cross-tool dedup,
-// finalize, and the new-critical alert.
-func (s *Service) finish(ctx context.Context, sc Scan, summary map[string]int, closeMissing bool) (Scan, error) {
+// finalize, and the new-critical alert. contentHash ("" when the scan has no raw
+// report, e.g. ApplyFindings) is stored on the completed scan for the *next*
+// upload of the same target to compare against.
+func (s *Service) finish(ctx context.Context, sc Scan, summary map[string]int, closeMissing bool, contentHash string) (Scan, error) {
 	// Closing a finding empties its slot in a correlation group, so dedup below
 	// has to revisit those groups too.
 	var closed []string
@@ -305,7 +408,7 @@ func (s *Service) finish(ctx context.Context, sc Scan, summary map[string]int, c
 		var err error
 		closed, err = s.findings.CloseMissing(ctx, sc.ProjectID, sc.Scanner, sc.ID)
 		if err != nil {
-			_, _ = s.scans.Finalize(ctx, sc.ID, domain.ScanFailed, summary, err.Error())
+			_, _ = s.scans.Finalize(ctx, sc.ID, domain.ScanFailed, summary, err.Error(), "")
 			return Scan{}, err
 		}
 		if len(closed) > 0 {
@@ -344,7 +447,7 @@ func (s *Service) finish(ctx context.Context, sc Scan, summary map[string]int, c
 		}
 	}
 
-	final, err := s.scans.Finalize(ctx, sc.ID, domain.ScanCompleted, summary, "")
+	final, err := s.scans.Finalize(ctx, sc.ID, domain.ScanCompleted, summary, "", contentHash)
 	if err != nil {
 		return Scan{}, err
 	}
@@ -439,4 +542,69 @@ func fingerprint(scannerName string, pf scanner.ParsedFinding) string {
 	}
 	sum := sha256.Sum256([]byte(strings.Join(parts, "|")))
 	return hex.EncodeToString(sum[:])
+}
+
+// contentHash is a deterministic digest of a parsed report: every field the
+// upsert would write for each finding, keyed by its dedup fingerprint and
+// sorted, plus closeMissing (which changes what the scan does to findings it
+// did NOT report). Hashing the parsed findings rather than the raw bytes means
+// a report that differs only in a scanner-embedded value we never read (e.g.
+// Trivy's top-level CreatedAt) still hashes the same, while a parser upgrade
+// that changes what we extract counts as a change.
+func contentHash(scannerName string, parsed []scanner.ParsedFinding, closeMissing bool) (string, error) {
+	type canonicalFinding struct {
+		Fingerprint    string          `json:"fp"`
+		Category       domain.Category `json:"category"`
+		RuleID         string          `json:"rule_id"`
+		Title          string          `json:"title"`
+		Description    string          `json:"description"`
+		Severity       domain.Severity `json:"severity"`
+		CWE            *int            `json:"cwe"`
+		CVE            []string        `json:"cve"`
+		FilePath       string          `json:"file_path"`
+		Line           *int            `json:"line"`
+		Package        string          `json:"package"`
+		PackageVersion string          `json:"package_version"`
+		FixedVersion   string          `json:"fixed_version"`
+		Purl           string          `json:"purl"`
+		CVSS           *float64        `json:"cvss"`
+		URL            string          `json:"url"`
+		Metadata       map[string]any  `json:"metadata"`
+	}
+	canon := make([]canonicalFinding, len(parsed))
+	for i, pf := range parsed {
+		cve := append([]string(nil), pf.CVE...)
+		sort.Strings(cve)
+		canon[i] = canonicalFinding{
+			Fingerprint:    fingerprint(scannerName, pf),
+			Category:       pf.Category,
+			RuleID:         pf.RuleID,
+			Title:          pf.Title,
+			Description:    pf.Description,
+			Severity:       pf.Severity,
+			CWE:            pf.CWE,
+			CVE:            cve,
+			FilePath:       pf.FilePath,
+			Line:           pf.Line,
+			Package:        pf.Package,
+			PackageVersion: pf.PackageVersion,
+			FixedVersion:   pf.FixedVersion,
+			Purl:           pf.Purl,
+			CVSS:           pf.CVSS,
+			URL:            pf.URL,
+			Metadata:       pf.Metadata,
+		}
+	}
+	sort.SliceStable(canon, func(i, j int) bool { return canon[i].Fingerprint < canon[j].Fingerprint })
+
+	payload := struct {
+		CloseMissing bool               `json:"close_missing"`
+		Findings     []canonicalFinding `json:"findings"`
+	}{closeMissing, canon}
+	b, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("marshal content hash payload: %w", err)
+	}
+	sum := sha256.Sum256(b)
+	return hex.EncodeToString(sum[:]), nil
 }
