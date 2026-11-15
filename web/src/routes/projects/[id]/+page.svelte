@@ -1207,6 +1207,7 @@
 					<option value="viewer">{$t('proj.roleViewer')}</option>
 					<option value="editor">{$t('proj.roleEditor')}</option>
 					<option value="owner">{$t('proj.roleOwner')}</option>
+					<option value="uploader">{$t('proj.roleUploader')}</option>
 				</select>
 			</Field>
 			<button class="btn btn-primary btn-sm" disabled={memberBusy}>

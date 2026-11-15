@@ -6343,7 +6343,7 @@ export interface components {
             org_id?: string | null;
             org_name?: string | null;
             /** @enum {string} */
-            effective_role?: "owner" | "editor" | "viewer" | "admin";
+            effective_role?: "owner" | "editor" | "viewer" | "uploader" | "admin";
             grants?: {
                 /** @enum {string} */
                 kind?: "project" | "team" | "org_admin" | "instance_admin";
@@ -6625,10 +6625,10 @@ export interface components {
             target_id?: string;
             readonly target_name?: string;
             /**
-             * @description org: admin|member; team/project: owner|editor|viewer; omitted for instance_admin.
+             * @description org: admin|member; team/project: owner|editor|viewer|uploader; omitted for instance_admin.
              * @enum {string}
              */
-            role?: "admin" | "member" | "owner" | "editor" | "viewer";
+            role?: "admin" | "member" | "owner" | "editor" | "viewer" | "uploader";
             /** Format: date-time */
             readonly created_at?: string;
         };
@@ -6777,7 +6777,7 @@ export interface components {
              * @description Your role on it.
              * @enum {string}
              */
-            role?: "owner" | "editor" | "viewer";
+            role?: "owner" | "editor" | "viewer" | "uploader";
             /** Format: date-time */
             created_at?: string;
         };
@@ -9371,7 +9371,7 @@ export interface components {
         PermTeamID: string;
         PermOrgID: string;
         /** @description Effective role. */
-        PermRole: "owner" | "editor" | "viewer" | "admin";
+        PermRole: "owner" | "editor" | "viewer" | "uploader" | "admin";
         /** @description Entries with at least one grant of this source. */
         PermSource: "manual" | "sso";
         PermPrincipalKind: "user" | "service";
@@ -10981,10 +10981,10 @@ export interface operations {
                     /** Format: email */
                     email: string;
                     /**
-                     * @description `viewer` is strictly read-only; `editor` can upload and triage; `owner` can also grant access.
+                     * @description `viewer` is strictly read-only; `editor` can upload and triage; `owner` can also grant access; `uploader` is viewer plus uploads — it reads everything a viewer does and may also upload scans/SBOMs/VEX and run the gate, for CI tokens.
                      * @enum {string}
                      */
-                    role: "owner" | "editor" | "viewer";
+                    role: "owner" | "editor" | "viewer" | "uploader";
                 };
             };
         };
@@ -11988,10 +11988,10 @@ export interface operations {
                     /** Format: email */
                     email: string;
                     /**
-                     * @description `viewer` is strictly read-only; `editor` can triage and upload; `owner` manages the team.
+                     * @description `viewer` is strictly read-only; `editor` can triage and upload; `owner` manages the team; `uploader` is viewer plus uploads — it reads everything a viewer does and may also upload scans/SBOMs/VEX and run the gate, for CI tokens.
                      * @enum {string}
                      */
-                    role: "owner" | "editor" | "viewer";
+                    role: "owner" | "editor" | "viewer" | "uploader";
                 };
             };
         };

@@ -88,8 +88,8 @@ func (r *Repository) UsersWithProjectAccess(ctx context.Context, projectID strin
 			SELECT id, 'owner' FROM users WHERE is_admin
 		)
 		SELECT g.user_id, u.email,
-		       CASE max(CASE g.role WHEN 'owner' THEN 3 WHEN 'editor' THEN 2 ELSE 1 END)
-		            WHEN 3 THEN 'owner' WHEN 2 THEN 'editor' ELSE 'viewer' END
+		       CASE max(CASE g.role WHEN 'owner' THEN 4 WHEN 'editor' THEN 3 WHEN 'uploader' THEN 2 ELSE 1 END)
+		            WHEN 4 THEN 'owner' WHEN 3 THEN 'editor' WHEN 2 THEN 'uploader' ELSE 'viewer' END
 		FROM grants g JOIN users u ON u.id = g.user_id
 		GROUP BY g.user_id, u.email
 		ORDER BY u.email`

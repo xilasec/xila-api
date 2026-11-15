@@ -153,13 +153,23 @@ and access can be granted at any level:
   immediately rather than when the user's JWT expires.
 - Org roles: `admin` manages the organization and (implicitly) every team in it;
   `member` is a plain member. Creating an org makes you its admin.
-- Team roles: `owner` > `editor` > `viewer`. An org admin is treated as `owner`
-  of every team in the org.
-- Project roles: the same three roles, granted on one project without joining its
+- Team roles: `owner` > `editor` > `uploader` > `viewer`. An org admin is treated
+  as `owner` of every team in the org.
+- Project roles: the same four roles, granted on one project without joining its
   team (`POST /projects/{id}/members`). This covers cases like giving Dana read
   access to one project, which team membership cannot express, because joining a
   team grants access to every project in it. Granting access requires `owner` on
   the project.
+- Uploader role: `viewer` plus uploads, for CI tokens. It reads everything a
+  viewer does (the project, its findings, scans, SBOMs, VEX) and, on top of
+  that, may upload scans, SBOMs and VEX and run the gate: the minimum a CI
+  build needs to report its result. It still can't triage, comment, change
+  settings or manage members; those need `editor`. Because roles only add
+  access, combining it with a higher role behaves as that role: `uploader` +
+  `viewer` is still `uploader` (keeps the upload grant), `uploader` + `editor`
+  is `editor` (which already includes upload). Recommended for CI service
+  accounts and project-scoped tokens that only push reports (see "Break the
+  build in CI").
 - Project hierarchy: a project may have a parent project in the same organization
   (`parent_id`, at most 5 levels, no cycles; enforced in the database). A project
   or team grant on a parent applies to every descendant with the same role (the

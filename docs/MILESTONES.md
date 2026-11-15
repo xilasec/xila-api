@@ -719,18 +719,28 @@ gaps that are still open are listed; each was checked against the code.
 
 Tier 1:
 
-- ✅ 12.1 Cross-tool dedup without a CVE (SecObserve): SAST/secrets/IaC
-  findings without a CVE now group across scanners too. `correlation_key`
-  keys them on category + file_path + line, plus CWE when the finding has
-  one (a CWE-bearing and a CWE-less report at the same line never share a
-  key; two CWE-less reports there still fall back to location alone). Election
-  never marks a finding the duplicate of another report from its own scanner,
-  so one tool's two rules on one line stay visible as separate findings. CVE
-  grouping is unchanged. Findings with no file_path/line (most DAST without a
-  CVE) still get no key.
-- ⬜ 12.2 Upload-only role (SecObserve): a project grant that can upload scans
-  and SBOMs and nothing else, for CI tokens. Today CI needs `editor`, which can
-  also triage.
+- ✅ 12.1 Cross-tool dedup without a CVE (SecObserve): SAST, secrets and IaC
+  findings without a CVE now group across scanners too. `correlation_key` keys
+  them on category, file path and line, plus CWE when the finding has one (a
+  CWE-bearing and a CWE-less report at the same line never share a key; two
+  CWE-less reports there fall back to location alone). A location group
+  collapses only when every member comes from a different scanner, so two rules
+  from one tool on one line never hide each other. CVE grouping is unchanged.
+  Findings with no file path or line (most DAST without a CVE) still get no key.
+  Migration 000089 backfilled existing findings.
+- ✅ 12.2 Upload-only role (SecObserve): a new `uploader` project/team role is
+  "viewer plus uploads" for CI tokens: it reads everything a viewer can (the
+  project, its findings, scans, SBOMs, VEX) and on top of that may push scans,
+  SBOMs and VEX and run the gate, the minimum a CI build needs; it still can't
+  triage, comment, change settings or manage members. `domain.TeamRole` is now
+  `viewer < uploader < editor < owner`; `authz.Middleware` carves out exactly
+  the upload/gate POST routes that would otherwise need `editor`, so combined
+  with a higher role it behaves as that role (`uploader`+`viewer` keeps the
+  upload grant, `uploader`+`editor` acts like `editor`), so a weaker grant
+  elsewhere never takes the upload grant away. Migration 000090 extends the
+  role CHECK on `project_members`, `team_members` and `sso_group_mappings`;
+  the permission audit (`internal/access`) and `UsersWithProjectAccess`
+  report it correctly.
 - ⬜ 12.3 Cross-project root causes (DefectDojo Pro): one work item per shared
   cause (CVE, component version) across every project, beyond the per-project
   remediation actions.

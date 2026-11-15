@@ -59,7 +59,8 @@ A Xila admin sets it up once, under Admin › Service accounts:
 
 1. Service account: e.g. `ci-web`. Grant it a role like any other user, by its
    email `ci-web@service-accounts.invalid`, on the project's (or team's) members
-   page. `editor` is enough to upload and gate.
+   page. `uploader` (read access, plus upload and gate) is enough; use `editor`
+   if the job also needs to triage.
 2. Trusted issuer: the platform's OIDC issuer and the audience your jobs
    request:
    - GitHub Actions: `https://token.actions.githubusercontent.com`
@@ -207,7 +208,9 @@ override `stage:` as needed. `.xila-upload` uploads every report found in
 ## Required permissions
 
 - Xila: a service account bound to the job (keyless), or an API token,
-  with `editor` on the project. A project-scoped token or binding is enough.
+  with `uploader` on the project (read access, plus upload and gate). Use
+  `editor` instead if the job also needs to triage. A project-scoped token or
+  binding is enough.
 - GitHub: `contents: read`; `id-token: write` for keyless federation;
   `pull-requests: write` only for the comment; `checks: write` only for the
   check run.

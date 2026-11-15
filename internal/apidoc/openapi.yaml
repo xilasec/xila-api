@@ -1364,8 +1364,8 @@ paths:
                 email: { type: string, format: email }
                 role:
                   type: string
-                  enum: [owner, editor, viewer]
-                  description: "`viewer` is strictly read-only; `editor` can upload and triage; `owner` can also grant access."
+                  enum: [owner, editor, viewer, uploader]
+                  description: "`viewer` is strictly read-only; `editor` can upload and triage; `owner` can also grant access; `uploader` is viewer plus uploads — it reads everything a viewer does and may also upload scans/SBOMs/VEX and run the gate, for CI tokens."
       responses:
         "201":
           description: Granted
@@ -1976,8 +1976,8 @@ paths:
                 email: { type: string, format: email }
                 role:
                   type: string
-                  enum: [owner, editor, viewer]
-                  description: "`viewer` is strictly read-only; `editor` can triage and upload; `owner` manages the team."
+                  enum: [owner, editor, viewer, uploader]
+                  description: "`viewer` is strictly read-only; `editor` can triage and upload; `owner` manages the team; `uploader` is viewer plus uploads — it reads everything a viewer does and may also upload scans/SBOMs/VEX and run the gate, for CI tokens."
       responses:
         "201": { description: Added }
         "403": { $ref: "#/components/responses/Error" }
@@ -8112,7 +8112,7 @@ components:
     PermProjectID: { name: project_id, in: query, schema: { type: string, format: uuid } }
     PermTeamID: { name: team_id, in: query, schema: { type: string, format: uuid } }
     PermOrgID: { name: org_id, in: query, schema: { type: string, format: uuid } }
-    PermRole: { name: role, in: query, description: Effective role., schema: { type: string, enum: [owner, editor, viewer, admin] } }
+    PermRole: { name: role, in: query, description: Effective role., schema: { type: string, enum: [owner, editor, viewer, uploader, admin] } }
     PermSource: { name: source, in: query, description: Entries with at least one grant of this source., schema: { type: string, enum: [manual, sso] } }
     PermPrincipalKind: { name: principal_kind, in: query, schema: { type: string, enum: [user, service] } }
     AuditFrom: { name: from, in: query, description: RFC 3339 time or YYYY-MM-DD (inclusive)., schema: { type: string } }
@@ -8432,7 +8432,7 @@ components:
         team_name: { type: [string, "null"] }
         org_id: { type: [string, "null"], format: uuid }
         org_name: { type: [string, "null"] }
-        effective_role: { type: string, enum: [owner, editor, viewer, admin] }
+        effective_role: { type: string, enum: [owner, editor, viewer, uploader, admin] }
         grants:
           type: array
           items:
@@ -8657,8 +8657,8 @@ components:
         target_name: { type: string, readOnly: true }
         role:
           type: string
-          enum: [admin, member, owner, editor, viewer]
-          description: "org: admin|member; team/project: owner|editor|viewer; omitted for instance_admin."
+          enum: [admin, member, owner, editor, viewer, uploader]
+          description: "org: admin|member; team/project: owner|editor|viewer|uploader; omitted for instance_admin."
         created_at: { type: string, format: date-time, readOnly: true }
 
     ApiToken:
@@ -8759,7 +8759,7 @@ components:
         org_id: { type: string, format: uuid }
         slug: { type: string }
         name: { type: string }
-        role: { type: string, enum: [owner, editor, viewer], description: Your role on it. }
+        role: { type: string, enum: [owner, editor, viewer, uploader], description: Your role on it. }
         created_at: { type: string, format: date-time }
 
     Member:

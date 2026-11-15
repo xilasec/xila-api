@@ -621,6 +621,7 @@
 				<option value="viewer">{$t('role.viewer')}</option>
 				<option value="editor">{$t('role.editor')}</option>
 				<option value="owner">{$t('role.owner')}</option>
+				<option value="uploader" title={$t('proj.roleUploader')}>{$t('role.uploader')}</option>
 			</select>
 			<button class="btn btn-primary btn-sm" disabled={saving}>{$t('common.add')}</button>
 		</form>

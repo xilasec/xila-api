@@ -97,7 +97,7 @@ const accessSQL = `
 WITH g AS (` + membership.ProjectGrantsSQL + `),
 pairs AS (
 	SELECT g.user_id, g.project_id,
-	       (ARRAY['viewer', 'editor', 'owner'])[max(CASE g.role WHEN 'owner' THEN 3 WHEN 'editor' THEN 2 ELSE 1 END)] AS role,
+	       (ARRAY['viewer', 'uploader', 'editor', 'owner'])[max(CASE g.role WHEN 'owner' THEN 4 WHEN 'editor' THEN 3 WHEN 'uploader' THEN 2 ELSE 1 END)] AS role,
 	       jsonb_agg(jsonb_build_object(
 	           'kind', g.kind, 'role', g.role, 'source', g.source, 'via_id', g.via_id,
 	           'via_name', CASE g.kind WHEN 'team' THEN (SELECT name FROM teams WHERE id = g.via_id)

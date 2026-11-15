@@ -155,10 +155,11 @@ func (e AIProposalState) Valid() bool {
 
 // Defines values for AccessEntryEffectiveRole.
 const (
-	AccessEntryEffectiveRoleAdmin  AccessEntryEffectiveRole = "admin"
-	AccessEntryEffectiveRoleEditor AccessEntryEffectiveRole = "editor"
-	AccessEntryEffectiveRoleOwner  AccessEntryEffectiveRole = "owner"
-	AccessEntryEffectiveRoleViewer AccessEntryEffectiveRole = "viewer"
+	AccessEntryEffectiveRoleAdmin    AccessEntryEffectiveRole = "admin"
+	AccessEntryEffectiveRoleEditor   AccessEntryEffectiveRole = "editor"
+	AccessEntryEffectiveRoleOwner    AccessEntryEffectiveRole = "owner"
+	AccessEntryEffectiveRoleUploader AccessEntryEffectiveRole = "uploader"
+	AccessEntryEffectiveRoleViewer   AccessEntryEffectiveRole = "viewer"
 )
 
 // Valid indicates whether the value is a known member of the AccessEntryEffectiveRole enum.
@@ -169,6 +170,8 @@ func (e AccessEntryEffectiveRole) Valid() bool {
 	case AccessEntryEffectiveRoleEditor:
 		return true
 	case AccessEntryEffectiveRoleOwner:
+		return true
+	case AccessEntryEffectiveRoleUploader:
 		return true
 	case AccessEntryEffectiveRoleViewer:
 		return true
@@ -1292,11 +1295,12 @@ func (e GroupMappingProvider) Valid() bool {
 
 // Defines values for GroupMappingRole.
 const (
-	GroupMappingRoleAdmin  GroupMappingRole = "admin"
-	GroupMappingRoleEditor GroupMappingRole = "editor"
-	GroupMappingRoleMember GroupMappingRole = "member"
-	GroupMappingRoleOwner  GroupMappingRole = "owner"
-	GroupMappingRoleViewer GroupMappingRole = "viewer"
+	GroupMappingRoleAdmin    GroupMappingRole = "admin"
+	GroupMappingRoleEditor   GroupMappingRole = "editor"
+	GroupMappingRoleMember   GroupMappingRole = "member"
+	GroupMappingRoleOwner    GroupMappingRole = "owner"
+	GroupMappingRoleUploader GroupMappingRole = "uploader"
+	GroupMappingRoleViewer   GroupMappingRole = "viewer"
 )
 
 // Valid indicates whether the value is a known member of the GroupMappingRole enum.
@@ -1309,6 +1313,8 @@ func (e GroupMappingRole) Valid() bool {
 	case GroupMappingRoleMember:
 		return true
 	case GroupMappingRoleOwner:
+		return true
+	case GroupMappingRoleUploader:
 		return true
 	case GroupMappingRoleViewer:
 		return true
@@ -2282,9 +2288,10 @@ func (e Severity) Valid() bool {
 
 // Defines values for TeamRole.
 const (
-	TeamRoleEditor TeamRole = "editor"
-	TeamRoleOwner  TeamRole = "owner"
-	TeamRoleViewer TeamRole = "viewer"
+	TeamRoleEditor   TeamRole = "editor"
+	TeamRoleOwner    TeamRole = "owner"
+	TeamRoleUploader TeamRole = "uploader"
+	TeamRoleViewer   TeamRole = "viewer"
 )
 
 // Valid indicates whether the value is a known member of the TeamRole enum.
@@ -2293,6 +2300,8 @@ func (e TeamRole) Valid() bool {
 	case TeamRoleEditor:
 		return true
 	case TeamRoleOwner:
+		return true
+	case TeamRoleUploader:
 		return true
 	case TeamRoleViewer:
 		return true
@@ -2603,10 +2612,11 @@ func (e PermPrincipalKind) Valid() bool {
 
 // Defines values for PermRole.
 const (
-	PermRoleAdmin  PermRole = "admin"
-	PermRoleEditor PermRole = "editor"
-	PermRoleOwner  PermRole = "owner"
-	PermRoleViewer PermRole = "viewer"
+	PermRoleAdmin    PermRole = "admin"
+	PermRoleEditor   PermRole = "editor"
+	PermRoleOwner    PermRole = "owner"
+	PermRoleUploader PermRole = "uploader"
+	PermRoleViewer   PermRole = "viewer"
 )
 
 // Valid indicates whether the value is a known member of the PermRole enum.
@@ -2617,6 +2627,8 @@ func (e PermRole) Valid() bool {
 	case PermRoleEditor:
 		return true
 	case PermRoleOwner:
+		return true
+	case PermRoleUploader:
 		return true
 	case PermRoleViewer:
 		return true
@@ -3446,10 +3458,11 @@ func (e CreateOrgMemberJSONBodyRole) Valid() bool {
 
 // Defines values for ListPermissionsParamsRole.
 const (
-	ListPermissionsParamsRoleAdmin  ListPermissionsParamsRole = "admin"
-	ListPermissionsParamsRoleEditor ListPermissionsParamsRole = "editor"
-	ListPermissionsParamsRoleOwner  ListPermissionsParamsRole = "owner"
-	ListPermissionsParamsRoleViewer ListPermissionsParamsRole = "viewer"
+	ListPermissionsParamsRoleAdmin    ListPermissionsParamsRole = "admin"
+	ListPermissionsParamsRoleEditor   ListPermissionsParamsRole = "editor"
+	ListPermissionsParamsRoleOwner    ListPermissionsParamsRole = "owner"
+	ListPermissionsParamsRoleUploader ListPermissionsParamsRole = "uploader"
+	ListPermissionsParamsRoleViewer   ListPermissionsParamsRole = "viewer"
 )
 
 // Valid indicates whether the value is a known member of the ListPermissionsParamsRole enum.
@@ -3460,6 +3473,8 @@ func (e ListPermissionsParamsRole) Valid() bool {
 	case ListPermissionsParamsRoleEditor:
 		return true
 	case ListPermissionsParamsRoleOwner:
+		return true
+	case ListPermissionsParamsRoleUploader:
 		return true
 	case ListPermissionsParamsRoleViewer:
 		return true
@@ -3524,10 +3539,11 @@ func (e ExportPermissionsParamsFormat) Valid() bool {
 
 // Defines values for ExportPermissionsParamsRole.
 const (
-	ExportPermissionsParamsRoleAdmin  ExportPermissionsParamsRole = "admin"
-	ExportPermissionsParamsRoleEditor ExportPermissionsParamsRole = "editor"
-	ExportPermissionsParamsRoleOwner  ExportPermissionsParamsRole = "owner"
-	ExportPermissionsParamsRoleViewer ExportPermissionsParamsRole = "viewer"
+	ExportPermissionsParamsRoleAdmin    ExportPermissionsParamsRole = "admin"
+	ExportPermissionsParamsRoleEditor   ExportPermissionsParamsRole = "editor"
+	ExportPermissionsParamsRoleOwner    ExportPermissionsParamsRole = "owner"
+	ExportPermissionsParamsRoleUploader ExportPermissionsParamsRole = "uploader"
+	ExportPermissionsParamsRoleViewer   ExportPermissionsParamsRole = "viewer"
 )
 
 // Valid indicates whether the value is a known member of the ExportPermissionsParamsRole enum.
@@ -3538,6 +3554,8 @@ func (e ExportPermissionsParamsRole) Valid() bool {
 	case ExportPermissionsParamsRoleEditor:
 		return true
 	case ExportPermissionsParamsRoleOwner:
+		return true
+	case ExportPermissionsParamsRoleUploader:
 		return true
 	case ExportPermissionsParamsRoleViewer:
 		return true
@@ -3584,10 +3602,11 @@ func (e ExportPermissionsParamsPrincipalKind) Valid() bool {
 
 // Defines values for GetProjectAccessParamsRole.
 const (
-	GetProjectAccessParamsRoleAdmin  GetProjectAccessParamsRole = "admin"
-	GetProjectAccessParamsRoleEditor GetProjectAccessParamsRole = "editor"
-	GetProjectAccessParamsRoleOwner  GetProjectAccessParamsRole = "owner"
-	GetProjectAccessParamsRoleViewer GetProjectAccessParamsRole = "viewer"
+	GetProjectAccessParamsRoleAdmin    GetProjectAccessParamsRole = "admin"
+	GetProjectAccessParamsRoleEditor   GetProjectAccessParamsRole = "editor"
+	GetProjectAccessParamsRoleOwner    GetProjectAccessParamsRole = "owner"
+	GetProjectAccessParamsRoleUploader GetProjectAccessParamsRole = "uploader"
+	GetProjectAccessParamsRoleViewer   GetProjectAccessParamsRole = "viewer"
 )
 
 // Valid indicates whether the value is a known member of the GetProjectAccessParamsRole enum.
@@ -3598,6 +3617,8 @@ func (e GetProjectAccessParamsRole) Valid() bool {
 	case GetProjectAccessParamsRoleEditor:
 		return true
 	case GetProjectAccessParamsRoleOwner:
+		return true
+	case GetProjectAccessParamsRoleUploader:
 		return true
 	case GetProjectAccessParamsRoleViewer:
 		return true
@@ -3854,9 +3875,10 @@ func (e ExportProjectFindingsParamsSort) Valid() bool {
 
 // Defines values for CreateProjectMemberJSONBodyRole.
 const (
-	CreateProjectMemberJSONBodyRoleEditor CreateProjectMemberJSONBodyRole = "editor"
-	CreateProjectMemberJSONBodyRoleOwner  CreateProjectMemberJSONBodyRole = "owner"
-	CreateProjectMemberJSONBodyRoleViewer CreateProjectMemberJSONBodyRole = "viewer"
+	CreateProjectMemberJSONBodyRoleEditor   CreateProjectMemberJSONBodyRole = "editor"
+	CreateProjectMemberJSONBodyRoleOwner    CreateProjectMemberJSONBodyRole = "owner"
+	CreateProjectMemberJSONBodyRoleUploader CreateProjectMemberJSONBodyRole = "uploader"
+	CreateProjectMemberJSONBodyRoleViewer   CreateProjectMemberJSONBodyRole = "viewer"
 )
 
 // Valid indicates whether the value is a known member of the CreateProjectMemberJSONBodyRole enum.
@@ -3865,6 +3887,8 @@ func (e CreateProjectMemberJSONBodyRole) Valid() bool {
 	case CreateProjectMemberJSONBodyRoleEditor:
 		return true
 	case CreateProjectMemberJSONBodyRoleOwner:
+		return true
+	case CreateProjectMemberJSONBodyRoleUploader:
 		return true
 	case CreateProjectMemberJSONBodyRoleViewer:
 		return true
@@ -4145,9 +4169,10 @@ func (e ExportSbomParamsFormat) Valid() bool {
 
 // Defines values for CreateTeamMemberJSONBodyRole.
 const (
-	CreateTeamMemberJSONBodyRoleEditor CreateTeamMemberJSONBodyRole = "editor"
-	CreateTeamMemberJSONBodyRoleOwner  CreateTeamMemberJSONBodyRole = "owner"
-	CreateTeamMemberJSONBodyRoleViewer CreateTeamMemberJSONBodyRole = "viewer"
+	CreateTeamMemberJSONBodyRoleEditor   CreateTeamMemberJSONBodyRole = "editor"
+	CreateTeamMemberJSONBodyRoleOwner    CreateTeamMemberJSONBodyRole = "owner"
+	CreateTeamMemberJSONBodyRoleUploader CreateTeamMemberJSONBodyRole = "uploader"
+	CreateTeamMemberJSONBodyRoleViewer   CreateTeamMemberJSONBodyRole = "viewer"
 )
 
 // Valid indicates whether the value is a known member of the CreateTeamMemberJSONBodyRole enum.
@@ -4156,6 +4181,8 @@ func (e CreateTeamMemberJSONBodyRole) Valid() bool {
 	case CreateTeamMemberJSONBodyRoleEditor:
 		return true
 	case CreateTeamMemberJSONBodyRoleOwner:
+		return true
+	case CreateTeamMemberJSONBodyRoleUploader:
 		return true
 	case CreateTeamMemberJSONBodyRoleViewer:
 		return true
@@ -5626,7 +5653,7 @@ type GroupMapping struct {
 	ProviderId   *string `json:"provider_id,omitempty"`
 	ProviderName *string `json:"provider_name,omitempty"`
 
-	// Role org: admin|member; team/project: owner|editor|viewer; omitted for instance_admin.
+	// Role org: admin|member; team/project: owner|editor|viewer|uploader; omitted for instance_admin.
 	Role *GroupMappingRole `json:"role,omitempty"`
 
 	// TargetId The org/team/project; omitted for instance_admin.
@@ -5639,7 +5666,7 @@ type GroupMapping struct {
 // of one kind. With `provider_id` it is set to that provider's kind.
 type GroupMappingProvider string
 
-// GroupMappingRole org: admin|member; team/project: owner|editor|viewer; omitted for instance_admin.
+// GroupMappingRole org: admin|member; team/project: owner|editor|viewer|uploader; omitted for instance_admin.
 type GroupMappingRole string
 
 // GroupMappingTargetKind defines model for GroupMapping.TargetKind.
@@ -8859,7 +8886,7 @@ type EvaluateProjectGateParams struct {
 type CreateProjectMemberJSONBody struct {
 	Email openapi_types.Email `json:"email"`
 
-	// Role `viewer` is strictly read-only; `editor` can upload and triage; `owner` can also grant access.
+	// Role `viewer` is strictly read-only; `editor` can upload and triage; `owner` can also grant access; `uploader` is viewer plus uploads — it reads everything a viewer does and may also upload scans/SBOMs/VEX and run the gate, for CI tokens.
 	Role CreateProjectMemberJSONBodyRole `json:"role"`
 }
 
@@ -9288,7 +9315,7 @@ type UpdateTeamJSONBody struct {
 type CreateTeamMemberJSONBody struct {
 	Email openapi_types.Email `json:"email"`
 
-	// Role `viewer` is strictly read-only; `editor` can triage and upload; `owner` manages the team.
+	// Role `viewer` is strictly read-only; `editor` can triage and upload; `owner` manages the team; `uploader` is viewer plus uploads — it reads everything a viewer does and may also upload scans/SBOMs/VEX and run the gate, for CI tokens.
 	Role CreateTeamMemberJSONBodyRole `json:"role"`
 }
 

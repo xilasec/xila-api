@@ -434,7 +434,7 @@
 		{ id: 'project', label: 'sso.kindProject' }
 	];
 	/** @type {Record<string, string[]>} */
-	const ROLES = { org: ['member', 'admin'], team: ['viewer', 'editor', 'owner'], project: ['viewer', 'editor', 'owner'] };
+	const ROLES = { org: ['member', 'admin'], team: ['viewer', 'editor', 'owner', 'uploader'], project: ['viewer', 'editor', 'owner', 'uploader'] };
 
 	// Scope picker values: "any", "kind:oidc", "kind:saml", "id:<provider id>".
 	const blankMapping = () => ({ scope: 'any', group: '', target_kind: 'team', target_id: '', role: 'viewer' });

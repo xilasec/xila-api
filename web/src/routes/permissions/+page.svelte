@@ -70,7 +70,7 @@
 		<span class="label-text mb-1 text-xs">{$t('perm.effectiveRole')}</span>
 		<select bind:value={filters.role} class="select select-bordered select-sm">
 			<option value="">{$t('perm.any')}</option>
-			{#each ['admin', 'owner', 'editor', 'viewer'] as r}<option value={r}>{$labelOf('role', r)}</option>{/each}
+			{#each ['admin', 'owner', 'editor', 'viewer', 'uploader'] as r}<option value={r}>{$labelOf('role', r)}</option>{/each}
 		</select>
 	</label>
 	<label class="form-control">

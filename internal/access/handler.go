@@ -47,9 +47,9 @@ func parseFilter(c *fiber.Ctx) (Filter, error) {
 		}
 	}
 	switch f.Role {
-	case "", "owner", "editor", "viewer", "admin":
+	case "", "owner", "editor", "viewer", "uploader", "admin":
 	default:
-		return f, fiber.NewError(fiber.StatusBadRequest, "role must be owner, editor, viewer or admin")
+		return f, fiber.NewError(fiber.StatusBadRequest, "role must be owner, editor, viewer, uploader or admin")
 	}
 	switch f.Source {
 	case "", "manual", "sso":

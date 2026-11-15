@@ -551,3 +551,127 @@ func TestPolicyRBAC(t *testing.T) {
 		t.Errorf("admin evaluate = %d, want 200", resp.StatusCode)
 	}
 }
+
+// TestUploaderRole: a project grant of "uploader" is viewer plus uploads — it
+// reads everything a viewer can (the project, its findings, the scan it just
+// pushed), and on top of that may push scans/SBOMs/VEX and run the gate, the
+// minimum a CI build needs. It still can't triage, comment, edit the gate
+// policy, manage members or edit the project. Roles only add access: combined
+// with a higher role it behaves as that role, so a user who is a team viewer
+// *and* a project uploader can still upload (the combination must not lose
+// the upload grant), and combined with editor it gains triage too.
+func TestUploaderRole(t *testing.T) {
+	app := newTestApp(t)
+
+	lead := rbacUser(t, app, "uplead@xila.io")
+	ci := rbacUser(t, app, "ci@xila.io")
+
+	_, orgBody := req(t, app, http.MethodPost, "/api/v1/orgs", lead, `{"slug":"up-acme","name":"Acme"}`)
+	orgID, _ := orgBody["id"].(string)
+	_, teamBody := req(t, app, http.MethodPost, "/api/v1/orgs/"+orgID+"/teams", lead, `{"slug":"up-core","name":"Core"}`)
+	teamID, _ := teamBody["id"].(string)
+	_, projBody := req(t, app, http.MethodPost, "/api/v1/teams/"+teamID+"/projects", lead, `{"slug":"up-web","name":"web"}`)
+	projectID, _ := projBody["id"].(string)
+	if projectID == "" {
+		t.Fatal("project setup failed")
+	}
+
+	resp, _ := req(t, app, http.MethodPost, "/api/v1/projects/"+projectID+"/members", lead,
+		`{"email":"ci@xila.io","role":"uploader"}`)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("granting uploader = %d, want 201", resp.StatusCode)
+	}
+
+	// Upload a scan, an SBOM and a VEX document.
+	resp, scanBody := req(t, app, http.MethodPost, "/api/v1/projects/"+projectID+"/scans?scanner=trivy", ci, smokeTrivyReport)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("uploader uploading a scan = %d, want 201", resp.StatusCode)
+	}
+	scanID, _ := scanBody["id"].(string)
+	if scanID == "" {
+		t.Fatal("scan upload returned no id")
+	}
+	if resp, _ := req(t, app, http.MethodPost, "/api/v1/projects/"+projectID+"/sboms", ci, smokeCycloneDX); resp.StatusCode != http.StatusCreated {
+		t.Errorf("uploader uploading an sbom = %d, want 201", resp.StatusCode)
+	}
+	vexDoc := `{"@context":"https://openvex.dev/ns/v0.2.0","statements":[
+		{"vulnerability":{"name":"CVE-2020-1"},"products":[{"@id":"pkg:generic/pkgA@1.0"}],"status":"affected"}]}`
+	if resp, _ := req(t, app, http.MethodPost, "/api/v1/projects/"+projectID+"/vex", ci, vexDoc); resp.StatusCode != http.StatusCreated {
+		t.Errorf("uploader uploading vex = %d, want 201", resp.StatusCode)
+	}
+
+	// Run the gate (no stored policy yet: passes with no violations).
+	if resp, _ := req(t, app, http.MethodPost, "/api/v1/projects/"+projectID+"/gate", ci, ""); resp.StatusCode != http.StatusOK {
+		t.Errorf("uploader running the gate = %d, want 200", resp.StatusCode)
+	}
+
+	// Reads: everything a viewer gets, no special-casing needed any more.
+	if resp, _ := req(t, app, http.MethodGet, "/api/v1/scans/"+scanID, ci, ""); resp.StatusCode != http.StatusOK {
+		t.Errorf("uploader reading its own scan = %d, want 200", resp.StatusCode)
+	}
+	if resp, _ := req(t, app, http.MethodGet, "/api/v1/projects/"+projectID, ci, ""); resp.StatusCode != http.StatusOK {
+		t.Errorf("uploader reading the project = %d, want 200", resp.StatusCode)
+	}
+	resp, listBody := req(t, app, http.MethodGet, "/api/v1/projects/"+projectID+"/findings", ci, "")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("uploader listing the project's findings = %d, want 200", resp.StatusCode)
+	}
+	findings, _ := listBody["findings"].([]any)
+	if len(findings) == 0 {
+		t.Fatal("no findings to exercise triage against")
+	}
+	findingID, _ := findings[0].(map[string]any)["id"].(string)
+
+	// The CI client's exact query shape still works (global list, scoped by
+	// scan_id + new=true).
+	resp, findBody := req(t, app, http.MethodGet,
+		"/api/v1/findings?project_id="+projectID+"&scan_id="+scanID+"&new=true", ci, "")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("uploader listing its scan's new findings = %d, want 200", resp.StatusCode)
+	}
+	if fs, _ := findBody["findings"].([]any); len(fs) == 0 {
+		t.Errorf("uploader's scan-scoped findings list = %v, want at least one", findBody)
+	}
+
+	// Nothing editor-level: no triage, no comments, no gate-policy edit, no
+	// member management, no project edit.
+	if resp, _ := req(t, app, http.MethodPatch, "/api/v1/findings/"+findingID, ci, `{"status":"confirmed"}`); resp.StatusCode != http.StatusForbidden {
+		t.Errorf("uploader triaging a finding = %d, want 403", resp.StatusCode)
+	}
+	if resp, _ := req(t, app, http.MethodPost, "/api/v1/findings/"+findingID+"/comments", ci, `{"body":"hi"}`); resp.StatusCode != http.StatusForbidden {
+		t.Errorf("uploader commenting = %d, want 403", resp.StatusCode)
+	}
+	if resp, _ := req(t, app, http.MethodPut, "/api/v1/projects/"+projectID+"/gate/policy", ci, `{"max_critical":0}`); resp.StatusCode != http.StatusForbidden {
+		t.Errorf("uploader editing the gate policy = %d, want 403", resp.StatusCode)
+	}
+	if resp, _ := req(t, app, http.MethodPost, "/api/v1/projects/"+projectID+"/members", ci, `{"email":"ci@xila.io","role":"owner"}`); resp.StatusCode != http.StatusForbidden {
+		t.Errorf("uploader granting access = %d, want 403", resp.StatusCode)
+	}
+	if resp, _ := req(t, app, http.MethodPatch, "/api/v1/projects/"+projectID, ci, `{"description":"from CI"}`); resp.StatusCode != http.StatusForbidden {
+		t.Errorf("uploader editing the project = %d, want 403", resp.StatusCode)
+	}
+
+	// Add it to the team as viewer too: a weaker role elsewhere must not take
+	// the upload grant away — roles only add access. uploader (rank 2) still
+	// beats viewer (rank 1), so the combination keeps uploading.
+	if resp, _ := req(t, app, http.MethodPost, "/api/v1/teams/"+teamID+"/members", lead,
+		`{"email":"ci@xila.io","role":"viewer"}`); resp.StatusCode != http.StatusCreated {
+		t.Fatalf("adding ci to the team as viewer = %d, want 201", resp.StatusCode)
+	}
+	if resp, _ := req(t, app, http.MethodPost, "/api/v1/projects/"+projectID+"/scans?scanner=trivy", ci, smokeTrivyReport); resp.StatusCode != http.StatusCreated {
+		t.Errorf("team-viewer + project-uploader uploading a scan = %d, want 201", resp.StatusCode)
+	}
+	if resp, _ := req(t, app, http.MethodGet, "/api/v1/projects/"+projectID+"/findings", ci, ""); resp.StatusCode != http.StatusOK {
+		t.Errorf("team-viewer + project-uploader listing findings = %d, want 200", resp.StatusCode)
+	}
+
+	// Raise the team role to editor: combined with editor, its effective role
+	// becomes editor (the higher rank) — it can now triage.
+	if resp, _ := req(t, app, http.MethodPost, "/api/v1/teams/"+teamID+"/members", lead,
+		`{"email":"ci@xila.io","role":"editor"}`); resp.StatusCode != http.StatusCreated {
+		t.Fatalf("raising ci to editor = %d, want 201", resp.StatusCode)
+	}
+	if resp, _ := req(t, app, http.MethodPatch, "/api/v1/findings/"+findingID, ci, `{"status":"confirmed"}`); resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
+		t.Errorf("uploader+editor triaging a finding = %d, want 200 or 202", resp.StatusCode)
+	}
+}

@@ -211,16 +211,25 @@ var assetTypes = []AssetType{
 // Valid reports whether t is a known asset type.
 func (t AssetType) Valid() bool { return slices.Contains(assetTypes, t) }
 
-// TeamRole is a user's role within a team (RBAC). Ranked: viewer < editor < owner.
+// TeamRole is a user's role within a team (RBAC). Ranked: viewer < uploader <
+// editor < owner. uploader is "viewer plus uploads": it reads everything a
+// viewer can, and on top of that may upload scans, SBOMs and VEX and run the
+// gate — the minimum a CI build needs to report its result (see authz.go's
+// allowUploader carve-out for those specific routes) — but nothing
+// editor-level: no triage, no comments, no settings, no membership.
 type TeamRole string
 
 const (
 	TeamViewer TeamRole = "viewer" // read-only within the team
-	TeamEditor TeamRole = "editor" // read + write (triage, upload, config)
-	TeamOwner  TeamRole = "owner"  // editor + manage the team & its members
+	// TeamUploader is viewer plus uploads: it may also upload scans, SBOMs
+	// and VEX, and run the gate. See the allowUploader carve-out in
+	// internal/authz.
+	TeamUploader TeamRole = "uploader"
+	TeamEditor   TeamRole = "editor" // read + write (triage, upload, config)
+	TeamOwner    TeamRole = "owner"  // editor + manage the team & its members
 )
 
-var teamRoles = []TeamRole{TeamViewer, TeamEditor, TeamOwner}
+var teamRoles = []TeamRole{TeamViewer, TeamUploader, TeamEditor, TeamOwner}
 
 // Valid reports whether r is a known team role.
 func (r TeamRole) Valid() bool { return slices.Contains(teamRoles, r) }
@@ -228,8 +237,12 @@ func (r TeamRole) Valid() bool { return slices.Contains(teamRoles, r) }
 func (r TeamRole) rank() int {
 	switch r {
 	case TeamOwner:
-		return 2
+		return 4
 	case TeamEditor:
+		return 3
+	case TeamUploader:
+		return 2
+	case TeamViewer:
 		return 1
 	default:
 		return 0
