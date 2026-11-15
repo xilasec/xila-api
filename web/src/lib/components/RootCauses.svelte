@@ -158,22 +158,22 @@
 			<tbody>
 				{#each rootCauses as rc (rowKey(rc))}
 					<tr class="hover cursor-pointer" onclick={() => toggle(rc)} aria-expanded={open === rowKey(rc)}>
-						<td>
+						<td class="min-w-56">
 							<span class="badge badge-ghost badge-xs mr-1">{$t(KIND_KEY[rc.kind] ?? KIND_KEY.config)}</span>
 							<span class="font-medium">{rc.title}</span>
 							{#if rc.target}<span class="font-mono text-xs text-success ml-1">→ {rc.target}</span>{/if}
 						</td>
 						<td>{rc.projects}</td>
-						<td class="text-xs whitespace-nowrap">
+						<td class="text-xs">
 							{$t('triage.findingsCount', { count: rc.findings })}
 							{#each SEVS as s}{#if rc.by_severity?.[s]}<span class="ml-1"><Badge kind="severity" value={s} /> {rc.by_severity[s]}</span>{/if}{/each}
 						</td>
 						<td class="text-right font-semibold">{Math.round(rc.priority_removed)}</td>
-						<td class="text-xs">
+						<td class="text-xs whitespace-nowrap">
 							{#if rc.kev}<span class="badge badge-error badge-xs">KEV {rc.kev}</span>{/if}
 							{#if rc.max_epss}<span class="text-base-content/50 ml-1">EPSS {Math.round(rc.max_epss * 100)}%</span>{/if}
 						</td>
-						<td>
+						<td class="whitespace-nowrap">
 							{#if rc.all_actioned}
 								<span class="badge badge-success badge-xs">{$t('rootcause.allActioned')}</span>
 							{:else}
