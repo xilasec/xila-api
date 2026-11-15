@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -531,6 +532,363 @@ func TestDeduplicateCrossTool(t *testing.T) {
 	}
 }
 
+// intp returns a pointer to n, for the *int fields (Line, CWE).
+func intp(n int) *int { return &n }
+
+// sastFinding builds a non-CVE SAST-style finding at an exact file/line, for
+// the location+CWE correlation key tests below.
+func sastFinding(projectID, fp, scanner, ruleID, file string, line int, cwe *int, sev domain.Severity) finding.Finding {
+	f := sampleFinding(projectID)
+	f.Fingerprint, f.Scanner, f.RuleID, f.Severity = fp, scanner, ruleID, sev
+	f.Category, f.CVE = domain.CategorySAST, nil
+	f.FilePath, f.Line, f.CWE = file, intp(line), cwe
+	return f
+}
+
+// TestDeduplicateLocationCrossScanner is 12.1: a SAST/secrets/IaC finding
+// without a CVE now groups across scanners by category + file + line + CWE,
+// the same way a CVE finding groups by CVE + package.
+func TestDeduplicateLocationCrossScanner(t *testing.T) {
+	pool := pgtest.Pool(t)
+	repo := finding.NewRepository(pool)
+	ctx := context.Background()
+	projectID := seedProject(t, pool)
+	cwe798 := 798
+
+	semgrep, _ := repo.Upsert(ctx, sastFinding(projectID, "fp-semgrep-1", "semgrep", "hardcoded-secret", "app/auth.go", 42, &cwe798, domain.SeverityHigh))
+	gosec, _ := repo.Upsert(ctx, sastFinding(projectID, "fp-gosec-1", "gosec", "G101", "app/auth.go", 42, &cwe798, domain.SeverityCritical))
+
+	n, err := repo.Deduplicate(ctx, projectID)
+	if err != nil {
+		t.Fatalf("dedup: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("duplicates = %d, want 1", n)
+	}
+
+	gotGosec, _ := repo.Get(ctx, gosec.ID)
+	gotSemgrep, _ := repo.Get(ctx, semgrep.ID)
+	if gotGosec.DuplicateOf != nil {
+		t.Errorf("gosec (critical) should be primary, got duplicate_of=%v", *gotGosec.DuplicateOf)
+	}
+	if gotSemgrep.DuplicateOf == nil || *gotSemgrep.DuplicateOf != gosec.ID {
+		t.Errorf("semgrep should point at gosec primary, got %v", gotSemgrep.DuplicateOf)
+	}
+	if gotGosec.CorrelationKey == nil || gotSemgrep.CorrelationKey == nil || *gotGosec.CorrelationKey != *gotSemgrep.CorrelationKey {
+		t.Errorf("both reports of the same CWE at the same line should share a correlation key")
+	}
+
+	if list, _ := repo.List(ctx, finding.Filter{ProjectID: projectID}); len(list) != 1 {
+		t.Errorf("default list = %d, want 1 (duplicate hidden)", len(list))
+	}
+}
+
+// TestDeduplicateLocationSameScannerStaysSeparate pins the guard in step 2 of
+// deduplicate: two rules reported by the *same* tool on the same line (even
+// with the same CWE, so they'd share a correlation key) are two distinct
+// findings, never one another's duplicate.
+func TestDeduplicateLocationSameScannerStaysSeparate(t *testing.T) {
+	pool := pgtest.Pool(t)
+	repo := finding.NewRepository(pool)
+	ctx := context.Background()
+	projectID := seedProject(t, pool)
+	cwe798 := 798
+
+	rule1, _ := repo.Upsert(ctx, sastFinding(projectID, "fp-semgrep-1", "semgrep", "hardcoded-secret", "app/auth.go", 42, &cwe798, domain.SeverityHigh))
+	rule2, _ := repo.Upsert(ctx, sastFinding(projectID, "fp-semgrep-2", "semgrep", "weak-crypto", "app/auth.go", 42, &cwe798, domain.SeverityCritical))
+
+	if _, err := repo.Deduplicate(ctx, projectID); err != nil {
+		t.Fatalf("dedup: %v", err)
+	}
+
+	got1, _ := repo.Get(ctx, rule1.ID)
+	got2, _ := repo.Get(ctx, rule2.ID)
+	if got1.DuplicateOf != nil {
+		t.Errorf("rule1 must stay visible, got duplicate_of=%v", *got1.DuplicateOf)
+	}
+	if got2.DuplicateOf != nil {
+		t.Errorf("rule2 must stay visible, got duplicate_of=%v", *got2.DuplicateOf)
+	}
+	if got1.CorrelationKey == nil || got2.CorrelationKey == nil || *got1.CorrelationKey != *got2.CorrelationKey {
+		t.Errorf("both rules at the same line/CWE still share a correlation key (the guard is on election, not the key)")
+	}
+	if list, _ := repo.List(ctx, finding.Filter{ProjectID: projectID}); len(list) != 2 {
+		t.Errorf("default list = %d, want 2 (one tool's two rules never hide each other)", len(list))
+	}
+}
+
+// TestDeduplicateLocationDifferentLineStaysSeparate: two scanners reporting at
+// different lines of the same file never group, even with the same CWE.
+func TestDeduplicateLocationDifferentLineStaysSeparate(t *testing.T) {
+	pool := pgtest.Pool(t)
+	repo := finding.NewRepository(pool)
+	ctx := context.Background()
+	projectID := seedProject(t, pool)
+	cwe798 := 798
+
+	a, _ := repo.Upsert(ctx, sastFinding(projectID, "fp-semgrep-1", "semgrep", "hardcoded-secret", "app/auth.go", 42, &cwe798, domain.SeverityHigh))
+	b, _ := repo.Upsert(ctx, sastFinding(projectID, "fp-gosec-1", "gosec", "G101", "app/auth.go", 99, &cwe798, domain.SeverityCritical))
+
+	if _, err := repo.Deduplicate(ctx, projectID); err != nil {
+		t.Fatalf("dedup: %v", err)
+	}
+	gotA, _ := repo.Get(ctx, a.ID)
+	gotB, _ := repo.Get(ctx, b.ID)
+	if gotA.DuplicateOf != nil || gotB.DuplicateOf != nil {
+		t.Errorf("different lines must never group: a=%v b=%v", gotA.DuplicateOf, gotB.DuplicateOf)
+	}
+	if gotA.CorrelationKey == nil || gotB.CorrelationKey == nil || *gotA.CorrelationKey == *gotB.CorrelationKey {
+		t.Errorf("different lines must produce different correlation keys")
+	}
+}
+
+// TestDeduplicateLocationCWERules pins the exact CWE-matching rule: a key is
+// never shared unless both sides carry the matching CWE, or both sides carry
+// none at all.
+func TestDeduplicateLocationCWERules(t *testing.T) {
+	pool := pgtest.Pool(t)
+	repo := finding.NewRepository(pool)
+	ctx := context.Background()
+	projectID := seedProject(t, pool)
+	cwe798, cwe89 := 798, 89
+
+	t.Run("different CWE at the same line never groups", func(t *testing.T) {
+		a, _ := repo.Upsert(ctx, sastFinding(projectID, "fp-cwe-a", "semgrep", "r1", "app/db.go", 10, &cwe798, domain.SeverityHigh))
+		b, _ := repo.Upsert(ctx, sastFinding(projectID, "fp-cwe-b", "gosec", "r2", "app/db.go", 10, &cwe89, domain.SeverityCritical))
+		if _, err := repo.Deduplicate(ctx, projectID); err != nil {
+			t.Fatalf("dedup: %v", err)
+		}
+		gotA, _ := repo.Get(ctx, a.ID)
+		gotB, _ := repo.Get(ctx, b.ID)
+		if gotA.DuplicateOf != nil || gotB.DuplicateOf != nil {
+			t.Errorf("mismatched CWE must never group: a=%v b=%v", gotA.DuplicateOf, gotB.DuplicateOf)
+		}
+	})
+
+	t.Run("CWE present on only one side never groups", func(t *testing.T) {
+		a, _ := repo.Upsert(ctx, sastFinding(projectID, "fp-half-a", "semgrep", "r3", "app/handler.go", 20, &cwe798, domain.SeverityHigh))
+		b, _ := repo.Upsert(ctx, sastFinding(projectID, "fp-half-b", "gosec", "r4", "app/handler.go", 20, nil, domain.SeverityCritical))
+		if _, err := repo.Deduplicate(ctx, projectID); err != nil {
+			t.Fatalf("dedup: %v", err)
+		}
+		gotA, _ := repo.Get(ctx, a.ID)
+		gotB, _ := repo.Get(ctx, b.ID)
+		if gotA.DuplicateOf != nil || gotB.DuplicateOf != nil {
+			t.Errorf("one-sided CWE must never group: a=%v b=%v", gotA.DuplicateOf, gotB.DuplicateOf)
+		}
+	})
+
+	t.Run("CWE absent on both sides falls back to location", func(t *testing.T) {
+		a, _ := repo.Upsert(ctx, sastFinding(projectID, "fp-nocwe-a", "semgrep", "r5", "app/middleware.go", 30, nil, domain.SeverityHigh))
+		b, _ := repo.Upsert(ctx, sastFinding(projectID, "fp-nocwe-b", "gosec", "r6", "app/middleware.go", 30, nil, domain.SeverityCritical))
+		if n, err := repo.Deduplicate(ctx, projectID); err != nil || n == 0 {
+			t.Fatalf("dedup = %d, %v; want at least one write", n, err)
+		}
+		gotA, _ := repo.Get(ctx, a.ID)
+		gotB, _ := repo.Get(ctx, b.ID)
+		if (gotA.DuplicateOf == nil) == (gotB.DuplicateOf == nil) {
+			t.Errorf("exactly one of the two CWE-less reports should be primary: a=%v b=%v", gotA.DuplicateOf, gotB.DuplicateOf)
+		}
+	})
+}
+
+// TestDeduplicateCVEUnaffectedByLocationKey guards against the new location
+// branch accidentally taking priority over, or interfering with, the existing
+// CVE branch: two scanners reporting the same CVE+package but at different
+// lines must still merge on the CVE, exactly as before.
+func TestDeduplicateCVEUnaffectedByLocationKey(t *testing.T) {
+	pool := pgtest.Pool(t)
+	repo := finding.NewRepository(pool)
+	ctx := context.Background()
+	projectID := seedProject(t, pool)
+
+	mk := func(fp, scanner string, line int, sev domain.Severity) finding.Finding {
+		f := sampleFinding(projectID)
+		f.Fingerprint, f.Scanner, f.Severity = fp, scanner, sev
+		f.CVE, f.PackageName = []string{"CVE-2021-44228"}, "log4j-core"
+		f.Category = domain.CategorySCA
+		f.FilePath, f.Line = "pom.xml", intp(line)
+		f.CWE = nil
+		return f
+	}
+	trivy, _ := repo.Upsert(ctx, mk("fp-trivy-cve", "trivy", 5, domain.SeverityHigh))
+	grype, _ := repo.Upsert(ctx, mk("fp-grype-cve", "grype", 77, domain.SeverityCritical))
+
+	if n, err := repo.Deduplicate(ctx, projectID); err != nil || n != 1 {
+		t.Fatalf("dedup = %d, %v; want 1 (CVE+package, ignoring the differing lines)", n, err)
+	}
+	gotTrivy, _ := repo.Get(ctx, trivy.ID)
+	gotGrype, _ := repo.Get(ctx, grype.ID)
+	if gotGrype.DuplicateOf != nil {
+		t.Errorf("grype (critical) should be primary")
+	}
+	if gotTrivy.DuplicateOf == nil || *gotTrivy.DuplicateOf != grype.ID {
+		t.Errorf("trivy should point at grype, got %v", gotTrivy.DuplicateOf)
+	}
+	if gotGrype.CorrelationKey == nil || !strings.HasPrefix(*gotGrype.CorrelationKey, "cve-2021-44228|") {
+		t.Errorf("CVE+package findings must still use the CVE key, got %v", gotGrype.CorrelationKey)
+	}
+}
+
+// TestDeduplicateCVESameScannerStillCollapses pins that the scanner-identity
+// rule is scoped to location keys only: a CVE-keyed group collapses whenever
+// it has more than one member, same scanner or not, exactly as it did before
+// this feature (e.g. one tool reporting the same CVE+package at two lockfile
+// paths in a monorepo).
+func TestDeduplicateCVESameScannerStillCollapses(t *testing.T) {
+	pool := pgtest.Pool(t)
+	repo := finding.NewRepository(pool)
+	ctx := context.Background()
+	projectID := seedProject(t, pool)
+
+	mk := func(fp, path string, line int, sev domain.Severity) finding.Finding {
+		f := sampleFinding(projectID)
+		f.Fingerprint, f.Scanner, f.Severity = fp, "trivy", sev
+		f.CVE, f.PackageName = []string{"CVE-2021-44228"}, "log4j-core"
+		f.Category = domain.CategorySCA
+		f.FilePath, f.Line = path, intp(line)
+		return f
+	}
+	a, _ := repo.Upsert(ctx, mk("fp-trivy-a", "services/a/pom.xml", 1, domain.SeverityHigh))
+	b, _ := repo.Upsert(ctx, mk("fp-trivy-b", "services/b/pom.xml", 2, domain.SeverityCritical))
+
+	if n, err := repo.Deduplicate(ctx, projectID); err != nil || n != 1 {
+		t.Fatalf("dedup = %d, %v; want 1 (same scanner, same CVE+package, still one group)", n, err)
+	}
+	gotA, _ := repo.Get(ctx, a.ID)
+	gotB, _ := repo.Get(ctx, b.ID)
+	if gotB.DuplicateOf != nil {
+		t.Errorf("critical report should be primary, got duplicate_of=%v", *gotB.DuplicateOf)
+	}
+	if gotA.DuplicateOf == nil || *gotA.DuplicateOf != b.ID {
+		t.Errorf("same-scanner CVE+package report should still collapse to the primary, got %v", gotA.DuplicateOf)
+	}
+}
+
+// TestDeduplicateLocationMixedScannerCountStaysUngrouped pins the group-level
+// rule: a location-keyed group collapses only when every member is a
+// different scanner (count(*) = count(distinct scanner)). Two reports from
+// scanner X plus one from scanner Y at the same file/line/CWE must leave all
+// three visible — collapsing any pair would either hide one tool's second
+// rule behind its own first, or arbitrarily pick which of X's two reports
+// survives alongside Y.
+func TestDeduplicateLocationMixedScannerCountStaysUngrouped(t *testing.T) {
+	pool := pgtest.Pool(t)
+	repo := finding.NewRepository(pool)
+	ctx := context.Background()
+	projectID := seedProject(t, pool)
+	cwe798 := 798
+
+	x1, _ := repo.Upsert(ctx, sastFinding(projectID, "fp-x-1", "semgrep", "r1", "app/auth.go", 42, &cwe798, domain.SeverityHigh))
+	x2, _ := repo.Upsert(ctx, sastFinding(projectID, "fp-x-2", "semgrep", "r2", "app/auth.go", 42, &cwe798, domain.SeverityCritical))
+	y1, _ := repo.Upsert(ctx, sastFinding(projectID, "fp-y-1", "gosec", "G101", "app/auth.go", 42, &cwe798, domain.SeverityMedium))
+
+	if _, err := repo.Deduplicate(ctx, projectID); err != nil {
+		t.Fatalf("dedup: %v", err)
+	}
+	for name, id := range map[string]string{"x1": x1.ID, "x2": x2.ID, "y1": y1.ID} {
+		got, _ := repo.Get(ctx, id)
+		if got.DuplicateOf != nil {
+			t.Errorf("%s should stay visible (group is not all-distinct-scanners), got duplicate_of=%v", name, *got.DuplicateOf)
+		}
+	}
+	if list, _ := repo.List(ctx, finding.Filter{ProjectID: projectID}); len(list) != 3 {
+		t.Errorf("default list = %d, want 3 (no member of a mixed-count group hides another)", len(list))
+	}
+}
+
+// TestDeduplicateLocationScanMatchesFullRun extends the DeduplicateScan safety
+// net to the new location+CWE correlation key: an ingest that moves a
+// finding's line (so it leaves its old group) and closes a group's primary
+// must still land exactly where a full recompute would.
+func TestDeduplicateLocationScanMatchesFullRun(t *testing.T) {
+	pool := pgtest.Pool(t)
+	repo := finding.NewRepository(pool)
+	ctx := context.Background()
+	projectID := seedProject(t, pool)
+	scan1 := seedScan(t, pool, projectID)
+	cweA := 798
+
+	mk := func(scanID, fp, scanner string, line int, sev domain.Severity) finding.Finding {
+		f := sastFinding(projectID, fp, scanner, "r", "app/auth.go", line, &cweA, sev)
+		f.LastScanID = &scanID
+		out, err := repo.Upsert(ctx, f)
+		if err != nil {
+			t.Fatalf("upsert %s: %v", fp, err)
+		}
+		return out
+	}
+
+	// Group A: semgrep(high) + gosec(critical), both distinct scanners -> collapses, gosec primary.
+	semgrepA := mk(scan1, "fp-semgrep-a", "semgrep", 42, domain.SeverityHigh)
+	gosecA := mk(scan1, "fp-gosec-a", "gosec", 42, domain.SeverityCritical)
+	// Group B: two gosec findings, same scanner -> never collapses (grp != distinct_scanners).
+	mk(scan1, "fp-gosec-b1", "gosec", 100, domain.SeverityCritical)
+	mk(scan1, "fp-gosec-b2", "gosec", 100, domain.SeverityLow)
+	// Group C: checkov + semgrep at line 200, both distinct scanners -> collapses initially.
+	checkovC1 := mk(scan1, "fp-checkov-c1", "checkov", 200, domain.SeverityCritical)
+	semgrepC1 := mk(scan1, "fp-semgrep-c1", "semgrep", 200, domain.SeverityHigh)
+	if _, err := repo.Deduplicate(ctx, projectID); err != nil {
+		t.Fatalf("initial dedup: %v", err)
+	}
+	if got, _ := repo.Get(ctx, semgrepC1.ID); got.DuplicateOf == nil || *got.DuplicateOf != checkovC1.ID {
+		t.Fatalf("group C should collapse before scan 2 (2 distinct scanners), got duplicate_of=%v", got.DuplicateOf)
+	}
+
+	// Scan 2 (semgrep only): its report of line 42 moves to line 55 — it
+	// leaves group A, which must re-elect (gosec alone, now ungrouped).
+	scan2 := seedScan(t, pool, projectID)
+	moved := sastFinding(projectID, "fp-semgrep-a", "semgrep", "r", "app/auth.go", 55, &cweA, domain.SeverityHigh)
+	moved.LastScanID = &scan2
+	if _, err := repo.Upsert(ctx, moved); err != nil {
+		t.Fatalf("upsert moved: %v", err)
+	}
+	// A second checkov report lands in group C: it now has two checkov members
+	// and one semgrep (grp=3, distinct_scanners=2), so it must UN-collapse —
+	// both checkovC1 (the old primary) and semgrepC1 (the old duplicate) must
+	// end up with duplicate_of cleared. This is the "(b)" case: a mixed-count
+	// group never collapses, verified through the scan-scoped path too.
+	checkovC2 := sastFinding(projectID, "fp-checkov-c2", "checkov", "r2", "app/auth.go", 200, &cweA, domain.SeverityCritical)
+	checkovC2.LastScanID = &scan2
+	checkovC2Out, err := repo.Upsert(ctx, checkovC2)
+	if err != nil {
+		t.Fatalf("upsert checkov-c2: %v", err)
+	}
+	// ...and gosec's b1 (group B's primary) is no longer reported, so it closes.
+	closed, err := repo.CloseMissing(ctx, projectID, "gosec", scan2)
+	if err != nil {
+		t.Fatalf("close missing: %v", err)
+	}
+	if len(closed) != 3 { // gosec-a, gosec-b1, gosec-b2 were all last seen in scan1
+		t.Fatalf("closed %d gosec findings, want 3", len(closed))
+	}
+
+	if _, err := repo.DeduplicateScan(ctx, projectID, scan2, closed); err != nil {
+		t.Fatalf("incremental dedup: %v", err)
+	}
+	incremental := grouping(t, pool, projectID)
+
+	if _, err := repo.Deduplicate(ctx, projectID); err != nil {
+		t.Fatalf("full dedup: %v", err)
+	}
+	full := grouping(t, pool, projectID)
+
+	if !maps.Equal(incremental, full) {
+		t.Errorf("incremental dedup diverged from a full recompute:\n incremental: %v\n full:        %v", incremental, full)
+	}
+	if d := incremental[semgrepA.ID]; d != "" {
+		t.Errorf("moved finding still marked duplicate_of=%s", d)
+	}
+	if d := incremental[gosecA.ID]; d != "" {
+		t.Errorf("group A has one member left, so it must not be a duplicate (got %s)", d)
+	}
+	for name, id := range map[string]string{"checkovC1": checkovC1.ID, "semgrepC1": semgrepC1.ID, "checkovC2": checkovC2Out.ID} {
+		if d := incremental[id]; d != "" {
+			t.Errorf("group C is now mixed-count (2 checkov + 1 semgrep), so %s must not be a duplicate (got %s)", name, d)
+		}
+	}
+}
+
 func TestGateStatsNewOnly(t *testing.T) {
 	pool := pgtest.Pool(t)
 	repo := finding.NewRepository(pool)
@@ -852,13 +1210,23 @@ func TestDeduplicateDoesNotRewriteUnchangedRows(t *testing.T) {
 			}
 		}
 	}
-	for i := 0; i < 10; i++ { // no CVE: never correlated
+	for i := 0; i < 10; i++ { // no CVE, no file/line: never correlated
 		f := sampleFinding(projectID)
 		f.Fingerprint = fmt.Sprintf("fp-secret-%d", i)
 		f.Category = domain.CategorySecret
 		f.LastScanID = &scanID
 		if _, err := repo.Upsert(ctx, f); err != nil {
 			t.Fatalf("seed: %v", err)
+		}
+	}
+	cweA := 798
+	for g := 0; g < 5; g++ { // location+CWE groups: same tooling mix as the CVE groups above
+		for _, tool := range []string{"semgrep", "gosec"} {
+			f := sastFinding(projectID, fmt.Sprintf("fp-%s-sast-%d", tool, g), tool, "r", fmt.Sprintf("app/f%d.go", g), 10, &cweA, domain.SeverityMedium)
+			f.LastScanID = &scanID
+			if _, err := repo.Upsert(ctx, f); err != nil {
+				t.Fatalf("seed: %v", err)
+			}
 		}
 	}
 

@@ -5239,7 +5239,7 @@ type Finding struct {
 	// Category `cloud` is CSPM, `kubernetes` is KSPM.
 	Category *Category `json:"category,omitempty"`
 
-	// CorrelationKey Groups the same CVE+package across scanners.
+	// CorrelationKey Groups the same CVE+package, or the same non-CVE finding location+CWE, across scanners.
 	CorrelationKey *string    `json:"correlation_key,omitempty"`
 	CreatedAt      *time.Time `json:"created_at,omitempty"`
 
