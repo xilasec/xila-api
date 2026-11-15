@@ -574,17 +574,17 @@ plus CWE when it has one. A finding's key simply omits the CWE segment when it
 has none, so a CWE-bearing and a CWE-less report at the same line never share
 a key, while two CWE-less reports there still fall back to grouping by
 location alone. A finding with neither a CVE nor a file_path/line (most DAST
-without a CVE) gets no key — do not add fuzzy title matching. Election (step
+without a CVE) gets no key; do not add fuzzy title matching. Election (step
 2 of `deduplicate`) elects the highest-priority row per `(version_id,
-correlation_key)` as primary and marks the rest `duplicate_of` it — for a
-CVE-keyed group, unconditionally (same scanner or not, unchanged from before
+correlation_key)` as primary and marks the rest `duplicate_of` it. For a
+CVE-keyed group that happens unconditionally (same scanner or not, unchanged from before
 this feature); for a location-keyed group (`correlation_key LIKE 'loc|%'`),
-**only when every member of that group is a different scanner**
+only when every member of that group is a different scanner
 (`scanner_counts`: `count(*) = count(DISTINCT scanner)` per
 `(version_id, correlation_key)`, computed in a grouped CTE since Postgres has
 no `count(DISTINCT …)` window function). A location-keyed group with more than
-one report from the same scanner never collapses at all — not even the
-cross-scanner pairs inside it — so no member hides behind a report that isn't
+one report from the same scanner never collapses at all, not even the
+cross-scanner pairs inside it, so no member hides behind a report that isn't
 actually a duplicate of it. Migration 000089 backfilled this for data that
 predates the location key; keep its SQL in sync with this function if the
 formula changes again (see migration 000057/000056 for the CVE-location

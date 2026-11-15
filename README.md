@@ -886,8 +886,8 @@ report copies. Each scanner's report is still preserved (its own lifecycle +
 provenance). Primaries are badged with how many tools agree. Grouping is
 recomputed each ingest, so it self-heals when a scanner stops reporting. See
 `?include_duplicates=true` and `GET /findings/{id}/duplicates`. A finding with
-neither a CVE nor a file path/line (most DAST without a CVE) still gets no key
-— matching by title alone is not a sound cross-tool signal.
+neither a CVE nor a file path/line (most DAST without a CVE) still gets no key:
+matching by title alone is not a sound cross-tool signal.
 
 Security gates (break the build): a per-project (or global-default) policy
 that CI evaluates to fail a pipeline on unacceptable risk. `POST /projects/{id}/gate`
