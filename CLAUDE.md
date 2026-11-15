@@ -483,6 +483,20 @@ ingest pass runs after dedup (`scan.Service.WithFollowUps`), not as an applier.
 Action tickets sync through `issuetracker.LinkSyncer`, reusing
 `issuetracker.Decide`.
 
+Root causes: `internal/rootcause` answers "what's the same problem
+everywhere?" by merging every visible project's `fixplan.Changes` into one row
+per (kind, key) in `fixplan.RootCauses` (pure, table-tested); no second grouping
+decision. `GET /root-causes` and `GET /root-causes/{kind}/{key}` are
+portfolio-wide lists scoped by `authz.VisibleScope`, like the fix plan and
+remediation; `POST /root-causes/{kind}/{key}/remediation` spans the caller's
+visible projects carrying the change (`routeScope{}`, editor checked per
+project in the handler, like `POST /findings/bulk`; never load or name a project
+outside the visible scope) and reuses `remediation.Service.Accept` so its
+invariants (one live action per change, idempotent) hold rather than writing a
+second path to the same table. A change's key can hold `/` and `@` (scoped
+npm packages, purl bases), so it's a base64url path segment, not raw. Gated by
+the `remediation` feature switch, not a feature of its own.
+
 PR comments: `cmd/xila` (`upload --comment`) posts the gate result and the
 findings this scan introduced (`GET /findings?scan_id=…&new=true`) to the pull
 request. `github.go` is a stdlib GitHub client. The comment carries a hidden
@@ -807,6 +821,7 @@ internal/secretbox                     AES-GCM for integration tokens at rest
 internal/engagement                    DefectDojo-style engagements (scans as tests) + manual findings
 internal/findingtemplate               reusable write-ups for manual findings
 internal/fixplan                       fix-first plan: upgrades ranked by risk removed
+internal/rootcause                     cross-project root causes: fixplan.Changes merged by (kind, key) over every visible project
 internal/exploitintel                  ExploitDB / Metasploit / Nuclei → finding exploit_maturity → priority
 internal/badge                         token-gated public README badges (SVG)
 internal/cra                           EU CRA evidence report (framework eu-cra)

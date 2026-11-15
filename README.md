@@ -343,6 +343,9 @@ roles, and password login can optionally be turned off. See [Single sign-on](#si
 | GET    | `/api/v1/remediation/{id}/findings` | The findings an action closes |
 | POST   | `/api/v1/remediation/{id}/issue`    | File the action as one tracker ticket (editor; idempotent) |
 | POST   | `/api/v1/remediation/sweep`         | Group findings + refresh actions now (admin; also runs on `REMEDIATION_SWEEP_INTERVAL` and per ingest) |
+| GET    | `/api/v1/root-causes`               | The same change merged across every project you can see (`?kind=`, `?ecosystem=`, `?q=`, `?kev=`, `?min_severity=`) |
+| GET    | `/api/v1/root-causes/{kind}/{key}`  | One root cause's affected projects (`key` base64url-encoded; findings, priority, live action if any) |
+| POST   | `/api/v1/root-causes/{kind}/{key}/remediation` | Create the missing remediation action everywhere you can edit; skips and reports the rest, idempotent |
 | GET/POST | `/api/v1/projects/{id}/connectors` | The project's Dependency-Track / DefectDojo pull connectors (token write-only); adding needs project owner |
 | PUT/DELETE | `/api/v1/projects/{id}/connectors/{connectorID}` | Change / remove a connector (owner; its imported findings stay) |
 | POST   | `/api/v1/projects/{id}/connectors/{connectorID}/test` | Verify the stored connector credentials (owner; `502` with the remote's error) |
@@ -814,6 +817,24 @@ action (`issue_closed`), and reopening the ticket reopens the action. The projec
 Remediation tab (proposals and actions, expandable to their findings); the
 portfolio list is under Remediation in the nav. The fix plan endpoints still
 list package upgrades (distro packages included, as individual upgrades).
+
+Root causes (`internal/rootcause`): the same package upgrade, base-image
+rebuild or rule fix needed in more than one project is one row instead of one
+per project, merging `fixplan.Changes` over every project you can see, with no
+second grouping logic. `GET /root-causes` lists them, sorted by priority
+removed then projects affected, with filters for kind, ecosystem, a text
+search, KEV-only and a minimum severity; `GET /root-causes/{kind}/{key}`
+(`key` base64url-encoded, since it can hold `/` and `@`) shows the affected
+projects, each with its findings, priority removed and live remediation
+action if it has one. `POST /root-causes/{kind}/{key}/remediation` creates the
+missing action in every visible project you hold at least editor on, reusing
+`remediation.Service.Accept` so its invariants hold (one live action per
+change, idempotent). Visible projects that are already live, or that you can't
+edit, are reported in `skipped`; projects you can't see are never touched or
+named. Gated by the `remediation` feature switch
+alongside remediation actions; the nav has a Root Causes page with the same
+list, an expandable row per change for its affected projects, and a button to
+create the missing actions.
 
 Pull connectors (Dependency-Track, DefectDojo): point a project at a running
 Dependency-Track project (by UUID) or DefectDojo product (`42`) or engagement
@@ -2951,7 +2972,7 @@ restart. All are on by default:
 | `badges` | README badges | Badge images answer 404 (tokens are kept). |
 | `custom_fields` | Custom fields | Definitions and values are kept but hidden. |
 | `personal_notifications` | Assignee / watcher alerts | Events go to the admin-managed channels only. |
-| `remediation` | Remediation actions | The ingest pass, the sweep, and the ticket sync stop. |
+| `remediation` | Remediation actions | The ingest pass, the sweep, the ticket sync, and root causes stop. |
 | `engagements` | Engagements | Manual findings can still be reported. |
 
 A switched-off feature's routes answer 404 (public ones too), its background

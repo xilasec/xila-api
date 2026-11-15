@@ -64,6 +64,7 @@ import (
 	"github.com/xilasec/xila-api/internal/remediation"
 	"github.com/xilasec/xila-api/internal/report"
 	"github.com/xilasec/xila-api/internal/retention"
+	"github.com/xilasec/xila-api/internal/rootcause"
 	"github.com/xilasec/xila-api/internal/saml"
 	"github.com/xilasec/xila-api/internal/sbom"
 	"github.com/xilasec/xila-api/internal/scan"
@@ -111,6 +112,7 @@ type Handlers struct {
 	Badge        *badge.Handler
 	FixPlan      *fixplan.Handler
 	Remediation  *remediation.Handler
+	RootCauses   *rootcause.Handler
 	Exploits     *exploitintel.Handler
 	Evidence     *evidence.Handler
 	CRACases     *cra.CaseHandler
@@ -315,6 +317,7 @@ func New(cfg config.Config, h Handlers) *Server {
 	h.Badge.Register(secured)
 	h.FixPlan.Register(secured)
 	h.Remediation.Register(secured)
+	h.RootCauses.Register(secured)
 	h.Exploits.Register(secured)
 	h.Evidence.Register(secured)
 	h.CRACases.Register(secured)

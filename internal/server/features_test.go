@@ -54,7 +54,8 @@ func TestFeatureRoutesMatchRouteTable(t *testing.T) {
 			"GET /api/v1/projects/:projectID/remediation", "GET /api/v1/projects/:projectID/remediation/proposals",
 			"GET /api/v1/remediation", "GET /api/v1/remediation/:actionID", "GET /api/v1/remediation/:actionID/findings",
 			"PATCH /api/v1/remediation/:actionID", "POST /api/v1/projects/:projectID/remediation",
-			"POST /api/v1/remediation/:actionID/issue", "POST /api/v1/remediation/sweep"},
+			"POST /api/v1/remediation/:actionID/issue", "POST /api/v1/remediation/sweep",
+			"GET /api/v1/root-causes", "GET /api/v1/root-causes/:kind/:key", "POST /api/v1/root-causes/:kind/:key/remediation"},
 	}
 	app := newTestApp(t)
 	store := feature.NewStore(nil)

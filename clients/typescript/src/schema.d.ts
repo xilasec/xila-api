@@ -2369,6 +2369,79 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/root-causes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cross-project root causes
+         * @description Merges `fixplan.Changes` over every project you can see into one row per
+         *     (kind, key): the same package upgrade, base-image rebuild, or rule fix
+         *     needed in more than one project is one row instead of one per project.
+         *     Sorted by priority removed, then projects affected.
+         */
+        get: operations["listRootCauses"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/root-causes/{kind}/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One root cause's affected projects
+         * @description The projects you can see that carry this change, with each one's
+         *     findings, priority removed, and live remediation action if it has one.
+         *     404 when none of the projects you can see carries it — including when
+         *     every project that does is outside what you can see.
+         */
+        get: operations["getRootCause"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/root-causes/{kind}/{key}/remediation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create the missing remediation action everywhere you can
+         * @description Creates the live remediation action (`remediation.Service.Accept`, same
+         *     invariants: one live action per change, idempotent) in every project
+         *     you can see that carries this change and where you hold at least
+         *     editor. The other visible projects are reported in `skipped` with a
+         *     reason (`forbidden`, or `already_live` when that project's change
+         *     already has a live action); projects you can't see are never touched
+         *     or named. A second call creates 0. 404 when no visible project
+         *     carries the change.
+         */
+        post: operations["createRootCauseRemediation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{projectID}/badge-token": {
         parameters: {
             query?: never;
@@ -7400,6 +7473,71 @@ export interface components {
             /** Format: date-time */
             added_at?: string;
         };
+        RootCause: {
+            kind?: components["schemas"]["RemediationKind"];
+            /** @description Identifies the change within the kind */
+            key?: string;
+            title?: string;
+            /** @description The highest of the affected projects' minimal fixes (package_upgrade). */
+            target?: string;
+            package?: string;
+            purl?: string;
+            ecosystem?: string;
+            installed?: string;
+            image?: string;
+            os?: string;
+            file_path?: string;
+            resource?: string;
+            rule_id?: string;
+            /** @description How many projects you can see carry this change. */
+            projects?: number;
+            project_ids?: string[];
+            /** @description Summed over every affected project. */
+            findings?: number;
+            by_severity?: {
+                [key: string]: number;
+            };
+            max_severity?: components["schemas"]["Severity"];
+            priority_removed?: number;
+            kev?: number;
+            max_epss?: number | null;
+            /** @description Every affected project already has a live remediation action for this change. */
+            all_actioned?: boolean;
+        };
+        RootCauseList: {
+            root_causes?: components["schemas"]["RootCause"][];
+            pagination?: components["schemas"]["Pagination"];
+        };
+        RootCauseProjectShare: {
+            /** Format: uuid */
+            project_id?: string;
+            project_name?: string;
+            findings?: number;
+            max_severity?: components["schemas"]["Severity"];
+            priority_removed?: number;
+            kev?: number;
+            /** @description The live remediation action already tracking this project's share, if any. */
+            action?: {
+                /** Format: uuid */
+                id?: string;
+                status?: components["schemas"]["RemediationStatus"];
+            } | null;
+        };
+        RootCauseDetail: components["schemas"]["RootCause"] & {
+            affected_projects?: components["schemas"]["RootCauseProjectShare"][];
+        };
+        RootCauseRemediationResult: {
+            /** @description New remediation actions created. */
+            created?: number;
+            skipped?: {
+                /** Format: uuid */
+                project_id?: string;
+                /** @description Omitted when you can't edit that project. */
+                project_name?: string;
+                /** @enum {string} */
+                reason?: "forbidden" | "already_live";
+            }[];
+        };
         Engagement: {
             /** Format: uuid */
             readonly id?: string;
@@ -9420,6 +9558,9 @@ export interface components {
         /** @description Comma-separated statuses, or `all`. Default `open,in_progress`. */
         RemediationStatusFilter: string;
         RemediationKindFilter: components["schemas"]["RemediationKind"];
+        RootCauseKind: components["schemas"]["RemediationKind"];
+        /** @description The change's key, base64url-encoded (no padding) — it can contain slashes and "@". */
+        RootCauseKey: string;
         TemplateID: string;
         /** @description Only findings with a public exploit — `weaponized`, `poc`, or `any` (either). */
         ExploitFilter: "any" | "poc" | "weaponized";
@@ -13685,6 +13826,86 @@ export interface operations {
             400: components["responses"]["Error"];
             404: components["responses"]["Error"];
             502: components["responses"]["Error"];
+        };
+    };
+    listRootCauses: {
+        parameters: {
+            query?: {
+                kind?: components["schemas"]["RemediationKind"];
+                ecosystem?: string;
+                /** @description Substring of the title */
+                q?: string;
+                kev?: boolean;
+                min_severity?: components["schemas"]["Severity"];
+                /** @description Page size (max 200). */
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RootCauseList"];
+                };
+            };
+        };
+    };
+    getRootCause: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: components["parameters"]["RootCauseKind"];
+                /** @description The change's key, base64url-encoded (no padding) — it can contain slashes and "@". */
+                key: components["parameters"]["RootCauseKey"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RootCauseDetail"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    createRootCauseRemediation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: components["parameters"]["RootCauseKind"];
+                /** @description The change's key, base64url-encoded (no padding) — it can contain slashes and "@". */
+                key: components["parameters"]["RootCauseKey"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RootCauseRemediationResult"];
+                };
+            };
+            404: components["responses"]["Error"];
         };
     };
     getProjectBadgeToken: {

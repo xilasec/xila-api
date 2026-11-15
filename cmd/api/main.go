@@ -65,6 +65,7 @@ import (
 	"github.com/xilasec/xila-api/internal/remediation"
 	"github.com/xilasec/xila-api/internal/report"
 	"github.com/xilasec/xila-api/internal/retention"
+	"github.com/xilasec/xila-api/internal/rootcause"
 	"github.com/xilasec/xila-api/internal/saml"
 	"github.com/xilasec/xila-api/internal/sbom"
 	"github.com/xilasec/xila-api/internal/scan"
@@ -419,6 +420,7 @@ func run() error {
 		Badge:        badge.NewHandler(badge.NewRepository(db), portfolioRepo, gateRepo, findingRepo).WithPublicURL(cfg.PublicURL),
 		FixPlan:      fixplan.NewHandler(findingRepo),
 		Remediation:  remediation.NewHandler(remediationRepo, remediationSvc, membershipRepo),
+		RootCauses:   rootcause.NewHandler(rootcause.NewService(findingRepo, remediationRepo, remediationSvc, membershipRepo)),
 		Exploits:     exploitintel.NewHandler(exploitRepo, exploitSvc, findingRepo),
 		Evidence:     evidence.NewHandler(evidence.NewRepository(db), projectRepo, complianceRepo, portfolioRepo, craRepo),
 		CRACases:     cra.NewCaseHandler(craSvc),

@@ -752,9 +752,14 @@ Tier 1:
   role CHECK on `project_members`, `team_members` and `sso_group_mappings`;
   the permission audit (`internal/access`) and `UsersWithProjectAccess`
   report it correctly.
-- ⬜ 12.3 Cross-project root causes (DefectDojo Pro): one work item per shared
-  cause (CVE, component version) across every project, beyond the per-project
-  remediation actions.
+- ✅ 12.3 Cross-project root causes (DefectDojo Pro): `GET /root-causes` merges
+  every visible project's `fixplan.Changes` into one row per change (same
+  upgrade, base-image rebuild or rule fix), sorted by priority removed, with
+  filters; the detail lists the affected projects and their live remediation
+  actions; `POST …/remediation` creates the missing actions in every visible
+  project you can edit, idempotently. The grouping stays in `fixplan`
+  (`fixplan.RootCauses`, pure). A Root Causes page in the UI (EN, DE), gated by
+  the `remediation` feature switch.
 - ⬜ 12.4 No-code parser (DefectDojo Pro "Universal Parser"): map fields of any
   CSV, JSON or XML report to findings from the UI.
 - ⬜ 12.5 Vulnerability policies (Dependency-Track 5): CEL rules on a component and
