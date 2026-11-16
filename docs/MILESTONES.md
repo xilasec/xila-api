@@ -765,9 +765,13 @@ Tier 1:
 - ⬜ 12.5 Vulnerability policies (Dependency-Track 5): CEL rules on a component and
   vulnerability pair that set an analysis or rating atomically at ingest, with a
   validity window, priority, and GitOps policy bundles.
-- ⬜ 12.6 More pull connectors: Snyk, GitHub code scanning and Dependabot alerts,
-  GitLab vulnerability reports, Wiz, Tenable (DefectDojo Pro has 140+; Xila pulls
-  from Dependency-Track and DefectDojo only).
+- ✅ 12.6 More pull connectors: Snyk (`snyk-api`, REST issues), GitHub (code
+  scanning and Dependabot alerts, per repository or org, GHES too), GitLab
+  (GraphQL vulnerabilities), Wiz (OAuth client credentials, GraphQL
+  `vulnerabilityFindings`) and Tenable Vulnerability Management (vulns export).
+  Same framework as Dependency-Track and DefectDojo: tokens sealed, requests
+  through netguard, complete fetches only, dismissals as remote triage, each kind
+  its own scanner name. Migration 000095 (kinds, Wiz `auth_url`).
 
 Tier 2:
 
