@@ -766,6 +766,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/reauth": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm your password for a sensitive action
+         * @description Proves you are still at the keyboard: your password, plus your current
+         *     two-factor code when two-factor is on. Returns a session marked as
+         *     freshly authenticated, which creating an API token requires
+         *     (`REAUTH_WINDOW`, default 10 minutes). Accounts without a local password
+         *     sign in again through their identity provider instead (400). API tokens
+         *     can't call it.
+         */
+        post: operations["reauthenticateMe"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/mfa": {
         parameters: {
             query?: never;
@@ -1156,6 +1181,9 @@ export interface paths {
          * Mint an API token for CI
          * @description The secret is shown **once**, in this response. Scope it to a project
          *     (`project_id`) so a repo's CI can only touch its own project.
+         *     Needs a session that signed in within `REAUTH_WINDOW` (default 10 minutes):
+         *     otherwise 403 with header `X-Reauth-Required: true`; confirm your password
+         *     with `POST /me/reauth` and retry. API tokens can't create tokens.
          */
         post: operations["createToken"];
         delete?: never;
@@ -2749,6 +2777,29 @@ export interface paths {
          * @description Every assessment of this finding (pending, approved, rejected), newest first.
          */
         get: operations["listFindingAssessments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai-proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Open AI triage proposals across projects
+         * @description Proposals still waiting for a decision (`state: proposed`) across every
+         *     project you can see, newest first, with their finding's title and
+         *     severity. `mine=true` keeps the ones you asked for or whose finding is
+         *     assigned to you. 404 while AI triage is off.
+         */
+        get: operations["listAiProposals"];
         put?: never;
         post?: never;
         delete?: never;
@@ -8005,6 +8056,11 @@ export interface components {
              */
             kev_sources?: ("cisa" | "enisa" | "vulncheck")[];
             /**
+             * @description A KEV catalog asserting the finding says the flaw is known to be used in
+             *     ransomware campaigns (`knownRansomwareCampaignUse` in CISA KEV and VulnCheck KEV).
+             */
+            kev_ransomware?: boolean;
+            /**
              * @description severity × exploitability × reachability × asset exposure. A KEV
              *     listing triples the weight; EPSS or a public exploit raise it up to
              *     2.5× (Metasploit module) / 1.5× (proof of concept); a dev-only
@@ -9042,6 +9098,12 @@ export interface components {
             /** @description Fail if open criticals exceed this. */
             max_critical?: number;
             max_high?: number;
+            /** @description Fail if open mediums exceed this. */
+            max_medium?: number;
+            /** @description Fail if open lows exceed this. */
+            max_low?: number;
+            /** @description Fail if open info findings exceed this. */
+            max_info?: number;
             /** @description Fail on any open KEV finding. */
             block_kev?: boolean;
             /** @description Limit `block_kev` to findings these catalogs assert; empty = any catalog. */
@@ -9100,6 +9162,7 @@ export interface components {
                 open_high?: number;
                 open_medium?: number;
                 open_low?: number;
+                open_info?: number;
                 open_kev?: number;
                 /** @description Open KEV findings by the exact catalog set asserting them, e.g. `cisa,enisa` → 2. */
                 open_kev_sources?: {
@@ -9118,8 +9181,14 @@ export interface components {
             id?: string;
             name?: string;
             enabled?: boolean;
-            /** @description Evaluation order. First match wins. */
+            /** @description Evaluation order (lowest first). The first match acts. */
             sort_order?: number;
+            /**
+             * @description Chain this rule: after it acts, the rules after it still evaluate, against the
+             *     finding as it left it (raise a severity, then act on the raised severity).
+             *     Without it the first matching rule is the only one that acts.
+             */
+            continue?: boolean;
             /**
              * Format: uuid
              * @description Null = applies to every project.
@@ -10688,6 +10757,41 @@ export interface operations {
             403: components["responses"]["Error"];
         };
     };
+    reauthenticateMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: password */
+                    password: string;
+                    /** @description TOTP or recovery code (required with two-factor on). */
+                    code?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Re-authenticated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description A JWT whose authentication time is now. */
+                        token?: string;
+                        user?: components["schemas"]["User"];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
     getMeMfa: {
         parameters: {
             query?: never;
@@ -11268,8 +11372,8 @@ export interface operations {
                      * @description Restrict the token to one project
                      */
                     project_id?: string;
-                    /** Format: date-time */
-                    expires_at?: string;
+                    /** @description Days until it expires (0 = never). */
+                    expires_in_days?: number;
                 };
             };
         };
@@ -11287,6 +11391,18 @@ export interface operations {
                          * @example xila_9f3c…
                          */
                         secret?: string;
+                    };
+                };
+            };
+            /** @description An API token or service account asked, or the session needs re-authentication (`X-Reauth-Required`). */
+            403: {
+                headers: {
+                    "X-Reauth-Required"?: "true";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error?: string;
                     };
                 };
             };
@@ -12661,6 +12777,10 @@ export interface operations {
                 rule_id?: string;
                 /** @description Only findings a KEV catalog (CISA, ENISA EUVD, VulnCheck) lists as known-exploited. */
                 kev?: boolean;
+                /** @description Only findings a KEV catalog marks as known to be used in ransomware campaigns. */
+                kev_ransomware?: boolean;
+                /** @description Only findings still awaiting a fix (open or confirmed). */
+                active?: boolean;
                 /**
                  * @description Only findings whose dependency ships (not dev-only) **and** was depended
                  *     on directly. Findings with no SBOM data are kept — unknown is never
@@ -14379,6 +14499,39 @@ export interface operations {
                     };
                 };
             };
+        };
+    };
+    listAiProposals: {
+        parameters: {
+            query?: {
+                mine?: boolean;
+                /** @description Page size (max 200). */
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        proposals?: (components["schemas"]["AIProposal"] & {
+                            finding_title?: string;
+                            finding_severity?: string;
+                            project_name?: string;
+                        })[];
+                        pagination?: components["schemas"]["Pagination"];
+                    };
+                };
+            };
+            404: components["responses"]["Error"];
         };
     };
     listFindingAiProposals: {
@@ -18524,6 +18677,12 @@ export interface operations {
             query?: {
                 state?: "requested" | "approved" | "expired" | "revoked" | "rejected";
                 project_id?: string;
+                /** @description Only the requests you may approve (projects you own; with four-eyes, not your own requests). */
+                actionable?: boolean;
+                /** @description `me` or a user id: acceptances with that owner. */
+                owner?: string;
+                /** @description Only acceptances expiring within this many days (soonest first). */
+                expires_within_days?: number;
                 /** @description Page size (max 200). */
                 limit?: components["parameters"]["Limit"];
                 offset?: components["parameters"]["Offset"];
@@ -18874,6 +19033,8 @@ export interface operations {
             query?: {
                 state?: "pending" | "approved" | "rejected";
                 project_id?: string;
+                /** @description Only what you may decide - pending assessments of projects you own that someone else requested. */
+                actionable?: boolean;
                 /** @description Page size (max 200). */
                 limit?: components["parameters"]["Limit"];
                 offset?: components["parameters"]["Offset"];

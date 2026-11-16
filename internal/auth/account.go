@@ -6,8 +6,10 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -41,11 +43,47 @@ func (s *Service) ChangePassword(ctx context.Context, userID, current, next stri
 }
 
 // RevokeSessions signs the user out everywhere (every JWT issued so far) and
-// returns a fresh token for the caller.
-func (s *Service) RevokeSessions(ctx context.Context, userID string) (string, user.User, error) {
+// returns a fresh token for the caller. It proves nothing about who is
+// asking, so the new session keeps the caller's authTime.
+func (s *Service) RevokeSessions(ctx context.Context, userID string, authTime time.Time) (string, user.User, error) {
 	u, err := s.users.RevokeSessions(ctx, userID)
 	if err != nil {
 		return "", user.User{}, err
+	}
+	token, err := s.reissue(u, authTime)
+	return token, u, err
+}
+
+// ErrNoLocalPassword: re-authentication by password for an account that
+// signs in through an identity provider.
+var ErrNoLocalPassword = errors.New("this account signs in through an identity provider; sign in again there")
+
+// ErrCodeRequired: re-authentication of an account with two-factor on
+// needs its current code too.
+var ErrCodeRequired = errors.New("enter your two-factor code too")
+
+// Reauthenticate proves the signed-in user is still at the keyboard (the
+// password, and the TOTP or recovery code when two-factor is on) and returns
+// a session whose auth_time is now. Sensitive actions (creating an API
+// token) require a recent one.
+func (s *Service) Reauthenticate(ctx context.Context, userID, password, code string) (string, user.User, error) {
+	u, err := s.users.GetByID(ctx, userID)
+	if err != nil {
+		return "", user.User{}, err
+	}
+	if !u.HasPassword {
+		return "", user.User{}, ErrNoLocalPassword
+	}
+	if bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password)) != nil {
+		return "", user.User{}, ErrWrongPassword
+	}
+	if s.mfaRequired(ctx, u) {
+		if strings.TrimSpace(code) == "" {
+			return "", user.User{}, ErrCodeRequired
+		}
+		if err := s.checkCode(ctx, u.ID, code); err != nil {
+			return "", user.User{}, err
+		}
 	}
 	token, err := s.TokenFor(u)
 	return token, u, err

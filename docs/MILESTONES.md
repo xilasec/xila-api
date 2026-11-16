@@ -773,19 +773,39 @@ Tier 2:
 
 - ⬜ 12.7 More issue trackers: Azure DevOps, Linear, ServiceNow.
 - ⬜ 12.8 Custom roles and user groups, and SCIM provisioning.
-- ⬜ 12.9 Security gate caps for every severity (medium, low, unknown), not only
-  critical and high.
-- ⬜ 12.10 Links out to NVD, GitHub Advisories and deps.dev from findings and
-  components.
-- ⬜ 12.11 KEV ransomware-use flag (`knownRansomwareCampaignUse`) on findings.
-- ⬜ 12.12 A "My work" page: assigned findings, approvals, expiring acceptances
-  and AI proposals in one queue.
+- ✅ 12.9 Security gate caps for every severity: `max_medium`, `max_low` and
+  `max_info` beside `max_critical` / `max_high` (Xila's "unknown" is `info`), in
+  the gate policy, the inline CLI policy (`--max-medium` …) and the project's
+  gate form. Migration 000096.
+- ✅ 12.10 Links out: CVE ids link to NVD and OSV, GHSA ids to GitHub Advisories
+  (canonical form) and OSV, package URLs to deps.dev (npm, PyPI, Maven, Go,
+  Cargo, NuGet), on the finding page, the vulnerability timeline and the SBOM
+  component panel. One pure helper, `web/src/lib/links.js`.
+- ✅ 12.11 KEV ransomware flag: CISA and VulnCheck entries with
+  `knownRansomwareCampaignUse: Known` mark their ids; findings get
+  `kev_ransomware`, a badge, a list filter and the fact in triage and
+  notification expressions. Stored per catalog entry, so an outage keeps it.
+  Migration 000097.
+- ✅ 12.12 My work page: findings assigned to you (`?assignee=me&active=true`),
+  assessments and risk acceptances you may decide (`?actionable=true`, filtered
+  on the server to projects you own, minus your own requests under four-eyes),
+  your acceptances expiring within 30 days (`?owner=me&expires_within_days=`)
+  and AI proposals you asked for or on your findings (new `GET /ai-proposals`).
 - ⬜ 12.13 Kafka notification publisher.
 - ⬜ 12.14 Strict CycloneDX schema validation on upload, with field paths in errors.
 - ⬜ 12.15 Per-project priority weights.
 - ⬜ 12.16 Smaller items: computed custom fields, triage rule chaining, splitting
   a multi-host infrastructure scan per asset, re-authentication before creating
-  API tokens, CryptoLyzer and DrHeader parsers.
+  API tokens, CryptoLyzer and DrHeader parsers. Done so far:
+  - Triage rule chaining: `continue` on a rule lets the rules after it evaluate
+    against the finding as it left it; preview simulates the same chain.
+    Migration 000098.
+  - Re-authentication: creating an API token needs a session that signed in
+    within `REAUTH_WINDOW` (10m). Sessions carry `auth_time`; "sign out
+    everywhere" keeps it, `POST /me/reauth` (password + two-factor code)
+    refreshes it. API tokens can't mint tokens.
+  - CryptoLyzer (checked against BSI TR-02102-2, plus its attack verdicts with
+    CVEs) and drHEADer parsers.
 
 Deliberately not pursued: FedRAMP POA&M and OSCAL export (US federal niche),
 threat modeling, AI-generated fix pull requests, active cloud scanning (Xila

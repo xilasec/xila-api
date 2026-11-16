@@ -15,6 +15,7 @@
 	import OutdatedBadge from '#lib/components/OutdatedBadge.svelte';
 	import IntegrityBadge from '#lib/components/IntegrityBadge.svelte';
 	import AIBadge from '#lib/components/AIBadge.svelte';
+	import { depsDevURL } from '#lib/links.js';
 
 	const id = $derived(page.params.id ?? '');
 	const TABS = ['vulnerabilities', 'components', 'services', 'changes', 'graph'];
@@ -563,7 +564,8 @@
 					<div class="bg-base-100 rounded-box shadow-sm p-4 text-sm self-start">
 						{#if selected}
 							<div class="font-semibold">{selected.name} <span class="text-base-content/50 font-normal">{selected.version}</span></div>
-							{#if selected.purl}<div class="text-xs font-mono text-base-content/50 break-all">{selected.purl}</div>{/if}
+							{#if selected.purl}<div class="text-xs font-mono text-base-content/50 break-all">{selected.purl}
+								{#if depsDevURL(selected.purl)}<a class="link ml-1 font-sans" href={depsDevURL(selected.purl)} target="_blank" rel="noopener noreferrer">deps.dev ↗</a>{/if}</div>{/if}
 							<div class="mt-2"><VulnBadge count={selected.vuln_count} severity={selected.max_severity} kev={selected.kev} vulns={selected.vulns} /></div>
 							{#each selected.vulns as v (v)}
 								<a class="link link-primary text-xs mr-2" href={`/vulnerabilities/${encodeURIComponent(v)}`}>{v}</a>

@@ -86,6 +86,7 @@
 	/** @type {{ href: string, key: import('#lib/i18n.js').MessageKey }[]} */
 	const baseNav = [
 		{ href: '/', key: 'nav.projects' },
+		{ href: '/my-work', key: 'nav.myWork' },
 		{ href: '/findings', key: 'nav.findings' },
 		{ href: '/fix-plan', key: 'nav.fixPlan' },
 		{ href: '/remediation', key: 'nav.remediation' },

@@ -236,8 +236,10 @@ type AssessmentFilter struct {
 	// ProjectIDs, when non-nil, restricts to these projects (the caller's
 	// visible scope); an empty non-nil slice matches nothing.
 	ProjectIDs []string
-	Limit      int // 0 = no limit
-	Offset     int
+	// ExcludeRequester drops assessments this user requested (four-eyes).
+	ExcludeRequester string
+	Limit            int // 0 = no limit
+	Offset           int
 }
 
 // ListAssessments returns assessments, newest first.
@@ -262,6 +264,9 @@ func (r *Repository) ListAssessments(ctx context.Context, f AssessmentFilter) ([
 	}
 	if f.ProjectIDs != nil {
 		add("a.project_id = ANY($%d)", f.ProjectIDs)
+	}
+	if f.ExcludeRequester != "" {
+		add("a.requested_by IS DISTINCT FROM $%d", f.ExcludeRequester)
 	}
 	q := `SELECT ` + assessmentColumns + assessmentFrom
 	if len(where) > 0 {

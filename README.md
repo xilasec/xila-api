@@ -245,7 +245,8 @@ roles, and password login can optionally be turned off. See [Single sign-on](#si
 | POST   | `/api/v1/auth/password-reset/request` | Email a reset link (needs `SMTP_*` + `PUBLIC_URL`); always returns `202` |
 | POST   | `/api/v1/auth/password-reset/confirm` | Set a new password with the link's token; signs out every other session and signs you in |
 | GET/POST/DELETE | `/api/v1/teams/{id}/members` | List / add (by email) / remove team members (owner) |
-| POST   | `/api/v1/tokens`                    | Mint an API token (CI); secret shown once |
+| POST   | `/api/v1/tokens`                    | Mint an API token (CI); secret shown once. Needs a session that signed in within `REAUTH_WINDOW` (else `403` + `X-Reauth-Required: true`); API tokens can't mint tokens |
+| POST   | `/api/v1/me/reauth`                 | Confirm your password (`{password, code}`; the TOTP code when two-factor is on) for a session marked freshly authenticated |
 | GET    | `/api/v1/tokens`                    | List your API tokens (no secrets)    |
 | DELETE | `/api/v1/tokens/{id}`               | Revoke an API token                  |
 | POST   | `/api/v1/auth/token`                | Public, rate limited: RFC 8693 token exchange (a CI job's OIDC identity token → a short-lived service-account access token) |
@@ -291,7 +292,8 @@ roles, and password login can optionally be turned off. See [Single sign-on](#si
 | POST   | `/api/v1/findings/{id}/ai-proposals` | Ask the model (`{kind: false_positive\|exploitability\|fix}`; editor; rate-limited per project → `429`; opted-out project → `403`); records a proposal, changes nothing |
 | POST   | `/api/v1/findings/{id}/ai-proposals/{pid}/accept` | Apply it as you (`{note}`; editor): `200` applied, `202` when it became a pending assessment / risk acceptance request |
 | POST   | `/api/v1/findings/{id}/ai-proposals/{pid}/reject` | Reject it (`{note}`; editor) |
-| GET    | `/api/v1/assessments`               | Assessment review queue across visible projects (`?state=pending`, `?project_id=`) |
+| GET    | `/api/v1/assessments`               | Assessment review queue across visible projects (`?state=pending`, `?project_id=`, `?actionable=true` = only what you may decide) |
+| GET    | `/api/v1/ai-proposals`              | Open AI proposals across visible projects (`?mine=true` = asked by you or on findings assigned to you) |
 | POST   | `/api/v1/assessments/{id}/approve`  | Approve + apply a pending assessment (`{note}`; project owner or admin, not the requester) |
 | POST   | `/api/v1/assessments/{id}/reject`   | Reject a pending assessment (`{note}`; same authorization) |
 | GET/POST | `/api/v1/findings/{id}/comments`  | The finding's discussion / add a comment (editor) |
@@ -300,7 +302,7 @@ roles, and password login can optionally be turned off. See [Single sign-on](#si
 | GET/DELETE | `/api/v1/findings/{id}/attachments/{attachmentID}` | Download (always as a file) / delete (uploader or project owner) |
 | GET    | `/api/v1/findings/{id}/exceptions`  | False positive / won't fix exception audit history |
 | GET    | `/api/v1/findings/{id}/risk-acceptances` | The finding's risk-acceptance ledger (every acceptance it was in; when and why it joined / left) |
-| GET    | `/api/v1/risk-acceptances`          | Risk acceptances across visible projects (`?state=requested` = the approval queue) |
+| GET    | `/api/v1/risk-acceptances`          | Risk acceptances across visible projects (`?state=requested` = the approval queue; `?actionable=true` = requests you may approve; `?owner=me&expires_within_days=30` = yours that need renewing) |
 | GET/POST | `/api/v1/projects/{id}/risk-acceptances` | List / request risk acceptances (`title`, `justification`, `owner_id`, `expires_at`, `finding_ids`) |
 | GET/PATCH/DELETE | `/api/v1/projects/{id}/risk-acceptances/{aid}` | One acceptance + its ledger; edit or withdraw while requested |
 | POST   | `/api/v1/projects/{id}/risk-acceptances/{aid}/{approve,reject,revoke}` | Decide (project owner; four-eyes with `RISK_ACCEPTANCE_REQUIRES_APPROVAL`) |
@@ -507,7 +509,14 @@ If no name is given, the default version is used (`main` if none exists yet).
   `repo_url`s. An unrecognized host gets no link rather than a guessed one.
 - Assignee: who owns fixing a finding (`PUT /findings/{id}/assignee`). Only
   people who can see the project can be assigned. `?assignee=me|none|<id>` filters
-  any finding list; the inbox has *Assigned to me*.
+  any finding list (`?active=true` keeps open and confirmed ones); the inbox has *Assigned to me*.
+- My work: one page with everything waiting on you. Findings assigned to you,
+  assessments and risk acceptances you may decide, acceptances you own that
+  expire within 30 days, and AI proposals you asked for or on your findings.
+  Each list is the server's own queue (`?actionable=true`, `?owner=me`,
+  `?mine=true`), so nothing is trimmed in the browser.
+- Links out: CVE ids link to NVD and OSV, GHSA ids to GitHub Advisories and OSV,
+  and a package URL to its deps.dev page (npm, PyPI, Maven, Go, Cargo, NuGet).
 - Comments and attachments: the discussion and the evidence (screenshots,
   PoC output; ≤10 MiB each, stored in Postgres). Downloads are always served as
   files with `nosniff`, and HTML/SVG/scripts as `application/octet-stream`, so an
@@ -630,7 +639,7 @@ severity. It uses the same language as triage rules and component policies:
 |---|---|
 | `event` | `type`, `title`, `severity`, `project_id`, `finding_id`, `fields` (the event's key/value details) |
 | `event.project` | `name`, `slug`, `tags`, `criticality` |
-| `event.finding` | `scanner`, `category`, `rule_id`, `title`, `severity`, `status`, `cve`, `cvss`, `epss`, `kev`, `kev_sources`, `package`, `fixed_version`, `file_path`, `tags` |
+| `event.finding` | `scanner`, `category`, `rule_id`, `title`, `severity`, `status`, `cve`, `cvss`, `epss`, `kev`, `kev_sources`, `kev_ransomware`, `package`, `fixed_version`, `file_path`, `tags` |
 
 ```cel
 event.finding.kev && "internet-facing" in event.project.tags
@@ -885,7 +894,11 @@ appsec, SCA, and CSPM/KSPM findings.
   `POST /api/v1/triage-rules/{id}/preview` (a stored rule, in any state)
   lists the findings the rule *would* change and how. Evaluation matches a
   backlog apply (live open/confirmed, non-duplicate findings; the rule slotted into
-  the live rules by `sort_order`, first match wins). Results are capped at 200 with a `total`.
+  the live rules by `sort_order`, first match acts, chained rules included). Results are capped at 200 with a `total`.
+- Order and chaining: rules evaluate by `sort_order` (lowest first) and the first
+  match acts. A rule with `continue: true` lets the rules after it evaluate too,
+  against the finding as it left it: raise internet-facing findings to critical,
+  then let a later rule act on every critical.
   `?project_id=` narrows it. Nothing is written.
 - Hit metrics: each rule's `hit_count` grows by the findings it actually
   changed (ingest and backfill; idempotent re-runs add nothing), with `last_hit_at`.
@@ -923,7 +936,7 @@ matching by title alone is not a sound cross-tool signal.
 Security gates (break the build): a per-project (or global-default) policy
 that CI evaluates to fail a pipeline on unacceptable risk. `POST /projects/{id}/gate`
 checks the deduped, triaged backlog against these thresholds: `max_critical`,
-`max_high`, `block_kev` (optionally only for the catalogs in `kev_sources`),
+`max_high`, `max_medium`, `max_low`, `max_info`, `block_kev` (optionally only for the catalogs in `kev_sources`),
 `max_epss`, `block_license`, `max_risk_score` (the same business-weighted risk
 score the project summary shows, scoped to the gated version). It returns
 200 when it passes and 422 when it fails, both with the full result (violations
@@ -993,6 +1006,12 @@ a catalog at a mirror with `KEV_CISA_URL` / `KEV_ENISA_URL` / `KEV_VULNCHECK_URL
 Policies (`kev_source in [enisa]`, CEL `"vulncheck" in vulns.kev_sources`), triage
 rules (`"cisa" in finding.kev_sources`) and gates (`kev_sources` limits
 `block_kev` to some catalogs) can all read it.
+
+CISA KEV and VulnCheck KEV also say whether a flaw is known to be used in
+ransomware campaigns (`knownRansomwareCampaignUse`). A finding a catalog marks
+that way has `kev_ransomware: true`, a Ransomware badge, a findings filter
+(`?kev_ransomware=true`) and the `kev_ransomware` fact in triage rule and
+notification expressions. Like the KEV ids, the flag survives a failed download.
 
 ### Engagements, manual findings & templates (DefectDojo workflow)
 
@@ -1499,7 +1518,7 @@ max_severity_rank 5–0, kev, kev_sources, epss, cwes), `pkg` (known, latest, ou
 versions_behind, age_days), `model` (suppliers, task, architecture_family,
 datasets; empty / null when unknown) and `project` (name, version, default_version, custom). Triage
 rules see `finding` (scanner, category, rule_id, title, severity, status, cve, cwe,
-cvss, epss, kev, kev_sources, package, version, fixed_version, purl, file_path, url, tags,
+cvss, epss, kev, kev_sources, kev_ransomware, package, version, fixed_version, purl, file_path, url, tags,
 dep_direct, dep_depth, dep_scope, custom) and `project` (criticality, custom). `custom.<key>`
 is a defined custom field. A misspelled or undefined one is refused on save. An unset
 one is absent and does not match; `has(finding.custom.team)` tests for it. An unknown fact is
@@ -1941,6 +1960,8 @@ parsers are selected by `?scanner=`:
 | Acunetix / 360 | `acunetix` | XML export or Acunetix 360 JSON | DAST |
 | Invicti / Netsparker | `invicti` | JSON report | DAST |
 | testssl.sh | `testssl` | `testssl.sh --csvfile out.csv $URL` | DAST (TLS) |
+| CryptoLyzer | `cryptolyzer` | `cryptolyze --output-format json tls all $HOST:443` | DAST (TLS, checked against BSI TR-02102-2) |
+| drHEADer | `drheader` | `drheader scan single $URL --output json` (or `scan bulk`) | DAST (HTTP security headers) |
 | SecObserve | `secobserve` | `GET /api/observations/?product=<id>` JSON, or SecObserve import format | any |
 | Nancy | `nancy` | `nancy sleuth --output=json < go.list` | SCA (Go) |
 | CloudSploit | `cloudsploit` | `cloudsploit-scan --json` | cloud (CSPM) |
@@ -2401,6 +2422,7 @@ Azure Key Vault, Vault) hand secrets to the app. It applies to `JWT_SECRET`,
 | `HTTP_BODY_LIMIT_MB`          | `32`                 | max upload size (scans/SBOMs)           |
 | `JWT_SECRET`                  | dev-only fallback    | **Must be a strong value in production (boot fails otherwise).** |
 | `JWT_TTL`                     | `24h`                | Go duration                             |
+| `REAUTH_WINDOW`               | `10m`                | how recently a session must have signed in to create an API token (`0` = no check) |
 | `CORS_ALLOWED_ORIGINS`        | `*` dev / none prod  | comma-separated allow-list              |
 | `TRUSTED_PROXIES`             | (none)               | proxy IPs/CIDRs to trust for `X-Forwarded-*` |
 | `COOKIE_SECURE`               | `true` in prod       | `Secure` flag on auth cookies           |

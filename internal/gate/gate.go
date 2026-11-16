@@ -27,6 +27,9 @@ type Policy struct {
 	ProjectID   *string `json:"project_id"`
 	MaxCritical *int    `json:"max_critical"`
 	MaxHigh     *int    `json:"max_high"`
+	MaxMedium   *int    `json:"max_medium"`
+	MaxLow      *int    `json:"max_low"`
+	MaxInfo     *int    `json:"max_info"`
 	BlockKEV    bool    `json:"block_kev"`
 	// KEVSources limits block_kev to findings these catalogs assert (cisa,
 	// enisa, vulncheck); empty = any catalog.
@@ -81,6 +84,15 @@ func Evaluate(p Policy, s finding.GateStats) Result {
 	}
 	if p.MaxHigh != nil && s.OpenHigh > *p.MaxHigh {
 		add("max_high", fmt.Sprintf("%d open high findings exceed the limit of %d", s.OpenHigh, *p.MaxHigh))
+	}
+	for _, c := range []struct {
+		rule, sev string
+		max       *int
+		open      int
+	}{{"max_medium", "medium", p.MaxMedium, s.OpenMedium}, {"max_low", "low", p.MaxLow, s.OpenLow}, {"max_info", "info", p.MaxInfo, s.OpenInfo}} {
+		if c.max != nil && c.open > *c.max {
+			add(c.rule, fmt.Sprintf("%d open %s findings exceed the limit of %d", c.open, c.sev, *c.max))
+		}
 	}
 	if p.BlockKEV {
 		if n := openKEV(p.KEVSources, s); n > 0 {
@@ -137,11 +149,11 @@ func NewRepository(db *pgxpool.Pool) *Repository {
 	return &Repository{db: db}
 }
 
-const policyColumns = `project_id, max_critical, max_high, block_kev, kev_sources, max_epss, block_license, new_only, block_sla_breach, baseline_branch, max_risk_score, updated_at`
+const policyColumns = `project_id, max_critical, max_high, max_medium, max_low, max_info, block_kev, kev_sources, max_epss, block_license, new_only, block_sla_breach, baseline_branch, max_risk_score, updated_at`
 
 func scanPolicy(row pgx.Row) (Policy, error) {
 	var p Policy
-	err := row.Scan(&p.ProjectID, &p.MaxCritical, &p.MaxHigh, &p.BlockKEV, &p.KEVSources, &p.MaxEPSS, &p.BlockLicense, &p.NewOnly, &p.BlockSLABreach, &p.BaselineBranch, &p.MaxRiskScore, &p.UpdatedAt)
+	err := row.Scan(&p.ProjectID, &p.MaxCritical, &p.MaxHigh, &p.MaxMedium, &p.MaxLow, &p.MaxInfo, &p.BlockKEV, &p.KEVSources, &p.MaxEPSS, &p.BlockLicense, &p.NewOnly, &p.BlockSLABreach, &p.BaselineBranch, &p.MaxRiskScore, &p.UpdatedAt)
 	return p, err
 }
 
@@ -180,10 +192,10 @@ func (r *Repository) Upsert(ctx context.Context, p Policy) (Policy, error) {
 	const q = `
 		UPDATE gate_policies SET
 			max_critical=$2, max_high=$3, block_kev=$4, max_epss=$5, block_license=$6, new_only=$7, block_sla_breach=$8,
-			kev_sources=$9, baseline_branch=$10, max_risk_score=$11, updated_at=now()
+			kev_sources=$9, baseline_branch=$10, max_risk_score=$11, max_medium=$12, max_low=$13, max_info=$14, updated_at=now()
 		WHERE project_id IS NOT DISTINCT FROM $1
 		RETURNING ` + policyColumns
-	out, err := scanPolicy(r.db.QueryRow(ctx, q, p.ProjectID, p.MaxCritical, p.MaxHigh, p.BlockKEV, p.MaxEPSS, p.BlockLicense, p.NewOnly, p.BlockSLABreach, kevSources(p), p.BaselineBranch, p.MaxRiskScore))
+	out, err := scanPolicy(r.db.QueryRow(ctx, q, p.ProjectID, p.MaxCritical, p.MaxHigh, p.BlockKEV, p.MaxEPSS, p.BlockLicense, p.NewOnly, p.BlockSLABreach, kevSources(p), p.BaselineBranch, p.MaxRiskScore, p.MaxMedium, p.MaxLow, p.MaxInfo))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return r.insert(ctx, p)
 	}
@@ -202,9 +214,9 @@ func kevSources(p Policy) []string {
 }
 
 func (r *Repository) insert(ctx context.Context, p Policy) (Policy, error) {
-	const q = `INSERT INTO gate_policies (project_id, max_critical, max_high, block_kev, max_epss, block_license, new_only, block_sla_breach, kev_sources, baseline_branch, max_risk_score)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING ` + policyColumns
-	out, err := scanPolicy(r.db.QueryRow(ctx, q, p.ProjectID, p.MaxCritical, p.MaxHigh, p.BlockKEV, p.MaxEPSS, p.BlockLicense, p.NewOnly, p.BlockSLABreach, kevSources(p), p.BaselineBranch, p.MaxRiskScore))
+	const q = `INSERT INTO gate_policies (project_id, max_critical, max_high, block_kev, max_epss, block_license, new_only, block_sla_breach, kev_sources, baseline_branch, max_risk_score, max_medium, max_low, max_info)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING ` + policyColumns
+	out, err := scanPolicy(r.db.QueryRow(ctx, q, p.ProjectID, p.MaxCritical, p.MaxHigh, p.BlockKEV, p.MaxEPSS, p.BlockLicense, p.NewOnly, p.BlockSLABreach, kevSources(p), p.BaselineBranch, p.MaxRiskScore, p.MaxMedium, p.MaxLow, p.MaxInfo))
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23503" {
 		return Policy{}, ErrNoProject

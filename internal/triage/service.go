@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"reflect"
 	"slices"
 
@@ -120,23 +121,21 @@ func (s *Service) applyTo(ctx context.Context, projectID string, load func(conte
 	changed := 0
 	hits := map[string]int{}
 	for _, f := range findings {
-		rule, ok := firstMatch(rules, f, facts)
-		if !ok {
-			continue
-		}
-		ch, ok := decide(*rule, f)
-		if !ok {
-			continue
-		}
-		if err := s.apply(ctx, *rule, f, ch); errors.Is(err, errSkip) {
-			continue
-		} else if err != nil {
+		err := chain(rules, f, facts, func(_ int, rule Rule, f finding.Finding, ch change) (bool, error) {
+			if err := s.apply(ctx, rule, f, ch); errors.Is(err, errSkip) {
+				return false, nil
+			} else if err != nil {
+				return false, err
+			}
+			changed++
+			hits[rule.ID]++
+			return true, nil
+		})
+		if err != nil {
 			// Count what already changed before failing.
 			_ = s.rules.RecordHits(ctx, hits)
 			return changed, err
 		}
-		changed++
-		hits[rule.ID]++
 	}
 	if err := s.rules.RecordHits(ctx, hits); err != nil {
 		return changed, err
@@ -158,12 +157,67 @@ func (s *Service) factsFor(ctx context.Context, projectID string, rules []Rule) 
 // firstMatch returns the first rule (in evaluation order) matching f — the
 // only rule that acts on it.
 func firstMatch(rules []Rule, f finding.Finding, p ProjectFacts) (*Rule, bool) {
-	for i := range rules {
-		if rules[i].Matches(f, p) {
-			return &rules[i], true
-		}
+	if i, ok := matchFrom(rules, 0, f, p); ok {
+		return &rules[i], true
 	}
 	return nil, false
+}
+
+// matchFrom returns the index of the first rule at or after start matching f.
+func matchFrom(rules []Rule, start int, f finding.Finding, p ProjectFacts) (int, bool) {
+	for i := start; i < len(rules); i++ {
+		if rules[i].Matches(f, p) {
+			return i, true
+		}
+	}
+	return 0, false
+}
+
+// chain evaluates rules (in sort order) against one finding: the first match
+// acts, and evaluation stops there unless that rule has Continue set, in
+// which case the following rules see the finding as the rule left it (rule
+// chaining). do performs a decided change (rule is rules[i]) and reports whether it took
+// effect; only a change that took effect is visible to later rules. A rule
+// whose target state the finding is already in changes nothing but still
+// chains. It is the single evaluation order of apply and preview.
+func chain(rules []Rule, f finding.Finding, p ProjectFacts, do func(i int, rule Rule, f finding.Finding, ch change) (bool, error)) error {
+	for start := 0; ; {
+		i, ok := matchFrom(rules, start, f, p)
+		if !ok {
+			return nil
+		}
+		rule := rules[i]
+		if ch, ok := decide(rule, f); ok {
+			applied, err := do(i, rule, f, ch)
+			if err != nil {
+				return err
+			}
+			if applied {
+				f = withChange(f, rule, ch)
+			}
+		}
+		if !rule.Continue {
+			return nil
+		}
+		start = i + 1
+	}
+}
+
+// withChange is f after rule's change ch, for the rules chained after it.
+func withChange(f finding.Finding, rule Rule, ch change) finding.Finding {
+	if rule.Action == ActionSetCustomField {
+		custom := make(map[string]any, len(f.Custom)+1)
+		maps.Copy(custom, f.Custom)
+		if rule.CustomValue == nil {
+			delete(custom, rule.CustomField)
+		} else {
+			custom[rule.CustomField] = rule.CustomValue
+		}
+		f.Custom = custom
+		return f
+	}
+	f.Status, f.Severity = ch.Status, ch.Severity
+	return f
 }
 
 // change is the outcome of a rule acting on a finding.
@@ -325,22 +379,19 @@ func (s *Service) Preview(ctx context.Context, candidate Rule, projectID string)
 			return out, err
 		}
 		for _, f := range findings {
-			rule, ok := firstMatch(rules, f, facts)
-			if !ok || rule != &rules[at] {
-				continue
-			}
-			ch, ok := decide(*rule, f)
-			if !ok {
-				continue
-			}
-			out.Total++
-			if len(out.Findings) < PreviewLimit {
-				out.Findings = append(out.Findings, PreviewItem{
-					ID: f.ID, ProjectID: f.ProjectID, Title: f.Title,
-					Severity: f.Severity, Status: f.Status,
-					NewSeverity: ch.Severity, NewStatus: ch.Status,
-				})
-			}
+			_ = chain(rules, f, facts, func(i int, _ Rule, cur finding.Finding, ch change) (bool, error) {
+				if i == at {
+					out.Total++
+					if len(out.Findings) < PreviewLimit {
+						out.Findings = append(out.Findings, PreviewItem{
+							ID: f.ID, ProjectID: f.ProjectID, Title: f.Title,
+							Severity: cur.Severity, Status: cur.Status,
+							NewSeverity: ch.Severity, NewStatus: ch.Status,
+						})
+					}
+				}
+				return true, nil // simulate every change, so later chained rules see it
+			})
 		}
 	}
 	return out, nil

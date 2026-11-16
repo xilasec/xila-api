@@ -72,7 +72,7 @@ var EventSchema = func() expr.Schema {
 			Finding: map[string]any{
 				"scanner": "trivy", "category": "sca", "rule_id": "CVE-2021-44228", "title": "t",
 				"severity": "critical", "status": "open", "cve": []any{"CVE-2021-44228"},
-				"cvss": 10.0, "epss": 0.9, "kev": true, "kev_sources": []any{"cisa"},
+				"cvss": 10.0, "epss": 0.9, "kev": true, "kev_sources": []any{"cisa"}, "kev_ransomware": true,
 				"package": "log4j-core", "fixed_version": "2.15.0", "file_path": "pom.xml", "tags": []any{"pci"},
 			},
 		})}
@@ -161,11 +161,11 @@ func (r *Repository) EventFacts(ctx context.Context, projectID, findingID string
 		var scanner, category, ruleID, title, severity, status, pkg, fixed, path string
 		var cve, kevSources, tags []string
 		var cvss, epss *float64
-		var kev bool
+		var kev, ransomware bool
 		err := r.db.QueryRow(ctx, `SELECT scanner, category, rule_id, title, severity, status, cve, cvss, epss, kev,
-				kev_sources, package_name, fixed_version, file_path, tags
+				kev_sources, kev_ransomware, package_name, fixed_version, file_path, tags
 			FROM findings WHERE id::text = $1`, findingID).Scan(&scanner, &category, &ruleID, &title, &severity,
-			&status, &cve, &cvss, &epss, &kev, &kevSources, &pkg, &fixed, &path, &tags)
+			&status, &cve, &cvss, &epss, &kev, &kevSources, &ransomware, &pkg, &fixed, &path, &tags)
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
 		case err != nil:
@@ -182,7 +182,7 @@ func (r *Repository) EventFacts(ctx context.Context, projectID, findingID string
 			f.Finding = map[string]any{
 				"scanner": scanner, "category": category, "rule_id": ruleID, "title": title,
 				"severity": severity, "status": status, "cve": anyList(cve), "cvss": cvssVal, "epss": epssVal,
-				"kev": kev, "kev_sources": anyList(kevSources), "package": pkg, "fixed_version": fixed,
+				"kev": kev, "kev_sources": anyList(kevSources), "kev_ransomware": ransomware, "package": pkg, "fixed_version": fixed,
 				"file_path": path, "tags": anyList(tags),
 			}
 		}

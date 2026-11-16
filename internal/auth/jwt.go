@@ -23,15 +23,21 @@ type Claims struct {
 	// ProjectID confines the session to one project, like a project-scoped
 	// API token (a federation binding's project).
 	ProjectID string `json:"prj,omitempty"`
+	// AuthTime is when the user last proved who they are (a sign-in, MFA,
+	// SSO, a password change or reset, re-authentication), as Unix seconds.
+	// Reissuing a session ("sign out everywhere") carries it over unchanged,
+	// so a fresh token never counts as a fresh sign-in by itself.
+	AuthTime int64 `json:"auth_time,omitempty"`
 	jwt.RegisteredClaims
 }
 
 // PurposeMFA marks a two-factor sign-in challenge token.
 const PurposeMFA = "mfa"
 
-// generateToken signs a short-lived HS256 access token for the given user.
-func generateToken(secret, userID string, isAdmin bool, tokenVersion int, ttl time.Duration) (string, error) {
-	return signClaims(secret, Claims{IsAdmin: isAdmin, TokenVersion: tokenVersion}, userID, ttl)
+// generateToken signs a short-lived HS256 access token for the given user,
+// who last authenticated at authTime.
+func generateToken(secret, userID string, isAdmin bool, tokenVersion int, ttl time.Duration, authTime time.Time) (string, error) {
+	return signClaims(secret, Claims{IsAdmin: isAdmin, TokenVersion: tokenVersion, AuthTime: authTime.Unix()}, userID, ttl)
 }
 
 // signClaims stamps subject, issue and expiry times onto claims and signs them.

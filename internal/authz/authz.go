@@ -392,6 +392,11 @@ func parseScope(path, method string) routeScope {
 	case "risk-acceptances":
 		// The approval queue across projects, scoped by the handler.
 		return routeScope{globalList: true}
+	case "ai-proposals":
+		// Open AI triage proposals across projects, scoped by the handler.
+		// Deciding one goes through /findings/{id}/ai-proposals/…, which
+		// authorizes the finding's project.
+		return routeScope{globalList: true}
 	case "assessments":
 		if len(segs) == 1 {
 			return routeScope{globalList: true} // the review queue, scoped by the handler

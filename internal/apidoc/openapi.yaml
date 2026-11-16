@@ -991,6 +991,41 @@ paths:
                   user: { $ref: "#/components/schemas/User" }
         "403": { $ref: "#/components/responses/Error" }
 
+  /me/reauth:
+    post:
+      operationId: reauthenticateMe
+      tags: [Auth]
+      summary: Confirm your password for a sensitive action
+      description: |
+        Proves you are still at the keyboard: your password, plus your current
+        two-factor code when two-factor is on. Returns a session marked as
+        freshly authenticated, which creating an API token requires
+        (`REAUTH_WINDOW`, default 10 minutes). Accounts without a local password
+        sign in again through their identity provider instead (400). API tokens
+        can't call it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password: { type: string, format: password }
+                code: { type: string, description: TOTP or recovery code (required with two-factor on). }
+      responses:
+        "200":
+          description: Re-authenticated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string, description: A JWT whose authentication time is now. }
+                  user: { $ref: "#/components/schemas/User" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+
   /me/mfa:
     get:
       operationId: getMeMfa
@@ -1447,6 +1482,9 @@ paths:
       description: |
         The secret is shown **once**, in this response. Scope it to a project
         (`project_id`) so a repo's CI can only touch its own project.
+        Needs a session that signed in within `REAUTH_WINDOW` (default 10 minutes):
+        otherwise 403 with header `X-Reauth-Required: true`; confirm your password
+        with `POST /me/reauth` and retry. API tokens can't create tokens.
       requestBody:
         required: true
         content:
@@ -1457,7 +1495,7 @@ paths:
               properties:
                 name: { type: string, examples: ["github-actions"] }
                 project_id: { type: string, format: uuid, description: Restrict the token to one project }
-                expires_at: { type: string, format: date-time }
+                expires_in_days: { type: integer, minimum: 0, description: "Days until it expires (0 = never)." }
       responses:
         "201":
           description: Created — save the secret now
@@ -1468,6 +1506,16 @@ paths:
                 properties:
                   token: { $ref: "#/components/schemas/ApiToken" }
                   secret: { type: string, examples: ["xila_9f3c…"], description: Shown once. Never retrievable again. }
+        "403":
+          description: An API token or service account asked, or the session needs re-authentication (`X-Reauth-Required`).
+          headers:
+            X-Reauth-Required: { schema: { type: string, enum: ["true"] } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
 
   /tokens/{tokenID}:
     delete:
@@ -2405,6 +2453,14 @@ paths:
         - name: kev
           in: query
           description: Only findings a KEV catalog (CISA, ENISA EUVD, VulnCheck) lists as known-exploited.
+          schema: { type: boolean }
+        - name: kev_ransomware
+          in: query
+          description: Only findings a KEV catalog marks as known to be used in ransomware campaigns.
+          schema: { type: boolean }
+        - name: active
+          in: query
+          description: Only findings still awaiting a fix (open or confirmed).
           schema: { type: boolean }
         - name: reachable
           in: query
@@ -3656,6 +3712,41 @@ paths:
                 type: object
                 properties:
                   assessments: { type: array, items: { $ref: "#/components/schemas/Assessment" } }
+
+  /ai-proposals:
+    get:
+      operationId: listAiProposals
+      tags: [Findings]
+      summary: Open AI triage proposals across projects
+      description: |
+        Proposals still waiting for a decision (`state: proposed`) across every
+        project you can see, newest first, with their finding's title and
+        severity. `mine=true` keeps the ones you asked for or whose finding is
+        assigned to you. 404 while AI triage is off.
+      parameters:
+        - { name: mine, in: query, schema: { type: boolean } }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Offset" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  proposals:
+                    type: array
+                    items:
+                      allOf:
+                        - { $ref: "#/components/schemas/AIProposal" }
+                        - type: object
+                          properties:
+                            finding_title: { type: string }
+                            finding_severity: { type: string }
+                            project_name: { type: string }
+                  pagination: { $ref: "#/components/schemas/Pagination" }
+        "404": { $ref: "#/components/responses/Error" }
 
   /findings/{findingID}/ai-proposals:
     get:
@@ -6895,6 +6986,18 @@ paths:
       parameters:
         - { name: state, in: query, schema: { type: string, enum: [requested, approved, expired, revoked, rejected] } }
         - { name: project_id, in: query, schema: { type: string, format: uuid } }
+        - name: actionable
+          in: query
+          description: Only the requests you may approve (projects you own; with four-eyes, not your own requests).
+          schema: { type: boolean }
+        - name: owner
+          in: query
+          description: "`me` or a user id: acceptances with that owner."
+          schema: { type: string }
+        - name: expires_within_days
+          in: query
+          description: Only acceptances expiring within this many days (soonest first).
+          schema: { type: integer, minimum: 1, maximum: 3650 }
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Offset" }
       responses:
@@ -7103,6 +7206,10 @@ paths:
       parameters:
         - { name: state, in: query, schema: { type: string, enum: [pending, approved, rejected] } }
         - { name: project_id, in: query, schema: { type: string, format: uuid } }
+        - name: actionable
+          in: query
+          description: Only what you may decide - pending assessments of projects you own that someone else requested.
+          schema: { type: boolean }
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Offset" }
       responses:
@@ -9695,6 +9802,11 @@ components:
             The KEV catalogs asserting it (sorted): `cisa` (CISA KEV), `enisa` (ENISA EU
             Vulnerability Database, exploited), `vulncheck` (VulnCheck KEV). Matched through
             aliases — the finding's CVEs, rule id and the advisory's aliases.
+        kev_ransomware:
+          type: boolean
+          description: |
+            A KEV catalog asserting the finding says the flaw is known to be used in
+            ransomware campaigns (`knownRansomwareCampaignUse` in CISA KEV and VulnCheck KEV).
         priority:
           type: number
           description: |
@@ -10615,6 +10727,9 @@ components:
         enabled: { type: boolean }
         max_critical: { type: integer, description: Fail if open criticals exceed this. }
         max_high: { type: integer }
+        max_medium: { type: integer, description: Fail if open mediums exceed this. }
+        max_low: { type: integer, description: Fail if open lows exceed this. }
+        max_info: { type: integer, description: Fail if open info findings exceed this. }
         block_kev: { type: boolean, description: Fail on any open KEV finding. }
         kev_sources:
           type: array
@@ -10651,6 +10766,7 @@ components:
             open_high: { type: integer }
             open_medium: { type: integer }
             open_low: { type: integer }
+            open_info: { type: integer }
             open_kev: { type: integer }
             open_kev_sources:
               type: object
@@ -10668,7 +10784,13 @@ components:
         id: { type: string, format: uuid }
         name: { type: string }
         enabled: { type: boolean }
-        sort_order: { type: integer, description: Evaluation order. First match wins. }
+        sort_order: { type: integer, description: Evaluation order (lowest first). The first match acts. }
+        continue:
+          type: boolean
+          description: |
+            Chain this rule: after it acts, the rules after it still evaluate, against the
+            finding as it left it (raise a severity, then act on the raised severity).
+            Without it the first matching rule is the only one that acts.
         project_id: { type: [string, "null"], format: uuid, description: Null = applies to every project. }
         scanner: { type: string }
         category: { $ref: "#/components/schemas/Category" }

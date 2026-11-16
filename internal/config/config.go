@@ -425,6 +425,9 @@ func (d DB) DSN() string {
 type JWT struct {
 	Secret string
 	TTL    time.Duration
+	// ReauthWindow is how recently a session must have authenticated to
+	// create an API token (REAUTH_WINDOW; 0 turns the check off).
+	ReauthWindow time.Duration
 }
 
 // OIDC configures optional Single Sign-On via an OpenID Connect provider
@@ -589,8 +592,9 @@ func Load() (Config, error) {
 			StatementTimeout:  getdur("DB_STATEMENT_TIMEOUT", 30*time.Second),
 		},
 		JWT: JWT{
-			Secret: sec.get("JWT_SECRET", ""),
-			TTL:    getdur("JWT_TTL", 24*time.Hour),
+			Secret:       sec.get("JWT_SECRET", ""),
+			TTL:          getdur("JWT_TTL", 24*time.Hour),
+			ReauthWindow: getdur("REAUTH_WINDOW", 10*time.Minute),
 		},
 		OIDC: OIDC{
 			Enabled:      getbool("OIDC_ENABLED", false),
@@ -839,6 +843,9 @@ func (c Config) validate() error {
 	}
 	if c.Ingest.Workers < 0 {
 		return fmt.Errorf("INGEST_WORKERS must be 0 or more, got %d", c.Ingest.Workers)
+	}
+	if c.JWT.ReauthWindow < 0 {
+		return fmt.Errorf("REAUTH_WINDOW must be 0 or more, got %s", c.JWT.ReauthWindow)
 	}
 	if u, err := url.Parse(c.SourceURL); err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
 		return fmt.Errorf("SOURCE_URL must be an absolute http(s) URL, got %q", c.SourceURL)

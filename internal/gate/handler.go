@@ -242,6 +242,11 @@ func validatePolicy(p Policy) error {
 	if p.MaxHigh != nil && *p.MaxHigh < 0 {
 		return fiber.NewError(fiber.StatusBadRequest, "max_high must be ≥ 0")
 	}
+	for name, v := range map[string]*int{"max_medium": p.MaxMedium, "max_low": p.MaxLow, "max_info": p.MaxInfo} {
+		if v != nil && *v < 0 {
+			return fiber.NewError(fiber.StatusBadRequest, name+" must be ≥ 0")
+		}
+	}
 	if p.MaxEPSS != nil && (*p.MaxEPSS < 0 || *p.MaxEPSS > 1) {
 		return fiber.NewError(fiber.StatusBadRequest, "max_epss must be between 0 and 1")
 	}

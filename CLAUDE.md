@@ -554,6 +554,12 @@ every request. Anything that should end a user's sessions bumps the version
 deactivated user is refused everywhere: password login, SSO (`sso.Service.Login`),
 API tokens (`apitoken.GetByHash`). Reset tokens are stored hashed, single use,
 newest-only. Account-security actions refuse API tokens (`sessionOnly`).
+Sessions also carry `auth_time`, when the user last proved who they are.
+`auth.Service.TokenFor` stamps it now, so call it only right after a real
+authentication (sign-in, MFA, SSO, password change/reset, `Reauthenticate`);
+reissuing a session without credentials (`RevokeSessions`) must use `reissue`,
+which keeps the old one. Creating an API token requires a recent `auth_time`
+(`REAUTH_WINDOW`).
 Password/reset endpoints go behind `throttle` (`ratelimit`; reset-request uses
 `ResetMiddleware`, whose bucket a 202 never clears).
 

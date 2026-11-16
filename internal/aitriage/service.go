@@ -193,6 +193,11 @@ func (s *Service) List(ctx context.Context, findingID string, limit, offset int)
 	return s.repo.List(ctx, findingID, limit, offset)
 }
 
+// ListOpen returns open proposals across projects (Repository.ListOpen).
+func (s *Service) ListOpen(ctx context.Context, f OpenFilter) ([]OpenProposal, error) {
+	return s.repo.ListOpen(ctx, f)
+}
+
 // AcceptResult is what accepting did: the applied finding, or the pending
 // assessment / risk acceptance request it filed.
 type AcceptResult struct {

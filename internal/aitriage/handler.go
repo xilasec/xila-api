@@ -25,6 +25,7 @@ func NewHandler(svc *Service) *Handler { return &Handler{svc: svc} }
 
 // Register mounts the routes.
 func (h *Handler) Register(r fiber.Router) {
+	r.Get("/ai-proposals", h.ListOpen)
 	r.Get("/findings/:findingID/ai-proposals", h.List)
 	r.Get("/findings/:findingID/ai-proposals/prompt", h.Prompt)
 	r.Post("/findings/:findingID/ai-proposals", h.Ask)
@@ -102,6 +103,36 @@ func (h *Handler) List(c *fiber.Ctx) error {
 		"provider": h.svc.Provider(), "model": h.svc.Model(), "opted_out": optedOut,
 		"proposals": ps, "pagination": httpx.Meta(page, len(ps), hasMore),
 	})
+}
+
+// ListOpen handles GET /ai-proposals: open proposals across every project the
+// caller can see, newest first; ?mine=true keeps the ones they asked for or
+// whose finding is assigned to them.
+func (h *Handler) ListOpen(c *fiber.Ctx) error {
+	if err := h.enabled(); err != nil {
+		return err
+	}
+	f := OpenFilter{}
+	if scope := authz.VisibleScope(c); !scope.AllAccess {
+		f.ProjectIDs = scope.ProjectIDs
+		if f.ProjectIDs == nil {
+			f.ProjectIDs = []string{}
+		}
+	}
+	if c.QueryBool("mine") {
+		f.Mine = auth.UserID(c)
+	}
+	page := httpx.ParsePage(c)
+	f.Limit, f.Offset = page.Limit+1, page.Offset
+	ps, err := h.svc.ListOpen(c.UserContext(), f)
+	if err != nil {
+		return err
+	}
+	hasMore := len(ps) > page.Limit
+	if hasMore {
+		ps = ps[:page.Limit]
+	}
+	return c.JSON(fiber.Map{"proposals": ps, "pagination": httpx.Meta(page, len(ps), hasMore)})
 }
 
 func kindParam(s string) (Kind, error) {

@@ -1,9 +1,17 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
+
+	"github.com/xilasec/xila-api/internal/auth"
+	"github.com/xilasec/xila-api/internal/config"
+	"github.com/xilasec/xila-api/internal/pgtest"
 )
 
 func status(t *testing.T, got int, want int, what string, body map[string]any) {
@@ -148,5 +156,70 @@ func TestAdminResetLink(t *testing.T) {
 	for _, email := range []string{"bob@xila.io", "nobody@xila.io"} {
 		resp, body := req(t, app, http.MethodPost, "/api/v1/auth/password-reset/request", "", `{"email":"`+email+`"}`)
 		status(t, resp.StatusCode, http.StatusAccepted, "reset request for "+email, body)
+	}
+}
+
+// Creating an API token needs a recent sign-in (REAUTH_WINDOW): a stale
+// session gets 403 with X-Reauth-Required, "sign out everywhere" doesn't
+// freshen it, POST /me/reauth with the password does, and an API token can
+// never mint another.
+func TestAPITokenNeedsRecentAuth(t *testing.T) {
+	pool := pgtest.Pool(t)
+	app := newTestAppOn(t, pool, func(c *config.Config) { c.JWT.ReauthWindow = 10 * time.Minute })
+	rbacUser(t, app, "owner@xila.io")
+	fresh := rbacUser(t, app, "bob@xila.io")
+	if resp, body := req(t, app, http.MethodPost, "/api/v1/tokens", fresh, `{"name":"ci"}`); resp.StatusCode != http.StatusCreated {
+		t.Fatalf("token from a fresh sign-in = %d %v", resp.StatusCode, body)
+	}
+
+	// A session that authenticated an hour ago.
+	var id string
+	var tv int
+	if err := pool.QueryRow(context.Background(), `SELECT id, token_version FROM users WHERE email = 'bob@xila.io'`).Scan(&id, &tv); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	stale, err := jwt.NewWithClaims(jwt.SigningMethodHS256, auth.Claims{TokenVersion: tv, AuthTime: now.Add(-time.Hour).Unix(),
+		RegisteredClaims: jwt.RegisteredClaims{Subject: id, IssuedAt: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(now.Add(time.Hour))}}).
+		SignedString([]byte("smoke-secret"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	refused := func(token, what string) {
+		t.Helper()
+		resp, body := req(t, app, http.MethodPost, "/api/v1/tokens", token, `{"name":"ci"}`)
+		if resp.StatusCode != http.StatusForbidden || resp.Header.Get("X-Reauth-Required") != "true" {
+			t.Errorf("%s: token creation = %d %v (X-Reauth-Required %q), want 403 + header", what, resp.StatusCode, body, resp.Header.Get("X-Reauth-Required"))
+		}
+	}
+	refused(stale, "stale session")
+
+	// Reissuing the session proves nothing: its auth_time carries over.
+	resp, revoked := req(t, app, http.MethodPost, "/api/v1/me/sessions/revoke", stale, "")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("revoke = %d %v", resp.StatusCode, revoked)
+	}
+	reissued := revoked["token"].(string)
+	refused(reissued, "session reissued by sign-out-everywhere")
+
+	if resp, _ := req(t, app, http.MethodPost, "/api/v1/me/reauth", reissued, `{"password":"wrong-password"}`); resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("reauth with a wrong password = %d, want 400", resp.StatusCode)
+	}
+	resp, re := req(t, app, http.MethodPost, "/api/v1/me/reauth", reissued, `{"password":"supersecret"}`)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("reauth = %d %v", resp.StatusCode, re)
+	}
+	resp, created := req(t, app, http.MethodPost, "/api/v1/tokens", re["token"].(string), `{"name":"ci"}`)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("token after reauth = %d %v", resp.StatusCode, created)
+	}
+
+	// An API token can neither mint tokens nor re-authenticate.
+	secret := created["secret"].(string)
+	if resp, _ := req(t, app, http.MethodPost, "/api/v1/tokens", secret, `{"name":"child"}`); resp.StatusCode != http.StatusForbidden {
+		t.Errorf("API token creating a token = %d, want 403", resp.StatusCode)
+	}
+	if resp, _ := req(t, app, http.MethodPost, "/api/v1/me/reauth", secret, `{"password":"supersecret"}`); resp.StatusCode != http.StatusForbidden {
+		t.Errorf("API token re-authenticating = %d, want 403", resp.StatusCode)
 	}
 }

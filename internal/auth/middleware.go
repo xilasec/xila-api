@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -19,9 +20,12 @@ const (
 type Actor struct {
 	UserID    string
 	ProjectID string // non-empty when a token is scoped to a single project
-	IsToken   bool
-	TokenID   string // the API token's id when IsToken (named in the audit log)
-	IsAdmin   bool   // global instance admin (bypasses team authorization)
+	// AuthTime is when a session's user last authenticated (zero for API
+	// tokens and sessions issued before auth_time existed).
+	AuthTime time.Time
+	IsToken  bool
+	TokenID  string // the API token's id when IsToken (named in the audit log)
+	IsAdmin  bool   // global instance admin (bypasses team authorization)
 	// IsServiceAccount marks a service account (users.kind='service'); set by
 	// its keys and federated sessions.
 	IsServiceAccount bool
@@ -80,6 +84,9 @@ func Middleware(secret string, tokens TokenValidator, sessions SessionValidator)
 		}
 		actor := Actor{UserID: claims.Subject, IsAdmin: claims.IsAdmin,
 			IsServiceAccount: claims.ServiceAccount, ProjectID: claims.ProjectID}
+		if claims.AuthTime > 0 {
+			actor.AuthTime = time.Unix(claims.AuthTime, 0)
+		}
 		if err := checkProjectScope(c, actor); err != nil {
 			return err
 		}

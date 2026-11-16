@@ -35,7 +35,15 @@ const (
 // (CVE, GHSA, EUVD) — uppercased.
 type KEVCatalog interface {
 	Name() string
-	Fetch(ctx context.Context) ([]string, error)
+	Fetch(ctx context.Context) (KEVList, error)
+}
+
+// KEVList is one catalog download: every id it asserts, and the ids whose
+// entry says the flaw is known to be used in ransomware campaigns
+// (knownRansomwareCampaignUse "Known"; CISA and VulnCheck carry it).
+type KEVList struct {
+	IDs        []string
+	Ransomware map[string]bool
 }
 
 // KEVCatalogs builds the configured catalogs. urls overrides a catalog's URL
@@ -68,11 +76,32 @@ func KEVCatalogs(names []string, urls map[string]string, vulnCheckToken string, 
 	return out, nil
 }
 
-// ids collects normalized vulnerability ids, deduplicated.
+// ids collects normalized vulnerability ids, deduplicated, and which of
+// them are known to be used in ransomware campaigns.
 type ids struct {
-	seen map[string]bool
-	list []string
+	seen       map[string]bool
+	list       []string
+	ransomware map[string]bool
 }
+
+// addEntry adds one catalog entry's ids; ransomwareUse is its
+// knownRansomwareCampaignUse value ("Known" / "Unknown").
+func (s *ids) addEntry(ransomwareUse string, raw ...string) {
+	s.add(raw...)
+	if !strings.EqualFold(strings.TrimSpace(ransomwareUse), "known") {
+		return
+	}
+	if s.ransomware == nil {
+		s.ransomware = map[string]bool{}
+	}
+	for _, id := range raw {
+		if id = strings.ToUpper(strings.TrimSpace(id)); id != "" {
+			s.ransomware[id] = true
+		}
+	}
+}
+
+func (s *ids) result() KEVList { return KEVList{IDs: s.list, Ransomware: s.ransomware} }
 
 func (s *ids) add(raw ...string) {
 	if s.seen == nil {
@@ -89,20 +118,21 @@ func (s *ids) add(raw ...string) {
 }
 
 // ParseCISAKEV reads CISA's known_exploited_vulnerabilities.json.
-func ParseCISAKEV(r io.Reader) ([]string, error) {
+func ParseCISAKEV(r io.Reader) (KEVList, error) {
 	var doc struct {
 		Vulnerabilities []struct {
-			CveID string `json:"cveID"`
+			CveID      string `json:"cveID"`
+			Ransomware string `json:"knownRansomwareCampaignUse"`
 		} `json:"vulnerabilities"`
 	}
 	if err := json.NewDecoder(r).Decode(&doc); err != nil {
-		return nil, fmt.Errorf("cisa kev: %w", err)
+		return KEVList{}, fmt.Errorf("cisa kev: %w", err)
 	}
 	var out ids
 	for _, v := range doc.Vulnerabilities {
-		out.add(v.CveID)
+		out.addEntry(v.Ransomware, v.CveID)
 	}
-	return out.list, nil
+	return out.result(), nil
 }
 
 // EUVDPage is one page of the EU Vulnerability Database search API.
@@ -136,7 +166,8 @@ func ParseEUVDPage(r io.Reader) (EUVDPage, error) {
 // VulnCheckPage is one page of VulnCheck's index API.
 type VulnCheckPage struct {
 	IDs        []string
-	NextCursor string // "" on the last page
+	Ransomware []string // ids whose entry has knownRansomwareCampaignUse "Known"
+	NextCursor string   // "" on the last page
 }
 
 // ParseVulnCheckKEVPage reads one page of VulnCheck's vulncheck-kev index
@@ -147,7 +178,8 @@ func ParseVulnCheckKEVPage(r io.Reader) (VulnCheckPage, error) {
 			NextCursor string `json:"next_cursor"`
 		} `json:"_meta"`
 		Data []struct {
-			CVE []string `json:"cve"`
+			CVE        []string `json:"cve"`
+			Ransomware string   `json:"knownRansomwareCampaignUse"`
 		} `json:"data"`
 	}
 	if err := json.NewDecoder(r).Decode(&doc); err != nil {
@@ -155,9 +187,15 @@ func ParseVulnCheckKEVPage(r io.Reader) (VulnCheckPage, error) {
 	}
 	var out ids
 	for _, d := range doc.Data {
-		out.add(d.CVE...)
+		out.addEntry(d.Ransomware, d.CVE...)
 	}
-	return VulnCheckPage{IDs: out.list, NextCursor: doc.Meta.NextCursor}, nil
+	p := VulnCheckPage{IDs: out.list, NextCursor: doc.Meta.NextCursor}
+	for _, id := range out.list {
+		if out.ransomware[id] {
+			p.Ransomware = append(p.Ransomware, id)
+		}
+	}
+	return p, nil
 }
 
 // get fetches u (with an optional bearer token) and hands the bounded body to
@@ -200,9 +238,9 @@ func redact(u string) string {
 
 // nonEmpty refuses an empty catalog: a real one always lists entries, and
 // replacing a source's stored entries with nothing would drop every assertion.
-func nonEmpty(name string, list []string) ([]string, error) {
-	if len(list) == 0 {
-		return nil, fmt.Errorf("%s: catalog is empty", name)
+func nonEmpty(name string, list KEVList) (KEVList, error) {
+	if len(list.IDs) == 0 {
+		return KEVList{}, fmt.Errorf("%s: catalog is empty", name)
 	}
 	return list, nil
 }
@@ -214,14 +252,14 @@ type cisaCatalog struct {
 
 func (c *cisaCatalog) Name() string { return domain.KEVCISA }
 
-func (c *cisaCatalog) Fetch(ctx context.Context) ([]string, error) {
-	var list []string
+func (c *cisaCatalog) Fetch(ctx context.Context) (KEVList, error) {
+	var list KEVList
 	err := get(ctx, c.client, c.url, "", func(r io.Reader) (err error) {
 		list, err = ParseCISAKEV(r)
 		return err
 	})
 	if err != nil {
-		return nil, err
+		return KEVList{}, err
 	}
 	return nonEmpty(domain.KEVCISA, list)
 }
@@ -235,10 +273,10 @@ type euvdCatalog struct {
 func (c *euvdCatalog) Name() string { return domain.KEVENISA }
 
 // Fetch walks the search API's pages until it has every item.
-func (c *euvdCatalog) Fetch(ctx context.Context) ([]string, error) {
+func (c *euvdCatalog) Fetch(ctx context.Context) (KEVList, error) {
 	base, err := url.Parse(c.url)
 	if err != nil {
-		return nil, fmt.Errorf("enisa url: %w", err)
+		return KEVList{}, fmt.Errorf("enisa url: %w", err)
 	}
 	var all ids
 	seenItems := 0
@@ -252,15 +290,15 @@ func (c *euvdCatalog) Fetch(ctx context.Context) ([]string, error) {
 			p, err = ParseEUVDPage(r)
 			return err
 		}); err != nil {
-			return nil, err
+			return KEVList{}, err
 		}
 		all.add(p.IDs...)
 		seenItems += p.Items
 		if p.Items == 0 || p.Items < c.pageSize || seenItems >= p.Total {
-			return nonEmpty(domain.KEVENISA, all.list)
+			return nonEmpty(domain.KEVENISA, all.result())
 		}
 	}
-	return nil, fmt.Errorf("enisa: more than %d pages", maxKEVPages)
+	return KEVList{}, fmt.Errorf("enisa: more than %d pages", maxKEVPages)
 }
 
 type vulnCheckCatalog struct {
@@ -273,10 +311,10 @@ func (c *vulnCheckCatalog) Name() string { return domain.KEVVulnCheck }
 
 // Fetch follows the index's cursor (start_cursor, then _meta.next_cursor)
 // until a page comes back without one.
-func (c *vulnCheckCatalog) Fetch(ctx context.Context) ([]string, error) {
+func (c *vulnCheckCatalog) Fetch(ctx context.Context) (KEVList, error) {
 	base, err := url.Parse(c.url)
 	if err != nil {
-		return nil, fmt.Errorf("vulncheck url: %w", err)
+		return KEVList{}, fmt.Errorf("vulncheck url: %w", err)
 	}
 	var all ids
 	cursor := ""
@@ -295,15 +333,16 @@ func (c *vulnCheckCatalog) Fetch(ctx context.Context) ([]string, error) {
 			p, err = ParseVulnCheckKEVPage(r)
 			return err
 		}); err != nil {
-			return nil, err
+			return KEVList{}, err
 		}
 		all.add(p.IDs...)
+		all.addEntry("known", p.Ransomware...)
 		if p.NextCursor == "" || p.NextCursor == cursor {
-			return nonEmpty(domain.KEVVulnCheck, all.list)
+			return nonEmpty(domain.KEVVulnCheck, all.result())
 		}
 		cursor = p.NextCursor
 	}
-	return nil, fmt.Errorf("vulncheck: more than %d pages", maxKEVPages)
+	return KEVList{}, fmt.Errorf("vulncheck: more than %d pages", maxKEVPages)
 }
 
 // sortedSources returns the distinct catalog names, sorted.

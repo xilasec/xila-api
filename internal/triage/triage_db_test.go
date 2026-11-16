@@ -141,3 +141,81 @@ func TestBackfillRegroupsDuplicates(t *testing.T) {
 		t.Errorf("downgraded grype report should now point at trivy, got %v", gotGrype.DuplicateOf)
 	}
 }
+
+// Rule chaining: a rule with Continue lets the next rules see the finding as
+// it left it (raise severity, then act on the raised severity); without it
+// the first match is the only rule that acts. Preview simulates the same
+// chain, and a second run changes nothing.
+func TestRuleChaining(t *testing.T) {
+	pool := pgtest.Pool(t)
+	ctx := context.Background()
+	frepo := finding.NewRepository(pool)
+	rrepo := triage.NewRepository(pool)
+
+	var projectID string
+	if err := pool.QueryRow(ctx, `
+		WITH o AS (INSERT INTO organizations (slug,name) VALUES ('o-ch','o') RETURNING id),
+		     tm AS (INSERT INTO teams (org_id,slug,name) SELECT id,'t','t' FROM o RETURNING id)
+		INSERT INTO projects (team_id, slug, name) SELECT id,'p','p' FROM tm RETURNING id`).Scan(&projectID); err != nil {
+		t.Fatalf("seed project: %v", err)
+	}
+	f, err := frepo.Upsert(ctx, finding.Finding{
+		ProjectID: projectID, Fingerprint: "a", Scanner: "semgrep", Category: domain.CategorySAST,
+		RuleID: "a", Title: "a", Severity: domain.SeverityLow, FilePath: "internal/auth.go",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raise, err := rrepo.Create(ctx, triage.Rule{
+		Name: "raise internal", Enabled: true, SortOrder: 1, PathRegex: "^internal/",
+		Action: triage.ActionSetSeverity, NewSeverity: domain.SeverityHigh,
+	}, "", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second := triage.Rule{
+		Name: "park highs", Enabled: true, SortOrder: 2, Severities: []domain.Severity{domain.SeverityHigh},
+		Action: triage.ActionWontFix,
+	}
+	second, err = rrepo.Create(ctx, second, "", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc := triage.NewService(rrepo, frepo, frepo)
+	get := func() finding.Finding {
+		t.Helper()
+		got, err := frepo.Get(ctx, f.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return got
+	}
+
+	// Not chained: the first match acts alone.
+	if n, err := svc.ApplyToProject(ctx, projectID); err != nil || n != 1 {
+		t.Fatalf("unchained apply = %d, %v; want 1 change", n, err)
+	}
+	if g := get(); g.Severity != domain.SeverityHigh || g.Status != domain.FindingOpen {
+		t.Fatalf("unchained: %s/%s, want high/open", g.Severity, g.Status)
+	}
+
+	// Chained: the first rule is now a no-op (already high) but still chains,
+	// so the second acts on the raised severity. Preview agrees beforehand.
+	raise.Continue = true
+	if _, err := rrepo.Update(ctx, raise, "", false); err != nil {
+		t.Fatal(err)
+	}
+	pv, err := svc.Preview(ctx, second, projectID)
+	if err != nil || pv.Total != 1 || pv.Findings[0].NewStatus != domain.FindingWontFix {
+		t.Fatalf("preview of the chained rule = %+v, %v", pv, err)
+	}
+	if n, err := svc.ApplyToProject(ctx, projectID); err != nil || n != 1 {
+		t.Fatalf("chained apply = %d, %v; want 1 change", n, err)
+	}
+	if g := get(); g.Severity != domain.SeverityHigh || g.Status != domain.FindingWontFix {
+		t.Fatalf("chained: %s/%s, want high/wont_fix", g.Severity, g.Status)
+	}
+	if n, err := svc.ApplyToProject(ctx, projectID); err != nil || n != 0 {
+		t.Errorf("re-run = %d, %v; want no changes", n, err)
+	}
+}

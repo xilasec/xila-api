@@ -445,7 +445,7 @@ func run() error {
 		PSIRT:        psirt.NewHandler(psirtSvc, psirtRepo),
 		PkgMeta:      pkgmeta.NewHandler(pkgmetaRepo, pkgmetaSvc),
 		Correlation:  correlation.NewHandler(correlationSvc),
-		ApiToken:     apitoken.NewHandler(tokenRepo, tokenSvc),
+		ApiToken:     apitoken.NewHandler(tokenRepo, tokenSvc).WithReauthWindow(cfg.JWT.ReauthWindow),
 		SvcAccount:   serviceaccount.NewHandler(serviceaccount.NewRepository(db), tokenSvc, tokenRepo, cfg.ServiceAccounts.KeyMaxDays),
 		Federation:   federation.NewHandler(federationRepo, federationSvc, !cfg.IsProduction()),
 		TokenAuth:    tokenSvc,
@@ -1155,7 +1155,7 @@ func newParserRegistry() *scanner.Registry {
 		scanner.NewDetectSecrets(), scanner.NewGGShield(),
 		scanner.NewHadolint(), scanner.NewKICS(), scanner.NewESLint(), scanner.NewYarnAudit(), scanner.NewNJSScan(),
 		scanner.NewSonarQube(), scanner.NewCheckmarx(), scanner.NewVeracode(), scanner.NewMend(),
-		scanner.NewNessus(), scanner.NewOpenVAS(), scanner.NewQualys(), scanner.NewAcunetix(), scanner.NewInvicti(), scanner.NewTestSSL(),
+		scanner.NewNessus(), scanner.NewOpenVAS(), scanner.NewQualys(), scanner.NewAcunetix(), scanner.NewInvicti(), scanner.NewTestSSL(), scanner.NewCryptoLyzer(), scanner.NewDrHeader(),
 		scanner.NewBearer(), scanner.NewMobSF(), scanner.NewJFrogXray(), scanner.NewAWSInspector2(), scanner.NewAWSSecurityHub(),
 		scanner.NewNancy(), scanner.NewCloudSploit(), scanner.NewArachni(), scanner.NewSpotBugs(), scanner.NewFortify(), scanner.NewSteampipe(),
 	)

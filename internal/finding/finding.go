@@ -64,6 +64,9 @@ type Finding struct {
 	// KEVSources names the catalogs asserting the finding is known-exploited
 	// (cisa, enisa, vulncheck; sorted). KEV is true when any does.
 	KEVSources []string `json:"kev_sources"`
+	// KEVRansomware is true when a KEV catalog asserting the finding says the
+	// flaw is known to be used in ransomware campaigns.
+	KEVRansomware bool `json:"kev_ransomware"`
 	// ExploitMaturity is the strongest public exploit known for the finding's
 	// CVEs (internal/exploitintel): "", "poc" or "weaponized".
 	ExploitMaturity domain.ExploitMaturity `json:"exploit_maturity"`
@@ -156,7 +159,7 @@ const findingColumns = `id, project_id, version_id, fingerprint, scanner, catego
 	title, description, severity, cwe, cve, file_path, line, package_name,
 	package_version, fixed_version, purl, url, metadata, status, first_seen_at,
 	last_seen_at, first_scan_id, last_scan_id, resolved_at, created_at, updated_at,
-	cvss, epss, kev, kev_sources, priority, asset_id, cvss_vector, cvss_version, cvss_source,
+	cvss, epss, kev, kev_sources, kev_ransomware, priority, asset_id, cvss_vector, cvss_version, cvss_source,
 	exception_reason, exception_by, exception_expires_at,
 	correlation_key, duplicate_of, dep_direct, dep_depth, dep_scope,
 	sla_days, sla_due_at, tags, custom, COALESCE(exploit_maturity, ''),
@@ -176,7 +179,7 @@ func scanFinding(row pgx.Row, extra ...any) (Finding, error) {
 		&f.Title, &f.Description, &f.Severity, &f.CWE, &f.CVE, &f.FilePath, &f.Line, &f.PackageName,
 		&f.PackageVersion, &f.FixedVersion, &f.Purl, &f.URL, &f.Metadata, &f.Status, &f.FirstSeenAt,
 		&f.LastSeenAt, &f.FirstScanID, &f.LastScanID, &f.ResolvedAt, &f.CreatedAt, &f.UpdatedAt,
-		&f.CVSS, &f.EPSS, &f.KEV, &f.KEVSources, &f.Priority, &f.AssetID, &f.CVSSVector, &f.CVSSVersion, &f.CVSSSource,
+		&f.CVSS, &f.EPSS, &f.KEV, &f.KEVSources, &f.KEVRansomware, &f.Priority, &f.AssetID, &f.CVSSVector, &f.CVSSVersion, &f.CVSSSource,
 		&f.ExceptionReason, &f.ExceptionBy, &f.ExceptionExpiresAt,
 		&f.CorrelationKey, &f.DuplicateOf, &f.DepDirect, &f.DepDepth, &f.DepScope,
 		&f.SLADays, &f.SLADueAt, &f.Tags, &f.Custom, &f.ExploitMaturity,
@@ -317,6 +320,9 @@ type Filter struct {
 	// RuleID narrows to one rule — e.g. a policy's violations (scanner policy).
 	RuleID  string
 	KEVOnly bool
+	// RansomwareOnly narrows to findings a KEV catalog marks as used in
+	// ransomware campaigns.
+	RansomwareOnly bool
 	// Reachable narrows to findings that plausibly matter: the dependency ships
 	// (not dev-only) and the project asked for it (not transitive). Findings with
 	// no reachability data are kept — unknown is never treated as safe.
@@ -468,6 +474,9 @@ func listQuery(f Filter, cols string) (string, []any) {
 	}
 	if f.KEVOnly {
 		q += ` AND kev`
+	}
+	if f.RansomwareOnly {
+		q += ` AND kev_ransomware`
 	}
 	switch f.Exploit {
 	case "any":
@@ -1323,6 +1332,7 @@ type GateStats struct {
 	OpenHigh     int `json:"open_high"`
 	OpenMedium   int `json:"open_medium"`
 	OpenLow      int `json:"open_low"`
+	OpenInfo     int `json:"open_info"`
 	OpenKEV      int `json:"open_kev"`
 	// OpenKEVSources counts the open KEV findings by the exact set of catalogs
 	// asserting them (comma-joined, sorted: "cisa,enisa"), so a gate limited to
@@ -1374,6 +1384,7 @@ SELECT
 	count(*) FILTER (WHERE severity = 'high'),
 	count(*) FILTER (WHERE severity = 'medium'),
 	count(*) FILTER (WHERE severity = 'low'),
+	count(*) FILTER (WHERE severity = 'info'),
 	count(*) FILTER (WHERE kev),
 	(SELECT COALESCE(jsonb_object_agg(k, n), '{}') FROM
 		(SELECT array_to_string(kev_sources, ',') AS k, count(*) AS n FROM f WHERE kev GROUP BY 1) g),
@@ -1400,7 +1411,7 @@ func (r *Repository) ComputeGateStats(ctx context.Context, projectID, versionID 
 	var s GateStats
 	var crit domain.Criticality
 	if err := r.db.QueryRow(ctx, gateStatsQuery, projectID, version, baseline, newOnly).
-		Scan(&s.OpenCritical, &s.OpenHigh, &s.OpenMedium, &s.OpenLow, &s.OpenKEV, &s.OpenKEVSources, &s.OpenLicense, &s.MaxEPSS, &s.SLABreached, &crit); err != nil {
+		Scan(&s.OpenCritical, &s.OpenHigh, &s.OpenMedium, &s.OpenLow, &s.OpenInfo, &s.OpenKEV, &s.OpenKEVSources, &s.OpenLicense, &s.MaxEPSS, &s.SLABreached, &crit); err != nil {
 		return GateStats{}, fmt.Errorf("gate stats: %w", err)
 	}
 	s.RiskScore = domain.SeverityCritical.Weight()*float64(s.OpenCritical) +
@@ -1713,14 +1724,15 @@ func (r *Repository) ProjectIDsWithFindings(ctx context.Context) ([]string, erro
 }
 
 // SetEnrichment stores a finding's EPSS, the KEV catalogs asserting it (kev =
-// any) and the recomputed priority.
-func (r *Repository) SetEnrichment(ctx context.Context, id string, epss *float64, kevSources []string, priority float64) error {
-	const q = `UPDATE findings SET epss = $2, kev = cardinality($3::text[]) > 0, kev_sources = $3, priority = $4,
-		updated_at = now() WHERE id = $1`
+// any), whether a catalog marks it as used in ransomware campaigns and the
+// recomputed priority.
+func (r *Repository) SetEnrichment(ctx context.Context, id string, epss *float64, kevSources []string, ransomware bool, priority float64) error {
+	const q = `UPDATE findings SET epss = $2, kev = cardinality($3::text[]) > 0, kev_sources = $3,
+		kev_ransomware = cardinality($3::text[]) > 0 AND $5, priority = $4, updated_at = now() WHERE id = $1`
 	if kevSources == nil {
 		kevSources = []string{}
 	}
-	_, err := r.db.Exec(ctx, q, id, epss, kevSources, priority)
+	_, err := r.db.Exec(ctx, q, id, epss, kevSources, priority, ransomware)
 	if err != nil {
 		return fmt.Errorf("set enrichment: %w", err)
 	}

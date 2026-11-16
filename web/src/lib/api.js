@@ -28,6 +28,9 @@ export class ApiError extends Error {
 	constructor(status, message) {
 		super(message);
 		this.status = status;
+		// Set when the server wants a fresh sign-in first (X-Reauth-Required):
+		// confirm the password with api.reauth and retry.
+		this.reauth = false;
 	}
 }
 
@@ -70,7 +73,9 @@ async function parse(res) {
 	}
 	if (!res.ok) {
 		const msg = (data && data.error) || res.statusText || 'request failed';
-		throw new ApiError(res.status, msg);
+		const err = new ApiError(res.status, msg);
+		err.reauth = res.headers.get('X-Reauth-Required') === 'true';
+		throw err;
 	}
 	return data;
 }
@@ -691,6 +696,9 @@ export const api = {
 	// model output: render as text only. Nothing applies until accepted.
 	/** @param {string} id */
 	aiProposals: (id) => request('GET', `/findings/${id}/ai-proposals`),
+	// Open proposals across visible projects (mine: asked by / assigned to me).
+	/** @param {Record<string, any>} [filters] */
+	listAIProposals: (filters = {}) => request('GET', '/ai-proposals', { query: filters }),
 	/** @param {string} id @param {string} kind */
 	aiPrompt: (id, kind) => request('GET', `/findings/${id}/ai-proposals/prompt`, { query: { kind } }),
 	/** @param {string} id @param {string} kind */
@@ -921,6 +929,10 @@ export const api = {
 	listTokens: () => request('GET', '/tokens').then((d) => d.tokens ?? []),
 	/** @param {Record<string, any>} data */
 	createToken: (data) => request('POST', '/tokens', { body: data }),
+	// Confirms the password (+ two-factor code) and returns a freshly
+	// authenticated session ({ token, user }); store the token before retrying.
+	/** @param {string} password @param {string} [code] */
+	reauth: (password, code = '') => request('POST', '/me/reauth', { body: { password, code } }),
 	/** @param {string} tokenId */
 	deleteToken: (tokenId) => request('DELETE', `/tokens/${tokenId}`),
 

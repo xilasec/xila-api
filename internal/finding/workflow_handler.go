@@ -30,6 +30,46 @@ import (
 type accessChecker interface {
 	RoleOnProject(ctx context.Context, userID, projectID string) (domain.TeamRole, bool, error)
 	AdminStatus(ctx context.Context, userID string) (isAdmin, isOwner bool, err error)
+	OwnedProjectIDs(ctx context.Context, userID string) ([]string, error)
+}
+
+// decidableProjects narrows a cross-project queue to the projects whose
+// requests the caller may decide: those they own, within visible (the
+// caller's visible scope; nil = every project). Instance admins decide
+// everywhere. A project-scoped token never decides outside its project.
+// The result follows the same convention: nil = every project.
+func (h *Handler) decidableProjects(c *fiber.Ctx, uid string, visible []string) ([]string, error) {
+	isAdmin, _, err := h.access.AdminStatus(c.UserContext(), uid)
+	if err != nil {
+		return nil, err
+	}
+	var mine []string // nil = every project
+	if !isAdmin {
+		if mine, err = h.access.OwnedProjectIDs(c.UserContext(), uid); err != nil {
+			return nil, err
+		}
+	}
+	if a := auth.CurrentActor(c); a.ProjectID != "" && a.UserID == uid {
+		mine = intersectIDs(mine, []string{a.ProjectID})
+	}
+	return intersectIDs(mine, visible), nil
+}
+
+// intersectIDs intersects two id sets where nil means "every id".
+func intersectIDs(a, b []string) []string {
+	switch {
+	case a == nil:
+		return b
+	case b == nil:
+		return a
+	}
+	out := []string{}
+	for _, id := range a {
+		if slices.Contains(b, id) {
+			out = append(out, id)
+		}
+	}
+	return out
 }
 
 // MaxAttachmentBytes caps one evidence file.

@@ -106,8 +106,8 @@ func (fakeExploit) Scores(context.Context, []string) (map[string]float64, error)
 	return map[string]float64{"CVE-2020-1": 0.9}, nil
 }
 func (fakeExploit) Name() string { return "cisa" }
-func (fakeExploit) Fetch(context.Context) ([]string, error) {
-	return []string{"CVE-2020-1"}, nil
+func (fakeExploit) Fetch(context.Context) (enrichment.KEVList, error) {
+	return enrichment.KEVList{IDs: []string{"CVE-2020-1"}, Ransomware: map[string]bool{"CVE-2020-1": true}}, nil
 }
 
 // fakeNPM is a deterministic npm registry: express has newer releases (and a
@@ -223,7 +223,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		scanner.NewDetectSecrets(), scanner.NewGGShield(),
 		scanner.NewHadolint(), scanner.NewKICS(), scanner.NewESLint(), scanner.NewYarnAudit(), scanner.NewNJSScan(),
 		scanner.NewSonarQube(), scanner.NewCheckmarx(), scanner.NewVeracode(), scanner.NewMend(),
-		scanner.NewNessus(), scanner.NewOpenVAS(), scanner.NewQualys(), scanner.NewAcunetix(), scanner.NewInvicti(), scanner.NewTestSSL(),
+		scanner.NewNessus(), scanner.NewOpenVAS(), scanner.NewQualys(), scanner.NewAcunetix(), scanner.NewInvicti(), scanner.NewTestSSL(), scanner.NewCryptoLyzer(), scanner.NewDrHeader(),
 		scanner.NewBearer(), scanner.NewMobSF(), scanner.NewJFrogXray(), scanner.NewAWSInspector2(), scanner.NewAWSSecurityHub(),
 		scanner.NewNancy(), scanner.NewCloudSploit(), scanner.NewArachni(), scanner.NewSpotBugs(), scanner.NewFortify(), scanner.NewSteampipe(),
 	)
@@ -320,7 +320,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		IssueTracker: issuetracker.NewHandler(issueSvc),
 		Connector:    connector.NewHandler(connector.NewService(connectorRepo, ingestSvc, trackerCipher)),
 		Correlation:  correlation.NewHandler(correlation.NewService(findingRepo, sbomRepo)),
-		ApiToken:     apitoken.NewHandler(tokenRepo, tokenSvc),
+		ApiToken:     apitoken.NewHandler(tokenRepo, tokenSvc).WithReauthWindow(cfg.JWT.ReauthWindow),
 		SvcAccount:   serviceaccount.NewHandler(serviceaccount.NewRepository(pool), tokenSvc, tokenRepo, cfg.ServiceAccounts.KeyMaxDays),
 		Federation:   federation.NewHandler(federationRepo, federationSvc, !cfg.IsProduction()),
 		TokenAuth:    tokenSvc,
@@ -761,6 +761,12 @@ func TestSmokeFullFlow(t *testing.T) {
 	}
 	if src, _ := top["kev_sources"].([]any); len(src) != 1 || src[0] != "cisa" {
 		t.Errorf("top finding kev_sources = %v, want [cisa]", top["kev_sources"])
+	}
+	if top["kev_ransomware"] != true {
+		t.Errorf("top finding kev_ransomware = %v, want true (the catalog marks CVE-2020-1)", top["kev_ransomware"])
+	}
+	if _, rw := req(t, app, http.MethodGet, "/api/v1/projects/"+projectID+"/findings?kev_ransomware=true", token, ""); len(rw["findings"].([]any)) != 1 {
+		t.Errorf("kev_ransomware filter = %v, want just the CVE-2020-1 finding", rw["findings"])
 	}
 	if top["priority"] != float64(45) { // critical(15) × KEV(3)
 		t.Errorf("top priority = %v, want 45", top["priority"])

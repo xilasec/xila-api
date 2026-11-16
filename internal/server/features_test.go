@@ -18,6 +18,7 @@ import (
 func TestFeatureRoutesMatchRouteTable(t *testing.T) {
 	want := map[string][]string{
 		feature.AITriage: {
+			"GET /api/v1/ai-proposals",
 			"GET /api/v1/findings/:findingID/ai-proposals", "GET /api/v1/findings/:findingID/ai-proposals/prompt",
 			"POST /api/v1/findings/:findingID/ai-proposals", "POST /api/v1/findings/:findingID/ai-proposals/:proposalID/accept",
 			"POST /api/v1/findings/:findingID/ai-proposals/:proposalID/reject"},

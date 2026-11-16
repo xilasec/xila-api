@@ -2673,6 +2673,141 @@ func (e PermSource) Valid() bool {
 	}
 }
 
+// Defines values for ListAiProposals200JSONResponseBodyProposalsKind.
+const (
+	ListAiProposals200JSONResponseBodyProposalsKindExploitability ListAiProposals200JSONResponseBodyProposalsKind = "exploitability"
+	ListAiProposals200JSONResponseBodyProposalsKindFalsePositive  ListAiProposals200JSONResponseBodyProposalsKind = "false_positive"
+	ListAiProposals200JSONResponseBodyProposalsKindFix            ListAiProposals200JSONResponseBodyProposalsKind = "fix"
+)
+
+// Valid indicates whether the value is a known member of the ListAiProposals200JSONResponseBodyProposalsKind enum.
+func (e ListAiProposals200JSONResponseBodyProposalsKind) Valid() bool {
+	switch e {
+	case ListAiProposals200JSONResponseBodyProposalsKindExploitability:
+		return true
+	case ListAiProposals200JSONResponseBodyProposalsKindFalsePositive:
+		return true
+	case ListAiProposals200JSONResponseBodyProposalsKindFix:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListAiProposals200JSONResponseBodyProposalsOutcome.
+const (
+	ListAiProposals200JSONResponseBodyProposalsOutcomeApplied                 ListAiProposals200JSONResponseBodyProposalsOutcome = "applied"
+	ListAiProposals200JSONResponseBodyProposalsOutcomeAssessmentRequested     ListAiProposals200JSONResponseBodyProposalsOutcome = "assessment_requested"
+	ListAiProposals200JSONResponseBodyProposalsOutcomeCommentAdded            ListAiProposals200JSONResponseBodyProposalsOutcome = "comment_added"
+	ListAiProposals200JSONResponseBodyProposalsOutcomeEmpty                   ListAiProposals200JSONResponseBodyProposalsOutcome = ""
+	ListAiProposals200JSONResponseBodyProposalsOutcomeRiskAcceptanceRequested ListAiProposals200JSONResponseBodyProposalsOutcome = "risk_acceptance_requested"
+)
+
+// Valid indicates whether the value is a known member of the ListAiProposals200JSONResponseBodyProposalsOutcome enum.
+func (e ListAiProposals200JSONResponseBodyProposalsOutcome) Valid() bool {
+	switch e {
+	case ListAiProposals200JSONResponseBodyProposalsOutcomeApplied:
+		return true
+	case ListAiProposals200JSONResponseBodyProposalsOutcomeAssessmentRequested:
+		return true
+	case ListAiProposals200JSONResponseBodyProposalsOutcomeCommentAdded:
+		return true
+	case ListAiProposals200JSONResponseBodyProposalsOutcomeEmpty:
+		return true
+	case ListAiProposals200JSONResponseBodyProposalsOutcomeRiskAcceptanceRequested:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListAiProposals200JSONResponseBodyProposalsProposedSeverity.
+const (
+	ListAiProposals200JSONResponseBodyProposalsProposedSeverityCritical    ListAiProposals200JSONResponseBodyProposalsProposedSeverity = "critical"
+	ListAiProposals200JSONResponseBodyProposalsProposedSeverityHigh        ListAiProposals200JSONResponseBodyProposalsProposedSeverity = "high"
+	ListAiProposals200JSONResponseBodyProposalsProposedSeverityInfo        ListAiProposals200JSONResponseBodyProposalsProposedSeverity = "info"
+	ListAiProposals200JSONResponseBodyProposalsProposedSeverityLessThannil ListAiProposals200JSONResponseBodyProposalsProposedSeverity = "<nil>"
+	ListAiProposals200JSONResponseBodyProposalsProposedSeverityLow         ListAiProposals200JSONResponseBodyProposalsProposedSeverity = "low"
+	ListAiProposals200JSONResponseBodyProposalsProposedSeverityMedium      ListAiProposals200JSONResponseBodyProposalsProposedSeverity = "medium"
+)
+
+// Valid indicates whether the value is a known member of the ListAiProposals200JSONResponseBodyProposalsProposedSeverity enum.
+func (e ListAiProposals200JSONResponseBodyProposalsProposedSeverity) Valid() bool {
+	switch e {
+	case ListAiProposals200JSONResponseBodyProposalsProposedSeverityCritical:
+		return true
+	case ListAiProposals200JSONResponseBodyProposalsProposedSeverityHigh:
+		return true
+	case ListAiProposals200JSONResponseBodyProposalsProposedSeverityInfo:
+		return true
+	case ListAiProposals200JSONResponseBodyProposalsProposedSeverityLessThannil:
+		return true
+	case ListAiProposals200JSONResponseBodyProposalsProposedSeverityLow:
+		return true
+	case ListAiProposals200JSONResponseBodyProposalsProposedSeverityMedium:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListAiProposals200JSONResponseBodyProposalsProposedStatus.
+const (
+	ListAiProposals200JSONResponseBodyProposalsProposedStatusConfirmed     ListAiProposals200JSONResponseBodyProposalsProposedStatus = "confirmed"
+	ListAiProposals200JSONResponseBodyProposalsProposedStatusFalsePositive ListAiProposals200JSONResponseBodyProposalsProposedStatus = "false_positive"
+	ListAiProposals200JSONResponseBodyProposalsProposedStatusLessThannil   ListAiProposals200JSONResponseBodyProposalsProposedStatus = "<nil>"
+	ListAiProposals200JSONResponseBodyProposalsProposedStatusOpen          ListAiProposals200JSONResponseBodyProposalsProposedStatus = "open"
+	ListAiProposals200JSONResponseBodyProposalsProposedStatusRiskAccepted  ListAiProposals200JSONResponseBodyProposalsProposedStatus = "risk_accepted"
+	ListAiProposals200JSONResponseBodyProposalsProposedStatusWontFix       ListAiProposals200JSONResponseBodyProposalsProposedStatus = "wont_fix"
+)
+
+// Valid indicates whether the value is a known member of the ListAiProposals200JSONResponseBodyProposalsProposedStatus enum.
+func (e ListAiProposals200JSONResponseBodyProposalsProposedStatus) Valid() bool {
+	switch e {
+	case ListAiProposals200JSONResponseBodyProposalsProposedStatusConfirmed:
+		return true
+	case ListAiProposals200JSONResponseBodyProposalsProposedStatusFalsePositive:
+		return true
+	case ListAiProposals200JSONResponseBodyProposalsProposedStatusLessThannil:
+		return true
+	case ListAiProposals200JSONResponseBodyProposalsProposedStatusOpen:
+		return true
+	case ListAiProposals200JSONResponseBodyProposalsProposedStatusRiskAccepted:
+		return true
+	case ListAiProposals200JSONResponseBodyProposalsProposedStatusWontFix:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListAiProposals200JSONResponseBodyProposalsState.
+const (
+	ListAiProposals200JSONResponseBodyProposalsStateAccepted   ListAiProposals200JSONResponseBodyProposalsState = "accepted"
+	ListAiProposals200JSONResponseBodyProposalsStateInvalid    ListAiProposals200JSONResponseBodyProposalsState = "invalid"
+	ListAiProposals200JSONResponseBodyProposalsStateProposed   ListAiProposals200JSONResponseBodyProposalsState = "proposed"
+	ListAiProposals200JSONResponseBodyProposalsStateRejected   ListAiProposals200JSONResponseBodyProposalsState = "rejected"
+	ListAiProposals200JSONResponseBodyProposalsStateSuperseded ListAiProposals200JSONResponseBodyProposalsState = "superseded"
+)
+
+// Valid indicates whether the value is a known member of the ListAiProposals200JSONResponseBodyProposalsState enum.
+func (e ListAiProposals200JSONResponseBodyProposalsState) Valid() bool {
+	switch e {
+	case ListAiProposals200JSONResponseBodyProposalsStateAccepted:
+		return true
+	case ListAiProposals200JSONResponseBodyProposalsStateInvalid:
+		return true
+	case ListAiProposals200JSONResponseBodyProposalsStateProposed:
+		return true
+	case ListAiProposals200JSONResponseBodyProposalsStateRejected:
+		return true
+	case ListAiProposals200JSONResponseBodyProposalsStateSuperseded:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListAssessmentsParamsState.
 const (
 	ListAssessmentsParamsStateApproved ListAssessmentsParamsState = "approved"
@@ -5348,6 +5483,10 @@ type Finding struct {
 	// Kev On a Known Exploited Vulnerabilities catalog — it is being exploited right now (any of `kev_sources`).
 	Kev *bool `json:"kev,omitempty"`
 
+	// KevRansomware A KEV catalog asserting the finding says the flaw is known to be used in
+	// ransomware campaigns (`knownRansomwareCampaignUse` in CISA KEV and VulnCheck KEV).
+	KevRansomware *bool `json:"kev_ransomware,omitempty"`
+
 	// KevSources The KEV catalogs asserting it (sorted): `cisa` (CISA KEV), `enisa` (ENISA EU
 	// Vulnerability Database, exploited), `vulncheck` (VulnCheck KEV). Matched through
 	// aliases — the finding's CVEs, rule id and the advisory's aliases.
@@ -5574,6 +5713,15 @@ type GatePolicy struct {
 	MaxEpss *float32 `json:"max_epss,omitempty"`
 	MaxHigh *int     `json:"max_high,omitempty"`
 
+	// MaxInfo Fail if open info findings exceed this.
+	MaxInfo *int `json:"max_info,omitempty"`
+
+	// MaxLow Fail if open lows exceed this.
+	MaxLow *int `json:"max_low,omitempty"`
+
+	// MaxMedium Fail if open mediums exceed this.
+	MaxMedium *int `json:"max_medium,omitempty"`
+
 	// MaxRiskScore Fail if the gated version's business-weighted risk score (the same figure the project summary shows) exceeds this.
 	MaxRiskScore *float32 `json:"max_risk_score,omitempty"`
 
@@ -5597,6 +5745,7 @@ type GateResult struct {
 		MaxEpss      *float32 `json:"max_epss,omitempty"`
 		OpenCritical *int     `json:"open_critical,omitempty"`
 		OpenHigh     *int     `json:"open_high,omitempty"`
+		OpenInfo     *int     `json:"open_info,omitempty"`
 		OpenKev      *int     `json:"open_kev,omitempty"`
 
 		// OpenKevSources Open KEV findings by the exact catalog set asserting them, e.g. `cisa,enisa` → 2.
@@ -7312,7 +7461,12 @@ type TriageRule struct {
 	ApprovedBy     *openapi_types.UUID       `json:"approved_by,omitempty"`
 
 	// Category `cloud` is CSPM, `kubernetes` is KSPM.
-	Category  *Category           `json:"category,omitempty"`
+	Category *Category `json:"category,omitempty"`
+
+	// Continue Chain this rule: after it acts, the rules after it still evaluate, against the
+	// finding as it left it (raise a severity, then act on the raised severity).
+	// Without it the first matching rule is the only one that acts.
+	Continue  *bool               `json:"continue,omitempty"`
 	CreatedAt *time.Time          `json:"created_at,omitempty"`
 	CreatedBy *openapi_types.UUID `json:"created_by,omitempty"`
 
@@ -7377,7 +7531,7 @@ type TriageRule struct {
 	Scanner    *string             `json:"scanner,omitempty"`
 	Severities *[]Severity         `json:"severities,omitempty"`
 
-	// SortOrder Evaluation order. First match wins.
+	// SortOrder Evaluation order (lowest first). The first match acts.
 	SortOrder *int       `json:"sort_order,omitempty"`
 	UpdatedAt *time.Time `json:"updated_at,omitempty"`
 
@@ -7723,10 +7877,37 @@ type ImportAdvisoriesJSONBody0 map[string]interface{}
 // ImportAdvisoriesJSONBody1 defines parameters for ImportAdvisories.
 type ImportAdvisoriesJSONBody1 = []map[string]interface{}
 
+// ListAiProposalsParams defines parameters for ListAiProposals.
+type ListAiProposalsParams struct {
+	Mine *bool `form:"mine,omitempty" json:"mine,omitempty"`
+
+	// Limit Page size (max 200).
+	Limit  *Limit  `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// ListAiProposals200JSONResponseBodyProposalsKind defines parameters for ListAiProposals.
+type ListAiProposals200JSONResponseBodyProposalsKind string
+
+// ListAiProposals200JSONResponseBodyProposalsOutcome defines parameters for ListAiProposals.
+type ListAiProposals200JSONResponseBodyProposalsOutcome string
+
+// ListAiProposals200JSONResponseBodyProposalsProposedSeverity defines parameters for ListAiProposals.
+type ListAiProposals200JSONResponseBodyProposalsProposedSeverity string
+
+// ListAiProposals200JSONResponseBodyProposalsProposedStatus defines parameters for ListAiProposals.
+type ListAiProposals200JSONResponseBodyProposalsProposedStatus string
+
+// ListAiProposals200JSONResponseBodyProposalsState defines parameters for ListAiProposals.
+type ListAiProposals200JSONResponseBodyProposalsState string
+
 // ListAssessmentsParams defines parameters for ListAssessments.
 type ListAssessmentsParams struct {
 	State     *ListAssessmentsParamsState `form:"state,omitempty" json:"state,omitempty"`
 	ProjectId *openapi_types.UUID         `form:"project_id,omitempty" json:"project_id,omitempty"`
+
+	// Actionable Only what you may decide - pending assessments of projects you own that someone else requested.
+	Actionable *bool `form:"actionable,omitempty" json:"actionable,omitempty"`
 
 	// Limit Page size (max 200).
 	Limit  *Limit  `form:"limit,omitempty" json:"limit,omitempty"`
@@ -8167,6 +8348,12 @@ type ListFindingsParams struct {
 	// Kev Only findings a KEV catalog (CISA, ENISA EUVD, VulnCheck) lists as known-exploited.
 	Kev *bool `form:"kev,omitempty" json:"kev,omitempty"`
 
+	// KevRansomware Only findings a KEV catalog marks as known to be used in ransomware campaigns.
+	KevRansomware *bool `form:"kev_ransomware,omitempty" json:"kev_ransomware,omitempty"`
+
+	// Active Only findings still awaiting a fix (open or confirmed).
+	Active *bool `form:"active,omitempty" json:"active,omitempty"`
+
 	// Reachable Only findings whose dependency ships (not dev-only) **and** was depended
 	// on directly. Findings with no SBOM data are kept — unknown is never
 	// treated as safe.
@@ -8519,6 +8706,13 @@ type PutMeNotificationsJSONBodyMethodsMinSeverity string
 type ChangePasswordJSONBody struct {
 	CurrentPassword *string `json:"current_password,omitempty"`
 	NewPassword     string  `json:"new_password"`
+}
+
+// ReauthenticateMeJSONBody defines parameters for ReauthenticateMe.
+type ReauthenticateMeJSONBody struct {
+	// Code TOTP or recovery code (required with two-factor on).
+	Code     *string `json:"code,omitempty"`
+	Password string  `json:"password"`
 }
 
 // GetMetricsTrendsParams defines parameters for GetMetricsTrends.
@@ -9306,6 +9500,15 @@ type ListRiskAcceptancesParams struct {
 	State     *ListRiskAcceptancesParamsState `form:"state,omitempty" json:"state,omitempty"`
 	ProjectId *openapi_types.UUID             `form:"project_id,omitempty" json:"project_id,omitempty"`
 
+	// Actionable Only the requests you may approve (projects you own; with four-eyes, not your own requests).
+	Actionable *bool `form:"actionable,omitempty" json:"actionable,omitempty"`
+
+	// Owner `me` or a user id: acceptances with that owner.
+	Owner *string `form:"owner,omitempty" json:"owner,omitempty"`
+
+	// ExpiresWithinDays Only acceptances expiring within this many days (soonest first).
+	ExpiresWithinDays *int `form:"expires_within_days,omitempty" json:"expires_within_days,omitempty"`
+
 	// Limit Page size (max 200).
 	Limit  *Limit  `form:"limit,omitempty" json:"limit,omitempty"`
 	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
@@ -9508,7 +9711,8 @@ type CreateTeamProjectJSONBody struct {
 
 // CreateTokenJSONBody defines parameters for CreateToken.
 type CreateTokenJSONBody struct {
-	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	// ExpiresInDays Days until it expires (0 = never).
+	ExpiresInDays *int `json:"expires_in_days,omitempty"`
 
 	// Name Example: github-actions
 	Name string `json:"name"`
@@ -9716,6 +9920,9 @@ type PutMeNotificationsJSONRequestBody PutMeNotificationsJSONBody
 
 // ChangePasswordJSONRequestBody defines body for ChangePassword for application/json ContentType.
 type ChangePasswordJSONRequestBody ChangePasswordJSONBody
+
+// ReauthenticateMeJSONRequestBody defines body for ReauthenticateMe for application/json ContentType.
+type ReauthenticateMeJSONRequestBody ReauthenticateMeJSONBody
 
 // CreateNotificationChannelJSONRequestBody defines body for CreateNotificationChannel for application/json ContentType.
 type CreateNotificationChannelJSONRequestBody = Channel
@@ -10114,6 +10321,16 @@ type ClientInterface interface {
 	//
 	// Corresponds with PUT /advisories/{advisoryID} (the `PutAdvisory` operationId).
 	PutAdvisory(ctx context.Context, advisoryID AdvisoryID, body PutAdvisoryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListAiProposals Open AI triage proposals across projects
+	//
+	// Proposals still waiting for a decision (`state: proposed`) across every
+	// project you can see, newest first, with their finding's title and
+	// severity. `mine=true` keeps the ones you asked for or whose finding is
+	// assigned to you. 404 while AI triage is off.
+	//
+	// Corresponds with GET /ai-proposals (the `ListAiProposals` operationId).
+	ListAiProposals(ctx context.Context, params *ListAiProposalsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListAssessments The manual-assessment review queue
 	//
@@ -12059,6 +12276,34 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /me/password (the `ChangePassword` operationId).
 	ChangePassword(ctx context.Context, body ChangePasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ReauthenticateMeWithBody Confirm your password for a sensitive action
+	//
+	// Proves you are still at the keyboard: your password, plus your current
+	// two-factor code when two-factor is on. Returns a session marked as
+	// freshly authenticated, which creating an API token requires
+	// (`REAUTH_WINDOW`, default 10 minutes). Accounts without a local password
+	// sign in again through their identity provider instead (400). API tokens
+	// can't call it.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /me/reauth (the `ReauthenticateMe` operationId).
+	ReauthenticateMeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ReauthenticateMe Confirm your password for a sensitive action
+	//
+	// Proves you are still at the keyboard: your password, plus your current
+	// two-factor code when two-factor is on. Returns a session marked as
+	// freshly authenticated, which creating an API token requires
+	// (`REAUTH_WINDOW`, default 10 minutes). Accounts without a local password
+	// sign in again through their identity provider instead (400). API tokens
+	// can't call it.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /me/reauth (the `ReauthenticateMe` operationId).
+	ReauthenticateMe(ctx context.Context, body ReauthenticateMeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RevokeMeSessions Sign out everywhere
 	//
@@ -14433,6 +14678,9 @@ type ClientInterface interface {
 	//
 	// The secret is shown **once**, in this response. Scope it to a project
 	// (`project_id`) so a repo's CI can only touch its own project.
+	// Needs a session that signed in within `REAUTH_WINDOW` (default 10 minutes):
+	// otherwise 403 with header `X-Reauth-Required: true`; confirm your password
+	// with `POST /me/reauth` and retry. API tokens can't create tokens.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -14443,6 +14691,9 @@ type ClientInterface interface {
 	//
 	// The secret is shown **once**, in this response. Scope it to a project
 	// (`project_id`) so a repo's CI can only touch its own project.
+	// Needs a session that signed in within `REAUTH_WINDOW` (default 10 minutes):
+	// otherwise 403 with header `X-Reauth-Required: true`; confirm your password
+	// with `POST /me/reauth` and retry. API tokens can't create tokens.
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -14917,6 +15168,26 @@ func (c *Client) PutAdvisoryWithBody(ctx context.Context, advisoryID AdvisoryID,
 // Corresponds with PUT /advisories/{advisoryID} (the `PutAdvisory` operationId).
 func (c *Client) PutAdvisory(ctx context.Context, advisoryID AdvisoryID, body PutAdvisoryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPutAdvisoryRequest(c.Server, advisoryID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListAiProposals Open AI triage proposals across projects
+//
+// Proposals still waiting for a decision (`state: proposed`) across every
+// project you can see, newest first, with their finding's title and
+// severity. `mine=true` keeps the ones you asked for or whose finding is
+// assigned to you. 404 while AI triage is off.
+//
+// Corresponds with GET /ai-proposals (the `ListAiProposals` operationId).
+func (c *Client) ListAiProposals(ctx context.Context, params *ListAiProposalsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAiProposalsRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -18842,6 +19113,54 @@ func (c *Client) ChangePasswordWithBody(ctx context.Context, contentType string,
 // Corresponds with POST /me/password (the `ChangePassword` operationId).
 func (c *Client) ChangePassword(ctx context.Context, body ChangePasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewChangePasswordRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ReauthenticateMeWithBody Confirm your password for a sensitive action
+//
+// Proves you are still at the keyboard: your password, plus your current
+// two-factor code when two-factor is on. Returns a session marked as
+// freshly authenticated, which creating an API token requires
+// (`REAUTH_WINDOW`, default 10 minutes). Accounts without a local password
+// sign in again through their identity provider instead (400). API tokens
+// can't call it.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /me/reauth (the `ReauthenticateMe` operationId).
+func (c *Client) ReauthenticateMeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReauthenticateMeRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ReauthenticateMe Confirm your password for a sensitive action
+//
+// Proves you are still at the keyboard: your password, plus your current
+// two-factor code when two-factor is on. Returns a session marked as
+// freshly authenticated, which creating an API token requires
+// (`REAUTH_WINDOW`, default 10 minutes). Accounts without a local password
+// sign in again through their identity provider instead (400). API tokens
+// can't call it.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /me/reauth (the `ReauthenticateMe` operationId).
+func (c *Client) ReauthenticateMe(ctx context.Context, body ReauthenticateMeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReauthenticateMeRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -23695,6 +24014,9 @@ func (c *Client) ListTokens(ctx context.Context, reqEditors ...RequestEditorFn) 
 //
 // The secret is shown **once**, in this response. Scope it to a project
 // (`project_id`) so a repo's CI can only touch its own project.
+// Needs a session that signed in within `REAUTH_WINDOW` (default 10 minutes):
+// otherwise 403 with header `X-Reauth-Required: true`; confirm your password
+// with `POST /me/reauth` and retry. API tokens can't create tokens.
 //
 // Takes any type of body and a specified content type.
 //
@@ -23715,6 +24037,9 @@ func (c *Client) CreateTokenWithBody(ctx context.Context, contentType string, bo
 //
 // The secret is shown **once**, in this response. Scope it to a project
 // (`project_id`) so a repo's CI can only touch its own project.
+// Needs a session that signed in within `REAUTH_WINDOW` (default 10 minutes):
+// otherwise 403 with header `X-Reauth-Required: true`; confirm your password
+// with `POST /me/reauth` and retry. API tokens can't create tokens.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -24644,6 +24969,84 @@ func NewPutAdvisoryRequestWithBody(server string, advisoryID AdvisoryID, content
 	return req, nil
 }
 
+// NewListAiProposalsRequest constructs an http.Request for the ListAiProposals method
+func NewListAiProposalsRequest(server string, params *ListAiProposalsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/ai-proposals")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Mine != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "mine", *params.Mine, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "offset", *params.Offset, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListAssessmentsRequest constructs an http.Request for the ListAssessments method
 func NewListAssessmentsRequest(server string, params *ListAssessmentsParams) (*http.Request, error) {
 	var err error
@@ -24687,6 +25090,18 @@ func NewListAssessmentsRequest(server string, params *ListAssessmentsParams) (*h
 		if params.ProjectId != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", *params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Actionable != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "actionable", *params.Actionable, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -29010,6 +29425,30 @@ func NewListFindingsRequest(server string, params *ListFindingsParams) (*http.Re
 
 		}
 
+		if params.KevRansomware != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "kev_ransomware", *params.KevRansomware, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Active != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "active", *params.Active, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
 		if params.Reachable != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "reachable", *params.Reachable, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
@@ -32064,6 +32503,46 @@ func NewChangePasswordRequestWithBody(server string, contentType string, body io
 	}
 
 	operationPath := fmt.Sprintf("/me/password")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewReauthenticateMeRequest calls the generic ReauthenticateMe builder with application/json body
+func NewReauthenticateMeRequest(server string, body ReauthenticateMeJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewReauthenticateMeRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewReauthenticateMeRequestWithBody constructs an http.Request for the ReauthenticateMe method, with any body, and a specified content type
+func NewReauthenticateMeRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/me/reauth")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -39866,6 +40345,42 @@ func NewListRiskAcceptancesRequest(server string, params *ListRiskAcceptancesPar
 
 		}
 
+		if params.Actionable != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "actionable", *params.Actionable, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Owner != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "owner", *params.Owner, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.ExpiresWithinDays != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "expires_within_days", *params.ExpiresWithinDays, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
 		if params.Limit != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
@@ -43394,6 +43909,18 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with PUT /advisories/{advisoryID} (the `PutAdvisory` operationId).
 	PutAdvisoryWithResponse(ctx context.Context, advisoryID AdvisoryID, body PutAdvisoryJSONRequestBody, reqEditors ...RequestEditorFn) (*PutAdvisoryResponse, error)
 
+	// ListAiProposalsWithResponse Open AI triage proposals across projects
+	//
+	// Proposals still waiting for a decision (`state: proposed`) across every
+	// project you can see, newest first, with their finding's title and
+	// severity. `mine=true` keeps the ones you asked for or whose finding is
+	// assigned to you. 404 while AI triage is off.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /ai-proposals (the `ListAiProposals` operationId).
+	ListAiProposalsWithResponse(ctx context.Context, params *ListAiProposalsParams, reqEditors ...RequestEditorFn) (*ListAiProposalsResponse, error)
+
 	// ListAssessmentsWithResponse The manual-assessment review queue
 	//
 	// Assessments across every project you can see, newest first. With
@@ -45528,6 +46055,34 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /me/password (the `ChangePassword` operationId).
 	ChangePasswordWithResponse(ctx context.Context, body ChangePasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*ChangePasswordResponse, error)
+
+	// ReauthenticateMeWithBodyWithResponse Confirm your password for a sensitive action
+	//
+	// Proves you are still at the keyboard: your password, plus your current
+	// two-factor code when two-factor is on. Returns a session marked as
+	// freshly authenticated, which creating an API token requires
+	// (`REAUTH_WINDOW`, default 10 minutes). Accounts without a local password
+	// sign in again through their identity provider instead (400). API tokens
+	// can't call it.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /me/reauth (the `ReauthenticateMe` operationId).
+	ReauthenticateMeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReauthenticateMeResponse, error)
+
+	// ReauthenticateMeWithResponse Confirm your password for a sensitive action
+	//
+	// Proves you are still at the keyboard: your password, plus your current
+	// two-factor code when two-factor is on. Returns a session marked as
+	// freshly authenticated, which creating an API token requires
+	// (`REAUTH_WINDOW`, default 10 minutes). Accounts without a local password
+	// sign in again through their identity provider instead (400). API tokens
+	// can't call it.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /me/reauth (the `ReauthenticateMe` operationId).
+	ReauthenticateMeWithResponse(ctx context.Context, body ReauthenticateMeJSONRequestBody, reqEditors ...RequestEditorFn) (*ReauthenticateMeResponse, error)
 
 	// RevokeMeSessionsWithResponse Sign out everywhere
 	//
@@ -48180,6 +48735,9 @@ type ClientWithResponsesInterface interface {
 	//
 	// The secret is shown **once**, in this response. Scope it to a project
 	// (`project_id`) so a repo's CI can only touch its own project.
+	// Needs a session that signed in within `REAUTH_WINDOW` (default 10 minutes):
+	// otherwise 403 with header `X-Reauth-Required: true`; confirm your password
+	// with `POST /me/reauth` and retry. API tokens can't create tokens.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -48190,6 +48748,9 @@ type ClientWithResponsesInterface interface {
 	//
 	// The secret is shown **once**, in this response. Scope it to a project
 	// (`project_id`) so a repo's CI can only touch its own project.
+	// Needs a session that signed in within `REAUTH_WINDOW` (default 10 minutes):
+	// otherwise 403 with header `X-Reauth-Required: true`; confirm your password
+	// with `POST /me/reauth` and retry. API tokens can't create tokens.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -48877,6 +49438,140 @@ func (r PutAdvisoryResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r PutAdvisoryResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListAiProposalsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Pagination `has_more` tells you whether another page exists, without a count query.
+		//
+		// Example: {"count":1,"has_more":true,"limit":1,"offset":0}
+		Pagination *Pagination `json:"pagination,omitempty"`
+		Proposals  *[]struct {
+			Confidence      *float32                                            `json:"confidence,omitempty"`
+			CreatedAt       *time.Time                                          `json:"created_at,omitempty"`
+			CreatedBy       *openapi_types.UUID                                 `json:"created_by,omitempty"`
+			CreatedByEmail  *string                                             `json:"created_by_email,omitempty"`
+			DecidedAt       *time.Time                                          `json:"decided_at,omitempty"`
+			DecidedBy       *openapi_types.UUID                                 `json:"decided_by,omitempty"`
+			DecidedByEmail  *string                                             `json:"decided_by_email,omitempty"`
+			DecisionNote    *string                                             `json:"decision_note,omitempty"`
+			FindingId       *openapi_types.UUID                                 `json:"finding_id,omitempty"`
+			FindingSeverity *string                                             `json:"finding_severity,omitempty"`
+			FindingTitle    *string                                             `json:"finding_title,omitempty"`
+			Fix             *string                                             `json:"fix,omitempty"`
+			Id              *openapi_types.UUID                                 `json:"id,omitempty"`
+			InvalidReason   *string                                             `json:"invalid_reason,omitempty"`
+			Kind            *ListAiProposals200JSONResponseBodyProposalsKind    `json:"kind,omitempty"`
+			Model           *string                                             `json:"model,omitempty"`
+			Outcome         *ListAiProposals200JSONResponseBodyProposalsOutcome `json:"outcome,omitempty"`
+
+			// OutcomeRef The assessment
+			OutcomeRef  *openapi_types.UUID `json:"outcome_ref,omitempty"`
+			ProjectId   *openapi_types.UUID `json:"project_id,omitempty"`
+			ProjectName *string             `json:"project_name,omitempty"`
+
+			// PromptHash SHA-256 (hex) of exactly the prompt sent.
+			PromptHash       *string                                                      `json:"prompt_hash,omitempty"`
+			ProposedSeverity *ListAiProposals200JSONResponseBodyProposalsProposedSeverity `json:"proposed_severity,omitempty"`
+			ProposedStatus   *ListAiProposals200JSONResponseBodyProposalsProposedStatus   `json:"proposed_status,omitempty"`
+			Provider         *string                                                      `json:"provider,omitempty"`
+			Rationale        *string                                                      `json:"rationale,omitempty"`
+
+			// Response The model's raw answer (capped).
+			Response *string                                           `json:"response,omitempty"`
+			State    *ListAiProposals200JSONResponseBodyProposalsState `json:"state,omitempty"`
+
+			// Verdict Example: false_positive
+			Verdict *string `json:"verdict,omitempty"`
+		} `json:"proposals,omitempty"`
+	}
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListAiProposalsResponse) GetJSON200() *struct {
+	// Pagination `has_more` tells you whether another page exists, without a count query.
+	//
+	// Example: {"count":1,"has_more":true,"limit":1,"offset":0}
+	Pagination *Pagination `json:"pagination,omitempty"`
+	Proposals  *[]struct {
+		Confidence      *float32                                            `json:"confidence,omitempty"`
+		CreatedAt       *time.Time                                          `json:"created_at,omitempty"`
+		CreatedBy       *openapi_types.UUID                                 `json:"created_by,omitempty"`
+		CreatedByEmail  *string                                             `json:"created_by_email,omitempty"`
+		DecidedAt       *time.Time                                          `json:"decided_at,omitempty"`
+		DecidedBy       *openapi_types.UUID                                 `json:"decided_by,omitempty"`
+		DecidedByEmail  *string                                             `json:"decided_by_email,omitempty"`
+		DecisionNote    *string                                             `json:"decision_note,omitempty"`
+		FindingId       *openapi_types.UUID                                 `json:"finding_id,omitempty"`
+		FindingSeverity *string                                             `json:"finding_severity,omitempty"`
+		FindingTitle    *string                                             `json:"finding_title,omitempty"`
+		Fix             *string                                             `json:"fix,omitempty"`
+		Id              *openapi_types.UUID                                 `json:"id,omitempty"`
+		InvalidReason   *string                                             `json:"invalid_reason,omitempty"`
+		Kind            *ListAiProposals200JSONResponseBodyProposalsKind    `json:"kind,omitempty"`
+		Model           *string                                             `json:"model,omitempty"`
+		Outcome         *ListAiProposals200JSONResponseBodyProposalsOutcome `json:"outcome,omitempty"`
+
+		// OutcomeRef The assessment
+		OutcomeRef  *openapi_types.UUID `json:"outcome_ref,omitempty"`
+		ProjectId   *openapi_types.UUID `json:"project_id,omitempty"`
+		ProjectName *string             `json:"project_name,omitempty"`
+
+		// PromptHash SHA-256 (hex) of exactly the prompt sent.
+		PromptHash       *string                                                      `json:"prompt_hash,omitempty"`
+		ProposedSeverity *ListAiProposals200JSONResponseBodyProposalsProposedSeverity `json:"proposed_severity,omitempty"`
+		ProposedStatus   *ListAiProposals200JSONResponseBodyProposalsProposedStatus   `json:"proposed_status,omitempty"`
+		Provider         *string                                                      `json:"provider,omitempty"`
+		Rationale        *string                                                      `json:"rationale,omitempty"`
+
+		// Response The model's raw answer (capped).
+		Response *string                                           `json:"response,omitempty"`
+		State    *ListAiProposals200JSONResponseBodyProposalsState `json:"state,omitempty"`
+
+		// Verdict Example: false_positive
+		Verdict *string `json:"verdict,omitempty"`
+	} `json:"proposals,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r ListAiProposalsResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListAiProposalsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListAiProposalsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListAiProposalsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListAiProposalsResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -56803,6 +57498,69 @@ func (r ChangePasswordResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ChangePasswordResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ReauthenticateMeResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Token A JWT whose authentication time is now.
+		Token *string `json:"token,omitempty"`
+		User  *User   `json:"user,omitempty"`
+	}
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ReauthenticateMeResponse) GetJSON200() *struct {
+	// Token A JWT whose authentication time is now.
+	Token *string `json:"token,omitempty"`
+	User  *User   `json:"user,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r ReauthenticateMeResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r ReauthenticateMeResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r ReauthenticateMeResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ReauthenticateMeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ReauthenticateMeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ReauthenticateMeResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -66880,6 +67638,11 @@ func (r ListTokensResponse) ContentType() string {
 	return ""
 }
 
+// CreateTokenResponse403Headers the declared response headers of an HTTP 403 response for CreateToken
+type CreateTokenResponse403Headers struct {
+	XReauthRequired *string
+}
+
 type CreateTokenResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -66891,6 +67654,12 @@ type CreateTokenResponse struct {
 		Secret *string   `json:"secret,omitempty"`
 		Token  *ApiToken `json:"token,omitempty"`
 	}
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *struct {
+		Error *string `json:"error,omitempty"`
+	}
+	// Headers403 the parsed response headers for an HTTP 403 response
+	Headers403 *CreateTokenResponse403Headers
 }
 
 // GetJSON201 returns the response for an HTTP 201 `application/json` response
@@ -66902,6 +67671,13 @@ func (r CreateTokenResponse) GetJSON201() *struct {
 	Token  *ApiToken `json:"token,omitempty"`
 } {
 	return r.JSON201
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r CreateTokenResponse) GetJSON403() *struct {
+	Error *string `json:"error,omitempty"`
+} {
+	return r.JSON403
 }
 
 // GetBody returns the raw response body bytes
@@ -68465,6 +69241,24 @@ func (c *ClientWithResponses) PutAdvisoryWithResponse(ctx context.Context, advis
 		return nil, err
 	}
 	return ParsePutAdvisoryResponse(rsp)
+}
+
+// ListAiProposalsWithResponse Open AI triage proposals across projects
+//
+// Proposals still waiting for a decision (`state: proposed`) across every
+// project you can see, newest first, with their finding's title and
+// severity. `mine=true` keeps the ones you asked for or whose finding is
+// assigned to you. 404 while AI triage is off.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /ai-proposals (the `ListAiProposals` operationId).
+func (c *ClientWithResponses) ListAiProposalsWithResponse(ctx context.Context, params *ListAiProposalsParams, reqEditors ...RequestEditorFn) (*ListAiProposalsResponse, error) {
+	rsp, err := c.ListAiProposals(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListAiProposalsResponse(rsp)
 }
 
 // ListAssessmentsWithResponse The manual-assessment review queue
@@ -71788,6 +72582,46 @@ func (c *ClientWithResponses) ChangePasswordWithResponse(ctx context.Context, bo
 		return nil, err
 	}
 	return ParseChangePasswordResponse(rsp)
+}
+
+// ReauthenticateMeWithBodyWithResponse Confirm your password for a sensitive action
+//
+// Proves you are still at the keyboard: your password, plus your current
+// two-factor code when two-factor is on. Returns a session marked as
+// freshly authenticated, which creating an API token requires
+// (`REAUTH_WINDOW`, default 10 minutes). Accounts without a local password
+// sign in again through their identity provider instead (400). API tokens
+// can't call it.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /me/reauth (the `ReauthenticateMe` operationId).
+func (c *ClientWithResponses) ReauthenticateMeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReauthenticateMeResponse, error) {
+	rsp, err := c.ReauthenticateMeWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReauthenticateMeResponse(rsp)
+}
+
+// ReauthenticateMeWithResponse Confirm your password for a sensitive action
+//
+// Proves you are still at the keyboard: your password, plus your current
+// two-factor code when two-factor is on. Returns a session marked as
+// freshly authenticated, which creating an API token requires
+// (`REAUTH_WINDOW`, default 10 minutes). Accounts without a local password
+// sign in again through their identity provider instead (400). API tokens
+// can't call it.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /me/reauth (the `ReauthenticateMe` operationId).
+func (c *ClientWithResponses) ReauthenticateMeWithResponse(ctx context.Context, body ReauthenticateMeJSONRequestBody, reqEditors ...RequestEditorFn) (*ReauthenticateMeResponse, error) {
+	rsp, err := c.ReauthenticateMe(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReauthenticateMeResponse(rsp)
 }
 
 // RevokeMeSessionsWithResponse Sign out everywhere
@@ -75923,6 +76757,9 @@ func (c *ClientWithResponses) ListTokensWithResponse(ctx context.Context, reqEdi
 //
 // The secret is shown **once**, in this response. Scope it to a project
 // (`project_id`) so a repo's CI can only touch its own project.
+// Needs a session that signed in within `REAUTH_WINDOW` (default 10 minutes):
+// otherwise 403 with header `X-Reauth-Required: true`; confirm your password
+// with `POST /me/reauth` and retry. API tokens can't create tokens.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -75939,6 +76776,9 @@ func (c *ClientWithResponses) CreateTokenWithBodyWithResponse(ctx context.Contex
 //
 // The secret is shown **once**, in this response. Scope it to a project
 // (`project_id`) so a repo's CI can only touch its own project.
+// Needs a session that signed in within `REAUTH_WINDOW` (default 10 minutes):
+// otherwise 403 with header `X-Reauth-Required: true`; confirm your password
+// with `POST /me/reauth` and retry. API tokens can't create tokens.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -76719,6 +77559,82 @@ func ParsePutAdvisoryResponse(rsp *http.Response) (*PutAdvisoryResponse, error) 
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListAiProposalsResponse parses an HTTP response from a ListAiProposalsWithResponse call
+func ParseListAiProposalsResponse(rsp *http.Response) (*ListAiProposalsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListAiProposalsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Pagination `has_more` tells you whether another page exists, without a count query.
+			//
+			// Example: {"count":1,"has_more":true,"limit":1,"offset":0}
+			Pagination *Pagination `json:"pagination,omitempty"`
+			Proposals  *[]struct {
+				Confidence      *float32                                            `json:"confidence,omitempty"`
+				CreatedAt       *time.Time                                          `json:"created_at,omitempty"`
+				CreatedBy       *openapi_types.UUID                                 `json:"created_by,omitempty"`
+				CreatedByEmail  *string                                             `json:"created_by_email,omitempty"`
+				DecidedAt       *time.Time                                          `json:"decided_at,omitempty"`
+				DecidedBy       *openapi_types.UUID                                 `json:"decided_by,omitempty"`
+				DecidedByEmail  *string                                             `json:"decided_by_email,omitempty"`
+				DecisionNote    *string                                             `json:"decision_note,omitempty"`
+				FindingId       *openapi_types.UUID                                 `json:"finding_id,omitempty"`
+				FindingSeverity *string                                             `json:"finding_severity,omitempty"`
+				FindingTitle    *string                                             `json:"finding_title,omitempty"`
+				Fix             *string                                             `json:"fix,omitempty"`
+				Id              *openapi_types.UUID                                 `json:"id,omitempty"`
+				InvalidReason   *string                                             `json:"invalid_reason,omitempty"`
+				Kind            *ListAiProposals200JSONResponseBodyProposalsKind    `json:"kind,omitempty"`
+				Model           *string                                             `json:"model,omitempty"`
+				Outcome         *ListAiProposals200JSONResponseBodyProposalsOutcome `json:"outcome,omitempty"`
+
+				// OutcomeRef The assessment
+				OutcomeRef  *openapi_types.UUID `json:"outcome_ref,omitempty"`
+				ProjectId   *openapi_types.UUID `json:"project_id,omitempty"`
+				ProjectName *string             `json:"project_name,omitempty"`
+
+				// PromptHash SHA-256 (hex) of exactly the prompt sent.
+				PromptHash       *string                                                      `json:"prompt_hash,omitempty"`
+				ProposedSeverity *ListAiProposals200JSONResponseBodyProposalsProposedSeverity `json:"proposed_severity,omitempty"`
+				ProposedStatus   *ListAiProposals200JSONResponseBodyProposalsProposedStatus   `json:"proposed_status,omitempty"`
+				Provider         *string                                                      `json:"provider,omitempty"`
+				Rationale        *string                                                      `json:"rationale,omitempty"`
+
+				// Response The model's raw answer (capped).
+				Response *string                                           `json:"response,omitempty"`
+				State    *ListAiProposals200JSONResponseBodyProposalsState `json:"state,omitempty"`
+
+				// Verdict Example: false_positive
+				Verdict *string `json:"verdict,omitempty"`
+			} `json:"proposals,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest Error
@@ -82119,6 +83035,50 @@ func ParseChangePasswordResponse(rsp *http.Response) (*ChangePasswordResponse, e
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest struct {
 			// Token A fresh JWT for this session (every earlier one is revoked).
+			Token *string `json:"token,omitempty"`
+			User  *User   `json:"user,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseReauthenticateMeResponse parses an HTTP response from a ReauthenticateMeWithResponse call
+func ParseReauthenticateMeResponse(rsp *http.Response) (*ReauthenticateMeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ReauthenticateMeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Token A JWT whose authentication time is now.
 			Token *string `json:"token,omitempty"`
 			User  *User   `json:"user,omitempty"`
 		}
@@ -89155,6 +90115,28 @@ func ParseCreateTokenResponse(rsp *http.Response) (*CreateTokenResponse, error) 
 		}
 		response.JSON201 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest struct {
+			Error *string `json:"error,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 403:
+		var headers CreateTokenResponse403Headers
+		if values := rsp.Header.Values("X-Reauth-Required"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "X-Reauth-Required", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.XReauthRequired = &value
+		}
+		response.Headers403 = &headers
 	}
 
 	return response, nil

@@ -365,6 +365,9 @@
 		gatePolicy = {
 			max_critical: policy.max_critical ?? null,
 			max_high: policy.max_high ?? null,
+			max_medium: policy.max_medium ?? null,
+			max_low: policy.max_low ?? null,
+			max_info: policy.max_info ?? null,
 			block_kev: policy.block_kev ?? false,
 			max_epss: policy.max_epss ?? null,
 			block_license: policy.block_license ?? false,
@@ -390,7 +393,7 @@
 		try {
 			/** @type {Record<string, any>} */
 			const body = {};
-			for (const k of ['max_critical', 'max_high', 'max_epss', 'max_risk_score']) {
+			for (const k of ['max_critical', 'max_high', 'max_medium', 'max_low', 'max_info', 'max_epss', 'max_risk_score']) {
 				body[k] = gatePolicy[k] === '' || gatePolicy[k] === null ? null : Number(gatePolicy[k]);
 			}
 			body.block_kev = gatePolicy.block_kev;
@@ -1521,6 +1524,15 @@
 				</Field>
 				<Field label={$t('proj.maxHigh')} hint={$t('proj.noLimit')}>
 					<input type="number" min="0" bind:value={gatePolicy.max_high} placeholder="—" class="input input-bordered input-sm w-full" />
+				</Field>
+				<Field label={$t('proj.maxMedium')} hint={$t('proj.noLimit')}>
+					<input type="number" min="0" bind:value={gatePolicy.max_medium} placeholder="—" class="input input-bordered input-sm w-full" />
+				</Field>
+				<Field label={$t('proj.maxLow')} hint={$t('proj.noLimit')}>
+					<input type="number" min="0" bind:value={gatePolicy.max_low} placeholder="—" class="input input-bordered input-sm w-full" />
+				</Field>
+				<Field label={$t('proj.maxInfo')} hint={$t('proj.noLimit')}>
+					<input type="number" min="0" bind:value={gatePolicy.max_info} placeholder="—" class="input input-bordered input-sm w-full" />
 				</Field>
 				<Field label={$t('proj.maxEpss')} hint={$t('proj.maxEpssHint')}>
 					<input type="number" min="0" max="1" step="0.01" bind:value={gatePolicy.max_epss} placeholder="—" class="input input-bordered input-sm w-full" />

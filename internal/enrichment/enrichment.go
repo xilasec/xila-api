@@ -26,16 +26,16 @@ type EPSSSource interface {
 
 // kevStore keeps each KEV catalog's last successful download (KEVRepository).
 type kevStore interface {
-	Replace(ctx context.Context, source string, ids []string) error
+	Replace(ctx context.Context, source string, list KEVList) error
 	Failed(ctx context.Context, source string, cause error) error
-	Assertions(ctx context.Context, sources []string) (map[string][]string, error)
+	Assertions(ctx context.Context, sources []string) (KEVAssertions, error)
 	Status(ctx context.Context) ([]KEVCatalogStatus, error)
 }
 
 // findingStore is the slice of the finding repository enrichment needs.
 type findingStore interface {
 	ListEnrichable(ctx context.Context) ([]finding.Enrichable, error)
-	SetEnrichment(ctx context.Context, id string, epss *float64, kevSources []string, priority float64) error
+	SetEnrichment(ctx context.Context, id string, epss *float64, kevSources []string, ransomware bool, priority float64) error
 }
 
 // eventNotifier dispatches events (notify.Service satisfies it). Optional.
@@ -102,7 +102,7 @@ func (s *Service) syncKEV(ctx context.Context, res *Result) error {
 			slog.WarnContext(ctx, "kev catalog failed", "source", c.Name(), "error", err)
 			continue
 		}
-		res.KEV[c.Name()] = len(list)
+		res.KEV[c.Name()] = len(list.IDs)
 	}
 	return nil
 }
@@ -156,7 +156,8 @@ func (s *Service) Enrich(ctx context.Context) (Result, error) {
 				maxEPSS = v
 			}
 		}
-		kevSources := KEVSourcesFor(f.IDs, assertions)
+		kevSources := KEVSourcesFor(f.IDs, assertions.Sources)
+		ransomware := RansomwareFor(f.IDs, assertions.Ransomware)
 		kev := len(kevSources) > 0
 		if kev {
 			anyKEV = true
@@ -178,7 +179,7 @@ func (s *Service) Enrich(ctx context.Context) (Result, error) {
 		}
 
 		x := domain.Exploitability{EPSS: maxEPSS, KEV: kev, Maturity: f.ExploitMaturity}
-		if err := s.findings.SetEnrichment(ctx, f.ID, epss, kevSources, domain.Priority(f.Severity, x, f.Reachability(), f.AssetExposure)); err != nil {
+		if err := s.findings.SetEnrichment(ctx, f.ID, epss, kevSources, ransomware, domain.Priority(f.Severity, x, f.Reachability(), f.AssetExposure)); err != nil {
 			return res, err
 		}
 		res.Findings++
@@ -206,6 +207,17 @@ func KEVSourcesFor(ids []string, assertions map[string][]string) []string {
 		}
 	}
 	return sortedSources(set)
+}
+
+// RansomwareFor reports whether a KEV catalog marks any of a finding's
+// vulnerability ids as used in ransomware campaigns.
+func RansomwareFor(ids []string, ransomware map[string]bool) bool {
+	for _, id := range ids {
+		if ransomware[strings.ToUpper(id)] {
+			return true
+		}
+	}
+	return false
 }
 
 // notifyExploitable fires one summary alert when findings newly become

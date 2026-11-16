@@ -15,6 +15,7 @@
 	import FindingFieldsEditor from '#lib/components/FindingFieldsEditor.svelte';
 	import FindingAI from '#lib/components/FindingAI.svelte';
 	import CustomFieldsEditor from '#lib/components/CustomFieldsEditor.svelte';
+	import { advisoryLinks, depsDevURL } from '#lib/links.js';
 
 	const id = $derived(page.params.id ?? '');
 
@@ -220,6 +221,7 @@
 				<span class="badge badge-ghost badge-md uppercase">{$labelOf('category', finding.category)}</span>
 				<span class="badge badge-neutral badge-md">{$t('finding.priority', { value: Math.round(finding.priority) })}</span>
 				{#if finding.kev}<span class="badge badge-error badge-md" title={finding.kev_sources?.length ? $t('finding.kevTitle', { catalogs: kevCatalogs(finding.kev_sources) }) : $t('finding.kevTitleAny')}>KEV{#if finding.kev_sources?.length} · {finding.kev_sources.join(', ')}{/if}</span>{/if}
+				{#if finding.kev_ransomware}<span class="badge badge-error badge-outline badge-md" title={$t('finding.ransomwareTitle')}>{$t('finding.ransomware')}</span>{/if}
 				<ExploitBadge maturity={finding.exploit_maturity} size="md" />
 				{#if finding.epss}<span class="badge badge-outline badge-md">EPSS {fmtNumber(finding.epss, { style: 'percent' })}</span>{/if}
 				{#if finding.cvss}
@@ -247,7 +249,7 @@
 				{/if}
 			</h1>
 			<p class="text-sm text-base-content/60">
-				{finding.scanner}{#if finding.rule_id} · {finding.rule_id}{/if}
+				{finding.scanner}{#if finding.rule_id} · {finding.rule_id}{#if !finding.cve?.some((/** @type {string} */ c) => c.toUpperCase() === finding.rule_id.toUpperCase())}{#each advisoryLinks(finding.rule_id) as l (l.label)}<a class="link text-xs ml-1" href={l.href} target="_blank" rel="noopener noreferrer">{l.label} ↗</a>{/each}{/if}{/if}
 				{#if duplicates.length}· <span title={$t('finding.alsoReportedTitle')}>{$t('finding.reportedBy', { count: duplicates.length + 1 })}</span>{/if}
 				{#if finding.planned_remediation_at}· {$t('finding.plannedFix', { date: fmtDay(finding.planned_remediation_at) })}{/if}
 			</p>
@@ -346,7 +348,10 @@
 					{/if}
 					{#if finding.purl}
 						<dt class="text-base-content/50">PURL</dt>
-						<dd class="col-span-2 font-mono text-xs break-all">{finding.purl}</dd>
+						<dd class="col-span-2 font-mono text-xs break-all">
+							{finding.purl}
+							{#if depsDevURL(finding.purl)}<a class="link ml-1 font-sans" href={depsDevURL(finding.purl)} target="_blank" rel="noopener noreferrer">deps.dev ↗</a>{/if}
+						</dd>
 					{/if}
 					{#if finding.file_path}
 						<dt class="text-base-content/50">{$t('finding.location')}</dt>
@@ -361,7 +366,12 @@
 					{/if}
 					{#if finding.cve?.length}
 						<dt class="text-base-content/50">CVE</dt>
-						<dd class="col-span-2">{finding.cve.join(', ')}</dd>
+						<dd class="col-span-2">
+							{#each finding.cve as cve, i (cve)}
+								{#if i > 0}<span class="text-base-content/40">, </span>{/if}{cve}
+								{#each advisoryLinks(cve) as l (l.label)}<a class="link text-xs ml-1" href={l.href} target="_blank" rel="noopener noreferrer">{l.label} ↗</a>{/each}
+							{/each}
+						</dd>
 					{/if}
 					{#if finding.cwe}
 						<dt class="text-base-content/50">CWE</dt>

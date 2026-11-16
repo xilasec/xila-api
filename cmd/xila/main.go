@@ -325,6 +325,9 @@ func cmdGate(args []string, out, errw io.Writer) int {
 	project := fs.String("project", "", "project id (required)")
 	maxCritical := fs.Int("max-critical", -1, "fail if open criticals exceed this")
 	maxHigh := fs.Int("max-high", -1, "fail if open highs exceed this")
+	maxMedium := fs.Int("max-medium", -1, "fail if open mediums exceed this")
+	maxLow := fs.Int("max-low", -1, "fail if open lows exceed this")
+	maxInfo := fs.Int("max-info", -1, "fail if open info findings exceed this")
 	blockKEV := fs.Bool("block-kev", false, "fail on any open CISA-KEV finding")
 	maxEPSS := fs.Float64("max-epss", -1, "fail if any open finding EPSS ≥ this")
 	blockLicense := fs.Bool("block-license", false, "fail on any open license violation")
@@ -361,6 +364,11 @@ func cmdGate(args []string, out, errw io.Writer) int {
 	}
 	if *maxHigh >= 0 {
 		set("max_high", *maxHigh)
+	}
+	for k, v := range map[string]int{"max_medium": *maxMedium, "max_low": *maxLow, "max_info": *maxInfo} {
+		if v >= 0 {
+			set(k, v)
+		}
 	}
 	if *blockKEV {
 		set("block_kev", true)

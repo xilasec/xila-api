@@ -1,7 +1,7 @@
 <script>
 	import { onMount } from 'svelte';
 	import { api, ApiError, errorMessage } from '#lib/api.js';
-	import { notify } from '#lib/stores.js';
+	import { notify, token, me } from '#lib/stores.js';
 	import { t } from '#lib/i18n.js';
 	import { fmtDate } from '#lib/format.js';
 	import State from '#lib/components/State.svelte';
@@ -18,6 +18,12 @@
 	let form = $state({ name: '', project_id: '', expires_in_days: '' });
 	let created = $state(/** @type {any} */ (null)); // { token, secret }
 	let copied = $state(false);
+	// Creating a key needs a recent sign-in: the server answers 403 +
+	// X-Reauth-Required, the dialog asks for the password (and code), and the
+	// request is retried with the fresh session.
+	let reauth = $state(false);
+	let password = $state('');
+	let code = $state('');
 
 	async function load() {
 		loading = true;
@@ -40,6 +46,9 @@
 		form = { name: '', project_id: '', expires_in_days: '' };
 		created = null;
 		copied = false;
+		reauth = false;
+		password = '';
+		code = '';
 		dialog.showModal();
 	}
 
@@ -48,6 +57,13 @@
 		e.preventDefault();
 		saving = true;
 		try {
+			if (reauth) {
+				const res = await api.reauth(password, code.trim());
+				token.set(res.token);
+				reauth = false;
+				password = '';
+				code = '';
+			}
 			const res = await api.createToken({
 				name: form.name.trim(),
 				project_id: form.project_id || null,
@@ -56,7 +72,8 @@
 			created = res; // { token, secret }
 			await load();
 		} catch (err) {
-			notify(errorMessage(err));
+			if (err instanceof ApiError && err.reauth) reauth = true;
+			else notify(errorMessage(err));
 		} finally {
 			saving = false;
 		}
@@ -160,9 +177,24 @@
 				<Field label={$t('tok.expiresInDays')} hint={$t('tok.expiresHint')}>
 					<input bind:value={form.expires_in_days} type="number" min="1" placeholder="90" class="input input-bordered w-full" />
 				</Field>
+				{#if reauth}
+					<div class="alert alert-info py-2 text-sm">
+						<span>{$me?.has_password ? $t('tok.reauthHint') : $t('tok.reauthSSO')}</span>
+					</div>
+					{#if $me?.has_password}
+						<Field label={$t('tok.reauthPassword')} required>
+							<input bind:value={password} type="password" required autocomplete="current-password" class="input input-bordered w-full" />
+						</Field>
+						{#if $me?.mfa_enabled}
+							<Field label={$t('tok.reauthCode')} required>
+								<input bind:value={code} required inputmode="numeric" autocomplete="one-time-code" class="input input-bordered w-full font-mono" />
+							</Field>
+						{/if}
+					{/if}
+				{/if}
 				<div class="modal-action">
 					<button type="button" class="btn btn-ghost" onclick={() => dialog.close()}>{$t('common.cancel')}</button>
-					<button class="btn btn-primary" disabled={saving}>
+					<button class="btn btn-primary" disabled={saving || (reauth && !$me?.has_password)}>
 						{#if saving}<span class="loading loading-spinner loading-sm"></span>{/if}{$t('tok.createKey')}
 					</button>
 				</div>

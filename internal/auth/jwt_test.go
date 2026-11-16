@@ -9,7 +9,7 @@ import (
 
 func TestGenerateAndParseToken(t *testing.T) {
 	const secret = "test-secret"
-	token, err := generateToken(secret, "user-123", false, 0, time.Hour)
+	token, err := generateToken(secret, "user-123", false, 0, time.Hour, time.Now())
 	if err != nil {
 		t.Fatalf("generateToken: %v", err)
 	}
@@ -24,7 +24,7 @@ func TestGenerateAndParseToken(t *testing.T) {
 }
 
 func TestParseTokenRejectsWrongSecret(t *testing.T) {
-	token, err := generateToken("right-secret", "user-123", false, 0, time.Hour)
+	token, err := generateToken("right-secret", "user-123", false, 0, time.Hour, time.Now())
 	if err != nil {
 		t.Fatalf("generateToken: %v", err)
 	}
@@ -34,7 +34,7 @@ func TestParseTokenRejectsWrongSecret(t *testing.T) {
 }
 
 func TestParseTokenRejectsExpired(t *testing.T) {
-	token, err := generateToken("test-secret", "user-123", false, 0, -time.Minute)
+	token, err := generateToken("test-secret", "user-123", false, 0, -time.Minute, time.Now())
 	if err != nil {
 		t.Fatalf("generateToken: %v", err)
 	}

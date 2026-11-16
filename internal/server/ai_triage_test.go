@@ -324,3 +324,50 @@ func TestAITriageAcceptGoesThroughApprovals(t *testing.T) {
 		t.Errorf("finding changed before approval: %v %v", f["status"], f["severity"])
 	}
 }
+
+// GET /ai-proposals is the cross-project queue of open proposals: visible
+// projects only, mine=true narrows to what the caller asked for or is
+// assigned, and a decided proposal leaves the queue.
+func TestAIProposalQueue(t *testing.T) {
+	model := newFakeModel(t)
+	fx := setupAI(t, withAI(model, 50))
+	app := fx.app
+	outsider := rbacUser(t, app, "outsider@xila.io")
+
+	model.say(aiFPAnswer)
+	res, prop := req(t, app, http.MethodPost, fx.path(""), fx.editor, `{"kind":"false_positive"}`)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("ask: %d %v", res.StatusCode, prop)
+	}
+	queue := func(token, query string) []any {
+		t.Helper()
+		res, body := req(t, app, http.MethodGet, "/api/v1/ai-proposals"+query, token, "")
+		if res.StatusCode != http.StatusOK {
+			t.Fatalf("queue %s: %d %v", query, res.StatusCode, body)
+		}
+		items, _ := body["proposals"].([]any)
+		return items
+	}
+	q := queue(fx.editor, "?mine=true")
+	if len(q) != 1 {
+		t.Fatalf("editor's own queue = %v, want the proposal", q)
+	}
+	if p := q[0].(map[string]any); p["id"] != prop["id"] || p["finding_title"] == "" || p["project_name"] != "web" || p["finding_severity"] == "" {
+		t.Errorf("queue item = %v, want the finding's title, severity and project", p)
+	}
+	if q := queue(fx.viewer, ""); len(q) != 1 {
+		t.Errorf("viewer's visible queue = %v, want the proposal", q)
+	}
+	if q := queue(fx.viewer, "?mine=true"); len(q) != 0 {
+		t.Errorf("viewer's own queue = %v, want empty (not asked, not assigned)", q)
+	}
+	if q := queue(outsider, ""); len(q) != 0 {
+		t.Errorf("outsider's queue = %v, want empty", q)
+	}
+	if res, _ := req(t, app, http.MethodPost, fx.path("/"+prop["id"].(string)+"/reject"), fx.editor, ""); res.StatusCode != http.StatusOK {
+		t.Fatalf("reject = %d", res.StatusCode)
+	}
+	if q := queue(fx.editor, "?mine=true"); len(q) != 0 {
+		t.Errorf("queue after the decision = %v, want empty", q)
+	}
+}
