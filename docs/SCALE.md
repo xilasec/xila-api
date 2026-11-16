@@ -236,3 +236,26 @@ one org don't delay another org's single upload past the second claim
 node at runtime; each node applies it on its next queue sample. If the
 settings can't be read, a node keeps what it has rather than falling back to
 the env values.
+
+## Past 100M findings
+
+Live queries carry every finding they can match, so the lever is fewer live
+rows and fewer per-request scans:
+
+- `FINDING_ARCHIVE_AFTER` archives findings fixed longer ago than the window,
+  5,000 per statement, through a partial index on live fixed findings. Every
+  list, count, gate and dedup query already skips archived rows. A finding a
+  later scan reports again is unarchived by the upsert and reopens.
+- `PORTFOLIO_FROM_SNAPSHOTS` reads the portfolio from one snapshot row per
+  project instead of grouping every open finding. Numbers are as of the last
+  `METRICS_SNAPSHOT_INTERVAL` run (the response says `source` and `as_of`);
+  compliance and SLA posture stay live.
+- `DB_READ_URL` points portfolio, trend and report reads at a replica (replica
+  lag applies to them), and `DB_READ_STATEMENT_TIMEOUT` caps them in their own
+  pool of `DB_READ_MAX_CONNS`, so ingest keeps its connections.
+
+Partitioning `findings` was considered and not done: dedup, auto-close and the
+upsert all key on `(version_id, fingerprint)` across statuses, so a
+status-partitioned table would move rows between partitions on every
+transition; archiving gets the same effect for live queries without that.
+

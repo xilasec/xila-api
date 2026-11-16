@@ -1818,6 +1818,24 @@ func (e PolicyPreviewViolationsCategory) Valid() bool {
 	}
 }
 
+// Defines values for PortfolioSource.
+const (
+	Live      PortfolioSource = "live"
+	Snapshots PortfolioSource = "snapshots"
+)
+
+// Valid indicates whether the value is a known member of the PortfolioSource enum.
+func (e PortfolioSource) Valid() bool {
+	switch e {
+	case Live:
+		return true
+	case Snapshots:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ProjectVersionKind.
 const (
 	Branch  ProjectVersionKind = "branch"
@@ -6520,27 +6538,50 @@ type PolicyPreviewViolationsCategory string
 
 // Portfolio defines model for Portfolio.
 type Portfolio struct {
-	ByCategory *map[string]int `json:"by_category,omitempty"`
+	// AsOf When those snapshots were taken (snapshots only).
+	AsOf       *time.Time `json:"as_of,omitempty"`
 	Compliance *[]struct {
-		AverageScore *float32 `json:"average_score,omitempty"`
-		Framework    *string  `json:"framework,omitempty"`
+		AvgScore         *float32 `json:"avg_score,omitempty"`
+		Framework        *string  `json:"framework,omitempty"`
+		Name             *string  `json:"name,omitempty"`
+		ProjectsAssessed *int     `json:"projects_assessed,omitempty"`
 	} `json:"compliance,omitempty"`
-	ExploitableOpen *int     `json:"exploitable_open,omitempty"`
-	KevOpen         *int     `json:"kev_open,omitempty"`
-	OpenFindings    *int     `json:"open_findings,omitempty"`
-	Projects        *int     `json:"projects,omitempty"`
-	RiskScore       *float32 `json:"risk_score,omitempty"`
+
+	// ExpiringSoon Exceptions and risk acceptances lapsing within 30 days.
+	ExpiringSoon *int `json:"expiring_soon,omitempty"`
+
+	// ExploitableOpen Open findings on a KEV list or with EPSS of 0.5 or more.
+	ExploitableOpen *int            `json:"exploitable_open,omitempty"`
+	KevOpen         *int            `json:"kev_open,omitempty"`
+	OpenByCategory  *map[string]int `json:"open_by_category,omitempty"`
+	OpenBySeverity  *map[string]int `json:"open_by_severity,omitempty"`
+	Projects        *int            `json:"projects,omitempty"`
+	RiskScore       *float32        `json:"risk_score,omitempty"`
 
 	// Sla SLA posture over non-duplicate findings. The live counts are the current
 	// backlog; `met`, `missed`, `compliance` and `mttr_days` cover findings
 	// remediated in the last `window_days` (90).
-	Sla         *SLAStats `json:"sla,omitempty"`
+	Sla *SLAStats `json:"sla,omitempty"`
+
+	// Source `snapshots` when the counts, risk and top projects come from the latest
+	// metric snapshots (`PORTFOLIO_FROM_SNAPSHOTS`); compliance and SLA are
+	// always live.
+	Source      *PortfolioSource `json:"source,omitempty"`
 	TopProjects *[]struct {
+		Critical  *int                `json:"critical,omitempty"`
 		Id        *openapi_types.UUID `json:"id,omitempty"`
 		Name      *string             `json:"name,omitempty"`
 		RiskScore *float32            `json:"risk_score,omitempty"`
+		Slug      *string             `json:"slug,omitempty"`
+		TotalOpen *int                `json:"total_open,omitempty"`
 	} `json:"top_projects,omitempty"`
+	TotalOpen *int `json:"total_open,omitempty"`
 }
+
+// PortfolioSource `snapshots` when the counts, risk and top projects come from the latest
+// metric snapshots (`PORTFOLIO_FROM_SNAPSHOTS`); compliance and SLA are
+// always live.
+type PortfolioSource string
 
 // Project Example: {"ai_triage_opt_out":false,"archived_at":null,"archived_by":null,"business_criticality":"medium","created_at":"2026-11-12T16:49:59.72317+01:00","custom":{},"description":"","id":"af938283-73e9-4d55-ba64-07a1658d69ce","is_collection":false,"name":"Web","parent_id":null,"repo_url":"","slug":"web","tags":[],"team_id":"4fe52455-3109-4533-824c-23d7a4064213","updated_at":"2026-11-12T16:49:59.72317+01:00"}
 type Project struct {
@@ -65198,13 +65239,17 @@ type GetRetentionResponse struct {
 	HTTPResponse *http.Response
 	// JSON200 the response for an HTTP 200 `application/json` response
 	JSON200 *struct {
+		ArchiveDays *float32 `json:"archive_days,omitempty"`
 		AuditDays   *float32 `json:"audit_days,omitempty"`
 		BranchDays  *float32 `json:"branch_days,omitempty"`
-		LogDays     *float32 `json:"log_days,omitempty"`
-		ReleaseDays *float32 `json:"release_days,omitempty"`
-		SbomDays    *float32 `json:"sbom_days,omitempty"`
-		SbomKeep    *int     `json:"sbom_keep,omitempty"`
-		ScanDays    *float32 `json:"scan_days,omitempty"`
+
+		// FindingArchiveDays FINDING_ARCHIVE_AFTER: findings fixed longer ago are archived.
+		FindingArchiveDays *float32 `json:"finding_archive_days,omitempty"`
+		LogDays            *float32 `json:"log_days,omitempty"`
+		ReleaseDays        *float32 `json:"release_days,omitempty"`
+		SbomDays           *float32 `json:"sbom_days,omitempty"`
+		SbomKeep           *int     `json:"sbom_keep,omitempty"`
+		ScanDays           *float32 `json:"scan_days,omitempty"`
 	}
 	// JSON403 the response for an HTTP 403 `application/json` response
 	JSON403 *Error
@@ -65212,13 +65257,17 @@ type GetRetentionResponse struct {
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
 func (r GetRetentionResponse) GetJSON200() *struct {
+	ArchiveDays *float32 `json:"archive_days,omitempty"`
 	AuditDays   *float32 `json:"audit_days,omitempty"`
 	BranchDays  *float32 `json:"branch_days,omitempty"`
-	LogDays     *float32 `json:"log_days,omitempty"`
-	ReleaseDays *float32 `json:"release_days,omitempty"`
-	SbomDays    *float32 `json:"sbom_days,omitempty"`
-	SbomKeep    *int     `json:"sbom_keep,omitempty"`
-	ScanDays    *float32 `json:"scan_days,omitempty"`
+
+	// FindingArchiveDays FINDING_ARCHIVE_AFTER: findings fixed longer ago are archived.
+	FindingArchiveDays *float32 `json:"finding_archive_days,omitempty"`
+	LogDays            *float32 `json:"log_days,omitempty"`
+	ReleaseDays        *float32 `json:"release_days,omitempty"`
+	SbomDays           *float32 `json:"sbom_days,omitempty"`
+	SbomKeep           *int     `json:"sbom_keep,omitempty"`
+	ScanDays           *float32 `json:"scan_days,omitempty"`
 } {
 	return r.JSON200
 }
@@ -65262,13 +65311,18 @@ type RunRetentionResponse struct {
 	HTTPResponse *http.Response
 	// JSON200 the response for an HTTP 200 `application/json` response
 	JSON200 *struct {
-		AuditEntries  *int `json:"audit_entries,omitempty"`
-		Branches      *int `json:"branches,omitempty"`
-		Deliveries    *int `json:"deliveries,omitempty"`
-		FailedJobs    *int `json:"failed_jobs,omitempty"`
-		Releases      *int `json:"releases,omitempty"`
-		SbomSnapshots *int `json:"sbom_snapshots,omitempty"`
-		Scans         *int `json:"scans,omitempty"`
+		ArchivedEngagements   *int `json:"archived_engagements,omitempty"`
+		ArchivedFindings      *int `json:"archived_findings,omitempty"`
+		ArchivedProjects      *int `json:"archived_projects,omitempty"`
+		ArchivedScans         *int `json:"archived_scans,omitempty"`
+		AuditEntries          *int `json:"audit_entries,omitempty"`
+		Branches              *int `json:"branches,omitempty"`
+		Deliveries            *int `json:"deliveries,omitempty"`
+		FailedJobs            *int `json:"failed_jobs,omitempty"`
+		FixedFindingsArchived *int `json:"fixed_findings_archived,omitempty"`
+		Releases              *int `json:"releases,omitempty"`
+		SbomSnapshots         *int `json:"sbom_snapshots,omitempty"`
+		Scans                 *int `json:"scans,omitempty"`
 	}
 	// JSON403 the response for an HTTP 403 `application/json` response
 	JSON403 *Error
@@ -65276,13 +65330,18 @@ type RunRetentionResponse struct {
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
 func (r RunRetentionResponse) GetJSON200() *struct {
-	AuditEntries  *int `json:"audit_entries,omitempty"`
-	Branches      *int `json:"branches,omitempty"`
-	Deliveries    *int `json:"deliveries,omitempty"`
-	FailedJobs    *int `json:"failed_jobs,omitempty"`
-	Releases      *int `json:"releases,omitempty"`
-	SbomSnapshots *int `json:"sbom_snapshots,omitempty"`
-	Scans         *int `json:"scans,omitempty"`
+	ArchivedEngagements   *int `json:"archived_engagements,omitempty"`
+	ArchivedFindings      *int `json:"archived_findings,omitempty"`
+	ArchivedProjects      *int `json:"archived_projects,omitempty"`
+	ArchivedScans         *int `json:"archived_scans,omitempty"`
+	AuditEntries          *int `json:"audit_entries,omitempty"`
+	Branches              *int `json:"branches,omitempty"`
+	Deliveries            *int `json:"deliveries,omitempty"`
+	FailedJobs            *int `json:"failed_jobs,omitempty"`
+	FixedFindingsArchived *int `json:"fixed_findings_archived,omitempty"`
+	Releases              *int `json:"releases,omitempty"`
+	SbomSnapshots         *int `json:"sbom_snapshots,omitempty"`
+	Scans                 *int `json:"scans,omitempty"`
 } {
 	return r.JSON200
 }
@@ -88659,13 +88718,17 @@ func ParseGetRetentionResponse(rsp *http.Response) (*GetRetentionResponse, error
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest struct {
+			ArchiveDays *float32 `json:"archive_days,omitempty"`
 			AuditDays   *float32 `json:"audit_days,omitempty"`
 			BranchDays  *float32 `json:"branch_days,omitempty"`
-			LogDays     *float32 `json:"log_days,omitempty"`
-			ReleaseDays *float32 `json:"release_days,omitempty"`
-			SbomDays    *float32 `json:"sbom_days,omitempty"`
-			SbomKeep    *int     `json:"sbom_keep,omitempty"`
-			ScanDays    *float32 `json:"scan_days,omitempty"`
+
+			// FindingArchiveDays FINDING_ARCHIVE_AFTER: findings fixed longer ago are archived.
+			FindingArchiveDays *float32 `json:"finding_archive_days,omitempty"`
+			LogDays            *float32 `json:"log_days,omitempty"`
+			ReleaseDays        *float32 `json:"release_days,omitempty"`
+			SbomDays           *float32 `json:"sbom_days,omitempty"`
+			SbomKeep           *int     `json:"sbom_keep,omitempty"`
+			ScanDays           *float32 `json:"scan_days,omitempty"`
 		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
@@ -88700,13 +88763,18 @@ func ParseRunRetentionResponse(rsp *http.Response) (*RunRetentionResponse, error
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest struct {
-			AuditEntries  *int `json:"audit_entries,omitempty"`
-			Branches      *int `json:"branches,omitempty"`
-			Deliveries    *int `json:"deliveries,omitempty"`
-			FailedJobs    *int `json:"failed_jobs,omitempty"`
-			Releases      *int `json:"releases,omitempty"`
-			SbomSnapshots *int `json:"sbom_snapshots,omitempty"`
-			Scans         *int `json:"scans,omitempty"`
+			ArchivedEngagements   *int `json:"archived_engagements,omitempty"`
+			ArchivedFindings      *int `json:"archived_findings,omitempty"`
+			ArchivedProjects      *int `json:"archived_projects,omitempty"`
+			ArchivedScans         *int `json:"archived_scans,omitempty"`
+			AuditEntries          *int `json:"audit_entries,omitempty"`
+			Branches              *int `json:"branches,omitempty"`
+			Deliveries            *int `json:"deliveries,omitempty"`
+			FailedJobs            *int `json:"failed_jobs,omitempty"`
+			FixedFindingsArchived *int `json:"fixed_findings_archived,omitempty"`
+			Releases              *int `json:"releases,omitempty"`
+			SbomSnapshots         *int `json:"sbom_snapshots,omitempty"`
+			Scans                 *int `json:"scans,omitempty"`
 		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err

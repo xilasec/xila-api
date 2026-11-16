@@ -45,6 +45,10 @@ type Policy struct {
 	// ArchiveAge purges projects, engagements, scans and findings archived
 	// longer ago than this (internal/archive); until then they can be restored.
 	ArchiveAge time.Duration
+	// FindingArchiveAfter archives findings remediated longer ago than this
+	// (0 = off), taking them out of every live query; ArchiveAge then purges
+	// them. A finding reported again is unarchived by the upsert.
+	FindingArchiveAfter time.Duration
 }
 
 // Result counts what one run deleted.
@@ -56,6 +60,8 @@ type Result struct {
 	Deliveries    int64 `json:"deliveries"`
 	FailedJobs    int64 `json:"failed_jobs"`
 	AuditEntries  int64 `json:"audit_entries"`
+	// Remediated findings archived past FINDING_ARCHIVE_AFTER.
+	FixedFindingsArchived int64 `json:"fixed_findings_archived"`
 	// Archived records purged past ARCHIVE_RETENTION.
 	ArchivedProjects    int64 `json:"archived_projects"`
 	ArchivedEngagements int64 `json:"archived_engagements"`
@@ -64,7 +70,7 @@ type Result struct {
 }
 
 func (r Result) total() int64 {
-	return r.Branches + r.Releases + r.SBOMSnapshots + r.Scans + r.Deliveries + r.FailedJobs + r.AuditEntries +
+	return r.Branches + r.Releases + r.SBOMSnapshots + r.Scans + r.Deliveries + r.FailedJobs + r.AuditEntries + r.FixedFindingsArchived +
 		r.ArchivedProjects + r.ArchivedEngagements + r.ArchivedScans + r.ArchivedFindings
 }
 
@@ -127,6 +133,9 @@ func (s *Service) Run(ctx context.Context) (Result, error) {
 	})
 	step("failed ingest jobs", p.LogAge > 0, &res.FailedJobs, func() (int64, error) {
 		return s.pruneFailedJobs(ctx, p.LogAge)
+	})
+	step("fixed findings", p.FindingArchiveAfter > 0, &res.FixedFindingsArchived, func() (int64, error) {
+		return s.archiveFixed(ctx, p.FindingArchiveAfter)
 	})
 	if p.ArchiveAge > 0 {
 		// Through the same delete paths an explicit purge takes.
@@ -230,6 +239,33 @@ func (s *Service) pruneFailedJobs(ctx context.Context, age time.Duration) (int64
 	return s.exec(ctx, `DELETE FROM scan_jobs WHERE status = 'failed' AND created_at < now() - make_interval(secs => $1)`, age.Seconds())
 }
 
+// archiveFixedBatch bounds one archiving statement, so a backlog of millions
+// of fixed findings is worked off in short transactions (no long lock, no
+// statement timeout) rather than one huge UPDATE.
+const archiveFixedBatch = 5000
+
+// archiveFixed archives findings remediated longer ago than age, in batches.
+func (s *Service) archiveFixed(ctx context.Context, age time.Duration) (int64, error) {
+	var total int64
+	for {
+		n, err := s.exec(ctx, `
+			UPDATE findings SET archived_at = now()
+			WHERE id IN (
+				SELECT id FROM findings
+				WHERE status = 'remediated' AND archived_at IS NULL
+				  AND resolved_at < now() - make_interval(secs => $1)
+				LIMIT $2
+				FOR UPDATE SKIP LOCKED)`, age.Seconds(), archiveFixedBatch)
+		total += n
+		if err != nil || n < archiveFixedBatch {
+			return total, err
+		}
+		if ctx.Err() != nil {
+			return total, ctx.Err()
+		}
+	}
+}
+
 // RunEvery applies the policy daily (and once at start) until ctx ends.
 // Leader-only.
 func (s *Service) RunEvery(ctx context.Context, interval time.Duration) {
@@ -276,7 +312,7 @@ func (h *Handler) get(c *fiber.Ctx) error {
 		"branch_days": days(p.BranchAge), "release_days": days(p.ReleaseAge),
 		"sbom_keep": p.SBOMKeep, "sbom_days": days(p.SBOMAge),
 		"scan_days": days(p.ScanAge), "log_days": days(p.LogAge), "audit_days": days(p.AuditAge),
-		"archive_days": days(p.ArchiveAge),
+		"archive_days": days(p.ArchiveAge), "finding_archive_days": days(p.FindingArchiveAfter),
 	})
 }
 

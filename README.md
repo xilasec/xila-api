@@ -2436,6 +2436,9 @@ Azure Key Vault, Vault) hand secrets to the app. It applies to `JWT_SECRET`,
 | `DB_MAX_CONN_LIFETIME` / `_IDLE_TIME` | `1h` / `30m` | pool recycling (Go durations)           |
 | `DB_CONNECT_TIMEOUT`          | `10s`                | dial timeout (added to the DSN)         |
 | `DB_STATEMENT_TIMEOUT`        | `30s`                | cap on any single query (`0` disables); set per pooled connection, not in the DSN |
+| `DB_READ_URL`                 | (none)               | `postgres://` URL of a read replica for reporting reads (portfolio, trends, reports); also `DB_READ_URL_FILE` |
+| `DB_READ_STATEMENT_TIMEOUT`   | `0` (= `DB_STATEMENT_TIMEOUT`) | statement cap for reporting reads; set it or `DB_READ_URL` to give reporting its own pool |
+| `DB_READ_MAX_CONNS`           | `10`                 | size of that reporting pool |
 | `HTTP_READ_TIMEOUT` / `_WRITE_TIMEOUT` / `_IDLE_TIMEOUT` | `15s`/`30s`/`60s` | server timeouts |
 | `HTTP_BODY_LIMIT_MB`          | `32`                 | max upload size (scans/SBOMs)           |
 | `JWT_SECRET`                  | dev-only fallback    | **Must be a strong value in production (boot fails otherwise).** |
@@ -2551,6 +2554,7 @@ Azure Key Vault, Vault) hand secrets to the app. It applies to `JWT_SECRET`,
 | `LOG_RETENTION`               | `90d` (`2160h`)      | notification delivery log and failed ingest jobs (which hold the uploaded report, or its S3 object with `INGEST_PAYLOAD_STORE=s3`) |
 | `AUDIT_RETENTION`             | `365d` (`8760h`)     | audit log entries older than this are purged (`0` = keep forever); the purge itself is logged |
 | `ARCHIVE_RETENTION`           | `30d` (`720h`)       | archived projects, engagements, scans, and findings stay restorable for this long, then the retention job deletes them (`0` = keep forever) |
+| `FINDING_ARCHIVE_AFTER`       | `0` (off)            | archive findings fixed longer ago than this (e.g. `4320h`), in batches; `ARCHIVE_RETENTION` then purges them, and one reported again comes back open |
 | `ASSESSMENT_REQUIRES_APPROVAL` | `false`             | four-eyes for manual status and severity changes: they become pending assessments until a different project owner (or instance admin) approves them |
 | `RISK_ACCEPTANCE_REQUIRES_APPROVAL` | `true` in production, else `false` | four-eyes for risk acceptances: the requester cannot approve or reject their own; imported acceptances wait as requests |
 | `RISK_ACCEPTANCE_EXPIRY_WARNING` | `168h` | announce approved risk acceptances this long before they expire (`0` = never) |
@@ -2562,6 +2566,7 @@ Azure Key Vault, Vault) hand secrets to the app. It applies to `JWT_SECRET`,
 | `REMEDIATION_AUTO_CREATE`     | `false`              | create remediation actions from proposals automatically instead of waiting for a user to accept them |
 | `CONNECTOR_PULL_INTERVAL`     | `6h`                 | how often each enabled pull connector is pulled (`0` = off; Pull now still works) |
 | `METRICS_SNAPSHOT_INTERVAL`   | `1h`                 | how often today's and yesterday's metric snapshots are recomputed; the first run backfills 90 days (`0` = off) |
+| `PORTFOLIO_FROM_SNAPSHOTS`    | `false`              | serve `/portfolio`'s counts, risk and top projects from the latest snapshots instead of scanning findings per request (as of the last snapshot run; compliance and SLA stay live) |
 | `INGEST_MAX_QUEUE_DEPTH`      | `10000`              | pending job count at which uploads are rejected with `429` (`0` = unbounded) |
 | `INGEST_QUEUE_SAMPLE_INTERVAL`| `5s`                 | how often queue depth is measured             |
 | `INGEST_SKIP_UNCHANGED`       | `true`               | skip the pipeline when a report's content hash matches its target's previous completed scan (see "Skip unchanged scans"); a per-upload `force=true` always processes in full |
@@ -2684,6 +2689,16 @@ either way; only where the bytes live between upload and processing changes.
 Measured ingest throughput and list/portfolio latency at 1M+ findings, the Go
 benchmarks for the dedup/auto-close/priority hot paths, and the harness that
 reproduces both are in [docs/SCALE.md](docs/SCALE.md).
+
+### Past 100M findings
+
+Four settings keep large instances fast. `FINDING_ARCHIVE_AFTER` moves old
+fixed findings out of every live query (they stay restorable until
+`ARCHIVE_RETENTION`). `PORTFOLIO_FROM_SNAPSHOTS` serves the portfolio from the
+hourly metric snapshots rather than scanning every finding per request.
+`DB_READ_URL` sends portfolio, trend and report reads to a read replica, and
+`DB_READ_STATEMENT_TIMEOUT` caps them in a pool of their own, so a heavy report
+can't take connections ingest needs. `docs/SCALE.md` has the details.
 
 ## Deploying to production
 

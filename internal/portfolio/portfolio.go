@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"sync"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -15,14 +16,15 @@ import (
 	"github.com/xilasec/xila-api/internal/compliance"
 	"github.com/xilasec/xila-api/internal/domain"
 	"github.com/xilasec/xila-api/internal/finding"
+	"github.com/xilasec/xila-api/internal/metrics"
 )
 
-// exploitableEPSS is the EPSS probability at/above which an un-KEV finding still
-// counts as "exploitable" for the portfolio rollup.
-const exploitableEPSS = 0.5
-
-// expiringSoonDays is the window for "risk acceptance expiring soon".
-const expiringSoonDays = 30
+// The portfolio's exploitable and expiring-soon rules, shared with the
+// snapshots that can serve it (PORTFOLIO_FROM_SNAPSHOTS).
+const (
+	exploitableEPSS  = metrics.ExploitableEPSS
+	expiringSoonDays = metrics.ExpiringSoonDays
+)
 
 // ProjectRisk is a single project's contribution, for the "top risk" list.
 type ProjectRisk struct {
@@ -56,17 +58,34 @@ type Overview struct {
 	TopProjects     []ProjectRisk           `json:"top_projects"`
 	// SLA is the estate's posture against its remediation deadlines.
 	SLA finding.SLAStats `json:"sla"`
+	// Source is "live" (computed from findings now) or "snapshots" (the
+	// latest metric snapshots, PORTFOLIO_FROM_SNAPSHOTS); AsOf is when those
+	// snapshots were taken. Compliance and SLA are always live.
+	Source string     `json:"source"`
+	AsOf   *time.Time `json:"as_of,omitempty"`
 }
 
 // Repository computes portfolio aggregates.
 type Repository struct {
 	db       *pgxpool.Pool
 	findings *finding.Repository
+	// snapshots serves the counts, risk and top projects from the latest
+	// metric snapshots instead of scanning findings (PORTFOLIO_FROM_SNAPSHOTS).
+	snapshots bool
 }
 
 // NewRepository constructs a Repository.
 func NewRepository(db *pgxpool.Pool) *Repository {
 	return &Repository{db: db, findings: finding.NewRepository(db)}
+}
+
+// WithSnapshots serves the portfolio's finding counts from the latest metric
+// snapshots (as of the last METRICS_SNAPSHOT_INTERVAL run) rather than
+// scanning every finding on each request: past 100M findings the live scans
+// are the slow part. Compliance and SLA stay live.
+func (r *Repository) WithSnapshots(on bool) *Repository {
+	r.snapshots = on
+	return r
 }
 
 // Overview builds the rollup. pids restricts to a set of projects for RBAC; a
@@ -82,6 +101,15 @@ func (r *Repository) Overview(ctx context.Context, pids []string) (Overview, err
 		OpenByCategory: map[domain.Category]int{},
 		TopProjects:    []ProjectRisk{},
 		Compliance:     []FrameworkAverage{},
+		Source:         "live",
+	}
+	var snapDay *time.Time
+	if r.snapshots {
+		var day *time.Time
+		if err := r.db.QueryRow(ctx, `SELECT max(day) FROM metric_snapshots WHERE scope_kind = 'project'`).Scan(&day); err != nil {
+			return Overview{}, fmt.Errorf("latest snapshot: %w", err)
+		}
+		snapDay = day // nil (no snapshot yet): computed live
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -109,23 +137,14 @@ func (r *Repository) Overview(ctx context.Context, pids []string) (Overview, err
 		}
 		return nil
 	})
-	run(func() error { return r.aggregateRisk(ctx, &out, pids) })
-	run(func() error { return r.aggregateCategory(ctx, &out, pids) })
-	run(func() error { return r.aggregateExploit(ctx, &out, pids) })
-	run(func() error {
-		if err := r.db.QueryRow(ctx, `
-			SELECT count(*) FROM findings
-			WHERE `+finding.ExceptionExpirySQL+` > now()
-			  AND `+finding.ExceptionExpirySQL+` <= now() + make_interval(days => $1)
-			  AND duplicate_of IS NULL
-			  AND version_id IN (SELECT id FROM project_versions WHERE is_default)
-			  AND`+archive.Finding("")+`
-			  AND ($2::uuid[] IS NULL OR project_id = ANY($2))`,
-			expiringSoonDays, pids).Scan(&out.ExpiringSoon); err != nil {
-			return fmt.Errorf("aggregate expiring: %w", err)
-		}
-		return nil
-	})
+	if snapDay != nil {
+		run(func() error { return r.fromSnapshots(ctx, &out, pids, *snapDay) })
+	} else {
+		run(func() error { return r.aggregateRisk(ctx, &out, pids) })
+		run(func() error { return r.aggregateCategory(ctx, &out, pids) })
+		run(func() error { return r.aggregateExploit(ctx, &out, pids) })
+		run(func() error { return r.aggregateExpiring(ctx, &out, pids) })
+	}
 	run(func() error { return r.aggregateCompliance(ctx, &out, pids) })
 	run(func() error {
 		sla, err := r.findings.SLAStats(ctx, pids)
@@ -140,6 +159,84 @@ func (r *Repository) Overview(ctx context.Context, pids []string) (Overview, err
 		return Overview{}, firstErr
 	}
 	return out, nil
+}
+
+// aggregateExpiring counts exceptions and risk acceptances lapsing soon.
+func (r *Repository) aggregateExpiring(ctx context.Context, out *Overview, pids []string) error {
+	if err := r.db.QueryRow(ctx, `
+		SELECT count(*) FROM findings
+		WHERE `+finding.ExceptionExpirySQL+` > now()
+		  AND `+finding.ExceptionExpirySQL+` <= now() + make_interval(days => $1)
+		  AND duplicate_of IS NULL
+		  AND version_id IN (SELECT id FROM project_versions WHERE is_default)
+		  AND`+archive.Finding("")+`
+		  AND ($2::uuid[] IS NULL OR project_id = ANY($2))`,
+		expiringSoonDays, pids).Scan(&out.ExpiringSoon); err != nil {
+		return fmt.Errorf("aggregate expiring: %w", err)
+	}
+	return nil
+}
+
+// fromSnapshots fills the finding counts, risk, top projects and expiring
+// from day's project snapshot rows: the same rules as the live aggregates
+// (metrics.projectDaySQL), as of the snapshot run.
+func (r *Repository) fromSnapshots(ctx context.Context, out *Overview, pids []string, day time.Time) error {
+	rows, err := r.db.Query(ctx, `
+		SELECT p.id, p.name, p.slug, s.open_critical, s.open_high, s.open_medium, s.open_low, s.open_info,
+		       s.open_total, s.risk_score, s.open_kev, s.open_exploitable, s.open_by_category, s.expiring_soon, s.created_at
+		FROM metric_snapshots s JOIN projects p ON p.id = s.scope_id
+		WHERE s.day = $1 AND s.scope_kind = 'project' AND`+archive.Project("p")+`
+		  AND ($2::uuid[] IS NULL OR p.id = ANY($2))`, day, pids)
+	if err != nil {
+		return fmt.Errorf("portfolio snapshots: %w", err)
+	}
+	defer rows.Close()
+	sevs := [5]domain.Severity{domain.SeverityCritical, domain.SeverityHigh, domain.SeverityMedium, domain.SeverityLow, domain.SeverityInfo}
+	var risk float64
+	for rows.Next() {
+		var (
+			pr       ProjectRisk
+			open     [5]int
+			kev, exp int
+			cats     map[string]int
+			expiring int
+			at       time.Time
+		)
+		if err := rows.Scan(&pr.ID, &pr.Name, &pr.Slug, &open[0], &open[1], &open[2], &open[3], &open[4],
+			&pr.TotalOpen, &pr.RiskScore, &kev, &exp, &cats, &expiring, &at); err != nil {
+			return fmt.Errorf("scan portfolio snapshot: %w", err)
+		}
+		for i, n := range open {
+			if n > 0 {
+				out.OpenBySeverity[sevs[i]] += n
+			}
+		}
+		pr.Critical = open[0]
+		out.TotalOpen += pr.TotalOpen
+		out.KEVOpen += kev
+		out.ExploitableOpen += exp
+		out.ExpiringSoon += expiring
+		for k, n := range cats {
+			out.OpenByCategory[domain.Category(k)] += n
+		}
+		risk += pr.RiskScore
+		if pr.TotalOpen > 0 {
+			out.TopProjects = append(out.TopProjects, pr)
+		}
+		if out.AsOf == nil || at.After(*out.AsOf) {
+			out.AsOf = &at
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	out.RiskScore = math.Round(risk*10) / 10
+	sortTopProjects(out.TopProjects)
+	if len(out.TopProjects) > 5 {
+		out.TopProjects = out.TopProjects[:5]
+	}
+	out.Source = "snapshots"
+	return nil
 }
 
 // aggregateRisk builds severity totals, the weighted risk score (per-project

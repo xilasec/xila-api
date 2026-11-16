@@ -165,6 +165,31 @@ func run() error {
 	}
 	slog.Info("database migrations applied")
 
+	// Reporting reads (portfolio, trends, reports): a read replica
+	// (DB_READ_URL) and/or a tighter statement cap (DB_READ_STATEMENT_TIMEOUT)
+	// in a pool of their own; otherwise the primary pool.
+	readDB := db
+	if cfg.DB.SeparateReadPool() {
+		timeout := cfg.DB.ReadStatementTimeout
+		if timeout == 0 {
+			timeout = cfg.DB.StatementTimeout
+		}
+		readDB, err = database.Connect(rootCtx, cfg.DB.ReadDSN(), database.PoolConfig{
+			MaxConns:          cfg.DB.ReadMaxConns,
+			MinConns:          1,
+			MaxConnLifetime:   cfg.DB.MaxConnLifetime,
+			MaxConnIdleTime:   cfg.DB.MaxConnIdleTime,
+			HealthCheckPeriod: cfg.DB.HealthCheckPeriod,
+			StatementTimeout:  timeout,
+			StartupWait:       time.Minute,
+		})
+		if err != nil {
+			return fmt.Errorf("reporting database: %w", err)
+		}
+		defer readDB.Close()
+		slog.Info("reporting reads use their own pool", "replica", cfg.DB.ReadURL != "", "statement_timeout", timeout)
+	}
+
 	// Payload storage for queued ingest jobs (INGEST_PAYLOAD_STORE, M11 11.8):
 	// postgres (scan_jobs.payload, the default) or s3 (any S3-compatible
 	// object storage; scan_jobs keeps only a reference). Built here, with a
@@ -203,8 +228,11 @@ func run() error {
 	assetRepo := asset.NewRepository(db)
 	assetSvc := asset.NewService(assetRepo, findingRepo)
 	complianceRepo := compliance.NewRepository(db)
-	portfolioRepo := portfolio.NewRepository(db)
+	// Reporting reads go to readDB (replica / capped pool); the snapshot job
+	// writes through the primary.
+	portfolioRepo := portfolio.NewRepository(readDB).WithSnapshots(cfg.PortfolioFromSnapshots)
 	metricsRepo := metrics.NewRepository(db)
+	metricsReadRepo := metrics.NewRepository(readDB)
 	notifyRepo := notify.NewRepository(db)
 	features := feature.NewStore(db, feature.Unavailable(cfg)...)
 	notifySvc := notify.NewService(notifyRepo, notify.SMTPConfig(cfg.SMTP)).WithFeatures(features)
@@ -440,8 +468,8 @@ func run() error {
 		Asset:      asset.NewHandler(assetRepo, assetSvc, membershipRepo),
 		Compliance: compliance.NewHandler(complianceRepo),
 		Portfolio:  portfolio.NewHandler(portfolioRepo),
-		Metrics:    metrics.NewHandler(metricsRepo),
-		Report: report.NewHandler(report.NewService(portfolioRepo, findingRepo, complianceRepo, projectRepo,
+		Metrics:    metrics.NewHandler(metricsReadRepo),
+		Report: report.NewHandler(report.NewService(portfolioRepo, finding.NewRepository(readDB), complianceRepo, projectRepo,
 			report.NewRepository(db)).WithEngagements(engagementRepo), reportTemplates),
 		Engagement:   engagement.NewHandler(engagementRepo, ingestSvc, findingRepo, findingTemplates),
 		Badge:        badge.NewHandler(badge.NewRepository(db), portfolioRepo, gateRepo, findingRepo).WithPublicURL(cfg.PublicURL),
