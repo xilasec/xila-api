@@ -713,9 +713,18 @@ For 100,000 and more (several nodes):
 
 For 1,000,000 (bursts of a billion findings):
 
-- ⬜ 11.8 Reports outside Postgres: store raw uploads in S3-compatible object
-  storage and queue only a reference. A million 1 MB reports is a terabyte of
-  queue traffic in the database today.
+- ✅ 11.8 Reports outside Postgres: `INGEST_PAYLOAD_STORE=s3` moves a queued
+  job's raw upload to any S3-compatible object storage (AWS S3, MinIO, Ceph,
+  Cloudflare R2, GCS interop) via `internal/objectstore` (aws-sdk-go-v2),
+  behind `internal/netguard` like every other configured destination.
+  `scan_jobs` keeps only a `payload_ref` key (`payload` is nullable, with an
+  xor `CHECK`); `scan.Service.Enqueue` uploads it, `ProcessJob` fetches and
+  deletes it on success, and a job parked `failed` keeps its object until
+  `LOG_RETENTION` purges the row (and the object with it) — inspectable in
+  the meantime. Static credentials or the standard AWS credential chain
+  (env/EC2/ECS/EKS IRSA); the bucket is `HeadBucket`-checked at startup, so a
+  bad bucket or missing credentials fails boot. Skip-unchanged and the queue
+  behave identically for both stores.
 - ⬜ 11.9 Data lifecycle past 100M findings: serve the portfolio from metric
   snapshots, archive or partition closed findings, cap read queries with a
   statement timeout, move reporting to a read replica.

@@ -572,3 +572,80 @@ func TestIngestWorkersZero(t *testing.T) {
 		t.Error("INGEST_WORKERS=-1 accepted")
 	}
 }
+
+// INGEST_PAYLOAD_STORE defaults to postgres (today's behavior); an unknown
+// value is rejected.
+func TestIngestPayloadStoreDefault(t *testing.T) {
+	t.Setenv("APP_ENV", "development")
+	unset(t, "INGEST_PAYLOAD_STORE")
+	cfg, err := Load()
+	if err != nil || cfg.Ingest.PayloadStore != "postgres" {
+		t.Fatalf("default PayloadStore = %q, %v", cfg.Ingest.PayloadStore, err)
+	}
+	t.Setenv("INGEST_PAYLOAD_STORE", "dropbox")
+	if _, err := Load(); err == nil {
+		t.Error("INGEST_PAYLOAD_STORE=dropbox accepted")
+	}
+}
+
+// INGEST_PAYLOAD_STORE=s3 fails fast (no network) without S3_BUCKET/REGION,
+// the fields objectstore.New needs before it can even try to reach the
+// bucket.
+func TestIngestPayloadStoreS3RequiresBucketAndRegion(t *testing.T) {
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("INGEST_PAYLOAD_STORE", "s3")
+	unset(t, "S3_BUCKET")
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "S3_BUCKET") {
+		t.Errorf("s3 store without S3_BUCKET: %v", err)
+	}
+	t.Setenv("S3_BUCKET", "xila-payloads")
+	t.Setenv("S3_REGION", "")
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "S3_REGION") {
+		t.Errorf("s3 store without S3_REGION: %v", err)
+	}
+	t.Setenv("S3_REGION", "eu-west-1")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("s3 store with bucket+region: %v", err)
+	}
+	if cfg.S3.Bucket != "xila-payloads" || cfg.S3.Region != "eu-west-1" {
+		t.Errorf("S3 config = %+v", cfg.S3)
+	}
+	// S3_ENDPOINT goes through netguard.CheckURL, like every other configured
+	// destination; a metadata-service address is refused.
+	t.Setenv("S3_ENDPOINT", "http://169.254.169.254")
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "S3_ENDPOINT") {
+		t.Errorf("metadata-address S3_ENDPOINT accepted: %v", err)
+	}
+}
+
+// S3_ACCESS_KEY_ID / S3_SECRET_ACCESS_KEY support the NAME_FILE secret
+// convention, like every other credential in this package.
+func TestS3CredentialsFromFile(t *testing.T) {
+	t.Setenv("APP_ENV", "development")
+	unset(t, "S3_SECRET_ACCESS_KEY")
+	path := filepath.Join(t.TempDir(), "s3-secret")
+	if err := os.WriteFile(path, []byte("from-a-file\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("S3_SECRET_ACCESS_KEY_FILE", path)
+	cfg, err := Load()
+	if err != nil || cfg.S3.SecretAccessKey != "from-a-file" {
+		t.Fatalf("S3_SECRET_ACCESS_KEY_FILE = %q, %v", cfg.S3.SecretAccessKey, err)
+	}
+}
+
+// S3_FORCE_PATH_STYLE and S3_PREFIX reach the config untouched (the prefix
+// trimmed of surrounding slashes).
+func TestS3PathStyleAndPrefix(t *testing.T) {
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("S3_PREFIX", "/xila/ingest/")
+	t.Setenv("S3_FORCE_PATH_STYLE", "true")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.S3.Prefix != "xila/ingest" || !cfg.S3.ForcePathStyle {
+		t.Errorf("S3 config = %+v", cfg.S3)
+	}
+}

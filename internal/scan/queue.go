@@ -9,12 +9,16 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// Job is a queued ingest: the raw payload plus the options needed to process it.
-// The owning scan row (project, scanner, …) is referenced by ScanID.
+// Job is a queued ingest: the raw payload plus the options needed to process
+// it. The owning scan row (project, scanner, …) is referenced by ScanID.
+// Exactly one of Payload/PayloadRef is set: Payload when
+// INGEST_PAYLOAD_STORE=postgres (the default), PayloadRef — the object store
+// key a worker fetches with scan.PayloadStore.Get — when it's s3.
 type Job struct {
 	ID           string
 	ScanID       string
 	Payload      []byte
+	PayloadRef   string
 	Format       string
 	CloseMissing bool
 	// Force skips the skip-unchanged check: always run the full pipeline (the
@@ -24,10 +28,11 @@ type Job struct {
 	Attempts int
 }
 
-// EnqueueJob stores a job for later processing by a worker.
-func (r *Repository) EnqueueJob(ctx context.Context, scanID string, payload []byte, format string, closeMissing, force bool) error {
-	const q = `INSERT INTO scan_jobs (scan_id, payload, format, close_missing, force) VALUES ($1, $2, $3, $4, $5)`
-	if _, err := r.db.Exec(ctx, q, scanID, payload, format, closeMissing, force); err != nil {
+// EnqueueJob stores a job for later processing by a worker. Exactly one of
+// payload/payloadRef is non-empty (see Job).
+func (r *Repository) EnqueueJob(ctx context.Context, scanID string, payload []byte, payloadRef, format string, closeMissing, force bool) error {
+	const q = `INSERT INTO scan_jobs (scan_id, payload, payload_ref, format, close_missing, force) VALUES ($1, $2, NULLIF($3, ''), $4, $5, $6)`
+	if _, err := r.db.Exec(ctx, q, scanID, payload, payloadRef, format, closeMissing, force); err != nil {
 		return fmt.Errorf("enqueue job: %w", err)
 	}
 	return nil
@@ -48,10 +53,10 @@ func (r *Repository) ClaimJob(ctx context.Context, staleAfter time.Duration) (*J
 			FOR UPDATE SKIP LOCKED
 			LIMIT 1
 		)
-		RETURNING id, scan_id, payload, format, close_missing, force, attempts`
+		RETURNING id, scan_id, payload, COALESCE(payload_ref, ''), format, close_missing, force, attempts`
 	var j Job
 	err := r.db.QueryRow(ctx, q, staleAfter.Seconds()).
-		Scan(&j.ID, &j.ScanID, &j.Payload, &j.Format, &j.CloseMissing, &j.Force, &j.Attempts)
+		Scan(&j.ID, &j.ScanID, &j.Payload, &j.PayloadRef, &j.Format, &j.CloseMissing, &j.Force, &j.Attempts)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}

@@ -53,6 +53,7 @@ import (
 	"github.com/xilasec/xila-api/internal/metrics"
 	"github.com/xilasec/xila-api/internal/netguard"
 	"github.com/xilasec/xila-api/internal/notify"
+	"github.com/xilasec/xila-api/internal/objectstore"
 	"github.com/xilasec/xila-api/internal/observability"
 	"github.com/xilasec/xila-api/internal/oidc"
 	"github.com/xilasec/xila-api/internal/org"
@@ -164,11 +165,34 @@ func run() error {
 	}
 	slog.Info("database migrations applied")
 
+	// Payload storage for queued ingest jobs (INGEST_PAYLOAD_STORE, M11 11.8):
+	// postgres (scan_jobs.payload, the default) or s3 (any S3-compatible
+	// object storage; scan_jobs keeps only a reference). Built here, with a
+	// reachability check (HeadBucket), so a misconfigured bucket fails startup
+	// rather than the first upload.
+	var payloadStore scan.PayloadStore
+	if cfg.Ingest.PayloadStore == "s3" {
+		client, err := objectstore.New(rootCtx, objectstore.Config{
+			Endpoint:        cfg.S3.Endpoint,
+			Region:          cfg.S3.Region,
+			Bucket:          cfg.S3.Bucket,
+			Prefix:          cfg.S3.Prefix,
+			AccessKeyID:     cfg.S3.AccessKeyID,
+			SecretAccessKey: cfg.S3.SecretAccessKey,
+			ForcePathStyle:  cfg.S3.ForcePathStyle,
+		})
+		if err != nil {
+			return fmt.Errorf("S3 payload store: %w", err)
+		}
+		payloadStore = client
+		slog.Info("ingest payload store ready", "backend", "s3", "bucket", cfg.S3.Bucket)
+	}
+
 	// Wire dependencies.
 	userRepo := user.NewRepository(db)
 	teamRepo := team.NewRepository(db)
 	projectRepo := project.NewRepository(db)
-	retentionSvc := retention.NewService(db, projectRepo, retention.Policy(cfg.Retention))
+	retentionSvc := retention.NewService(db, projectRepo, retention.Policy(cfg.Retention), payloadStore)
 	auditRepo := audit.NewRepository(db)
 	ingestHealth := ingesthealth.NewRepository(db)
 	scanRepo := scan.NewRepository(db)
@@ -269,7 +293,8 @@ func run() error {
 	}
 	ingestSvc := scan.NewService(scanRepo, findingRepo, projectRepo, parsers, notifySvc, appliers, scanRepo).
 		WithFollowUps(remediationSvc).
-		WithSkipUnchanged(cfg.Ingest.SkipUnchanged)
+		WithSkipUnchanged(cfg.Ingest.SkipUnchanged).
+		WithPayloadStore(payloadStore)
 	connectorSvc := connector.NewService(connectorRepo, ingestSvc, trackerCipher)
 	// Component policies: evaluated on every SBOM upload (the sbom post-ingest
 	// hook), after each policy change, and on POLICY_EVAL_INTERVAL.

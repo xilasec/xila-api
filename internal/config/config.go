@@ -19,6 +19,7 @@ import (
 	"github.com/joho/godotenv"
 
 	"github.com/xilasec/xila-api/internal/domain"
+	"github.com/xilasec/xila-api/internal/netguard"
 )
 
 // Recognized deployment environments (APP_ENV).
@@ -32,26 +33,29 @@ const insecureDevSecret = "insecure-development-secret-change-me"
 
 // Config is the fully resolved application configuration.
 type Config struct {
-	Env       string
-	HTTP      HTTP
-	DB        DB
-	JWT       JWT
-	OIDC      OIDC
-	SAML      SAML
-	LDAP      LDAP
-	SSO       SSO
-	SMTP      SMTP
-	Otel      Otel
-	Metrics   Metrics
-	Security  Security
-	Policy    Policy
-	Enrich    Enrich
-	Exploit   ExploitIntel
-	CRA       CRA
-	NVD       NVD
-	AI        AI
-	Notify    Notify
-	Ingest    Ingest
+	Env      string
+	HTTP     HTTP
+	DB       DB
+	JWT      JWT
+	OIDC     OIDC
+	SAML     SAML
+	LDAP     LDAP
+	SSO      SSO
+	SMTP     SMTP
+	Otel     Otel
+	Metrics  Metrics
+	Security Security
+	Policy   Policy
+	Enrich   Enrich
+	Exploit  ExploitIntel
+	CRA      CRA
+	NVD      NVD
+	AI       AI
+	Notify   Notify
+	Ingest   Ingest
+	// S3 is the object-storage connection used when Ingest.PayloadStore is
+	// "s3" (M11 11.8).
+	S3        S3
 	VulnMatch VulnMatch
 	// PSIRT publishes CSAF security advisories about the instance's own
 	// products.
@@ -365,6 +369,33 @@ type Ingest struct {
 	// dedup or alert, just a cheap record of the repeat (M11 11.4). A per-upload
 	// force=true always processes in full.
 	SkipUnchanged bool
+	// PayloadStore (INGEST_PAYLOAD_STORE) is where a queued job's raw upload
+	// lives between Enqueue and the worker's ProcessJob: "postgres"
+	// (scan_jobs.payload, the default) or "s3" (any S3-compatible object
+	// storage; scan_jobs keeps only payload_ref). See internal/objectstore
+	// and M11 11.8.
+	PayloadStore string
+}
+
+// S3 is the object-storage connection for Ingest.PayloadStore=s3
+// (internal/objectstore.Config). Any S3-compatible service works: AWS S3,
+// MinIO, Ceph, Cloudflare R2, GCS's S3 interop.
+type S3 struct {
+	// Endpoint overrides AWS's regional endpoint. Required for everything but
+	// AWS S3 itself.
+	Endpoint string
+	Region   string
+	Bucket   string
+	// Prefix is joined under every object key ("" = bucket root).
+	Prefix string
+	// AccessKeyID / SecretAccessKey are static credentials. Leave both unset
+	// to use the standard AWS credential chain instead (environment,
+	// ~/.aws/credentials, EC2/ECS instance credentials, EKS IRSA).
+	AccessKeyID     string
+	SecretAccessKey string
+	// ForcePathStyle addresses buckets as /bucket/key — required by most
+	// non-AWS S3-compatible services.
+	ForcePathStyle bool
 }
 
 // HTTP holds the listener configuration and server timeouts.
@@ -765,6 +796,16 @@ func Load() (Config, error) {
 			MaxQueueDepth:       getint("INGEST_MAX_QUEUE_DEPTH", 10000),
 			QueueSampleInterval: getdur("INGEST_QUEUE_SAMPLE_INTERVAL", 5*time.Second),
 			SkipUnchanged:       getbool("INGEST_SKIP_UNCHANGED", true),
+			PayloadStore:        strings.ToLower(strings.TrimSpace(getenv("INGEST_PAYLOAD_STORE", "postgres"))),
+		},
+		S3: S3{
+			Endpoint:        strings.TrimSpace(getenv("S3_ENDPOINT", "")),
+			Region:          strings.TrimSpace(getenv("S3_REGION", "us-east-1")),
+			Bucket:          strings.TrimSpace(getenv("S3_BUCKET", "")),
+			Prefix:          strings.Trim(strings.TrimSpace(getenv("S3_PREFIX", "")), "/"),
+			AccessKeyID:     strings.TrimSpace(sec.get("S3_ACCESS_KEY_ID", "")),
+			SecretAccessKey: strings.TrimSpace(sec.get("S3_SECRET_ACCESS_KEY", "")),
+			ForcePathStyle:  getbool("S3_FORCE_PATH_STYLE", false),
 		},
 		ExceptionSweepInterval: getdur("EXCEPTION_SWEEP_INTERVAL", time.Hour),
 		SLASweepInterval:       getdur("SLA_SWEEP_INTERVAL", time.Hour),
@@ -837,8 +878,8 @@ func (c Config) validate() error {
 	if c.Env != EnvDevelopment && c.Env != EnvProduction && c.Env != EnvTest {
 		return fmt.Errorf("invalid APP_ENV %q (want development, production or test)", c.Env)
 	}
-	if c.Ingest.Workers < 0 {
-		return fmt.Errorf("INGEST_WORKERS must be 0 or more, got %d", c.Ingest.Workers)
+	if err := c.validateIngest(); err != nil {
+		return err
 	}
 	if u, err := url.Parse(c.SourceURL); err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
 		return fmt.Errorf("SOURCE_URL must be an absolute http(s) URL, got %q", c.SourceURL)
@@ -925,6 +966,38 @@ func (c Config) validatePSIRT() error {
 }
 
 var psirtPrefixRe = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9-]{0,30}$`)
+
+// validateIngest fails boot on an ingest configuration that cannot run: a
+// negative worker count, an unknown payload store, or
+// INGEST_PAYLOAD_STORE=s3 without the bucket/region it needs. It never
+// reaches the network — main's objectstore.New HeadBucket call is the one
+// place that does, so a wrong bucket name or missing credentials is reported
+// there, at startup, not here.
+func (c Config) validateIngest() error {
+	if c.Ingest.Workers < 0 {
+		return fmt.Errorf("INGEST_WORKERS must be 0 or more, got %d", c.Ingest.Workers)
+	}
+	switch c.Ingest.PayloadStore {
+	case "postgres", "s3":
+	default:
+		return fmt.Errorf("invalid INGEST_PAYLOAD_STORE %q (want postgres or s3)", c.Ingest.PayloadStore)
+	}
+	if c.Ingest.PayloadStore != "s3" {
+		return nil
+	}
+	if c.S3.Bucket == "" {
+		return errors.New("INGEST_PAYLOAD_STORE=s3 requires S3_BUCKET")
+	}
+	if c.S3.Region == "" {
+		return errors.New("INGEST_PAYLOAD_STORE=s3 requires S3_REGION")
+	}
+	if c.S3.Endpoint != "" {
+		if err := netguard.CheckURL(c.S3.Endpoint); err != nil {
+			return fmt.Errorf("S3_ENDPOINT: %w", err)
+		}
+	}
+	return nil
+}
 
 // validateSAML fails boot on a SAML setup that cannot work or would be unsafe.
 // (An unreachable metadata URL is not a config error: main logs it and runs
@@ -1058,6 +1131,9 @@ func (c Config) Warnings() []string {
 	}
 	if c.IntegrationSecretKey == "" {
 		w = append(w, "INTEGRATION_SECRET_KEY is unset — two-factor sign-in, issue trackers and connectors can't be configured (their secrets are encrypted with it)")
+	}
+	if c.Ingest.PayloadStore == "s3" && strings.HasPrefix(c.S3.Endpoint, "http://") {
+		w = append(w, "S3_ENDPOINT is not https — queued scan reports are uploaded to object storage in cleartext")
 	}
 	return w
 }

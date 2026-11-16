@@ -2508,7 +2508,7 @@ Azure Key Vault, Vault) hand secrets to the app. It applies to `JWT_SECRET`,
 | `SBOM_RETENTION_KEEP`         | `0` (keep all)       | keep the newest N SBOM snapshots per artifact and version; older ones (components, matches) are deleted. The current snapshot is not deleted |
 | `SBOM_RETENTION_AGE`          | `0`                  | with or without `_KEEP`: delete snapshots beyond N only once they are older than this |
 | `SCAN_RETENTION`              | `0` (keep)           | delete scan records older than this, except a finding's last scan or the latest scan of a target |
-| `LOG_RETENTION`               | `90d` (`2160h`)      | notification delivery log and failed ingest jobs (which hold the uploaded report) |
+| `LOG_RETENTION`               | `90d` (`2160h`)      | notification delivery log and failed ingest jobs (which hold the uploaded report, or its S3 object with `INGEST_PAYLOAD_STORE=s3`) |
 | `AUDIT_RETENTION`             | `365d` (`8760h`)     | audit log entries older than this are purged (`0` = keep forever); the purge itself is logged |
 | `ARCHIVE_RETENTION`           | `30d` (`720h`)       | archived projects, engagements, scans, and findings stay restorable for this long, then the retention job deletes them (`0` = keep forever) |
 | `ASSESSMENT_REQUIRES_APPROVAL` | `false`             | four-eyes for manual status and severity changes: they become pending assessments until a different project owner (or instance admin) approves them |
@@ -2525,6 +2525,13 @@ Azure Key Vault, Vault) hand secrets to the app. It applies to `JWT_SECRET`,
 | `INGEST_MAX_QUEUE_DEPTH`      | `10000`              | pending job count at which uploads are rejected with `429` (`0` = unbounded) |
 | `INGEST_QUEUE_SAMPLE_INTERVAL`| `5s`                 | how often queue depth is measured             |
 | `INGEST_SKIP_UNCHANGED`       | `true`               | skip the pipeline when a report's content hash matches its target's previous completed scan (see "Skip unchanged scans"); a per-upload `force=true` always processes in full |
+| `INGEST_PAYLOAD_STORE`        | `postgres`           | where a queued job's raw upload lives until a worker processes it: `postgres` (`scan_jobs.payload`) or `s3` (any S3-compatible object storage; see "Payload storage") |
+| `S3_ENDPOINT`                 | AWS's regional endpoint | override for a non-AWS S3-compatible service (MinIO, Ceph, R2, GCS interop); validated like every other configured destination (`internal/netguard`) |
+| `S3_REGION`                   | `us-east-1`          | bucket region |
+| `S3_BUCKET`                   | -                    | bucket for queued payloads; required when `INGEST_PAYLOAD_STORE=s3` |
+| `S3_PREFIX`                   | -                    | optional key prefix under the bucket |
+| `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | -     | static credentials; both unset uses the standard AWS credential chain (environment, shared config, EC2/ECS instance credentials, EKS IRSA) |
+| `S3_FORCE_PATH_STYLE`         | `false`              | address objects as `/bucket/key`; needed by most non-AWS S3-compatible services |
 
 ## Scaling ingestion (async)
 
@@ -2601,6 +2608,28 @@ has touched in an hour is not. The same numbers are exported as OpenTelemetry
 gauges (`xila.ingest.queue.depth`, `xila.ingest.queue.oldest_wait`) along with
 worker throughput and latency (`xila.ingest.jobs`, `xila.ingest.job.duration`),
 so you can see whether the queue drains faster than it fills.
+
+### Payload storage (S3)
+
+Async ingest holds each queued report's raw bytes in `scan_jobs.payload`
+until a worker processes it. At very high volume (a burst of a million 1 MB
+reports is a terabyte) that is a lot of bytea traffic through Postgres for
+data nothing ever queries. `INGEST_PAYLOAD_STORE=s3` moves it to any
+S3-compatible object storage instead (AWS S3, MinIO, Ceph, Cloudflare R2,
+GCS's S3 interop): the upload handler stores the payload under
+`<S3_PREFIX>/scan-jobs/<scan id>` and `scan_jobs` keeps only that key
+(`payload_ref`), the worker fetches it, and it is deleted once the job
+finishes. A job that exhausts its retries and is parked `failed` keeps its
+object, so it stays inspectable, until the `LOG_RETENTION` sweep deletes it
+alongside the row (the same thing `LOG_RETENTION` already did for
+`scan_jobs.payload`). Requests go through `internal/netguard` like every other
+configured destination. `S3_ACCESS_KEY_ID`/`S3_SECRET_ACCESS_KEY` set static
+credentials; leaving both unset uses the standard AWS credential chain
+(environment, shared config, EC2/ECS instance credentials, EKS IRSA), useful
+when the pods already have workload identity. The bucket is checked
+(`HeadBucket`) at startup, so a missing bucket or bad credentials fails boot
+rather than the first upload. Skip-unchanged and the queue behave identically
+either way; only where the bytes live between upload and processing changes.
 
 Measured ingest throughput and list/portfolio latency at 1M+ findings, the Go
 benchmarks for the dedup/auto-close/priority hot paths, and the harness that
