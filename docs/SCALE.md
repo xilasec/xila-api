@@ -181,8 +181,8 @@ What this means for bursts (a scan of about 1,000 findings each):
   time out.
 - 1,000,000 repositories at once is about 1B findings: roughly 30 node-hours at
   this rate, and about 1 TB of raw reports that would otherwise sit in the
-  queue. `INGEST_PAYLOAD_STORE=s3` (M11 11.8) moves that out of Postgres —
-  `scan_jobs` keeps only an object-store reference, not the bytes — and the
+  queue. `INGEST_PAYLOAD_STORE=s3` (M11 11.8) moves that out of Postgres
+  (`scan_jobs` keeps only an object-store reference, not the bytes), and the
   remaining M11 work (horizontal workers, skipping unchanged scans, fair
   queueing per tenant) covers the rest.
 
@@ -208,14 +208,31 @@ nodes, put PgBouncer (transaction pooling) in front of Postgres and lower
 
 ## Queue storage (S3)
 
-`scan_jobs.payload` holds the raw upload until a worker processes it — fine at
+`scan_jobs.payload` holds the raw upload until a worker processes it. That is fine at
 moderate volume, but a terabyte of bytea traffic through Postgres at the
 1,000,000-repository scale above. `INGEST_PAYLOAD_STORE=s3` moves the bytes to
 any S3-compatible object storage and leaves only a key (`payload_ref`) in the
 row; the worker fetches the object, and it is deleted once the job finishes
 (or, for a job that exhausted its retries, once `LOG_RETENTION` purges the
 parked row). This is a storage-location change, not a pipeline change:
-skip-unchanged, dedup, and the queue's `SELECT … FOR UPDATE SKIP LOCKED`
-claim/retry/backpressure all behave identically with either store — see
-README.md "Payload storage (S3)" for the setting reference.
+skip-unchanged, dedup, and the queue's fair claim, retries and backpressure
+behave identically with either store. README.md "Payload storage (S3)" has
+the settings.
 
+## Fair queueing and live tuning
+
+The claim picks, in one statement, the org with the fewest jobs processing
+and that org's oldest job whose project has nothing processing; a partial
+unique index allows one processing job per project, so a burst against one
+project uses one worker and the others move on. Orgs with pending work are
+found by a loose index scan (one probe per org), and each org is looked into
+at most 64 jobs deep, so the cost depends on the number of orgs with work
+queued, not on queue depth. With 100,000 pending jobs in 20 orgs the claim
+runs in a few milliseconds (`TestClaimQueryScalesToDeepQueue`); 2,000 jobs of
+one org don't delay another org's single upload past the second claim
+(`TestClaimFairUnderDeepBacklog`).
+
+`PUT /ingest/settings` changes the 429 threshold and the workers per worker
+node at runtime; each node applies it on its next queue sample. If the
+settings can't be read, a node keeps what it has rather than falling back to
+the env values.

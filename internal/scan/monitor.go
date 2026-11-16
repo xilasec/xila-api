@@ -19,6 +19,13 @@ type queueSampler interface {
 	QueueStats(ctx context.Context) (QueueStats, error)
 }
 
+// settingsSampler is the subset of the repository the monitor reads live
+// tuning overrides from (M11 11.7). Optional: nil means no live tuning, just
+// the configured defaults.
+type settingsSampler interface {
+	GetIngestSettings(ctx context.Context) (IngestSettings, error)
+}
+
 // QueueMonitor keeps a recent snapshot of the ingest queue in memory. Two things
 // need to know how deep the queue is — the metrics exporter and the upload
 // handler, which sheds load when the backlog is too deep — and neither can
@@ -28,15 +35,24 @@ type queueSampler interface {
 // The snapshot is therefore up to one interval stale. That is fine for both uses:
 // a queue that crosses the limit mid-interval is a queue that will still be over
 // it a second later.
+//
+// M11 11.7 live tuning: WithLiveSettings wires an operator override source and
+// a worker pool, so the same sample also applies the current override to the
+// backpressure threshold and resizes this node's pool — both take effect
+// within one sample interval, no restart.
 type QueueMonitor struct {
-	jobs     queueSampler
-	interval time.Duration
-	maxDepth int // 0 = no backpressure
+	jobs            queueSampler
+	settings        settingsSampler // optional
+	pool            *WorkerPool     // optional
+	interval        time.Duration
+	defaultMaxDepth int // 0 = no backpressure
+	defaultWorkers  int
 
 	pending    atomic.Int64
 	processing atomic.Int64
 	failed     atomic.Int64
 	oldestSecs atomic.Int64
+	maxDepth   atomic.Int64 // effective value in force right now: override ?? defaultMaxDepth
 }
 
 // NewQueueMonitor builds a monitor. maxDepth is the pending-job count at which
@@ -45,7 +61,19 @@ func NewQueueMonitor(jobs queueSampler, interval time.Duration, maxDepth int) *Q
 	if interval <= 0 {
 		interval = 5 * time.Second
 	}
-	return &QueueMonitor{jobs: jobs, interval: interval, maxDepth: maxDepth}
+	m := &QueueMonitor{jobs: jobs, interval: interval, defaultMaxDepth: maxDepth}
+	m.maxDepth.Store(int64(maxDepth))
+	return m
+}
+
+// WithLiveSettings wires the operator-override source and the worker pool to
+// resize, enabling M11 11.7. defaultWorkers is the configured INGEST_WORKERS,
+// used whenever no override is stored (or the override is explicitly null).
+func (m *QueueMonitor) WithLiveSettings(settings settingsSampler, pool *WorkerPool, defaultWorkers int) *QueueMonitor {
+	m.settings = settings
+	m.pool = pool
+	m.defaultWorkers = defaultWorkers
+	return m
 }
 
 // Run samples the queue until ctx is cancelled. Call it in a goroutine.
@@ -63,17 +91,47 @@ func (m *QueueMonitor) Run(ctx context.Context) {
 }
 
 func (m *QueueMonitor) sample(ctx context.Context) {
-	s, err := m.jobs.QueueStats(ctx)
-	if err != nil {
+	if s, err := m.jobs.QueueStats(ctx); err != nil {
 		if ctx.Err() == nil {
 			slog.WarnContext(ctx, "queue stats failed", "error", err)
 		}
-		return
+		// Keep the last good snapshot — reporting an empty queue when the
+		// database is unreachable would disable backpressure exactly when
+		// it's needed. Still fall through to apply live settings: a stats
+		// hiccup shouldn't also stall a worker-count change.
+	} else {
+		m.pending.Store(int64(s.Pending))
+		m.processing.Store(int64(s.Processing))
+		m.failed.Store(int64(s.Failed))
+		m.oldestSecs.Store(int64(s.OldestWait.Seconds()))
 	}
-	m.pending.Store(int64(s.Pending))
-	m.processing.Store(int64(s.Processing))
-	m.failed.Store(int64(s.Failed))
-	m.oldestSecs.Store(int64(s.OldestWait.Seconds()))
+
+	maxDepth := m.defaultMaxDepth
+	workers := m.defaultWorkers
+	if m.settings != nil {
+		set, err := m.settings.GetIngestSettings(ctx)
+		if err != nil {
+			// Keep what is in force: falling back to the env defaults on a
+			// database hiccup would resize every node and move the 429
+			// threshold for no reason.
+			if ctx.Err() == nil {
+				slog.WarnContext(ctx, "ingest settings unavailable, keeping the current ones", "error", err)
+			}
+			return
+		}
+		if set.MaxQueueDepth != nil {
+			maxDepth = *set.MaxQueueDepth
+		}
+		// The worker override is for worker nodes only: a web-only node
+		// (INGEST_WORKERS=0, the web/worker split) never starts workers.
+		if set.Workers != nil && m.defaultWorkers > 0 {
+			workers = *set.Workers
+		}
+	}
+	m.maxDepth.Store(int64(maxDepth))
+	if m.pool != nil {
+		m.pool.Resize(ctx, workers)
+	}
 }
 
 // Snapshot returns the last sample.
@@ -93,7 +151,14 @@ func (m *QueueMonitor) Snapshot() QueueStats {
 // for an hour is worse than one the client is told to retry, because the client
 // still believes it was ingested and its gate result is stale.
 func (m *QueueMonitor) Saturated() bool {
-	return m.maxDepth > 0 && int(m.pending.Load()) >= m.maxDepth
+	max := m.maxDepth.Load()
+	return max > 0 && m.pending.Load() >= max
+}
+
+// EffectiveMaxDepth returns the queue-depth backpressure threshold currently
+// in force: the stored override if one is set, else the configured default.
+func (m *QueueMonitor) EffectiveMaxDepth() int {
+	return int(m.maxDepth.Load())
 }
 
 // RegisterMetrics publishes the queue as OpenTelemetry gauges. Depth alone can't

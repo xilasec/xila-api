@@ -7876,6 +7876,22 @@ type Error struct {
 	Error *string `json:"error,omitempty"`
 }
 
+// IngestSettings defines model for IngestSettings.
+type IngestSettings struct {
+	// EffectiveMaxQueueDepth What's actually in force on the responding node right now
+	EffectiveMaxQueueDepth *int `json:"effective_max_queue_depth,omitempty"`
+
+	// EffectiveWorkers Workers actually running on the responding node right now
+	EffectiveWorkers *int `json:"effective_workers,omitempty"`
+
+	// MaxQueueDepth Override; null = use INGEST_MAX_QUEUE_DEPTH
+	MaxQueueDepth *int       `json:"max_queue_depth,omitempty"`
+	UpdatedAt     *time.Time `json:"updated_at,omitempty"`
+
+	// Workers Override; null = use INGEST_WORKERS
+	Workers *int `json:"workers,omitempty"`
+}
+
 // RiskAcceptanceList defines model for RiskAcceptanceList.
 type RiskAcceptanceList struct {
 	// Pagination `has_more` tells you whether another page exists, without a count query.
@@ -8670,6 +8686,12 @@ type GetFixPlanParams struct {
 	// Limit Page size (max 200).
 	Limit  *Limit  `form:"limit,omitempty" json:"limit,omitempty"`
 	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// PutIngestSettingsJSONBody defines parameters for PutIngestSettings.
+type PutIngestSettingsJSONBody struct {
+	MaxQueueDepth *int `json:"max_queue_depth,omitempty"`
+	Workers       *int `json:"workers,omitempty"`
 }
 
 // ListLicenseGroupsParams defines parameters for ListLicenseGroups.
@@ -9934,6 +9956,9 @@ type PutFindingTagsJSONRequestBody PutFindingTagsJSONBody
 
 // PutGatePolicyJSONRequestBody defines body for PutGatePolicy for application/json ContentType.
 type PutGatePolicyJSONRequestBody = GatePolicy
+
+// PutIngestSettingsJSONRequestBody defines body for PutIngestSettings for application/json ContentType.
+type PutIngestSettingsJSONRequestBody PutIngestSettingsJSONBody
 
 // CreateLicenseGroupJSONRequestBody defines body for CreateLicenseGroup for application/json ContentType.
 type CreateLicenseGroupJSONRequestBody = LicenseGroupInput
@@ -12047,6 +12072,44 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /ingest/queue (the `GetIngestQueue` operationId).
 	GetIngestQueue(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetIngestSettings Live ingest tuning overrides
+	//
+	// Instance admin (M11 11.7). The queue-depth backpressure threshold
+	// (`INGEST_MAX_QUEUE_DEPTH`) and the worker count per node
+	// (`INGEST_WORKERS`) as instance-wide overrides, applied by every node on
+	// its next queue sample — no restart. A null field means "use the env
+	// default"; `effective_*` is what's actually in force on the node that
+	// answered this request right now.
+	//
+	// Corresponds with GET /ingest/settings (the `GetIngestSettings` operationId).
+	GetIngestSettings(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutIngestSettingsWithBody Change live ingest tuning overrides
+	//
+	// Instance admin. Every node watching the queue picks up the change on
+	// its next sample (`INGEST_QUEUE_SAMPLE_INTERVAL`): the backpressure
+	// threshold and that node's worker count change within one sample
+	// interval. Set a field to `null` to revert it to its env default.
+	// `workers: 0` is valid (a web-only node).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /ingest/settings (the `PutIngestSettings` operationId).
+	PutIngestSettingsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutIngestSettings Change live ingest tuning overrides
+	//
+	// Instance admin. Every node watching the queue picks up the change on
+	// its next sample (`INGEST_QUEUE_SAMPLE_INTERVAL`): the backpressure
+	// threshold and that node's worker count change within one sample
+	// interval. Set a field to `null` to revert it to its env default.
+	// `workers: 0` is valid (a web-only node).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /ingest/settings (the `PutIngestSettings` operationId).
+	PutIngestSettings(ctx context.Context, body PutIngestSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetIngestionHealth Is data still coming in?
 	//
@@ -18627,6 +18690,74 @@ func (c *Client) GetHealth(ctx context.Context, reqEditors ...RequestEditorFn) (
 // Corresponds with GET /ingest/queue (the `GetIngestQueue` operationId).
 func (c *Client) GetIngestQueue(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetIngestQueueRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetIngestSettings Live ingest tuning overrides
+//
+// Instance admin (M11 11.7). The queue-depth backpressure threshold
+// (`INGEST_MAX_QUEUE_DEPTH`) and the worker count per node
+// (`INGEST_WORKERS`) as instance-wide overrides, applied by every node on
+// its next queue sample — no restart. A null field means "use the env
+// default"; `effective_*` is what's actually in force on the node that
+// answered this request right now.
+//
+// Corresponds with GET /ingest/settings (the `GetIngestSettings` operationId).
+func (c *Client) GetIngestSettings(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetIngestSettingsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutIngestSettingsWithBody Change live ingest tuning overrides
+//
+// Instance admin. Every node watching the queue picks up the change on
+// its next sample (`INGEST_QUEUE_SAMPLE_INTERVAL`): the backpressure
+// threshold and that node's worker count change within one sample
+// interval. Set a field to `null` to revert it to its env default.
+// `workers: 0` is valid (a web-only node).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /ingest/settings (the `PutIngestSettings` operationId).
+func (c *Client) PutIngestSettingsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutIngestSettingsRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutIngestSettings Change live ingest tuning overrides
+//
+// Instance admin. Every node watching the queue picks up the change on
+// its next sample (`INGEST_QUEUE_SAMPLE_INTERVAL`): the backpressure
+// threshold and that node's worker count change within one sample
+// interval. Set a field to `null` to revert it to its env default.
+// `workers: 0` is valid (a web-only node).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /ingest/settings (the `PutIngestSettings` operationId).
+func (c *Client) PutIngestSettings(ctx context.Context, body PutIngestSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutIngestSettingsRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -31794,6 +31925,73 @@ func NewGetIngestQueueRequest(server string) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewGetIngestSettingsRequest constructs an http.Request for the GetIngestSettings method
+func NewGetIngestSettingsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/ingest/settings")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutIngestSettingsRequest calls the generic PutIngestSettings builder with application/json body
+func NewPutIngestSettingsRequest(server string, body PutIngestSettingsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutIngestSettingsRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPutIngestSettingsRequestWithBody constructs an http.Request for the PutIngestSettings method, with any body, and a specified content type
+func NewPutIngestSettingsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/ingest/settings")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -45827,6 +46025,46 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /ingest/queue (the `GetIngestQueue` operationId).
 	GetIngestQueueWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetIngestQueueResponse, error)
 
+	// GetIngestSettingsWithResponse Live ingest tuning overrides
+	//
+	// Instance admin (M11 11.7). The queue-depth backpressure threshold
+	// (`INGEST_MAX_QUEUE_DEPTH`) and the worker count per node
+	// (`INGEST_WORKERS`) as instance-wide overrides, applied by every node on
+	// its next queue sample — no restart. A null field means "use the env
+	// default"; `effective_*` is what's actually in force on the node that
+	// answered this request right now.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /ingest/settings (the `GetIngestSettings` operationId).
+	GetIngestSettingsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetIngestSettingsResponse, error)
+
+	// PutIngestSettingsWithBodyWithResponse Change live ingest tuning overrides
+	//
+	// Instance admin. Every node watching the queue picks up the change on
+	// its next sample (`INGEST_QUEUE_SAMPLE_INTERVAL`): the backpressure
+	// threshold and that node's worker count change within one sample
+	// interval. Set a field to `null` to revert it to its env default.
+	// `workers: 0` is valid (a web-only node).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /ingest/settings (the `PutIngestSettings` operationId).
+	PutIngestSettingsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutIngestSettingsResponse, error)
+
+	// PutIngestSettingsWithResponse Change live ingest tuning overrides
+	//
+	// Instance admin. Every node watching the queue picks up the change on
+	// its next sample (`INGEST_QUEUE_SAMPLE_INTERVAL`): the backpressure
+	// threshold and that node's worker count change within one sample
+	// interval. Set a field to `null` to revert it to its env default.
+	// `workers: 0` is valid (a web-only node).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /ingest/settings (the `PutIngestSettings` operationId).
+	PutIngestSettingsWithResponse(ctx context.Context, body PutIngestSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*PutIngestSettingsResponse, error)
+
 	// GetIngestionHealthWithResponse Is data still coming in?
 	//
 	// Problems with how findings arrive, across the projects you can see — computed
@@ -56480,6 +56718,95 @@ func (r GetIngestQueueResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetIngestQueueResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetIngestSettingsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *IngestSettings
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetIngestSettingsResponse) GetJSON200() *IngestSettings {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r GetIngestSettingsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetIngestSettingsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetIngestSettingsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetIngestSettingsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PutIngestSettingsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *IngestSettings
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PutIngestSettingsResponse) GetJSON200() *IngestSettings {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r PutIngestSettingsResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetBody returns the raw response body bytes
+func (r PutIngestSettingsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PutIngestSettingsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutIngestSettingsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PutIngestSettingsResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -72206,6 +72533,64 @@ func (c *ClientWithResponses) GetIngestQueueWithResponse(ctx context.Context, re
 	return ParseGetIngestQueueResponse(rsp)
 }
 
+// GetIngestSettingsWithResponse Live ingest tuning overrides
+//
+// Instance admin (M11 11.7). The queue-depth backpressure threshold
+// (`INGEST_MAX_QUEUE_DEPTH`) and the worker count per node
+// (`INGEST_WORKERS`) as instance-wide overrides, applied by every node on
+// its next queue sample — no restart. A null field means "use the env
+// default"; `effective_*` is what's actually in force on the node that
+// answered this request right now.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /ingest/settings (the `GetIngestSettings` operationId).
+func (c *ClientWithResponses) GetIngestSettingsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetIngestSettingsResponse, error) {
+	rsp, err := c.GetIngestSettings(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetIngestSettingsResponse(rsp)
+}
+
+// PutIngestSettingsWithBodyWithResponse Change live ingest tuning overrides
+//
+// Instance admin. Every node watching the queue picks up the change on
+// its next sample (`INGEST_QUEUE_SAMPLE_INTERVAL`): the backpressure
+// threshold and that node's worker count change within one sample
+// interval. Set a field to `null` to revert it to its env default.
+// `workers: 0` is valid (a web-only node).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /ingest/settings (the `PutIngestSettings` operationId).
+func (c *ClientWithResponses) PutIngestSettingsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutIngestSettingsResponse, error) {
+	rsp, err := c.PutIngestSettingsWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutIngestSettingsResponse(rsp)
+}
+
+// PutIngestSettingsWithResponse Change live ingest tuning overrides
+//
+// Instance admin. Every node watching the queue picks up the change on
+// its next sample (`INGEST_QUEUE_SAMPLE_INTERVAL`): the backpressure
+// threshold and that node's worker count change within one sample
+// interval. Set a field to `null` to revert it to its env default.
+// `workers: 0` is valid (a web-only node).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /ingest/settings (the `PutIngestSettings` operationId).
+func (c *ClientWithResponses) PutIngestSettingsWithResponse(ctx context.Context, body PutIngestSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*PutIngestSettingsResponse, error) {
+	rsp, err := c.PutIngestSettings(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutIngestSettingsResponse(rsp)
+}
+
 // GetIngestionHealthWithResponse Is data still coming in?
 //
 // Problems with how findings arrive, across the projects you can see — computed
@@ -82394,6 +82779,65 @@ func ParseGetIngestQueueResponse(rsp *http.Response) (*GetIngestQueueResponse, e
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetIngestSettingsResponse parses an HTTP response from a GetIngestSettingsWithResponse call
+func ParseGetIngestSettingsResponse(rsp *http.Response) (*GetIngestSettingsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetIngestSettingsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest IngestSettings
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutIngestSettingsResponse parses an HTTP response from a PutIngestSettingsWithResponse call
+func ParsePutIngestSettingsResponse(rsp *http.Response) (*PutIngestSettingsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutIngestSettingsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest IngestSettings
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	}
 

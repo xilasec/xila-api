@@ -706,10 +706,15 @@ For 100,000 and more (several nodes):
   chart's `ingest.workerDeployment` runs a separate worker Deployment, with an
   optional KEDA `ScaledObject` on `xila_ingest_queue_oldest_wait_seconds`.
   `docs/SCALE.md` covers the split and PgBouncer past about 5 nodes.
-- ⬜ 11.6 Fair queueing: claim jobs round-robin per organization (and at most one
-  in flight per project), so one tenant's burst can't starve the others.
-- ⬜ 11.7 Live tuning: change the queue depth limit and worker count without a
-  restart (Dependency-Track 5 has this).
+- ✅ 11.6 Fair queueing: the claim prefers the org with the fewest jobs
+  processing, then its oldest job whose project is idle; a partial unique index
+  keeps one processing job per project. Orgs are walked by a loose index scan,
+  so the cost doesn't grow with queue depth. `scan_jobs` carries `project_id` and
+  `org_id`. Migration 000092.
+- ✅ 11.7 Live tuning: `GET/PUT /ingest/settings` (admin) and the home page's
+  Ingest queue card override `INGEST_MAX_QUEUE_DEPTH` and `INGEST_WORKERS` per
+  worker node; every node applies them on its next queue sample through a
+  resizable worker pool that stops workers only between jobs.
 
 For 1,000,000 (bursts of a billion findings):
 
