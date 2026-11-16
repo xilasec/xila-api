@@ -7896,6 +7896,8 @@ paths:
                   scan_days: { type: number }
                   log_days: { type: number }
                   audit_days: { type: number }
+                  archive_days: { type: number }
+                  finding_archive_days: { type: number, description: "FINDING_ARCHIVE_AFTER: findings fixed longer ago are archived." }
         "403": { $ref: "#/components/responses/Error" }
 
   /retention/run:
@@ -7922,6 +7924,11 @@ paths:
                   deliveries: { type: integer }
                   failed_jobs: { type: integer }
                   audit_entries: { type: integer }
+                  fixed_findings_archived: { type: integer }
+                  archived_projects: { type: integer }
+                  archived_engagements: { type: integer }
+                  archived_scans: { type: integer }
+                  archived_findings: { type: integer }
         "403": { $ref: "#/components/responses/Error" }
 
   /audit-log:
@@ -11328,11 +11335,15 @@ components:
       type: object
       properties:
         projects: { type: integer }
-        open_findings: { type: integer }
+        total_open: { type: integer }
         risk_score: { type: number }
         kev_open: { type: integer }
-        exploitable_open: { type: integer }
-        by_category:
+        exploitable_open: { type: integer, description: Open findings on a KEV list or with EPSS of 0.5 or more. }
+        expiring_soon: { type: integer, description: Exceptions and risk acceptances lapsing within 30 days. }
+        open_by_severity:
+          type: object
+          additionalProperties: { type: integer }
+        open_by_category:
           type: object
           additionalProperties: { type: integer }
         compliance:
@@ -11341,7 +11352,9 @@ components:
             type: object
             properties:
               framework: { type: string }
-              average_score: { type: number }
+              name: { type: string }
+              avg_score: { type: number }
+              projects_assessed: { type: integer }
         top_projects:
           type: array
           items:
@@ -11349,9 +11362,19 @@ components:
             properties:
               id: { type: string, format: uuid }
               name: { type: string }
+              slug: { type: string }
               risk_score: { type: number }
+              total_open: { type: integer }
+              critical: { type: integer }
         sla: { $ref: "#/components/schemas/SLAStats" }
-
+        source:
+          type: string
+          enum: [live, snapshots]
+          description: |
+            `snapshots` when the counts, risk and top projects come from the latest
+            metric snapshots (`PORTFOLIO_FROM_SNAPSHOTS`); compliance and SLA are
+            always live.
+        as_of: { type: string, format: date-time, description: When those snapshots were taken (snapshots only). }
     MetricPoint:
       type: object
       description: |

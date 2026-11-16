@@ -730,9 +730,13 @@ For 1,000,000 (bursts of a billion findings):
   (env/EC2/ECS/EKS IRSA); the bucket is `HeadBucket`-checked at startup, so a
   bad bucket or missing credentials fails boot. Skip-unchanged and the queue
   behave identically for both stores.
-- ⬜ 11.9 Data lifecycle past 100M findings: serve the portfolio from metric
-  snapshots, archive or partition closed findings, cap read queries with a
-  statement timeout, move reporting to a read replica.
+- ✅ 11.9 Data lifecycle past 100M findings: `PORTFOLIO_FROM_SNAPSHOTS` serves
+  the portfolio's counts from the metric snapshots (which now also store KEV,
+  exploitable, per-category and expiring counts; a test checks they equal the
+  live view), `FINDING_ARCHIVE_AFTER` archives old fixed findings in batches (the
+  upsert brings back one reported again), and `DB_READ_URL` /
+  `DB_READ_STATEMENT_TIMEOUT` give reporting reads a replica and a capped pool of
+  their own. Migrations 000106 and 000107.
 - ⬜ 11.10 Multi-node load test: 10M findings, 3 API nodes, 1,000-scan bursts;
   record the results in `docs/SCALE.md`.
 

@@ -28,6 +28,7 @@ import (
 
 	"github.com/xilasec/xila-api/internal/archive"
 	"github.com/xilasec/xila-api/internal/domain"
+	"github.com/xilasec/xila-api/internal/finding"
 )
 
 const (
@@ -84,6 +85,9 @@ type counts struct {
 	breached, met      int
 	missed             int
 	remediationDaysSum float64
+	// The portfolio's other figures (PORTFOLIO_FROM_SNAPSHOTS).
+	kev, exploitable, expiring int
+	byCategory                 map[string]int
 }
 
 var severityOrder = [5]domain.Severity{
@@ -102,7 +106,23 @@ func (c *counts) add(o counts) {
 	c.met += o.met
 	c.missed += o.missed
 	c.remediationDaysSum += o.remediationDaysSum
+	c.kev += o.kev
+	c.exploitable += o.exploitable
+	c.expiring += o.expiring
+	for k, n := range o.byCategory {
+		if c.byCategory == nil {
+			c.byCategory = map[string]int{}
+		}
+		c.byCategory[k] += n
+	}
 }
+
+// ExploitableEPSS is the EPSS at or above which an open finding not on a KEV
+// list still counts as exploitable in the portfolio (live and snapshots).
+const ExploitableEPSS = 0.5
+
+// ExpiringSoonDays is the window of "exceptions expiring soon".
+const ExpiringSoonDays = 30
 
 // Repository reads and writes metric snapshots.
 type Repository struct {
@@ -162,7 +182,8 @@ func (r *Repository) Snapshot(ctx context.Context, day time.Time) error {
 // left out, like everywhere else.
 var projectDaySQL = `
 	WITH f AS (
-		SELECT project_id, severity, first_seen_at, resolved_at, sla_due_at,
+		SELECT project_id, severity, first_seen_at, resolved_at, sla_due_at, kev, epss, category,
+		       ` + finding.ExceptionExpirySQL + ` AS exception_expiry,
 		       (status IN ('open', 'confirmed') OR resolved_at >= $2) AS is_open,
 		       (status = 'remediated' AND resolved_at >= $1 AND resolved_at < $2) AS is_closed
 		FROM findings
@@ -181,7 +202,14 @@ var projectDaySQL = `
 		count(f.project_id) FILTER (WHERE f.is_open AND f.sla_due_at < LEAST($2, now())),
 		count(f.project_id) FILTER (WHERE f.is_closed AND f.resolved_at <= f.sla_due_at),
 		count(f.project_id) FILTER (WHERE f.is_closed AND f.resolved_at > f.sla_due_at),
-		COALESCE(sum(extract(epoch FROM f.resolved_at - f.first_seen_at) / 86400) FILTER (WHERE f.is_closed), 0)::float8
+		COALESCE(sum(extract(epoch FROM f.resolved_at - f.first_seen_at) / 86400) FILTER (WHERE f.is_closed), 0)::float8,
+		count(f.project_id) FILTER (WHERE f.is_open AND f.kev),
+		count(f.project_id) FILTER (WHERE f.is_open AND (f.kev OR f.epss >= $3)),
+		count(f.project_id) FILTER (WHERE f.exception_expiry > LEAST($2, now())
+		                            AND f.exception_expiry <= LEAST($2, now()) + make_interval(days => $4)),
+		COALESCE((SELECT jsonb_object_agg(c.category, c.n) FROM (
+			SELECT f2.category, count(*) AS n FROM f f2
+			WHERE f2.project_id = p.id AND f2.is_open GROUP BY f2.category) c), '{}')
 	FROM projects p
 	JOIN teams t ON t.id = p.team_id
 	LEFT JOIN f ON f.project_id = p.id
@@ -232,7 +260,7 @@ func (r *Repository) snapshot(ctx context.Context, day time.Time, reconstructed 
 		return fmt.Errorf("list scopes: %w", err)
 	}
 
-	rows, err = r.db.Query(ctx, projectDaySQL, start, end)
+	rows, err = r.db.Query(ctx, projectDaySQL, start, end, ExploitableEPSS, ExpiringSoonDays)
 	if err != nil {
 		return fmt.Errorf("compute day %s: %w", start.Format(time.DateOnly), err)
 	}
@@ -244,7 +272,8 @@ func (r *Repository) snapshot(ctx context.Context, day time.Time, reconstructed 
 		)
 		if err := rows.Scan(&projectID, &teamID, &orgID, &crit,
 			&c.open[0], &c.open[1], &c.open[2], &c.open[3], &c.open[4],
-			&c.newCount, &c.closed, &c.breached, &c.met, &c.missed, &c.remediationDaysSum); err != nil {
+			&c.newCount, &c.closed, &c.breached, &c.met, &c.missed, &c.remediationDaysSum,
+			&c.kev, &c.exploitable, &c.expiring, &c.byCategory); err != nil {
 			rows.Close()
 			return fmt.Errorf("scan day row: %w", err)
 		}
@@ -275,6 +304,7 @@ func (r *Repository) snapshot(ctx context.Context, day time.Time, reconstructed 
 			c.open[0], c.open[1], c.open[2], c.open[3], c.open[4], total,
 			c.newCount, c.closed, roundTenth(c.risk),
 			c.breached, c.met, c.missed, c.remediationDaysSum, reconstructed,
+			c.kev, c.exploitable, categoryMap(c.byCategory), c.expiring,
 		})
 	}
 
@@ -292,6 +322,7 @@ func (r *Repository) snapshot(ctx context.Context, day time.Time, reconstructed 
 			"open_critical", "open_high", "open_medium", "open_low", "open_info", "open_total",
 			"new_count", "closed_count", "risk_score",
 			"sla_breached", "sla_met", "sla_missed", "remediation_days_sum", "reconstructed",
+			"open_kev", "open_exploitable", "open_by_category", "expiring_soon",
 		}, pgx.CopyFromRows(snapRows))
 		if err != nil {
 			return fmt.Errorf("write snapshots: %w", err)
@@ -407,4 +438,12 @@ func toPoint(day time.Time, c counts, total int, reconstructed bool) Point {
 		p.MTTRDays = new(math.Round(c.remediationDaysSum/float64(c.closed)*10) / 10)
 	}
 	return p
+}
+
+// categoryMap is a snapshot's open_by_category (never NULL).
+func categoryMap(m map[string]int) map[string]int {
+	if m == nil {
+		return map[string]int{}
+	}
+	return m
 }

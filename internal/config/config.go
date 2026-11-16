@@ -121,6 +121,10 @@ type Config struct {
 	// MetricsSnapshotInterval is how often today's and yesterday's metric
 	// snapshots are (re)computed for the trend charts (0 = off).
 	MetricsSnapshotInterval time.Duration
+	// PortfolioFromSnapshots (PORTFOLIO_FROM_SNAPSHOTS) serves /portfolio's
+	// finding counts from the latest metric snapshots instead of scanning
+	// findings per request (as of the last snapshot run).
+	PortfolioFromSnapshots bool
 	// PasswordLoginEnabled (PASSWORD_LOGIN_ENABLED, default true) allows email +
 	// password sign-in. When false, registration is closed once the instance has
 	// a user and POST /auth/login only admits the instance owner (break-glass,
@@ -171,6 +175,11 @@ type Retention struct {
 	LogAge     time.Duration // LOG_RETENTION: delivery log + failed ingest jobs (default 90 days)
 	AuditAge   time.Duration // AUDIT_RETENTION: audit log entries (default 365 days)
 	ArchiveAge time.Duration // ARCHIVE_RETENTION: archived records stay restorable this long, then are purged (default 30 days)
+	// FindingArchiveAfter (FINDING_ARCHIVE_AFTER) archives remediated findings
+	// fixed longer ago than this (default off), so live queries stop carrying
+	// them; ARCHIVE_RETENTION then purges them. A fixed finding that comes back
+	// is unarchived by the next upsert.
+	FindingArchiveAfter time.Duration
 }
 
 // Notify governs durable notification delivery (the outbox). The leader's
@@ -430,7 +439,28 @@ type DB struct {
 	// connection — never via the DSN, which the migration driver also uses and
 	// where a long CREATE INDEX would be killed. Zero disables it.
 	StatementTimeout time.Duration
+
+	// ReadURL (DB_READ_URL, a postgres:// URL; secret, so _FILE works) points
+	// reporting reads (portfolio, trends, reports) at a read replica; empty =
+	// the primary. ReadStatementTimeout (DB_READ_STATEMENT_TIMEOUT) caps those
+	// reads separately (zero = StatementTimeout); setting either gives
+	// reporting its own pool of ReadMaxConns (DB_READ_MAX_CONNS) connections,
+	// so a heavy report can't starve ingest of connections.
+	ReadURL              string
+	ReadStatementTimeout time.Duration
+	ReadMaxConns         int32
 }
+
+// ReadDSN is the reporting pool's DSN: the replica, else the primary.
+func (d DB) ReadDSN() string {
+	if d.ReadURL != "" {
+		return d.ReadURL
+	}
+	return d.DSN()
+}
+
+// SeparateReadPool reports whether reporting reads get their own pool.
+func (d DB) SeparateReadPool() bool { return d.ReadURL != "" || d.ReadStatementTimeout > 0 }
 
 // DSN builds a libpq-style connection URL with every part escaped, so a
 // password containing "/", "@", "#" or "?" (as `openssl rand -base64` output
@@ -608,19 +638,22 @@ func Load() (Config, error) {
 			BodyLimit:    getint("HTTP_BODY_LIMIT_MB", 32) * 1024 * 1024,
 		},
 		DB: DB{
-			Host:              getenv("DB_HOST", "localhost"),
-			Port:              getenv("DB_PORT", "5432"),
-			User:              getenv("DB_USER", "xila"),
-			Password:          sec.get("DB_PASSWORD", "xila"),
-			Name:              getenv("DB_NAME", "xila"),
-			SSLMode:           getenv("DB_SSLMODE", "disable"),
-			MaxConns:          int32(getint("DB_MAX_CONNS", 20)),
-			MinConns:          int32(getint("DB_MIN_CONNS", 2)),
-			MaxConnLifetime:   getdur("DB_MAX_CONN_LIFETIME", time.Hour),
-			MaxConnIdleTime:   getdur("DB_MAX_CONN_IDLE_TIME", 30*time.Minute),
-			HealthCheckPeriod: getdur("DB_HEALTH_CHECK_PERIOD", time.Minute),
-			ConnectTimeout:    getdur("DB_CONNECT_TIMEOUT", 10*time.Second),
-			StatementTimeout:  getdur("DB_STATEMENT_TIMEOUT", 30*time.Second),
+			Host:                 getenv("DB_HOST", "localhost"),
+			Port:                 getenv("DB_PORT", "5432"),
+			User:                 getenv("DB_USER", "xila"),
+			Password:             sec.get("DB_PASSWORD", "xila"),
+			Name:                 getenv("DB_NAME", "xila"),
+			SSLMode:              getenv("DB_SSLMODE", "disable"),
+			MaxConns:             int32(getint("DB_MAX_CONNS", 20)),
+			MinConns:             int32(getint("DB_MIN_CONNS", 2)),
+			MaxConnLifetime:      getdur("DB_MAX_CONN_LIFETIME", time.Hour),
+			MaxConnIdleTime:      getdur("DB_MAX_CONN_IDLE_TIME", 30*time.Minute),
+			HealthCheckPeriod:    getdur("DB_HEALTH_CHECK_PERIOD", time.Minute),
+			ConnectTimeout:       getdur("DB_CONNECT_TIMEOUT", 10*time.Second),
+			StatementTimeout:     getdur("DB_STATEMENT_TIMEOUT", 30*time.Second),
+			ReadURL:              sec.get("DB_READ_URL", ""),
+			ReadStatementTimeout: getdur("DB_READ_STATEMENT_TIMEOUT", 0),
+			ReadMaxConns:         int32(getint("DB_READ_MAX_CONNS", 10)),
 		},
 		JWT: JWT{
 			Secret:       sec.get("JWT_SECRET", ""),
@@ -814,14 +847,15 @@ func Load() (Config, error) {
 		ExceptionSweepInterval: getdur("EXCEPTION_SWEEP_INTERVAL", time.Hour),
 		SLASweepInterval:       getdur("SLA_SWEEP_INTERVAL", time.Hour),
 		Retention: Retention{
-			BranchAge:  getdur("BRANCH_RETENTION", 90*24*time.Hour),
-			ReleaseAge: getdur("RELEASE_RETENTION", 0),
-			SBOMKeep:   getint("SBOM_RETENTION_KEEP", 0),
-			SBOMAge:    getdur("SBOM_RETENTION_AGE", 0),
-			ScanAge:    getdur("SCAN_RETENTION", 0),
-			LogAge:     getdur("LOG_RETENTION", 90*24*time.Hour),
-			AuditAge:   getdur("AUDIT_RETENTION", 365*24*time.Hour),
-			ArchiveAge: getdur("ARCHIVE_RETENTION", 30*24*time.Hour),
+			BranchAge:           getdur("BRANCH_RETENTION", 90*24*time.Hour),
+			ReleaseAge:          getdur("RELEASE_RETENTION", 0),
+			SBOMKeep:            getint("SBOM_RETENTION_KEEP", 0),
+			SBOMAge:             getdur("SBOM_RETENTION_AGE", 0),
+			ScanAge:             getdur("SCAN_RETENTION", 0),
+			LogAge:              getdur("LOG_RETENTION", 90*24*time.Hour),
+			AuditAge:            getdur("AUDIT_RETENTION", 365*24*time.Hour),
+			ArchiveAge:          getdur("ARCHIVE_RETENTION", 30*24*time.Hour),
+			FindingArchiveAfter: getdur("FINDING_ARCHIVE_AFTER", 0),
 		},
 		TriageRulesRequireApproval:     getbool("TRIAGE_RULES_REQUIRE_APPROVAL", false),
 		AssessmentRequiresApproval:     getbool("ASSESSMENT_REQUIRES_APPROVAL", false),
@@ -835,6 +869,7 @@ func Load() (Config, error) {
 		RemediationAutoCreate:          getbool("REMEDIATION_AUTO_CREATE", false),
 		ConnectorPullInterval:          getdur("CONNECTOR_PULL_INTERVAL", 6*time.Hour),
 		MetricsSnapshotInterval:        getdur("METRICS_SNAPSHOT_INTERVAL", time.Hour),
+		PortfolioFromSnapshots:         getbool("PORTFOLIO_FROM_SNAPSHOTS", false),
 	}
 	if cfg.SAML.EntityID == "" && cfg.PublicURL != "" {
 		cfg.SAML.EntityID = cfg.PublicURL + "/api/v1/auth/saml/metadata"
@@ -884,6 +919,14 @@ func (c Config) validate() error {
 	}
 	if err := c.validateIngest(); err != nil {
 		return err
+	}
+	if c.DB.ReadURL != "" {
+		if u, err := url.Parse(c.DB.ReadURL); err != nil || (u.Scheme != "postgres" && u.Scheme != "postgresql") || u.Host == "" {
+			return fmt.Errorf("DB_READ_URL must be a postgres:// URL")
+		}
+	}
+	if c.DB.ReadStatementTimeout < 0 || c.DB.ReadMaxConns < 1 {
+		return fmt.Errorf("DB_READ_STATEMENT_TIMEOUT must be 0 or more and DB_READ_MAX_CONNS at least 1")
 	}
 	if c.JWT.ReauthWindow < 0 {
 		return fmt.Errorf("REAUTH_WINDOW must be 0 or more, got %s", c.JWT.ReauthWindow)

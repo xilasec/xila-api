@@ -649,3 +649,32 @@ func TestS3PathStyleAndPrefix(t *testing.T) {
 		t.Errorf("S3 config = %+v", cfg.S3)
 	}
 }
+
+// Reporting reads: no read settings = one pool; DB_READ_URL (also via
+// _FILE, it holds a password) or DB_READ_STATEMENT_TIMEOUT = a separate one;
+// a non-postgres URL is refused.
+func TestReadPool(t *testing.T) {
+	t.Setenv("APP_ENV", "development")
+	cfg, err := Load()
+	if err != nil || cfg.DB.SeparateReadPool() || cfg.DB.ReadDSN() != cfg.DB.DSN() {
+		t.Fatalf("default: separate=%v, %v", cfg.DB.SeparateReadPool(), err)
+	}
+	t.Setenv("DB_READ_STATEMENT_TIMEOUT", "5s")
+	if cfg, err = Load(); err != nil || !cfg.DB.SeparateReadPool() || cfg.DB.ReadDSN() != cfg.DB.DSN() {
+		t.Errorf("timeout only: separate=%v dsn=%q, %v; want a capped pool on the primary", cfg.DB.SeparateReadPool(), cfg.DB.ReadDSN(), err)
+	}
+	dir := t.TempDir()
+	path := dir + "/read-url"
+	if err := os.WriteFile(path, []byte("postgres://reader:s3cret@replica:5432/xila?sslmode=require\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("DB_READ_URL_FILE", path)
+	if cfg, err = Load(); err != nil || cfg.DB.ReadDSN() != "postgres://reader:s3cret@replica:5432/xila?sslmode=require" {
+		t.Errorf("DB_READ_URL_FILE: %q, %v", cfg.DB.ReadDSN(), err)
+	}
+	t.Setenv("DB_READ_URL_FILE", "")
+	t.Setenv("DB_READ_URL", "mysql://replica/xila")
+	if _, err := Load(); err == nil {
+		t.Error("a non-postgres DB_READ_URL was accepted")
+	}
+}

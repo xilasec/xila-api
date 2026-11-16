@@ -9588,24 +9588,47 @@ export interface components {
         };
         Portfolio: {
             projects?: number;
-            open_findings?: number;
+            total_open?: number;
             risk_score?: number;
             kev_open?: number;
+            /** @description Open findings on a KEV list or with EPSS of 0.5 or more. */
             exploitable_open?: number;
-            by_category?: {
+            /** @description Exceptions and risk acceptances lapsing within 30 days. */
+            expiring_soon?: number;
+            open_by_severity?: {
+                [key: string]: number;
+            };
+            open_by_category?: {
                 [key: string]: number;
             };
             compliance?: {
                 framework?: string;
-                average_score?: number;
+                name?: string;
+                avg_score?: number;
+                projects_assessed?: number;
             }[];
             top_projects?: {
                 /** Format: uuid */
                 id?: string;
                 name?: string;
+                slug?: string;
                 risk_score?: number;
+                total_open?: number;
+                critical?: number;
             }[];
             sla?: components["schemas"]["SLAStats"];
+            /**
+             * @description `snapshots` when the counts, risk and top projects come from the latest
+             *     metric snapshots (`PORTFOLIO_FROM_SNAPSHOTS`); compliance and SLA are
+             *     always live.
+             * @enum {string}
+             */
+            source?: "live" | "snapshots";
+            /**
+             * Format: date-time
+             * @description When those snapshots were taken (snapshots only).
+             */
+            as_of?: string;
         };
         /**
          * @description One UTC day. Open counts are as of the end of the day (today: now);
@@ -20759,6 +20782,9 @@ export interface operations {
                         scan_days?: number;
                         log_days?: number;
                         audit_days?: number;
+                        archive_days?: number;
+                        /** @description FINDING_ARCHIVE_AFTER: findings fixed longer ago are archived. */
+                        finding_archive_days?: number;
                     };
                 };
             };
@@ -20788,6 +20814,11 @@ export interface operations {
                         deliveries?: number;
                         failed_jobs?: number;
                         audit_entries?: number;
+                        fixed_findings_archived?: number;
+                        archived_projects?: number;
+                        archived_engagements?: number;
+                        archived_scans?: number;
+                        archived_findings?: number;
                     };
                 };
             };
