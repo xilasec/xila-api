@@ -134,7 +134,7 @@
 		e.preventDefault();
 		saving = true;
 		try {
-			await api.addMember(membersTeamId, newMember.email.trim(), newMember.role);
+			await api.addMember(membersTeamId, { email: newMember.email.trim(), role: newMember.role });
 			newMember = { email: '', role: 'viewer' };
 			await loadMembers();
 		} catch (err) {
@@ -146,7 +146,8 @@
 	/** @param {any} m */
 	async function removeMember(m) {
 		try {
-			await api.removeMember(membersTeamId, m.user_id);
+			if (m.group_id) await api.removeTeamGroup(membersTeamId, m.group_id);
+			else await api.removeMember(membersTeamId, m.user_id);
 			await loadMembers();
 		} catch (err) {
 			notify(errorMessage(err));
@@ -636,11 +637,14 @@
 		{:else}
 			<table class="table table-sm">
 				<tbody>
-					{#each members as m (m.user_id)}
+					{#each members as m (m.group_id || m.user_id)}
 						<tr>
-							<td class="font-medium">{m.email}</td>
+							<td class="font-medium">
+								{#if m.group_id}<span class="badge badge-outline badge-xs mr-1">{$t('proj.grantGroup')}</span>{m.group_name}{:else}{m.email}{/if}
+							</td>
 							<td>
 								<span class="badge badge-ghost badge-sm">{$labelOf('role', m.role)}</span>
+								{#if m.custom_role_name}<span class="badge badge-info badge-outline badge-xs">{m.custom_role_name}</span>{/if}
 								{#if m.source === 'sso'}<span class="badge badge-outline badge-xs" title={$t('home.ssoGrantTitle')}>SSO</span>{/if}
 							</td>
 							<td class="text-right">

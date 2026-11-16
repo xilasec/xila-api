@@ -1585,6 +1585,366 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/orgs/{orgID}/member-groups/{groupID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a user group's grant on the organization
+         * @description Requires org `admin`.
+         */
+        delete: operations["deleteOrgMemberGroup"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orgs/{orgID}/groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The organization's user groups */
+        get: operations["listOrgGroups"];
+        put?: never;
+        /**
+         * Create a user group
+         * @description Requires org `admin`. A group is grantable on the organization, a team or a
+         *     project exactly like a user (`group_id` in the members endpoints); every
+         *     member gets the role. SCIM clients can provision groups too.
+         */
+        post: operations["createOrgGroup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orgs/{orgID}/groups/{groupID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A user group and its members */
+        get: operations["getOrgGroup"];
+        /** Rename a user group */
+        put: operations["putOrgGroup"];
+        post?: never;
+        /** Delete a user group (its grants go with it) */
+        delete: operations["deleteOrgGroup"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orgs/{orgID}/groups/{groupID}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a user to a group */
+        post: operations["createOrgGroupMember"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orgs/{orgID}/groups/{groupID}/members/{userID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a user from a group */
+        delete: operations["deleteOrgGroupMember"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orgs/{orgID}/custom-roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The organization's custom roles */
+        get: operations["listOrgCustomRoles"];
+        put?: never;
+        /**
+         * Create a custom role
+         * @description Requires org `admin`. A custom role is a base role minus denied capabilities,
+         *     assignable on team and project grants (`custom_role_id`). Several grants
+         *     combine by union: a capability one grant denies is allowed when another
+         *     grant at the needed level doesn't deny it.
+         */
+        post: operations["createOrgCustomRole"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orgs/{orgID}/custom-roles/{roleID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change a custom role */
+        put: operations["putOrgCustomRole"];
+        post?: never;
+        /** Delete a custom role (grants using it fall back to their base role) */
+        delete: operations["deleteOrgCustomRole"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teams/{teamID}/groups/{groupID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a user group's grant on the team */
+        delete: operations["deleteTeamGroup"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectID}/groups/{groupID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a user group's grant on the project */
+        delete: operations["deleteProjectGroup"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/capabilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What a custom role can deny */
+        get: operations["listCapabilities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scim-tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** SCIM tokens (instance admin) */
+        get: operations["listScimTokens"];
+        put?: never;
+        /**
+         * Create a SCIM token for an organization (instance admin)
+         * @description The secret is shown once. It authenticates `/scim/v2` only, and only for this organization.
+         */
+        post: operations["createScimToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scim-tokens/{tokenID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke a SCIM token */
+        delete: operations["deleteScimToken"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scim/v2/ServiceProviderConfig": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** SCIM service provider configuration */
+        get: operations["getScimV2ServiceProviderConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scim/v2/ResourceTypes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** SCIM resource types */
+        get: operations["listScimV2ResourceTypes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scim/v2/Schemas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** SCIM schemas */
+        get: operations["listScimV2Schemas"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scim/v2/Users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Users
+         * @description `filter` supports `attr eq "value"` only. Paged by `startIndex` (1-based) and `count` (max 200).
+         */
+        get: operations["listScimV2Users"];
+        put?: never;
+        /** Create a User */
+        post: operations["createScimV2User"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scim/v2/Users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a User */
+        get: operations["getScimV2User"];
+        /** Replace a User */
+        put: operations["putScimV2User"];
+        post?: never;
+        /** Delete a User */
+        delete: operations["deleteScimV2User"];
+        options?: never;
+        head?: never;
+        /** Change a User (PatchOp) */
+        patch: operations["updateScimV2User"];
+        trace?: never;
+    };
+    "/scim/v2/Groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Groups
+         * @description `filter` supports `attr eq "value"` only. Paged by `startIndex` (1-based) and `count` (max 200).
+         */
+        get: operations["listScimV2Groups"];
+        put?: never;
+        /** Create a Group */
+        post: operations["createScimV2Group"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scim/v2/Groups/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a Group */
+        get: operations["getScimV2Group"];
+        /** Replace a Group */
+        put: operations["putScimV2Group"];
+        post?: never;
+        /** Delete a Group */
+        delete: operations["deleteScimV2Group"];
+        options?: never;
+        head?: never;
+        /** Change a Group (PatchOp) */
+        patch: operations["updateScimV2Group"];
+        trace?: never;
+    };
     "/teams/{teamID}/members/{userID}": {
         parameters: {
             query?: never;
@@ -6529,6 +6889,15 @@ export interface components {
                  */
                 via_id?: string | null;
                 via_name?: string | null;
+                /**
+                 * Format: uuid
+                 * @description The user group the grant reaches the user through.
+                 */
+                group_id?: string | null;
+                group_name?: string | null;
+                /** @description The custom role narrowing the grant. */
+                custom_role?: string | null;
+                denied_capabilities?: string[];
                 /** @description "provider:group" of the SSO mappings that produce this grant. */
                 sso_mappings?: string[];
             }[];
@@ -6965,6 +7334,75 @@ export interface components {
              * @enum {string}
              */
             source?: "manual" | "sso";
+            /**
+             * Format: uuid
+             * @description Set instead of user_id for a grant on a user group.
+             */
+            group_id?: string;
+            group_name?: string;
+            /**
+             * Format: uuid
+             * @description The custom role narrowing `role`, if any.
+             */
+            custom_role_id?: string;
+            custom_role_name?: string;
+        };
+        UserGroup: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            org_id?: string;
+            name?: string;
+            /** @description Set when a SCIM client provisioned it. */
+            external_id?: string;
+            member_count?: number;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        CustomRole: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            org_id?: string;
+            name?: string;
+            /** @enum {string} */
+            base_role?: "owner" | "editor" | "viewer" | "uploader";
+            denied_capabilities?: components["schemas"]["Capability"][];
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        /**
+         * @description What a custom role can deny: `triage` (status, severity, assignee, accepting AI
+         *     proposals, deciding assessments, bulk edits), `comment` (comments and
+         *     attachments), `manage_members` (team and project members and groups),
+         *     `project_settings` (gate policy, SLA, issue tracker, connectors, versions,
+         *     badge token), `upload` (scans, SBOMs, VEX, gate runs, connector pulls), `export`
+         *     (CSV/XLSX and VEX exports), `risk_acceptance_approve` (approving, rejecting,
+         *     revoking risk acceptances).
+         * @enum {string}
+         */
+        Capability: "triage" | "comment" | "manage_members" | "project_settings" | "upload" | "export" | "risk_acceptance_approve";
+        SCIMToken: {
+            /** Format: uuid */
+            id?: string;
+            name?: string;
+            /** Format: uuid */
+            org_id?: string;
+            org_name?: string;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            last_used_at?: string | null;
+            /** Format: date-time */
+            revoked_at?: string | null;
+        };
+        /** @description A SCIM 2.0 User or Group (RFC 7643), `application/scim+json`. */
+        SCIMResource: {
+            [key: string]: unknown;
         };
         /**
          * @description Business importance. Multiplies the project's risk score in the portfolio rollup.
@@ -9762,6 +10200,9 @@ export interface components {
         AssetID: string;
         UserID: string;
         TokenID: string;
+        GroupID: string;
+        RoleID: string;
+        SCIMID: string;
         AccountID: string;
         KeyID: string;
         IssuerID: string;
@@ -11313,7 +11754,17 @@ export interface operations {
             content: {
                 "application/json": {
                     /** Format: email */
-                    email: string;
+                    email?: string;
+                    /**
+                     * Format: uuid
+                     * @description A user group of the same organization; every member gets the role.
+                     */
+                    group_id?: string;
+                    /**
+                     * Format: uuid
+                     * @description A custom role of the same organization: `role` minus its denied capabilities.
+                     */
+                    custom_role_id?: string;
                     /**
                      * @description `viewer` is strictly read-only; `editor` can upload and triage; `owner` can also grant access; `uploader` is viewer plus uploads — it reads everything a viewer does and may also upload scans/SBOMs/VEX and run the gate, for CI tokens.
                      * @enum {string}
@@ -12130,7 +12581,9 @@ export interface operations {
             content: {
                 "application/json": {
                     /** Format: email */
-                    email: string;
+                    email?: string;
+                    /** Format: uuid */
+                    group_id?: string;
                     /** @enum {string} */
                     role: "admin" | "member";
                 };
@@ -12332,7 +12785,17 @@ export interface operations {
             content: {
                 "application/json": {
                     /** Format: email */
-                    email: string;
+                    email?: string;
+                    /**
+                     * Format: uuid
+                     * @description A user group of the same organization; every member gets the role.
+                     */
+                    group_id?: string;
+                    /**
+                     * Format: uuid
+                     * @description A custom role of the same organization: `role` minus its denied capabilities.
+                     */
+                    custom_role_id?: string;
                     /**
                      * @description `viewer` is strictly read-only; `editor` can triage and upload; `owner` manages the team; `uploader` is viewer plus uploads — it reads everything a viewer does and may also upload scans/SBOMs/VEX and run the gate, for CI tokens.
                      * @enum {string}
@@ -12350,6 +12813,863 @@ export interface operations {
                 content?: never;
             };
             403: components["responses"]["Error"];
+        };
+    };
+    deleteOrgMemberGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: components["parameters"]["OrgID"];
+                groupID: components["parameters"]["GroupID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    listOrgGroups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        groups?: components["schemas"]["UserGroup"][];
+                    };
+                };
+            };
+        };
+    };
+    createOrgGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserGroup"];
+                };
+            };
+            400: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    getOrgGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: components["parameters"]["OrgID"];
+                groupID: components["parameters"]["GroupID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        group?: components["schemas"]["UserGroup"];
+                        members?: {
+                            /** Format: uuid */
+                            user_id?: string;
+                            /** Format: email */
+                            email?: string;
+                        }[];
+                    };
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    putOrgGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: components["parameters"]["OrgID"];
+                groupID: components["parameters"]["GroupID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Renamed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserGroup"];
+                };
+            };
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    deleteOrgGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: components["parameters"]["OrgID"];
+                groupID: components["parameters"]["GroupID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    createOrgGroupMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: components["parameters"]["OrgID"];
+                groupID: components["parameters"]["GroupID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: email */
+                    email: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Added */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    deleteOrgGroupMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: components["parameters"]["OrgID"];
+                groupID: components["parameters"]["GroupID"];
+                userID: components["parameters"]["UserID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    listOrgCustomRoles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        custom_roles?: components["schemas"]["CustomRole"][];
+                    };
+                };
+            };
+        };
+    };
+    createOrgCustomRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    /** @enum {string} */
+                    base_role: "owner" | "editor" | "viewer" | "uploader";
+                    denied_capabilities?: components["schemas"]["Capability"][];
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomRole"];
+                };
+            };
+            400: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    putOrgCustomRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: components["parameters"]["OrgID"];
+                roleID: components["parameters"]["RoleID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    /** @enum {string} */
+                    base_role: "owner" | "editor" | "viewer" | "uploader";
+                    denied_capabilities?: components["schemas"]["Capability"][];
+                };
+            };
+        };
+        responses: {
+            /** @description Changed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomRole"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    deleteOrgCustomRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: components["parameters"]["OrgID"];
+                roleID: components["parameters"]["RoleID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    deleteTeamGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                groupID: components["parameters"]["GroupID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    deleteProjectGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+                groupID: components["parameters"]["GroupID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    listCapabilities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        capabilities?: components["schemas"]["Capability"][];
+                    };
+                };
+            };
+        };
+    };
+    listScimTokens: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        tokens?: components["schemas"]["SCIMToken"][];
+                    };
+                };
+            };
+        };
+    };
+    createScimToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    /** Format: uuid */
+                    org_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        token?: components["schemas"]["SCIMToken"];
+                        secret?: string;
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    deleteScimToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tokenID: components["parameters"]["TokenID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revoked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    getScimV2ServiceProviderConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["SCIMResource"];
+                };
+            };
+        };
+    };
+    listScimV2ResourceTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["SCIMResource"];
+                };
+            };
+        };
+    };
+    listScimV2Schemas: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["SCIMResource"];
+                };
+            };
+        };
+    };
+    listScimV2Users: {
+        parameters: {
+            query?: {
+                filter?: string;
+                startIndex?: number;
+                count?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A SCIM ListResponse */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["SCIMResource"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+        };
+    };
+    createScimV2User: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/scim+json": components["schemas"]["SCIMResource"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["SCIMResource"];
+                };
+            };
+            400: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    getScimV2User: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["SCIMID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["SCIMResource"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    putScimV2User: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["SCIMID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/scim+json": components["schemas"]["SCIMResource"];
+            };
+        };
+        responses: {
+            /** @description Replaced */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["SCIMResource"];
+                };
+            };
+            /** @description The user left this organization (it also belongs to another one) */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    deleteScimV2User: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["SCIMID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    updateScimV2User: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["SCIMID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/scim+json": components["schemas"]["SCIMResource"];
+            };
+        };
+        responses: {
+            /** @description Changed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["SCIMResource"];
+                };
+            };
+            /** @description Changed (members excluded */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    listScimV2Groups: {
+        parameters: {
+            query?: {
+                filter?: string;
+                startIndex?: number;
+                count?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A SCIM ListResponse */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["SCIMResource"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+        };
+    };
+    createScimV2Group: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/scim+json": components["schemas"]["SCIMResource"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["SCIMResource"];
+                };
+            };
+            400: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    getScimV2Group: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["SCIMID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["SCIMResource"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    putScimV2Group: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["SCIMID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/scim+json": components["schemas"]["SCIMResource"];
+            };
+        };
+        responses: {
+            /** @description Replaced */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["SCIMResource"];
+                };
+            };
+            /** @description The user left this organization (it also belongs to another one) */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    deleteScimV2Group: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["SCIMID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    updateScimV2Group: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["SCIMID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/scim+json": components["schemas"]["SCIMResource"];
+            };
+        };
+        responses: {
+            /** @description Changed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["SCIMResource"];
+                };
+            };
+            /** @description Changed (members excluded */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
         };
     };
     deleteTeamMember: {

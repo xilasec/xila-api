@@ -57,7 +57,7 @@ func (h *Handler) ListAssessments(c *fiber.Ctx) error {
 	}
 	if c.QueryBool("actionable") {
 		uid := auth.UserID(c)
-		ids, err := h.decidableProjects(c, uid, filter.ProjectIDs)
+		ids, err := h.decidableProjects(c, uid, filter.ProjectIDs, domain.CapTriage)
 		if err != nil {
 			return err
 		}

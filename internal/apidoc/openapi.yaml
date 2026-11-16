@@ -52,6 +52,8 @@ servers:
 tags:
   - name: Auth
     description: Registration, login, SSO discovery.
+  - name: SCIM
+    description: SCIM 2.0 provisioning of users and groups (RFC 7643/7644), with org-scoped SCIM tokens.
   - name: Organizations
     description: The top of the tenancy hierarchy.
   - name: Teams
@@ -1396,9 +1398,12 @@ paths:
           application/json:
             schema:
               type: object
-              required: [email, role]
+              required: [role]
+              description: Exactly one of `email` (a user) or `group_id` (a user group of the organization).
               properties:
                 email: { type: string, format: email }
+                group_id: { type: string, format: uuid, description: A user group of the same organization; every member gets the role. }
+                custom_role_id: { type: string, format: uuid, description: "A custom role of the same organization: `role` minus its denied capabilities." }
                 role:
                   type: string
                   enum: [owner, editor, viewer, uploader]
@@ -1890,9 +1895,11 @@ paths:
           application/json:
             schema:
               type: object
-              required: [email, role]
+              required: [role]
+              description: Exactly one of `email` (a user) or `group_id` (a user group of this organization).
               properties:
                 email: { type: string, format: email }
+                group_id: { type: string, format: uuid }
                 role: { type: string, enum: [admin, member] }
       responses:
         "201": { description: Added }
@@ -2021,9 +2028,12 @@ paths:
           application/json:
             schema:
               type: object
-              required: [email, role]
+              required: [role]
+              description: Exactly one of `email` (a user) or `group_id` (a user group of the organization).
               properties:
                 email: { type: string, format: email }
+                group_id: { type: string, format: uuid, description: A user group of the same organization; every member gets the role. }
+                custom_role_id: { type: string, format: uuid, description: "A custom role of the same organization: `role` minus its denied capabilities." }
                 role:
                   type: string
                   enum: [owner, editor, viewer, uploader]
@@ -2031,6 +2041,447 @@ paths:
       responses:
         "201": { description: Added }
         "403": { $ref: "#/components/responses/Error" }
+
+  /orgs/{orgID}/member-groups/{groupID}:
+    delete:
+      operationId: deleteOrgMemberGroup
+      tags: [Organizations]
+      summary: Remove a user group's grant on the organization
+      description: Requires org `admin`.
+      parameters: [{ $ref: "#/components/parameters/OrgID" }, { $ref: "#/components/parameters/GroupID" }]
+      responses:
+        "204": { description: Removed }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /orgs/{orgID}/groups:
+    get:
+      operationId: listOrgGroups
+      tags: [Organizations]
+      summary: The organization's user groups
+      parameters: [{ $ref: "#/components/parameters/OrgID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  groups: { type: array, items: { $ref: "#/components/schemas/UserGroup" } }
+    post:
+      operationId: createOrgGroup
+      tags: [Organizations]
+      summary: Create a user group
+      description: |
+        Requires org `admin`. A group is grantable on the organization, a team or a
+        project exactly like a user (`group_id` in the members endpoints); every
+        member gets the role. SCIM clients can provision groups too.
+      parameters: [{ $ref: "#/components/parameters/OrgID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [name], properties: { name: { type: string } } }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/UserGroup" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /orgs/{orgID}/groups/{groupID}:
+    get:
+      operationId: getOrgGroup
+      tags: [Organizations]
+      summary: A user group and its members
+      parameters: [{ $ref: "#/components/parameters/OrgID" }, { $ref: "#/components/parameters/GroupID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  group: { $ref: "#/components/schemas/UserGroup" }
+                  members:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        user_id: { type: string, format: uuid }
+                        email: { type: string, format: email }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      operationId: putOrgGroup
+      tags: [Organizations]
+      summary: Rename a user group
+      parameters: [{ $ref: "#/components/parameters/OrgID" }, { $ref: "#/components/parameters/GroupID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [name], properties: { name: { type: string } } }
+      responses:
+        "200": { description: Renamed, content: { application/json: { schema: { $ref: "#/components/schemas/UserGroup" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deleteOrgGroup
+      tags: [Organizations]
+      summary: Delete a user group (its grants go with it)
+      parameters: [{ $ref: "#/components/parameters/OrgID" }, { $ref: "#/components/parameters/GroupID" }]
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /orgs/{orgID}/groups/{groupID}/members:
+    post:
+      operationId: createOrgGroupMember
+      tags: [Organizations]
+      summary: Add a user to a group
+      parameters: [{ $ref: "#/components/parameters/OrgID" }, { $ref: "#/components/parameters/GroupID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [email], properties: { email: { type: string, format: email } } }
+      responses:
+        "201": { description: Added }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /orgs/{orgID}/groups/{groupID}/members/{userID}:
+    delete:
+      operationId: deleteOrgGroupMember
+      tags: [Organizations]
+      summary: Remove a user from a group
+      parameters:
+        - { $ref: "#/components/parameters/OrgID" }
+        - { $ref: "#/components/parameters/GroupID" }
+        - { $ref: "#/components/parameters/UserID" }
+      responses:
+        "204": { description: Removed }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /orgs/{orgID}/custom-roles:
+    get:
+      operationId: listOrgCustomRoles
+      tags: [Organizations]
+      summary: The organization's custom roles
+      parameters: [{ $ref: "#/components/parameters/OrgID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  custom_roles: { type: array, items: { $ref: "#/components/schemas/CustomRole" } }
+    post:
+      operationId: createOrgCustomRole
+      tags: [Organizations]
+      summary: Create a custom role
+      description: |
+        Requires org `admin`. A custom role is a base role minus denied capabilities,
+        assignable on team and project grants (`custom_role_id`). Several grants
+        combine by union: a capability one grant denies is allowed when another
+        grant at the needed level doesn't deny it.
+      parameters: [{ $ref: "#/components/parameters/OrgID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, base_role]
+              properties:
+                name: { type: string }
+                base_role: { type: string, enum: [owner, editor, viewer, uploader] }
+                denied_capabilities: { type: array, items: { $ref: "#/components/schemas/Capability" } }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/CustomRole" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /orgs/{orgID}/custom-roles/{roleID}:
+    put:
+      operationId: putOrgCustomRole
+      tags: [Organizations]
+      summary: Change a custom role
+      parameters: [{ $ref: "#/components/parameters/OrgID" }, { $ref: "#/components/parameters/RoleID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, base_role]
+              properties:
+                name: { type: string }
+                base_role: { type: string, enum: [owner, editor, viewer, uploader] }
+                denied_capabilities: { type: array, items: { $ref: "#/components/schemas/Capability" } }
+      responses:
+        "200": { description: Changed, content: { application/json: { schema: { $ref: "#/components/schemas/CustomRole" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deleteOrgCustomRole
+      tags: [Organizations]
+      summary: Delete a custom role (grants using it fall back to their base role)
+      parameters: [{ $ref: "#/components/parameters/OrgID" }, { $ref: "#/components/parameters/RoleID" }]
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /teams/{teamID}/groups/{groupID}:
+    delete:
+      operationId: deleteTeamGroup
+      tags: [Teams]
+      summary: Remove a user group's grant on the team
+      parameters: [{ $ref: "#/components/parameters/TeamID" }, { $ref: "#/components/parameters/GroupID" }]
+      responses:
+        "204": { description: Removed }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /projects/{projectID}/groups/{groupID}:
+    delete:
+      operationId: deleteProjectGroup
+      tags: [Projects]
+      summary: Remove a user group's grant on the project
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }, { $ref: "#/components/parameters/GroupID" }]
+      responses:
+        "204": { description: Removed }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /capabilities:
+    get:
+      operationId: listCapabilities
+      tags: [Organizations]
+      summary: What a custom role can deny
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  capabilities: { type: array, items: { $ref: "#/components/schemas/Capability" } }
+
+  /scim-tokens:
+    get:
+      operationId: listScimTokens
+      tags: [SCIM]
+      summary: SCIM tokens (instance admin)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tokens: { type: array, items: { $ref: "#/components/schemas/SCIMToken" } }
+    post:
+      operationId: createScimToken
+      tags: [SCIM]
+      summary: Create a SCIM token for an organization (instance admin)
+      description: The secret is shown once. It authenticates `/scim/v2` only, and only for this organization.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, org_id]
+              properties:
+                name: { type: string }
+                org_id: { type: string, format: uuid }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { $ref: "#/components/schemas/SCIMToken" }
+                  secret: { type: string }
+        "400": { $ref: "#/components/responses/Error" }
+
+  /scim-tokens/{tokenID}:
+    delete:
+      operationId: deleteScimToken
+      tags: [SCIM]
+      summary: Revoke a SCIM token
+      parameters: [{ $ref: "#/components/parameters/TokenID" }]
+      responses:
+        "204": { description: Revoked }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /scim/v2/ServiceProviderConfig:
+    get:
+      operationId: getScimV2ServiceProviderConfig
+      tags: [SCIM]
+      summary: SCIM service provider configuration
+      security: [{ scimToken: [] }]
+      responses:
+        "200": { description: OK, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+
+  /scim/v2/ResourceTypes:
+    get:
+      operationId: listScimV2ResourceTypes
+      tags: [SCIM]
+      summary: SCIM resource types
+      security: [{ scimToken: [] }]
+      responses:
+        "200": { description: OK, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+
+  /scim/v2/Schemas:
+    get:
+      operationId: listScimV2Schemas
+      tags: [SCIM]
+      summary: SCIM schemas
+      security: [{ scimToken: [] }]
+      responses:
+        "200": { description: OK, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+
+  /scim/v2/Users:
+    get:
+      operationId: listScimV2Users
+      tags: [SCIM]
+      summary: List Users
+      description: '`filter` supports `attr eq "value"` only. Paged by `startIndex` (1-based) and `count` (max 200).'
+      security: [{ scimToken: [] }]
+      parameters:
+        - { name: filter, in: query, schema: { type: string } }
+        - { name: startIndex, in: query, schema: { type: integer, minimum: 1 } }
+        - { name: count, in: query, schema: { type: integer, minimum: 0, maximum: 200 } }
+      responses:
+        "200": { description: A SCIM ListResponse, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+    post:
+      operationId: createScimV2User
+      tags: [SCIM]
+      summary: Create a User
+      security: [{ scimToken: [] }]
+      requestBody: { required: true, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+      responses:
+        "201": { description: Created, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /scim/v2/Users/{id}:
+    get:
+      operationId: getScimV2User
+      tags: [SCIM]
+      summary: Get a User
+      security: [{ scimToken: [] }]
+      parameters: [{ $ref: "#/components/parameters/SCIMID" }]
+      responses:
+        "200": { description: OK, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      operationId: putScimV2User
+      tags: [SCIM]
+      summary: Replace a User
+      security: [{ scimToken: [] }]
+      parameters: [{ $ref: "#/components/parameters/SCIMID" }]
+      requestBody: { required: true, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+      responses:
+        "200": { description: Replaced, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+        "204": { description: The user left this organization (it also belongs to another one) }
+        "404": { $ref: "#/components/responses/Error" }
+    patch:
+      operationId: updateScimV2User
+      tags: [SCIM]
+      summary: Change a User (PatchOp)
+      security: [{ scimToken: [] }]
+      parameters: [{ $ref: "#/components/parameters/SCIMID" }]
+      requestBody: { required: true, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+      responses:
+        "200": { description: Changed, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+        "204": { description: Changed (members excluded, or the user left this organization) }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deleteScimV2User
+      tags: [SCIM]
+      summary: Delete a User
+      security: [{ scimToken: [] }]
+      parameters: [{ $ref: "#/components/parameters/SCIMID" }]
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /scim/v2/Groups:
+    get:
+      operationId: listScimV2Groups
+      tags: [SCIM]
+      summary: List Groups
+      description: '`filter` supports `attr eq "value"` only. Paged by `startIndex` (1-based) and `count` (max 200).'
+      security: [{ scimToken: [] }]
+      parameters:
+        - { name: filter, in: query, schema: { type: string } }
+        - { name: startIndex, in: query, schema: { type: integer, minimum: 1 } }
+        - { name: count, in: query, schema: { type: integer, minimum: 0, maximum: 200 } }
+      responses:
+        "200": { description: A SCIM ListResponse, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+    post:
+      operationId: createScimV2Group
+      tags: [SCIM]
+      summary: Create a Group
+      security: [{ scimToken: [] }]
+      requestBody: { required: true, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+      responses:
+        "201": { description: Created, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /scim/v2/Groups/{id}:
+    get:
+      operationId: getScimV2Group
+      tags: [SCIM]
+      summary: Get a Group
+      security: [{ scimToken: [] }]
+      parameters: [{ $ref: "#/components/parameters/SCIMID" }]
+      responses:
+        "200": { description: OK, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      operationId: putScimV2Group
+      tags: [SCIM]
+      summary: Replace a Group
+      security: [{ scimToken: [] }]
+      parameters: [{ $ref: "#/components/parameters/SCIMID" }]
+      requestBody: { required: true, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+      responses:
+        "200": { description: Replaced, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+        "204": { description: The user left this organization (it also belongs to another one) }
+        "404": { $ref: "#/components/responses/Error" }
+    patch:
+      operationId: updateScimV2Group
+      tags: [SCIM]
+      summary: Change a Group (PatchOp)
+      security: [{ scimToken: [] }]
+      parameters: [{ $ref: "#/components/parameters/SCIMID" }]
+      requestBody: { required: true, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+      responses:
+        "200": { description: Changed, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+        "204": { description: Changed (members excluded, or the user left this organization) }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deleteScimV2Group
+      tags: [SCIM]
+      summary: Delete a Group
+      security: [{ scimToken: [] }]
+      parameters: [{ $ref: "#/components/parameters/SCIMID" }]
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Error" }
 
   /teams/{teamID}/members/{userID}:
     delete:
@@ -8335,6 +8786,10 @@ components:
       description: |
         A **JWT** from `POST /auth/login`, or an **API token** (`xila_…`) from
         `POST /tokens`. API tokens can be scoped to a single project.
+    scimToken:
+      type: http
+      scheme: bearer
+      description: A SCIM token (`xila_scim_…`) from `POST /scim-tokens`. It works on `/scim/v2` only.
 
   parameters:
     ArchivedFilter: { name: archived, in: query, description: "List archived records instead of live ones (requires `owner`; a portfolio-wide list narrows to the projects you own).", schema: { type: boolean } }
@@ -8498,6 +8953,9 @@ components:
     AssetID: { name: assetID, in: path, required: true, schema: { type: string, format: uuid } }
     UserID: { name: userID, in: path, required: true, schema: { type: string, format: uuid } }
     TokenID: { name: tokenID, in: path, required: true, schema: { type: string, format: uuid } }
+    GroupID: { name: groupID, in: path, required: true, schema: { type: string, format: uuid } }
+    RoleID: { name: roleID, in: path, required: true, schema: { type: string, format: uuid } }
+    SCIMID: { name: id, in: path, required: true, schema: { type: string } }
     AccountID: { name: accountID, in: path, required: true, schema: { type: string, format: uuid } }
     KeyID: { name: keyID, in: path, required: true, schema: { type: string, format: uuid } }
     IssuerID: { name: issuerID, in: path, required: true, schema: { type: string, format: uuid } }
@@ -8702,6 +9160,10 @@ components:
               source: { type: string, enum: [manual, sso] }
               via_id: { type: [string, "null"], format: uuid, description: The team (team) or org (org_admin). }
               via_name: { type: [string, "null"] }
+              group_id: { type: [string, "null"], format: uuid, description: The user group the grant reaches the user through. }
+              group_name: { type: [string, "null"] }
+              custom_role: { type: [string, "null"], description: The custom role narrowing the grant. }
+              denied_capabilities: { type: array, items: { type: string } }
               sso_mappings: { type: array, items: { type: string }, description: '"provider:group" of the SSO mappings that produce this grant.' }
     AuditEntry:
       type: object
@@ -9031,6 +9493,62 @@ components:
           type: string
           enum: [manual, sso]
           description: "`sso` = granted by an IdP group mapping and synced on that user's SSO logins; `manual` = granted here."
+        group_id: { type: string, format: uuid, description: Set instead of user_id for a grant on a user group. }
+        group_name: { type: string }
+        custom_role_id: { type: string, format: uuid, description: "The custom role narrowing `role`, if any." }
+        custom_role_name: { type: string }
+
+    UserGroup:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        org_id: { type: string, format: uuid }
+        name: { type: string }
+        external_id: { type: string, description: Set when a SCIM client provisioned it. }
+        member_count: { type: integer }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    CustomRole:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        org_id: { type: string, format: uuid }
+        name: { type: string }
+        base_role: { type: string, enum: [owner, editor, viewer, uploader] }
+        denied_capabilities:
+          type: array
+          items: { $ref: "#/components/schemas/Capability" }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    Capability:
+      type: string
+      enum: [triage, comment, manage_members, project_settings, upload, export, risk_acceptance_approve]
+      description: |
+        What a custom role can deny: `triage` (status, severity, assignee, accepting AI
+        proposals, deciding assessments, bulk edits), `comment` (comments and
+        attachments), `manage_members` (team and project members and groups),
+        `project_settings` (gate policy, SLA, issue tracker, connectors, versions,
+        badge token), `upload` (scans, SBOMs, VEX, gate runs, connector pulls), `export`
+        (CSV/XLSX and VEX exports), `risk_acceptance_approve` (approving, rejecting,
+        revoking risk acceptances).
+
+    SCIMToken:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        org_id: { type: string, format: uuid }
+        org_name: { type: string }
+        created_at: { type: string, format: date-time }
+        last_used_at: { type: [string, "null"], format: date-time }
+        revoked_at: { type: [string, "null"], format: date-time }
+
+    SCIMResource:
+      type: object
+      description: A SCIM 2.0 User or Group (RFC 7643), `application/scim+json`.
+      additionalProperties: true
 
     Criticality:
       type: string

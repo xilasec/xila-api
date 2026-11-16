@@ -259,16 +259,37 @@
 			accessLoading = false;
 		}
 	}
-	let memberForm = $state({ email: '', role: 'viewer' });
+	let memberForm = $state({ kind: 'user', email: '', group_id: '', role: 'viewer', custom_role_id: '' });
 	let memberBusy = $state(false);
+	// The project's org's groups and custom roles, for the grant form (empty
+	// when the caller can't list them).
+	let orgGroups = $state(/** @type {any[]} */ ([]));
+	let orgRoles = $state(/** @type {any[]} */ ([]));
+	async function loadGrantOptions() {
+		try {
+			const team = (await api.listTeams()).find((/** @type {any} */ tm) => tm.id === project?.team_id);
+			if (!team) return;
+			[orgGroups, orgRoles] = await Promise.all([
+				api.listGroups(team.org_id).catch(() => []),
+				api.listCustomRoles(team.org_id).catch(() => [])
+			]);
+		} catch {
+			/* the form still grants users */
+		}
+	}
 
 	/** @param {SubmitEvent} e */
 	async function addMember(e) {
 		e.preventDefault();
 		memberBusy = true;
 		try {
-			await api.addProjectMember(id, memberForm.email.trim().toLowerCase(), memberForm.role);
-			memberForm = { email: '', role: 'viewer' };
+			/** @type {{ email?: string, group_id?: string, role: string, custom_role_id?: string }} */
+			const grant = { role: memberForm.role };
+			if (memberForm.kind === 'group') grant.group_id = memberForm.group_id;
+			else grant.email = memberForm.email.trim().toLowerCase();
+			if (memberForm.custom_role_id) grant.custom_role_id = memberForm.custom_role_id;
+			await api.addProjectMember(id, grant);
+			memberForm = { kind: memberForm.kind, email: '', group_id: '', role: 'viewer', custom_role_id: '' };
 			members = await api.listProjectMembers(id);
 			notify($t('proj.accessGranted'), 'success');
 		} catch (err) {
@@ -281,6 +302,12 @@
 	/** @param {any} m */
 	async function removeMember(m) {
 		try {
+			if (m.group_id) {
+				await api.removeProjectGroup(id, m.group_id);
+				notify($t('proj.accessRevoked'), 'success');
+				members = await api.listProjectMembers(id);
+				return;
+			}
 			const res = await api.removeProjectMember(id, m.user_id);
 			// The API tells us honestly when the user still reaches the project
 			// through its team — the grant is gone, the access isn't.
@@ -680,7 +707,10 @@
 			if (name === 'scans') scans = await api.listScans(id);
 			else if (name === 'sboms') sboms = await api.listSboms(id);
 			else if (name === 'vex') vexStatements = await api.listVex(id);
-			else if (name === 'members') members = await api.listProjectMembers(id);
+			else if (name === 'members') {
+				members = await api.listProjectMembers(id);
+				loadGrantOptions();
+			}
 			else if (name === 'components') {
 				const res = await api.projectComponents(id, { ...componentQuery(), limit: 200 });
 				components = res.components ?? [];
@@ -1206,10 +1236,27 @@
 		</p>
 
 		<form onsubmit={addMember} class="mb-4 flex flex-wrap items-end gap-2">
-			<Field label={$t('proj.email')}>
-				<input bind:value={memberForm.email} type="email" required placeholder="dana@example.com"
-					class="input input-bordered input-sm w-64" />
-			</Field>
+			{#if orgGroups.length > 0}
+				<Field label={$t('proj.grantTo')}>
+					<select bind:value={memberForm.kind} class="select select-bordered select-sm">
+						<option value="user">{$t('proj.grantUser')}</option>
+						<option value="group">{$t('proj.grantGroup')}</option>
+					</select>
+				</Field>
+			{/if}
+			{#if memberForm.kind === 'group'}
+				<Field label={$t('proj.group')}>
+					<select bind:value={memberForm.group_id} required class="select select-bordered select-sm w-64">
+						<option value="" disabled>{$t('proj.pickGroup')}</option>
+						{#each orgGroups as g (g.id)}<option value={g.id}>{g.name}</option>{/each}
+					</select>
+				</Field>
+			{:else}
+				<Field label={$t('proj.email')}>
+					<input bind:value={memberForm.email} type="email" required placeholder="dana@example.com"
+						class="input input-bordered input-sm w-64" />
+				</Field>
+			{/if}
 			<Field label={$t('proj.role')}>
 				<select bind:value={memberForm.role} class="select select-bordered select-sm">
 					<option value="viewer">{$t('proj.roleViewer')}</option>
@@ -1218,9 +1265,18 @@
 					<option value="uploader">{$t('proj.roleUploader')}</option>
 				</select>
 			</Field>
+			{#if orgRoles.length > 0}
+				<Field label={$t('proj.customRole')}>
+					<select bind:value={memberForm.custom_role_id} class="select select-bordered select-sm">
+						<option value="">{$t('proj.noCustomRole')}</option>
+						{#each orgRoles as r (r.id)}<option value={r.id}>{r.name}</option>{/each}
+					</select>
+				</Field>
+			{/if}
 			<button class="btn btn-primary btn-sm" disabled={memberBusy}>
 				{#if memberBusy}<span class="loading loading-spinner loading-xs"></span>{/if}{$t('proj.grant')}
 			</button>
+			<a href="/groups" class="link text-xs self-center">{$t('proj.manageGroups')}</a>
 		</form>
 
 		<State loading={tabLoading} empty={!tabLoading && members.length === 0}
@@ -1230,11 +1286,14 @@
 				<table class="table table-sm">
 					<thead><tr><th>{$t('proj.colUser')}</th><th>{$t('proj.colRoleHere')}</th><th></th></tr></thead>
 					<tbody>
-						{#each members as m (m.user_id)}
+						{#each members as m (m.group_id || m.user_id)}
 							<tr class="hover">
-								<td class="font-medium">{m.email}</td>
+								<td class="font-medium">
+									{#if m.group_id}<span class="badge badge-outline badge-xs mr-1">{$t('proj.grantGroup')}</span>{m.group_name}{:else}{m.email}{/if}
+								</td>
 								<td>
 								<span class="badge badge-ghost badge-sm">{$labelOf('role', m.role)}</span>
+								{#if m.custom_role_name}<span class="badge badge-info badge-outline badge-xs" title={$t('proj.customRole')}>{m.custom_role_name}</span>{/if}
 								{#if m.source === 'sso'}<span class="badge badge-outline badge-xs" title={$t('home.ssoGrantTitle')}>SSO</span>{/if}
 							</td>
 								<td class="text-right">

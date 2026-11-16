@@ -68,6 +68,7 @@ import (
 	"github.com/xilasec/xila-api/internal/sbom"
 	"github.com/xilasec/xila-api/internal/scan"
 	"github.com/xilasec/xila-api/internal/scanner"
+	"github.com/xilasec/xila-api/internal/scim"
 	"github.com/xilasec/xila-api/internal/secretbox"
 	"github.com/xilasec/xila-api/internal/serviceaccount"
 	"github.com/xilasec/xila-api/internal/sla"
@@ -323,6 +324,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		ApiToken:     apitoken.NewHandler(tokenRepo, tokenSvc).WithReauthWindow(cfg.JWT.ReauthWindow),
 		SvcAccount:   serviceaccount.NewHandler(serviceaccount.NewRepository(pool), tokenSvc, tokenRepo, cfg.ServiceAccounts.KeyMaxDays),
 		Federation:   federation.NewHandler(federationRepo, federationSvc, !cfg.IsProduction()),
+		SCIM:         scim.NewHandler(scim.NewStore(pool), auditRepo),
 		TokenAuth:    tokenSvc,
 		Sessions:     userRepo,
 		// Throttling only when a test asks for it (cfg.AuthRateLimit): the other

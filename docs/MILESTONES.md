@@ -790,7 +790,12 @@ Tier 1:
 Tier 2:
 
 - ⬜ 12.7 More issue trackers: Azure DevOps, Linear, ServiceNow.
-- ⬜ 12.8 Custom roles and user groups, and SCIM provisioning.
+- ✅ 12.8 User groups (granted on org, team or project like a person, expanded
+  in `ProjectGrantsSQL`), custom roles (a base role minus capabilities, enforced
+  per route class and in bulk edits, union across grants) and SCIM 2.0
+  provisioning of one organization's users and groups with org-scoped tokens.
+  A trigger keeps groups and custom roles inside their org. Groups & roles page
+  in the UI. Migration 000094.
 - ✅ 12.9 Security gate caps for every severity: `max_medium`, `max_low` and
   `max_info` beside `max_critical` / `max_high` (Xila's "unknown" is `info`), in
   the gate policy, the inline CLI policy (`--max-medium` …) and the project's

@@ -45,7 +45,7 @@ func TestMembershipRolesAndResolution(t *testing.T) {
 	other := seedUser(t, pool, "other@x.io")
 	teamID, projectID := seedTeamProject(t, pool)
 
-	if err := repo.Add(ctx, teamID, owner, domain.TeamOwner); err != nil {
+	if err := repo.Add(ctx, teamID, owner, domain.TeamOwner, ""); err != nil {
 		t.Fatalf("add owner: %v", err)
 	}
 	role, member, err := repo.RoleOnTeam(ctx, owner, teamID)
@@ -57,7 +57,7 @@ func TestMembershipRolesAndResolution(t *testing.T) {
 	}
 
 	// Adding as a non-member of the projects table etc. — add other as viewer.
-	if err := repo.Add(ctx, teamID, other, domain.TeamViewer); err != nil {
+	if err := repo.Add(ctx, teamID, other, domain.TeamViewer, ""); err != nil {
 		t.Fatalf("add viewer: %v", err)
 	}
 	if members, _ := repo.List(ctx, teamID); len(members) != 2 {

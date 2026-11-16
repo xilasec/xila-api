@@ -115,6 +115,7 @@
 		{ href: '/report-templates', key: 'nav.reportTemplates' },
 		{ href: '/users', key: 'nav.users' },
 		{ href: '/service-accounts', key: 'nav.serviceAccounts' },
+		{ href: '/groups', key: 'nav.groups' },
 		{ href: '/audit-log', key: 'nav.auditLog' },
 		{ href: '/permissions', key: 'nav.permissions' },
 		{ href: '/sso', key: 'nav.sso' },

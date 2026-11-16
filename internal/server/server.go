@@ -68,6 +68,7 @@ import (
 	"github.com/xilasec/xila-api/internal/saml"
 	"github.com/xilasec/xila-api/internal/sbom"
 	"github.com/xilasec/xila-api/internal/scan"
+	"github.com/xilasec/xila-api/internal/scim"
 	"github.com/xilasec/xila-api/internal/serviceaccount"
 	"github.com/xilasec/xila-api/internal/sla"
 	"github.com/xilasec/xila-api/internal/sso"
@@ -102,6 +103,7 @@ type Handlers struct {
 	ApiToken     *apitoken.Handler
 	SvcAccount   *serviceaccount.Handler
 	Federation   *federation.Handler
+	SCIM         *scim.Handler
 	Enrichment   *enrichment.Handler
 	Notify       *notify.Handler
 	Retention    *retention.Handler
@@ -278,6 +280,10 @@ func New(cfg config.Config, h Handlers) *Server {
 	h.SAML.Register(authGroup)
 	// README badges: public, resolved by an unguessable per-project token.
 	h.Badge.RegisterPublic(v1)
+	// SCIM provisioning: its own bearer tokens, never a session or API token,
+	// so it is mounted before the secured group. Changes are audited by the
+	// handler (actor kind scim).
+	h.SCIM.RegisterSCIM(v1)
 	// CSAF provider directory at the site root (PSIRT_PUBLIC; 404 otherwise).
 	h.PSIRT.RegisterPublic(app)
 
@@ -307,6 +313,7 @@ func New(cfg config.Config, h Handlers) *Server {
 	h.Correlation.Register(secured)
 	h.ApiToken.Register(secured)
 	h.SvcAccount.Register(secured)
+	h.SCIM.RegisterAdmin(secured)
 	h.Federation.Register(secured)
 	h.Notify.Register(secured)
 	h.Retention.Register(secured)

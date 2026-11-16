@@ -126,7 +126,7 @@ func TestGroupSyncGrantsAndRevokes(t *testing.T) {
 	}
 
 	// Someone grants alice project editor by hand; that row is now manual.
-	if err := f.members.AddToProject(ctx, f.pA, alice.ID, domain.TeamEditor); err != nil {
+	if err := f.members.AddToProject(ctx, f.pA, alice.ID, domain.TeamEditor, ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -161,7 +161,7 @@ func TestGroupSyncGrantsAndRevokes(t *testing.T) {
 		t.Errorf("manual admin after sso login = %v/%s, want kept", bob.IsAdmin, bob.AdminSource)
 	}
 	// A manual team grant is not re-roled by a mapping for the same team.
-	if err := f.members.Add(ctx, f.teamB, bob.ID, domain.TeamOwner); err != nil {
+	if err := f.members.Add(ctx, f.teamB, bob.ID, domain.TeamOwner, ""); err != nil {
 		t.Fatal(err)
 	}
 	f.login(t, envSAML, "bob", "bob@x.io", "devs") // saml devs → team B viewer

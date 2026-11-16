@@ -87,6 +87,37 @@ func TestAuditAgreesWithAuthorization(t *testing.T) {
 			}
 		}
 	}
+	// User groups: one per org, random members, granted on random projects,
+	// teams and orgs of their own org (grant_same_org refuses the others).
+	for i, o := range w.orgs {
+		w.exec(`INSERT INTO user_groups (org_id, name) VALUES ($1, $2)`, o, fmt.Sprintf("g%d", i))
+	}
+	for _, u := range w.users {
+		for i := range w.orgs {
+			if r.IntN(2) == 0 {
+				w.exec(`INSERT INTO user_group_members (group_id, user_id)
+					SELECT id, $1 FROM user_groups WHERE name = $2`, u, fmt.Sprintf("g%d", i))
+			}
+		}
+	}
+	for _, p := range w.projects {
+		if r.IntN(3) == 0 {
+			w.exec(`INSERT INTO project_members (project_id, group_id, role)
+				SELECT p.id, g.id, $2 FROM projects p JOIN teams t ON t.id = p.team_id JOIN user_groups g ON g.org_id = t.org_id
+				WHERE p.id = $1`, p, roles[r.IntN(4)])
+		}
+	}
+	for _, tm := range w.teams {
+		if r.IntN(3) == 0 {
+			w.exec(`INSERT INTO team_members (team_id, group_id, role)
+				SELECT t.id, g.id, $2 FROM teams t JOIN user_groups g ON g.org_id = t.org_id WHERE t.id = $1`, tm, roles[r.IntN(4)])
+		}
+	}
+	for _, o := range w.orgs {
+		if r.IntN(3) == 0 {
+			w.exec(`INSERT INTO org_members (org_id, group_id, role) SELECT org_id, id, 'admin' FROM user_groups WHERE org_id = $1`, o)
+		}
+	}
 	// Who sees each project, by UsersWithProjectAccess.
 	listed := map[string]map[string]string{}
 	for _, p := range w.projects {

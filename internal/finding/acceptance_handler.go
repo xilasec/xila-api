@@ -155,7 +155,7 @@ func (h *Handler) ListAllAcceptances(c *fiber.Ctx) error {
 		f.ExpiresBefore = &before
 	}
 	if c.QueryBool("actionable") {
-		ids, err := h.decidableProjects(c, uid, f.ProjectIDs)
+		ids, err := h.decidableProjects(c, uid, f.ProjectIDs, domain.CapRiskAcceptanceApprove)
 		if err != nil {
 			return err
 		}

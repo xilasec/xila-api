@@ -34,6 +34,7 @@ func (h *Handler) Register(r fiber.Router) {
 	r.Get("/orgs/:orgID/members", h.ListMembers)
 	r.Post("/orgs/:orgID/members", h.AddMember)
 	r.Delete("/orgs/:orgID/members/:userID", h.RemoveMember)
+	r.Delete("/orgs/:orgID/member-groups/:groupID", h.RemoveGroupMember)
 }
 
 type createRequest struct {
@@ -114,11 +115,12 @@ func (h *Handler) ListMembers(c *fiber.Ctx) error {
 }
 
 type addMemberRequest struct {
-	Email string         `json:"email"`
-	Role  domain.OrgRole `json:"role"`
+	Email   string         `json:"email"`
+	GroupID string         `json:"group_id"`
+	Role    domain.OrgRole `json:"role"`
 }
 
-// AddMember adds a user (by email) to the org with a role.
+// AddMember adds a user (by email) or a user group (by id) to the org with a role.
 func (h *Handler) AddMember(c *fiber.Ctx) error {
 	id, err := httpx.ID(c, "orgID")
 	if err != nil {
@@ -128,10 +130,22 @@ func (h *Handler) AddMember(c *fiber.Ctx) error {
 	if err := httpx.Parse(c, &body); err != nil {
 		return err
 	}
-	body.Email = strings.TrimSpace(strings.ToLower(body.Email))
+	if (body.Email == "") == (body.GroupID == "") {
+		return fiber.NewError(fiber.StatusBadRequest, "exactly one of email or group_id is required")
+	}
 	if !body.Role.Valid() {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid role")
 	}
+	if body.GroupID != "" {
+		if err := h.repo.AddGroupMember(c.UserContext(), id, body.GroupID, body.Role); err != nil {
+			if errors.Is(err, ErrNoUser) {
+				return fiber.NewError(fiber.StatusNotFound, "no such group")
+			}
+			return err
+		}
+		return c.Status(fiber.StatusCreated).JSON(Member{GroupID: body.GroupID, Role: body.Role})
+	}
+	body.Email = strings.TrimSpace(strings.ToLower(body.Email))
 	u, err := h.users.GetByEmail(c.UserContext(), body.Email)
 	if errors.Is(err, user.ErrNotFound) {
 		return fiber.NewError(fiber.StatusNotFound, "no user with that email")
@@ -143,6 +157,27 @@ func (h *Handler) AddMember(c *fiber.Ctx) error {
 		return err
 	}
 	return c.Status(fiber.StatusCreated).JSON(Member{UserID: u.ID, Email: u.Email, Role: body.Role})
+}
+
+// RemoveGroupMember drops a group's grant on the org.
+func (h *Handler) RemoveGroupMember(c *fiber.Ctx) error {
+	id, err := httpx.ID(c, "orgID")
+	if err != nil {
+		return err
+	}
+	groupID, err := httpx.ID(c, "groupID")
+	if err != nil {
+		return err
+	}
+	switch err := h.repo.RemoveGroupMember(c.UserContext(), id, groupID); {
+	case errors.Is(err, ErrNotFound):
+		return fiber.NewError(fiber.StatusNotFound, "group not a member of this org")
+	case errors.Is(err, ErrLastAdmin):
+		return fiber.NewError(fiber.StatusBadRequest, "cannot remove the last admin")
+	case err != nil:
+		return err
+	}
+	return c.SendStatus(fiber.StatusNoContent)
 }
 
 // RemoveMember drops a member from the org.
