@@ -40,6 +40,7 @@
 	import AccessTable from '#lib/components/AccessTable.svelte';
 	import CustomFieldsEditor from '#lib/components/CustomFieldsEditor.svelte';
 	import ManualControls from '#lib/components/ManualControls.svelte';
+	import PriorityWeights from '#lib/components/PriorityWeights.svelte';
 	import { OPEN_BY_SEVERITY, RISK, FLOW, fmtCount, fmtRisk, windowStats } from '#lib/trends.js';
 	import { parentChoices } from '#lib/projectTree.js';
 
@@ -1664,6 +1665,7 @@
 				</table>
 			</div>
 		{/if}
+		<PriorityWeights projectId={id} />
 	{:else if tab === 'sla'}
 		<p class="text-sm text-base-content/60 mb-3">
 			{$t('proj.slaIntro')}

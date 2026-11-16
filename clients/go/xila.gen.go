@@ -6684,6 +6684,32 @@ type Portfolio struct {
 	} `json:"top_projects,omitempty"`
 }
 
+// PriorityWeights The factors of a finding's priority (severity weight × exploitability × reachability × exposure).
+type PriorityWeights struct {
+	Critical *float32 `json:"critical,omitempty"`
+	Dev      *float32 `json:"dev,omitempty"`
+
+	// EpssSlope The EPSS factor is 1 + epss_slope × EPSS.
+	EpssSlope *float32 `json:"epss_slope,omitempty"`
+	High      *float32 `json:"high,omitempty"`
+	Info      *float32 `json:"info,omitempty"`
+	Internet  *float32 `json:"internet,omitempty"`
+	Isolated  *float32 `json:"isolated,omitempty"`
+
+	// Kev Multiplier of a finding on a KEV catalog.
+	Kev      *float32 `json:"kev,omitempty"`
+	Low      *float32 `json:"low,omitempty"`
+	Medium   *float32 `json:"medium,omitempty"`
+	Optional *float32 `json:"optional,omitempty"`
+
+	// Poc Floor set by a public proof of concept.
+	Poc        *float32 `json:"poc,omitempty"`
+	Transitive *float32 `json:"transitive,omitempty"`
+
+	// Weaponized Floor set by a weaponized exploit (Metasploit).
+	Weaponized *float32 `json:"weaponized,omitempty"`
+}
+
 // Project Example: {"ai_triage_opt_out":false,"archived_at":null,"archived_by":null,"business_criticality":"medium","created_at":"2026-11-12T16:49:59.72317+01:00","custom":{},"description":"","id":"af938283-73e9-4d55-ba64-07a1658d69ce","is_collection":false,"name":"Web","parent_id":null,"repo_url":"","slug":"web","tags":[],"team_id":"4fe52455-3109-4533-824c-23d7a4064213","updated_at":"2026-11-12T16:49:59.72317+01:00"}
 type Project struct {
 	// AiTriageOptOut The project opted out of AI triage.
@@ -8068,6 +8094,21 @@ type IngestSettings struct {
 
 	// Workers Override; null = use INGEST_WORKERS
 	Workers *int `json:"workers,omitempty"`
+}
+
+// PriorityWeightsResult defines model for PriorityWeightsResult.
+type PriorityWeightsResult struct {
+	// Custom Whether the project overrides the defaults.
+	Custom *bool `json:"custom,omitempty"`
+
+	// Defaults The factors of a finding's priority (severity weight × exploitability × reachability × exposure).
+	Defaults *PriorityWeights `json:"defaults,omitempty"`
+
+	// Reprioritized Findings whose priority changed (PUT / DELETE).
+	Reprioritized *int `json:"reprioritized,omitempty"`
+
+	// Weights The factors of a finding's priority (severity weight × exploitability × reachability × exposure).
+	Weights *PriorityWeights `json:"weights,omitempty"`
 }
 
 // RiskAcceptanceList defines model for RiskAcceptanceList.
@@ -10311,6 +10352,9 @@ type PutProjectIssueTrackerJSONRequestBody = IssueTrackerInput
 
 // CreateProjectMemberJSONRequestBody defines body for CreateProjectMember for application/json ContentType.
 type CreateProjectMemberJSONRequestBody CreateProjectMemberJSONBody
+
+// PutProjectPriorityWeightsJSONRequestBody defines body for PutProjectPriorityWeights for application/json ContentType.
+type PutProjectPriorityWeightsJSONRequestBody = PriorityWeights
 
 // CreateProjectRemediationJSONRequestBody defines body for CreateProjectRemediation for application/json ContentType.
 type CreateProjectRemediationJSONRequestBody CreateProjectRemediationJSONBody
@@ -13876,6 +13920,46 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /projects/{projectID}/policies (the `ListProjectPolicies` operationId).
 	ListProjectPolicies(ctx context.Context, projectID ProjectID, params *ListProjectPoliciesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteProjectPriorityWeights Back to the default priority weights
+	//
+	// Corresponds with DELETE /projects/{projectID}/priority-weights (the `DeleteProjectPriorityWeights` operationId).
+	DeleteProjectPriorityWeights(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListProjectPriorityWeights The project's priority weights
+	//
+	// What the project's priorities are computed with, whether that's its own override (`custom`), and the defaults.
+	//
+	// Corresponds with GET /projects/{projectID}/priority-weights (the `ListProjectPriorityWeights` operationId).
+	ListProjectPriorityWeights(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutProjectPriorityWeightsWithBody Override the project's priority weights
+	//
+	// Owner. Fields left out keep their default. Discounts (`transitive`, `dev`,
+	// `optional`, `isolated`) stay in (0, 1]; uplifts (`kev`, `weaponized`, `poc`,
+	// `internet`) stay at 1 or more; severities keep their order; and an exploited
+	// critical in a transitive dev dependency on an isolated asset must still
+	// outrank a quiet medium on an internet-facing one. The project's priorities
+	// are recomputed at once (`reprioritized`) and its findings regrouped.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /projects/{projectID}/priority-weights (the `PutProjectPriorityWeights` operationId).
+	PutProjectPriorityWeightsWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutProjectPriorityWeights Override the project's priority weights
+	//
+	// Owner. Fields left out keep their default. Discounts (`transitive`, `dev`,
+	// `optional`, `isolated`) stay in (0, 1]; uplifts (`kev`, `weaponized`, `poc`,
+	// `internet`) stay at 1 or more; severities keep their order; and an exploited
+	// critical in a transitive dev dependency on an isolated asset must still
+	// outrank a quiet medium on an internet-facing one. The project's priorities
+	// are recomputed at once (`reprioritized`) and its findings regrouped.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /projects/{projectID}/priority-weights (the `PutProjectPriorityWeights` operationId).
+	PutProjectPriorityWeights(ctx context.Context, projectID ProjectID, body PutProjectPriorityWeightsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetProjectRemediation The project's remediation actions
 	//
@@ -22375,6 +22459,86 @@ func (c *Client) GetProjectMetricsTrends(ctx context.Context, projectID ProjectI
 // Corresponds with GET /projects/{projectID}/policies (the `ListProjectPolicies` operationId).
 func (c *Client) ListProjectPolicies(ctx context.Context, projectID ProjectID, params *ListProjectPoliciesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListProjectPoliciesRequest(c.Server, projectID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteProjectPriorityWeights Back to the default priority weights
+//
+// Corresponds with DELETE /projects/{projectID}/priority-weights (the `DeleteProjectPriorityWeights` operationId).
+func (c *Client) DeleteProjectPriorityWeights(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteProjectPriorityWeightsRequest(c.Server, projectID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListProjectPriorityWeights The project's priority weights
+//
+// What the project's priorities are computed with, whether that's its own override (`custom`), and the defaults.
+//
+// Corresponds with GET /projects/{projectID}/priority-weights (the `ListProjectPriorityWeights` operationId).
+func (c *Client) ListProjectPriorityWeights(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListProjectPriorityWeightsRequest(c.Server, projectID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutProjectPriorityWeightsWithBody Override the project's priority weights
+//
+// Owner. Fields left out keep their default. Discounts (`transitive`, `dev`,
+// `optional`, `isolated`) stay in (0, 1]; uplifts (`kev`, `weaponized`, `poc`,
+// `internet`) stay at 1 or more; severities keep their order; and an exploited
+// critical in a transitive dev dependency on an isolated asset must still
+// outrank a quiet medium on an internet-facing one. The project's priorities
+// are recomputed at once (`reprioritized`) and its findings regrouped.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /projects/{projectID}/priority-weights (the `PutProjectPriorityWeights` operationId).
+func (c *Client) PutProjectPriorityWeightsWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutProjectPriorityWeightsRequestWithBody(c.Server, projectID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutProjectPriorityWeights Override the project's priority weights
+//
+// Owner. Fields left out keep their default. Discounts (`transitive`, `dev`,
+// `optional`, `isolated`) stay in (0, 1]; uplifts (`kev`, `weaponized`, `poc`,
+// `internet`) stay at 1 or more; severities keep their order; and an exploited
+// critical in a transitive dev dependency on an isolated asset must still
+// outrank a quiet medium on an internet-facing one. The project's priorities
+// are recomputed at once (`reprioritized`) and its findings regrouped.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /projects/{projectID}/priority-weights (the `PutProjectPriorityWeights` operationId).
+func (c *Client) PutProjectPriorityWeights(ctx context.Context, projectID ProjectID, body PutProjectPriorityWeightsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutProjectPriorityWeightsRequest(c.Server, projectID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -39667,6 +39831,121 @@ func NewListProjectPoliciesRequest(server string, projectID ProjectID, params *L
 	return req, nil
 }
 
+// NewDeleteProjectPriorityWeightsRequest constructs an http.Request for the DeleteProjectPriorityWeights method
+func NewDeleteProjectPriorityWeightsRequest(server string, projectID ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/priority-weights", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListProjectPriorityWeightsRequest constructs an http.Request for the ListProjectPriorityWeights method
+func NewListProjectPriorityWeightsRequest(server string, projectID ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/priority-weights", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutProjectPriorityWeightsRequest calls the generic PutProjectPriorityWeights builder with application/json body
+func NewPutProjectPriorityWeightsRequest(server string, projectID ProjectID, body PutProjectPriorityWeightsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutProjectPriorityWeightsRequestWithBody(server, projectID, "application/json", bodyReader)
+}
+
+// NewPutProjectPriorityWeightsRequestWithBody constructs an http.Request for the PutProjectPriorityWeights method, with any body, and a specified content type
+func NewPutProjectPriorityWeightsRequestWithBody(server string, projectID ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/priority-weights", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetProjectRemediationRequest constructs an http.Request for the GetProjectRemediation method
 func NewGetProjectRemediationRequest(server string, projectID ProjectID, params *GetProjectRemediationParams) (*http.Request, error) {
 	var err error
@@ -50435,6 +50714,50 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /projects/{projectID}/policies (the `ListProjectPolicies` operationId).
 	ListProjectPoliciesWithResponse(ctx context.Context, projectID ProjectID, params *ListProjectPoliciesParams, reqEditors ...RequestEditorFn) (*ListProjectPoliciesResponse, error)
+
+	// DeleteProjectPriorityWeightsWithResponse Back to the default priority weights
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /projects/{projectID}/priority-weights (the `DeleteProjectPriorityWeights` operationId).
+	DeleteProjectPriorityWeightsWithResponse(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*DeleteProjectPriorityWeightsResponse, error)
+
+	// ListProjectPriorityWeightsWithResponse The project's priority weights
+	//
+	// What the project's priorities are computed with, whether that's its own override (`custom`), and the defaults.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /projects/{projectID}/priority-weights (the `ListProjectPriorityWeights` operationId).
+	ListProjectPriorityWeightsWithResponse(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*ListProjectPriorityWeightsResponse, error)
+
+	// PutProjectPriorityWeightsWithBodyWithResponse Override the project's priority weights
+	//
+	// Owner. Fields left out keep their default. Discounts (`transitive`, `dev`,
+	// `optional`, `isolated`) stay in (0, 1]; uplifts (`kev`, `weaponized`, `poc`,
+	// `internet`) stay at 1 or more; severities keep their order; and an exploited
+	// critical in a transitive dev dependency on an isolated asset must still
+	// outrank a quiet medium on an internet-facing one. The project's priorities
+	// are recomputed at once (`reprioritized`) and its findings regrouped.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /projects/{projectID}/priority-weights (the `PutProjectPriorityWeights` operationId).
+	PutProjectPriorityWeightsWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutProjectPriorityWeightsResponse, error)
+
+	// PutProjectPriorityWeightsWithResponse Override the project's priority weights
+	//
+	// Owner. Fields left out keep their default. Discounts (`transitive`, `dev`,
+	// `optional`, `isolated`) stay in (0, 1]; uplifts (`kev`, `weaponized`, `poc`,
+	// `internet`) stay at 1 or more; severities keep their order; and an exploited
+	// critical in a transitive dev dependency on an isolated asset must still
+	// outrank a quiet medium on an internet-facing one. The project's priorities
+	// are recomputed at once (`reprioritized`) and its findings regrouped.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /projects/{projectID}/priority-weights (the `PutProjectPriorityWeights` operationId).
+	PutProjectPriorityWeightsWithResponse(ctx context.Context, projectID ProjectID, body PutProjectPriorityWeightsJSONRequestBody, reqEditors ...RequestEditorFn) (*PutProjectPriorityWeightsResponse, error)
 
 	// GetProjectRemediationWithResponse The project's remediation actions
 	//
@@ -66003,6 +66326,157 @@ func (r ListProjectPoliciesResponse) ContentType() string {
 	return ""
 }
 
+type DeleteProjectPriorityWeightsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *PriorityWeightsResult
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DeleteProjectPriorityWeightsResponse) GetJSON200() *PriorityWeightsResult {
+	return r.JSON200
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r DeleteProjectPriorityWeightsResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteProjectPriorityWeightsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteProjectPriorityWeightsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteProjectPriorityWeightsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteProjectPriorityWeightsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListProjectPriorityWeightsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *PriorityWeightsResult
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListProjectPriorityWeightsResponse) GetJSON200() *PriorityWeightsResult {
+	return r.JSON200
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r ListProjectPriorityWeightsResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListProjectPriorityWeightsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListProjectPriorityWeightsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListProjectPriorityWeightsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListProjectPriorityWeightsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PutProjectPriorityWeightsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *PriorityWeightsResult
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PutProjectPriorityWeightsResponse) GetJSON200() *PriorityWeightsResult {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r PutProjectPriorityWeightsResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r PutProjectPriorityWeightsResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r PutProjectPriorityWeightsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PutProjectPriorityWeightsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutProjectPriorityWeightsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PutProjectPriorityWeightsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetProjectRemediationResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -79804,6 +80278,74 @@ func (c *ClientWithResponses) ListProjectPoliciesWithResponse(ctx context.Contex
 	return ParseListProjectPoliciesResponse(rsp)
 }
 
+// DeleteProjectPriorityWeightsWithResponse Back to the default priority weights
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /projects/{projectID}/priority-weights (the `DeleteProjectPriorityWeights` operationId).
+func (c *ClientWithResponses) DeleteProjectPriorityWeightsWithResponse(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*DeleteProjectPriorityWeightsResponse, error) {
+	rsp, err := c.DeleteProjectPriorityWeights(ctx, projectID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteProjectPriorityWeightsResponse(rsp)
+}
+
+// ListProjectPriorityWeightsWithResponse The project's priority weights
+//
+// What the project's priorities are computed with, whether that's its own override (`custom`), and the defaults.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /projects/{projectID}/priority-weights (the `ListProjectPriorityWeights` operationId).
+func (c *ClientWithResponses) ListProjectPriorityWeightsWithResponse(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*ListProjectPriorityWeightsResponse, error) {
+	rsp, err := c.ListProjectPriorityWeights(ctx, projectID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListProjectPriorityWeightsResponse(rsp)
+}
+
+// PutProjectPriorityWeightsWithBodyWithResponse Override the project's priority weights
+//
+// Owner. Fields left out keep their default. Discounts (`transitive`, `dev`,
+// `optional`, `isolated`) stay in (0, 1]; uplifts (`kev`, `weaponized`, `poc`,
+// `internet`) stay at 1 or more; severities keep their order; and an exploited
+// critical in a transitive dev dependency on an isolated asset must still
+// outrank a quiet medium on an internet-facing one. The project's priorities
+// are recomputed at once (`reprioritized`) and its findings regrouped.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /projects/{projectID}/priority-weights (the `PutProjectPriorityWeights` operationId).
+func (c *ClientWithResponses) PutProjectPriorityWeightsWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutProjectPriorityWeightsResponse, error) {
+	rsp, err := c.PutProjectPriorityWeightsWithBody(ctx, projectID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutProjectPriorityWeightsResponse(rsp)
+}
+
+// PutProjectPriorityWeightsWithResponse Override the project's priority weights
+//
+// Owner. Fields left out keep their default. Discounts (`transitive`, `dev`,
+// `optional`, `isolated`) stay in (0, 1]; uplifts (`kev`, `weaponized`, `poc`,
+// `internet`) stay at 1 or more; severities keep their order; and an exploited
+// critical in a transitive dev dependency on an isolated asset must still
+// outrank a quiet medium on an internet-facing one. The project's priorities
+// are recomputed at once (`reprioritized`) and its findings regrouped.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /projects/{projectID}/priority-weights (the `PutProjectPriorityWeights` operationId).
+func (c *ClientWithResponses) PutProjectPriorityWeightsWithResponse(ctx context.Context, projectID ProjectID, body PutProjectPriorityWeightsJSONRequestBody, reqEditors ...RequestEditorFn) (*PutProjectPriorityWeightsResponse, error) {
+	rsp, err := c.PutProjectPriorityWeights(ctx, projectID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutProjectPriorityWeightsResponse(rsp)
+}
+
 // GetProjectRemediationWithResponse The project's remediation actions
 //
 // Project viewer. Live actions first, then by due date (earliest first) and
@@ -92271,6 +92813,112 @@ func ParseListProjectPoliciesResponse(rsp *http.Response) (*ListProjectPoliciesR
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteProjectPriorityWeightsResponse parses an HTTP response from a DeleteProjectPriorityWeightsWithResponse call
+func ParseDeleteProjectPriorityWeightsResponse(rsp *http.Response) (*DeleteProjectPriorityWeightsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteProjectPriorityWeightsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PriorityWeightsResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListProjectPriorityWeightsResponse parses an HTTP response from a ListProjectPriorityWeightsWithResponse call
+func ParseListProjectPriorityWeightsResponse(rsp *http.Response) (*ListProjectPriorityWeightsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListProjectPriorityWeightsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PriorityWeightsResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutProjectPriorityWeightsResponse parses an HTTP response from a PutProjectPriorityWeightsWithResponse call
+func ParsePutProjectPriorityWeightsResponse(rsp *http.Response) (*PutProjectPriorityWeightsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutProjectPriorityWeightsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PriorityWeightsResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	}
 

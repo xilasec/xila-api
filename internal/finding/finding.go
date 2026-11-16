@@ -253,7 +253,12 @@ const upsertSQL = `
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
 			$15, $16, $17, $18, $20, $19, $19, now(),
-			CASE $8 WHEN 'critical' THEN 15 WHEN 'high' THEN 7 WHEN 'medium' THEN 3 WHEN 'low' THEN 1 ELSE 0 END,
+			-- The severity's base weight, the project's own when it set priority
+			-- weights (their JSON keys are the severities); the other factors
+			-- come from the passes that run after the upsert, which read the
+			-- same weights.
+			COALESCE((SELECT (priority_weights ->> $8::text)::float8 FROM projects WHERE id = $1),
+			         CASE $8 WHEN 'critical' THEN 15 WHEN 'high' THEN 7 WHEN 'medium' THEN 3 WHEN 'low' THEN 1 ELSE 0 END),
 			$21,
 			COALESCE($22::uuid, (SELECT version_id FROM scans WHERE id = $19), project_version($1, NULL, NULL))
 		)
@@ -1142,6 +1147,8 @@ type Enrichable struct {
 	ExploitMaturity domain.ExploitMaturity
 	// AssetExposure is kept so the recomputed priority keeps its exposure factor.
 	AssetExposure domain.Exposure
+	// Weights are the finding's project priority weights.
+	Weights domain.Weights
 }
 
 // Reachability is the finding's dependency reachability, for domain.Priority.
@@ -1162,7 +1169,8 @@ func (r *Repository) ListEnrichable(ctx context.Context) ([]Enrichable, error) {
 				|| COALESCE((SELECT aliases FROM osv_advisories WHERE id = f.rule_id), '{}')
 				|| COALESCE((SELECT aliases FROM private_advisories WHERE id = f.rule_id), '{}')
 			) x WHERE x <> ''),
-			COALESCE((SELECT exposure FROM assets WHERE assets.id = f.asset_id), '')
+			COALESCE((SELECT exposure FROM assets WHERE assets.id = f.asset_id), ''),
+			(SELECT priority_weights FROM projects pw WHERE pw.id = f.project_id)
 		FROM findings f
 		WHERE cardinality(f.cve) > 0 OR f.kev OR f.rule_id ~* '^(CVE|GHSA|EUVD)-'`
 	rows, err := r.db.Query(ctx, q)
@@ -1174,10 +1182,12 @@ func (r *Repository) ListEnrichable(ctx context.Context) ([]Enrichable, error) {
 	var out []Enrichable
 	for rows.Next() {
 		var e Enrichable
+		var weights []byte
 		if err := rows.Scan(&e.ID, &e.Severity, &e.CVE, &e.KEV, &e.EPSS, &e.Title, &e.ProjectID,
-			&e.DepDirect, &e.DepScope, &e.ExploitMaturity, &e.IDs, &e.AssetExposure); err != nil {
+			&e.DepDirect, &e.DepScope, &e.ExploitMaturity, &e.IDs, &e.AssetExposure, &weights); err != nil {
 			return nil, fmt.Errorf("scan enrichable: %w", err)
 		}
+		e.Weights = domain.WeightsFromJSON(weights)
 		out = append(out, e)
 	}
 	return out, rows.Err()
@@ -1787,6 +1797,8 @@ type ReachTarget struct {
 	ExploitMaturity domain.ExploitMaturity
 	// AssetExposure is kept so the recomputed priority keeps its exposure factor.
 	AssetExposure domain.Exposure
+	// Weights are the finding's project priority weights.
+	Weights domain.Weights
 }
 
 // Reachability assembles the multiplier input.
@@ -1811,7 +1823,8 @@ func (t ReachTarget) Reachability() domain.Reachability {
 func (r *Repository) MatchInventory(ctx context.Context, projectID, scanID string) ([]ReachTarget, error) {
 	const q = `
 		SELECT f.id, f.severity, f.epss, f.kev, c.direct, c.depth, c.scope, COALESCE(f.exploit_maturity, ''),
-			COALESCE((SELECT a.exposure FROM assets a WHERE a.id = f.asset_id), '')
+			COALESCE((SELECT a.exposure FROM assets a WHERE a.id = f.asset_id), ''),
+			(SELECT priority_weights FROM projects pw WHERE pw.id = f.project_id)
 		FROM findings f
 		JOIN LATERAL (
 			SELECT c.direct, c.depth, c.scope
@@ -1851,10 +1864,12 @@ func (r *Repository) MatchInventory(ctx context.Context, projectID, scanID strin
 	var out []ReachTarget
 	for rows.Next() {
 		var t ReachTarget
+		var weights []byte
 		if err := rows.Scan(&t.ID, &t.Severity, &t.EPSS, &t.KEV, &t.DepDirect, &t.DepDepth, &t.DepScope, &t.ExploitMaturity,
-			&t.AssetExposure); err != nil {
+			&t.AssetExposure, &weights); err != nil {
 			return nil, fmt.Errorf("scan reach target: %w", err)
 		}
+		t.Weights = domain.WeightsFromJSON(weights)
 		out = append(out, t)
 	}
 	return out, rows.Err()

@@ -816,7 +816,12 @@ Tier 2:
   and AI proposals you asked for or on your findings (new `GET /ai-proposals`).
 - ⬜ 12.13 Kafka notification publisher.
 - ⬜ 12.14 Strict CycloneDX schema validation on upload, with field paths in errors.
-- ⬜ 12.15 Per-project priority weights.
+- ✅ 12.15 Per-project priority weights: `projects.priority_weights` overrides any
+  factor of the priority formula (`domain.Weights`), validated so discounts only
+  discount, uplifts only raise, severities keep their order and an exploited
+  critical can't be buried under a quiet medium. Every priority writer and the
+  upsert read the project's weights; saving re-ranks and regroups the project.
+  Gate tab in the UI. Migration 000099.
 - ⬜ 12.16 Smaller items: computed custom fields, triage rule chaining, splitting
   a multi-host infrastructure scan per asset, re-authentication before creating
   API tokens, CryptoLyzer and DrHeader parsers. Done so far:

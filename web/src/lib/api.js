@@ -615,6 +615,14 @@ export const api = {
 	setIngestSettings: (body) => request('PUT', '/ingest/settings', { body }),
 
 	// --- findings ---
+	// Per-project priority weights ({ weights, custom, defaults }); PUT takes
+	// only the factors to override.
+	/** @param {string} projectId */
+	priorityWeights: (projectId) => request('GET', `/projects/${projectId}/priority-weights`),
+	/** @param {string} projectId @param {Record<string, number>} weights */
+	setPriorityWeights: (projectId, weights) => request('PUT', `/projects/${projectId}/priority-weights`, { body: weights }),
+	/** @param {string} projectId */
+	resetPriorityWeights: (projectId) => request('DELETE', `/projects/${projectId}/priority-weights`),
 	/** @param {string} projectId @param {Record<string, any>} [filters] */
 	listFindings: (projectId, filters = {}) =>
 		request('GET', `/projects/${projectId}/findings`, { query: filters }),

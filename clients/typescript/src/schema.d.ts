@@ -2077,6 +2077,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{projectID}/priority-weights": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The project's priority weights
+         * @description What the project's priorities are computed with, whether that's its own override (`custom`), and the defaults.
+         */
+        get: operations["listProjectPriorityWeights"];
+        /**
+         * Override the project's priority weights
+         * @description Owner. Fields left out keep their default. Discounts (`transitive`, `dev`,
+         *     `optional`, `isolated`) stay in (0, 1]; uplifts (`kev`, `weaponized`, `poc`,
+         *     `internet`) stay at 1 or more; severities keep their order; and an exploited
+         *     critical in a transitive dev dependency on an isolated asset must still
+         *     outrank a quiet medium on an internet-facing one. The project's priorities
+         *     are recomputed at once (`reprioritized`) and its findings regrouped.
+         */
+        put: operations["putProjectPriorityWeights"];
+        post?: never;
+        /** Back to the default priority weights */
+        delete: operations["deleteProjectPriorityWeights"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{projectID}/summary": {
         parameters: {
             query?: never;
@@ -7404,6 +7434,49 @@ export interface components {
         SCIMResource: {
             [key: string]: unknown;
         };
+        /** @description The factors of a finding's priority (severity weight × exploitability × reachability × exposure). */
+        PriorityWeights: {
+            /** @default 15 */
+            critical: number;
+            /** @default 7 */
+            high: number;
+            /** @default 3 */
+            medium: number;
+            /** @default 1 */
+            low: number;
+            /** @default 0 */
+            info: number;
+            /**
+             * @description Multiplier of a finding on a KEV catalog.
+             * @default 3
+             */
+            kev: number;
+            /**
+             * @description The EPSS factor is 1 + epss_slope × EPSS.
+             * @default 2
+             */
+            epss_slope: number;
+            /**
+             * @description Floor set by a weaponized exploit (Metasploit).
+             * @default 2.5
+             */
+            weaponized: number;
+            /**
+             * @description Floor set by a public proof of concept.
+             * @default 1.5
+             */
+            poc: number;
+            /** @default 0.8 */
+            transitive: number;
+            /** @default 0.25 */
+            dev: number;
+            /** @default 0.5 */
+            optional: number;
+            /** @default 1.25 */
+            internet: number;
+            /** @default 0.75 */
+            isolated: number;
+        };
         /**
          * @description Business importance. Multiplies the project's risk score in the portfolio rollup.
          * @enum {string}
@@ -9998,6 +10071,22 @@ export interface components {
         };
     };
     responses: {
+        /** @description The weights in force */
+        PriorityWeightsResult: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": {
+                    weights?: components["schemas"]["PriorityWeights"];
+                    /** @description Whether the project overrides the defaults. */
+                    custom?: boolean;
+                    defaults?: components["schemas"]["PriorityWeights"];
+                    /** @description Findings whose priority changed (PUT / DELETE). */
+                    reprioritized?: number;
+                };
+            };
+        };
         /** @description Whether you watch the project. */
         Watching: {
             headers: {
@@ -13902,6 +13991,56 @@ export interface operations {
                     };
                 };
             };
+        };
+    };
+    listProjectPriorityWeights: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["PriorityWeightsResult"];
+            404: components["responses"]["Error"];
+        };
+    };
+    putProjectPriorityWeights: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriorityWeights"];
+            };
+        };
+        responses: {
+            200: components["responses"]["PriorityWeightsResult"];
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    deleteProjectPriorityWeights: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["PriorityWeightsResult"];
+            403: components["responses"]["Error"];
         };
     };
     getProjectSummary: {

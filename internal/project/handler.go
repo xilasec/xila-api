@@ -1,14 +1,17 @@
 package project
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 
+	"github.com/xilasec/xila-api/internal/audit"
 	"github.com/xilasec/xila-api/internal/auth"
 	"github.com/xilasec/xila-api/internal/authz"
 	"github.com/xilasec/xila-api/internal/customfield"
@@ -55,6 +58,9 @@ func (h *Handler) Register(r fiber.Router) {
 	r.Patch("/projects/:projectID", h.Update)
 	r.Get("/projects/:projectID/children", h.Children)
 	r.Get("/projects/:projectID/summary", h.Summary)
+	r.Get("/projects/:projectID/priority-weights", h.GetPriorityWeights)
+	r.Put("/projects/:projectID/priority-weights", h.SetPriorityWeights)
+	r.Delete("/projects/:projectID/priority-weights", h.ResetPriorityWeights)
 	r.Get("/projects/:projectID/versions", h.ListVersions)
 	r.Patch("/projects/:projectID/versions/:versionID", h.UpdateVersion)
 	r.Delete("/projects/:projectID/versions/:versionID", h.DeleteVersion)
@@ -358,4 +364,89 @@ func computeSummary(projectID string, counts []finding.StatusSeverityCount) Summ
 		}
 	}
 	return summary
+}
+
+// weightsResponse is what a project's priority weights resolve to, whether
+// they are the project's own, and the defaults to compare with.
+func weightsResponse(raw []byte) fiber.Map {
+	return fiber.Map{"weights": domain.WeightsFromJSON(raw), "custom": len(raw) > 0 && string(raw) != "null",
+		"defaults": domain.DefaultWeights}
+}
+
+// GetPriorityWeights handles GET /projects/{id}/priority-weights.
+func (h *Handler) GetPriorityWeights(c *fiber.Ctx) error {
+	id, err := httpx.ID(c, "projectID")
+	if err != nil {
+		return err
+	}
+	raw, err := h.repo.PriorityWeights(c.UserContext(), id)
+	if errors.Is(err, ErrNotFound) {
+		return fiber.NewError(fiber.StatusNotFound, "project not found")
+	}
+	if err != nil {
+		return err
+	}
+	return c.JSON(weightsResponse(raw))
+}
+
+// SetPriorityWeights handles PUT /projects/{id}/priority-weights (owner): the
+// factors to override (fields left out keep their default). It recomputes the
+// project's priorities and regroups its findings, since priority elects a
+// dedup group's primary.
+func (h *Handler) SetPriorityWeights(c *fiber.Ctx) error {
+	id, err := httpx.ID(c, "projectID")
+	if err != nil {
+		return err
+	}
+	w := domain.DefaultWeights
+	dec := json.NewDecoder(bytes.NewReader(c.Body()))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&w); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid priority weights: "+err.Error())
+	}
+	if err := w.Validate(); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	raw, err := json.Marshal(w)
+	if err != nil {
+		return err
+	}
+	return h.storeWeights(c, id, raw)
+}
+
+// ResetPriorityWeights handles DELETE /projects/{id}/priority-weights: back
+// to the defaults.
+func (h *Handler) ResetPriorityWeights(c *fiber.Ctx) error {
+	id, err := httpx.ID(c, "projectID")
+	if err != nil {
+		return err
+	}
+	return h.storeWeights(c, id, nil)
+}
+
+func (h *Handler) storeWeights(c *fiber.Ctx, id string, raw []byte) error {
+	ctx := c.UserContext()
+	before, err := h.repo.PriorityWeights(ctx, id)
+	if errors.Is(err, ErrNotFound) {
+		return fiber.NewError(fiber.StatusNotFound, "project not found")
+	}
+	if err != nil {
+		return err
+	}
+	if err := h.repo.SetPriorityWeights(ctx, id, raw); err != nil {
+		return err
+	}
+	audit.SetChanges(c, weightsResponse(before)["weights"], weightsResponse(raw)["weights"])
+	moved, n, err := h.findings.Reprioritize(ctx, finding.PriorityScope{ProjectID: id})
+	if err != nil {
+		return err
+	}
+	if len(moved) > 0 {
+		if _, err := h.findings.Deduplicate(ctx, id); err != nil {
+			return fmt.Errorf("regroup after new priority weights: %w", err)
+		}
+	}
+	out := weightsResponse(raw)
+	out["reprioritized"] = n
+	return c.JSON(out)
 }

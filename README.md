@@ -1029,6 +1029,16 @@ KEV = 45` outranks a quiet `critical = 15`. Enrichment runs on a schedule and on
 demand via `POST /enrich`. List findings with `?sort=priority` to work the backlog
 exploit-first.
 
+Per-project priority weights: a project owner can override the factors
+(`PUT /projects/{id}/priority-weights`, or the Gate tab): the severity weights,
+the KEV multiplier, the EPSS slope, the exploit floors, the reachability
+discounts and the exposure factors. Fields left out keep their default. The
+override is validated so discounts stay in (0, 1], uplifts stay at 1 or more,
+severities keep their order, and an exploited critical in a transitive dev
+dependency on an isolated asset still outranks a quiet medium on an
+internet-facing one. Saving re-ranks the project's findings at once; `DELETE`
+returns to the defaults.
+
 KEV catalogs. Each enrichment run downloads the catalogs in `KEV_SOURCES`:
 
 | Catalog | Source | Default |

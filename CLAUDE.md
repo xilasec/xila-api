@@ -447,12 +447,15 @@ seconds). Adding a `days` interval to a `timestamptz` is calendar arithmetic and
 drifts an hour across DST. A policy change must re-date existing findings
 (`sla.reapply`, per project, inside the policy transaction).
 
-Exploit intel / priority inputs: `domain.Priority(sev, Exploitability{EPSS,
+Exploit intel / priority inputs: `Weights.Priority(sev, Exploitability{EPSS,
 KEV, Maturity}, reach, exposure)`: every writer of `priority` (enrichment, `Reacher`,
-`exploitintel.Repository.Apply`, `finding.Reprioritize`) must pass the finding's
-current other signals (`Enrichable` / `ReachTarget` carry `ExploitMaturity` and
-`AssetExposure`, read through `asset_id`). Otherwise one pass silently
-undoes another's uplift. `exploit_maturity` is an enrichment-written read column
+`exploitintel.Repository.Apply`, `finding.Reprioritize`, and the upsert's initial
+severity weight) must pass the finding's current other signals (`Enrichable` /
+`ReachTarget` carry `ExploitMaturity` and `AssetExposure`, read through `asset_id`)
+and its project's weights (`projects.priority_weights` through
+`domain.WeightsFromJSON`; the zero `Weights` means the defaults). Otherwise one pass
+silently undoes another's uplift, or a project's override. `domain.Priority` is the
+default-weights shorthand for code with no project. `exploit_maturity` is an enrichment-written read column
 (not in the upsert). A failed feed does not delete its rows (`Replace` runs only on
 success, and an empty parse counts as a failure).
 
