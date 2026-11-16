@@ -823,6 +823,11 @@ func (e ComponentKind) Valid() bool {
 const (
 	ConnectorKindDefectdojo      ConnectorKind = "defectdojo"
 	ConnectorKindDependencyTrack ConnectorKind = "dependency-track"
+	ConnectorKindGithub          ConnectorKind = "github"
+	ConnectorKindGitlab          ConnectorKind = "gitlab"
+	ConnectorKindSnykApi         ConnectorKind = "snyk-api"
+	ConnectorKindTenable         ConnectorKind = "tenable"
+	ConnectorKindWiz             ConnectorKind = "wiz"
 )
 
 // Valid indicates whether the value is a known member of the ConnectorKind enum.
@@ -831,6 +836,16 @@ func (e ConnectorKind) Valid() bool {
 	case ConnectorKindDefectdojo:
 		return true
 	case ConnectorKindDependencyTrack:
+		return true
+	case ConnectorKindGithub:
+		return true
+	case ConnectorKindGitlab:
+		return true
+	case ConnectorKindSnykApi:
+		return true
+	case ConnectorKindTenable:
+		return true
+	case ConnectorKindWiz:
 		return true
 	default:
 		return false
@@ -841,6 +856,11 @@ func (e ConnectorKind) Valid() bool {
 const (
 	ConnectorInputKindDefectdojo      ConnectorInputKind = "defectdojo"
 	ConnectorInputKindDependencyTrack ConnectorInputKind = "dependency-track"
+	ConnectorInputKindGithub          ConnectorInputKind = "github"
+	ConnectorInputKindGitlab          ConnectorInputKind = "gitlab"
+	ConnectorInputKindSnykApi         ConnectorInputKind = "snyk-api"
+	ConnectorInputKindTenable         ConnectorInputKind = "tenable"
+	ConnectorInputKindWiz             ConnectorInputKind = "wiz"
 )
 
 // Valid indicates whether the value is a known member of the ConnectorInputKind enum.
@@ -849,6 +869,16 @@ func (e ConnectorInputKind) Valid() bool {
 	case ConnectorInputKindDefectdojo:
 		return true
 	case ConnectorInputKindDependencyTrack:
+		return true
+	case ConnectorInputKindGithub:
+		return true
+	case ConnectorInputKindGitlab:
+		return true
+	case ConnectorInputKindSnykApi:
+		return true
+	case ConnectorInputKindTenable:
+		return true
+	case ConnectorInputKindWiz:
 		return true
 	default:
 		return false
@@ -4974,7 +5004,10 @@ type ComponentKind string
 
 // Connector defines model for Connector.
 type Connector struct {
-	// BaseUrl Server root, e.g. https://dtrack.example.com or https://defectdojo.example.com (no /api suffix).
+	// AuthUrl Wiz OAuth token endpoint; empty for every other kind.
+	AuthUrl *string `json:"auth_url,omitempty"`
+
+	// BaseUrl Server/API root; normalized per kind (e.g. the /api/v1, /api/v2, /api/v3, /api/v4 or /rest suffix is added or stripped as needed).
 	BaseUrl   *string    `json:"base_url,omitempty"`
 	CreatedAt *time.Time `json:"created_at,omitempty"`
 
@@ -4997,7 +5030,7 @@ type Connector struct {
 	Name          *string             `json:"name,omitempty"`
 	ProjectId     *openapi_types.UUID `json:"project_id,omitempty"`
 
-	// RemoteProject Dependency-Track project UUID; DefectDojo product id (42) or engagement id (engagement:42).
+	// RemoteProject Dependency-Track project UUID; DefectDojo product id (42) or engagement id (engagement:42); Snyk org id, optionally ":<project id>"; GitHub "owner/repo" or "org:<org>"; GitLab project path ("group/project"); comma-separated Wiz project UUIDs (empty = every project); or a Tenable "category=value" asset tag filter (empty = the whole instance).
 	RemoteProject *string    `json:"remote_project,omitempty"`
 	UpdatedAt     *time.Time `json:"updated_at,omitempty"`
 
@@ -5010,15 +5043,17 @@ type ConnectorKind string
 
 // ConnectorInput defines model for ConnectorInput.
 type ConnectorInput struct {
-	BaseUrl string `json:"base_url"`
-	Enabled *bool  `json:"enabled,omitempty"`
+	// AuthUrl Wiz OAuth token endpoint; required for kind wiz, ignored otherwise.
+	AuthUrl *string `json:"auth_url,omitempty"`
+	BaseUrl string  `json:"base_url"`
+	Enabled *bool   `json:"enabled,omitempty"`
 
 	// Kind Required when creating; can't change.
 	Kind          *ConnectorInputKind `json:"kind,omitempty"`
 	Name          *string             `json:"name,omitempty"`
 	RemoteProject string              `json:"remote_project"`
 
-	// Token Required when creating or changing base_url; omit to keep the stored token.
+	// Token Required when creating, or when changing base_url or auth_url; omit to keep the stored token. The remote's API token for every kind except wiz and tenable, whose two secrets are sealed together as one JSON object: {"client_id":"...","client_secret":"..."} for wiz, {"access_key":"...","secret_key":"..."} for tenable.
 	Token   *string `json:"token,omitempty"`
 	Version *string `json:"version,omitempty"`
 }
@@ -12655,28 +12690,38 @@ type ClientInterface interface {
 	// Corresponds with GET /projects/{projectID}/connectors (the `ListProjectConnectors` operationId).
 	ListProjectConnectors(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CreateProjectConnectorWithBody Add a Dependency-Track or DefectDojo connector
+	// CreateProjectConnectorWithBody Add a pull connector
 	//
 	// Project `owner` — the connector holds a credential for another system.
-	// `token` is required and write-only (a Dependency-Track API key with
-	// VIEW_PORTFOLIO + VIEW_VULNERABILITY, or a DefectDojo API v2 key), encrypted
-	// at rest with `INTEGRATION_SECRET_KEY` (AES-256-GCM); without that key this
-	// returns 400. One connector per kind per project version (409 otherwise):
-	// two would auto-close each other's findings.
+	// `token` is required and write-only, encrypted at rest with
+	// `INTEGRATION_SECRET_KEY` (AES-256-GCM); without that key this returns 400.
+	// For `dependency-track`, `defectdojo`, `snyk-api`, `github` and `gitlab` it
+	// is the remote's API token; for `wiz` and `tenable`, whose auth is two
+	// secrets, it is a JSON object carrying both, so both are sealed together
+	// (`{"client_id":"...","client_secret":"..."}` for Wiz,
+	// `{"access_key":"...","secret_key":"..."}` for Tenable). `auth_url` is the
+	// Wiz OAuth token endpoint (required for `wiz` only; not a secret). One
+	// connector per kind per project version (409 otherwise): two would
+	// auto-close each other's findings.
 	//
 	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with POST /projects/{projectID}/connectors (the `CreateProjectConnector` operationId).
 	CreateProjectConnectorWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CreateProjectConnector Add a Dependency-Track or DefectDojo connector
+	// CreateProjectConnector Add a pull connector
 	//
 	// Project `owner` — the connector holds a credential for another system.
-	// `token` is required and write-only (a Dependency-Track API key with
-	// VIEW_PORTFOLIO + VIEW_VULNERABILITY, or a DefectDojo API v2 key), encrypted
-	// at rest with `INTEGRATION_SECRET_KEY` (AES-256-GCM); without that key this
-	// returns 400. One connector per kind per project version (409 otherwise):
-	// two would auto-close each other's findings.
+	// `token` is required and write-only, encrypted at rest with
+	// `INTEGRATION_SECRET_KEY` (AES-256-GCM); without that key this returns 400.
+	// For `dependency-track`, `defectdojo`, `snyk-api`, `github` and `gitlab` it
+	// is the remote's API token; for `wiz` and `tenable`, whose auth is two
+	// secrets, it is a JSON object carrying both, so both are sealed together
+	// (`{"client_id":"...","client_secret":"..."}` for Wiz,
+	// `{"access_key":"...","secret_key":"..."}` for Tenable). `auth_url` is the
+	// Wiz OAuth token endpoint (required for `wiz` only; not a secret). One
+	// connector per kind per project version (409 otherwise): two would
+	// auto-close each other's findings.
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -12718,15 +12763,18 @@ type ClientInterface interface {
 	//
 	// Project `editor`. Also runs every `CONNECTOR_PULL_INTERVAL` for enabled
 	// connectors. Fetches every finding the remote reports and records them as
-	// one scan by scanner `dependency-track` / `defectdojo` on the connector's
-	// version, through the normal ingest pipeline — so findings no longer
-	// reported are auto-closed. A failed or incomplete fetch applies nothing
-	// (502, recorded in `last_error`); findings are never closed because the
-	// remote was unreachable. A remote triage verdict (Dependency-Track analysis
-	// NOT_AFFECTED / FALSE_POSITIVE → false positive, EXPLOITABLE → confirmed;
-	// DefectDojo false positive / risk accepted / verified) is kept in the
-	// finding's metadata and applied only to newly imported, untriaged findings —
-	// it never overturns Xila's triage. 409 while a pull of this connector runs.
+	// one scan by the connector's scanner (its `kind`, except `snyk-api`, whose
+	// pull API is kept distinct from the file-upload Snyk parser's `snyk`
+	// scanner) on the connector's version, through the normal ingest pipeline
+	// — so findings no longer reported are auto-closed. A failed or incomplete
+	// fetch applies nothing (502, recorded in `last_error`); findings are never
+	// closed because the remote was unreachable. Each kind's dismissed/ignored/
+	// rejected verdict (Dependency-Track analysis, DefectDojo flags, a Snyk
+	// ignore, a dismissed GitHub code scanning/Dependabot alert, a dismissed
+	// GitLab vulnerability, a rejected Wiz finding, a Tenable severity
+	// acceptance) is kept in the finding's metadata and applied only to newly
+	// imported, untriaged findings — it never overturns Xila's triage. 409
+	// while a pull of this connector runs.
 	//
 	// Corresponds with POST /projects/{projectID}/connectors/{connectorID}/pull (the `PullProjectConnector` operationId).
 	PullProjectConnector(ctx context.Context, projectID ProjectID, connectorID ConnectorID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -20117,14 +20165,19 @@ func (c *Client) ListProjectConnectors(ctx context.Context, projectID ProjectID,
 	return c.Client.Do(req)
 }
 
-// CreateProjectConnectorWithBody Add a Dependency-Track or DefectDojo connector
+// CreateProjectConnectorWithBody Add a pull connector
 //
 // Project `owner` — the connector holds a credential for another system.
-// `token` is required and write-only (a Dependency-Track API key with
-// VIEW_PORTFOLIO + VIEW_VULNERABILITY, or a DefectDojo API v2 key), encrypted
-// at rest with `INTEGRATION_SECRET_KEY` (AES-256-GCM); without that key this
-// returns 400. One connector per kind per project version (409 otherwise):
-// two would auto-close each other's findings.
+// `token` is required and write-only, encrypted at rest with
+// `INTEGRATION_SECRET_KEY` (AES-256-GCM); without that key this returns 400.
+// For `dependency-track`, `defectdojo`, `snyk-api`, `github` and `gitlab` it
+// is the remote's API token; for `wiz` and `tenable`, whose auth is two
+// secrets, it is a JSON object carrying both, so both are sealed together
+// (`{"client_id":"...","client_secret":"..."}` for Wiz,
+// `{"access_key":"...","secret_key":"..."}` for Tenable). `auth_url` is the
+// Wiz OAuth token endpoint (required for `wiz` only; not a secret). One
+// connector per kind per project version (409 otherwise): two would
+// auto-close each other's findings.
 //
 // Takes any type of body and a specified content type.
 //
@@ -20141,14 +20194,19 @@ func (c *Client) CreateProjectConnectorWithBody(ctx context.Context, projectID P
 	return c.Client.Do(req)
 }
 
-// CreateProjectConnector Add a Dependency-Track or DefectDojo connector
+// CreateProjectConnector Add a pull connector
 //
 // Project `owner` — the connector holds a credential for another system.
-// `token` is required and write-only (a Dependency-Track API key with
-// VIEW_PORTFOLIO + VIEW_VULNERABILITY, or a DefectDojo API v2 key), encrypted
-// at rest with `INTEGRATION_SECRET_KEY` (AES-256-GCM); without that key this
-// returns 400. One connector per kind per project version (409 otherwise):
-// two would auto-close each other's findings.
+// `token` is required and write-only, encrypted at rest with
+// `INTEGRATION_SECRET_KEY` (AES-256-GCM); without that key this returns 400.
+// For `dependency-track`, `defectdojo`, `snyk-api`, `github` and `gitlab` it
+// is the remote's API token; for `wiz` and `tenable`, whose auth is two
+// secrets, it is a JSON object carrying both, so both are sealed together
+// (`{"client_id":"...","client_secret":"..."}` for Wiz,
+// `{"access_key":"...","secret_key":"..."}` for Tenable). `auth_url` is the
+// Wiz OAuth token endpoint (required for `wiz` only; not a secret). One
+// connector per kind per project version (409 otherwise): two would
+// auto-close each other's findings.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -20230,15 +20288,18 @@ func (c *Client) PutProjectConnector(ctx context.Context, projectID ProjectID, c
 //
 // Project `editor`. Also runs every `CONNECTOR_PULL_INTERVAL` for enabled
 // connectors. Fetches every finding the remote reports and records them as
-// one scan by scanner `dependency-track` / `defectdojo` on the connector's
-// version, through the normal ingest pipeline — so findings no longer
-// reported are auto-closed. A failed or incomplete fetch applies nothing
-// (502, recorded in `last_error`); findings are never closed because the
-// remote was unreachable. A remote triage verdict (Dependency-Track analysis
-// NOT_AFFECTED / FALSE_POSITIVE → false positive, EXPLOITABLE → confirmed;
-// DefectDojo false positive / risk accepted / verified) is kept in the
-// finding's metadata and applied only to newly imported, untriaged findings —
-// it never overturns Xila's triage. 409 while a pull of this connector runs.
+// one scan by the connector's scanner (its `kind`, except `snyk-api`, whose
+// pull API is kept distinct from the file-upload Snyk parser's `snyk`
+// scanner) on the connector's version, through the normal ingest pipeline
+// — so findings no longer reported are auto-closed. A failed or incomplete
+// fetch applies nothing (502, recorded in `last_error`); findings are never
+// closed because the remote was unreachable. Each kind's dismissed/ignored/
+// rejected verdict (Dependency-Track analysis, DefectDojo flags, a Snyk
+// ignore, a dismissed GitHub code scanning/Dependabot alert, a dismissed
+// GitLab vulnerability, a rejected Wiz finding, a Tenable severity
+// acceptance) is kept in the finding's metadata and applied only to newly
+// imported, untriaged findings — it never overturns Xila's triage. 409
+// while a pull of this connector runs.
 //
 // Corresponds with POST /projects/{projectID}/connectors/{connectorID}/pull (the `PullProjectConnector` operationId).
 func (c *Client) PullProjectConnector(ctx context.Context, projectID ProjectID, connectorID ConnectorID, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -46210,28 +46271,38 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /projects/{projectID}/connectors (the `ListProjectConnectors` operationId).
 	ListProjectConnectorsWithResponse(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*ListProjectConnectorsResponse, error)
 
-	// CreateProjectConnectorWithBodyWithResponse Add a Dependency-Track or DefectDojo connector
+	// CreateProjectConnectorWithBodyWithResponse Add a pull connector
 	//
 	// Project `owner` — the connector holds a credential for another system.
-	// `token` is required and write-only (a Dependency-Track API key with
-	// VIEW_PORTFOLIO + VIEW_VULNERABILITY, or a DefectDojo API v2 key), encrypted
-	// at rest with `INTEGRATION_SECRET_KEY` (AES-256-GCM); without that key this
-	// returns 400. One connector per kind per project version (409 otherwise):
-	// two would auto-close each other's findings.
+	// `token` is required and write-only, encrypted at rest with
+	// `INTEGRATION_SECRET_KEY` (AES-256-GCM); without that key this returns 400.
+	// For `dependency-track`, `defectdojo`, `snyk-api`, `github` and `gitlab` it
+	// is the remote's API token; for `wiz` and `tenable`, whose auth is two
+	// secrets, it is a JSON object carrying both, so both are sealed together
+	// (`{"client_id":"...","client_secret":"..."}` for Wiz,
+	// `{"access_key":"...","secret_key":"..."}` for Tenable). `auth_url` is the
+	// Wiz OAuth token endpoint (required for `wiz` only; not a secret). One
+	// connector per kind per project version (409 otherwise): two would
+	// auto-close each other's findings.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /projects/{projectID}/connectors (the `CreateProjectConnector` operationId).
 	CreateProjectConnectorWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProjectConnectorResponse, error)
 
-	// CreateProjectConnectorWithResponse Add a Dependency-Track or DefectDojo connector
+	// CreateProjectConnectorWithResponse Add a pull connector
 	//
 	// Project `owner` — the connector holds a credential for another system.
-	// `token` is required and write-only (a Dependency-Track API key with
-	// VIEW_PORTFOLIO + VIEW_VULNERABILITY, or a DefectDojo API v2 key), encrypted
-	// at rest with `INTEGRATION_SECRET_KEY` (AES-256-GCM); without that key this
-	// returns 400. One connector per kind per project version (409 otherwise):
-	// two would auto-close each other's findings.
+	// `token` is required and write-only, encrypted at rest with
+	// `INTEGRATION_SECRET_KEY` (AES-256-GCM); without that key this returns 400.
+	// For `dependency-track`, `defectdojo`, `snyk-api`, `github` and `gitlab` it
+	// is the remote's API token; for `wiz` and `tenable`, whose auth is two
+	// secrets, it is a JSON object carrying both, so both are sealed together
+	// (`{"client_id":"...","client_secret":"..."}` for Wiz,
+	// `{"access_key":"...","secret_key":"..."}` for Tenable). `auth_url` is the
+	// Wiz OAuth token endpoint (required for `wiz` only; not a secret). One
+	// connector per kind per project version (409 otherwise): two would
+	// auto-close each other's findings.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -46275,15 +46346,18 @@ type ClientWithResponsesInterface interface {
 	//
 	// Project `editor`. Also runs every `CONNECTOR_PULL_INTERVAL` for enabled
 	// connectors. Fetches every finding the remote reports and records them as
-	// one scan by scanner `dependency-track` / `defectdojo` on the connector's
-	// version, through the normal ingest pipeline — so findings no longer
-	// reported are auto-closed. A failed or incomplete fetch applies nothing
-	// (502, recorded in `last_error`); findings are never closed because the
-	// remote was unreachable. A remote triage verdict (Dependency-Track analysis
-	// NOT_AFFECTED / FALSE_POSITIVE → false positive, EXPLOITABLE → confirmed;
-	// DefectDojo false positive / risk accepted / verified) is kept in the
-	// finding's metadata and applied only to newly imported, untriaged findings —
-	// it never overturns Xila's triage. 409 while a pull of this connector runs.
+	// one scan by the connector's scanner (its `kind`, except `snyk-api`, whose
+	// pull API is kept distinct from the file-upload Snyk parser's `snyk`
+	// scanner) on the connector's version, through the normal ingest pipeline
+	// — so findings no longer reported are auto-closed. A failed or incomplete
+	// fetch applies nothing (502, recorded in `last_error`); findings are never
+	// closed because the remote was unreachable. Each kind's dismissed/ignored/
+	// rejected verdict (Dependency-Track analysis, DefectDojo flags, a Snyk
+	// ignore, a dismissed GitHub code scanning/Dependabot alert, a dismissed
+	// GitLab vulnerability, a rejected Wiz finding, a Tenable severity
+	// acceptance) is kept in the finding's metadata and applied only to newly
+	// imported, untriaged findings — it never overturns Xila's triage. 409
+	// while a pull of this connector runs.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -72873,14 +72947,19 @@ func (c *ClientWithResponses) ListProjectConnectorsWithResponse(ctx context.Cont
 	return ParseListProjectConnectorsResponse(rsp)
 }
 
-// CreateProjectConnectorWithBodyWithResponse Add a Dependency-Track or DefectDojo connector
+// CreateProjectConnectorWithBodyWithResponse Add a pull connector
 //
 // Project `owner` — the connector holds a credential for another system.
-// `token` is required and write-only (a Dependency-Track API key with
-// VIEW_PORTFOLIO + VIEW_VULNERABILITY, or a DefectDojo API v2 key), encrypted
-// at rest with `INTEGRATION_SECRET_KEY` (AES-256-GCM); without that key this
-// returns 400. One connector per kind per project version (409 otherwise):
-// two would auto-close each other's findings.
+// `token` is required and write-only, encrypted at rest with
+// `INTEGRATION_SECRET_KEY` (AES-256-GCM); without that key this returns 400.
+// For `dependency-track`, `defectdojo`, `snyk-api`, `github` and `gitlab` it
+// is the remote's API token; for `wiz` and `tenable`, whose auth is two
+// secrets, it is a JSON object carrying both, so both are sealed together
+// (`{"client_id":"...","client_secret":"..."}` for Wiz,
+// `{"access_key":"...","secret_key":"..."}` for Tenable). `auth_url` is the
+// Wiz OAuth token endpoint (required for `wiz` only; not a secret). One
+// connector per kind per project version (409 otherwise): two would
+// auto-close each other's findings.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -72893,14 +72972,19 @@ func (c *ClientWithResponses) CreateProjectConnectorWithBodyWithResponse(ctx con
 	return ParseCreateProjectConnectorResponse(rsp)
 }
 
-// CreateProjectConnectorWithResponse Add a Dependency-Track or DefectDojo connector
+// CreateProjectConnectorWithResponse Add a pull connector
 //
 // Project `owner` — the connector holds a credential for another system.
-// `token` is required and write-only (a Dependency-Track API key with
-// VIEW_PORTFOLIO + VIEW_VULNERABILITY, or a DefectDojo API v2 key), encrypted
-// at rest with `INTEGRATION_SECRET_KEY` (AES-256-GCM); without that key this
-// returns 400. One connector per kind per project version (409 otherwise):
-// two would auto-close each other's findings.
+// `token` is required and write-only, encrypted at rest with
+// `INTEGRATION_SECRET_KEY` (AES-256-GCM); without that key this returns 400.
+// For `dependency-track`, `defectdojo`, `snyk-api`, `github` and `gitlab` it
+// is the remote's API token; for `wiz` and `tenable`, whose auth is two
+// secrets, it is a JSON object carrying both, so both are sealed together
+// (`{"client_id":"...","client_secret":"..."}` for Wiz,
+// `{"access_key":"...","secret_key":"..."}` for Tenable). `auth_url` is the
+// Wiz OAuth token endpoint (required for `wiz` only; not a secret). One
+// connector per kind per project version (409 otherwise): two would
+// auto-close each other's findings.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -72968,15 +73052,18 @@ func (c *ClientWithResponses) PutProjectConnectorWithResponse(ctx context.Contex
 //
 // Project `editor`. Also runs every `CONNECTOR_PULL_INTERVAL` for enabled
 // connectors. Fetches every finding the remote reports and records them as
-// one scan by scanner `dependency-track` / `defectdojo` on the connector's
-// version, through the normal ingest pipeline — so findings no longer
-// reported are auto-closed. A failed or incomplete fetch applies nothing
-// (502, recorded in `last_error`); findings are never closed because the
-// remote was unreachable. A remote triage verdict (Dependency-Track analysis
-// NOT_AFFECTED / FALSE_POSITIVE → false positive, EXPLOITABLE → confirmed;
-// DefectDojo false positive / risk accepted / verified) is kept in the
-// finding's metadata and applied only to newly imported, untriaged findings —
-// it never overturns Xila's triage. 409 while a pull of this connector runs.
+// one scan by the connector's scanner (its `kind`, except `snyk-api`, whose
+// pull API is kept distinct from the file-upload Snyk parser's `snyk`
+// scanner) on the connector's version, through the normal ingest pipeline
+// — so findings no longer reported are auto-closed. A failed or incomplete
+// fetch applies nothing (502, recorded in `last_error`); findings are never
+// closed because the remote was unreachable. Each kind's dismissed/ignored/
+// rejected verdict (Dependency-Track analysis, DefectDojo flags, a Snyk
+// ignore, a dismissed GitHub code scanning/Dependabot alert, a dismissed
+// GitLab vulnerability, a rejected Wiz finding, a Tenable severity
+// acceptance) is kept in the finding's metadata and applied only to newly
+// imported, untriaged findings — it never overturns Xila's triage. 409
+// while a pull of this connector runs.
 //
 // Returns a wrapper object for the known response body format(s).
 //

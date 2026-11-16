@@ -815,7 +815,7 @@ internal/policy                        component policy engine (security / licen
 internal/{compliance,portfolio}        framework posture, cross-project rollup
 internal/metrics                       daily metric snapshots (90-day backfill) + trends API
 internal/{export,report}               CSV/XLSX export of any list filter; printable HTML project/portfolio reports
-internal/connector                     pull findings from Dependency-Track / DefectDojo (+ RemoteTriage applier)
+internal/connector                     pull findings from Dependency-Track, DefectDojo, Snyk, GitHub, GitLab, Wiz, Tenable (+ RemoteTriage applier)
 internal/issuetracker                  Jira / GitHub / GitLab issues, two-way sync
 internal/secretbox                     AES-GCM for integration tokens at rest
 internal/engagement                    DefectDojo-style engagements (scans as tests) + manual findings

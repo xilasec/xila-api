@@ -4964,13 +4964,18 @@ export interface paths {
         get: operations["listProjectConnectors"];
         put?: never;
         /**
-         * Add a Dependency-Track or DefectDojo connector
+         * Add a pull connector
          * @description Project `owner` — the connector holds a credential for another system.
-         *     `token` is required and write-only (a Dependency-Track API key with
-         *     VIEW_PORTFOLIO + VIEW_VULNERABILITY, or a DefectDojo API v2 key), encrypted
-         *     at rest with `INTEGRATION_SECRET_KEY` (AES-256-GCM); without that key this
-         *     returns 400. One connector per kind per project version (409 otherwise):
-         *     two would auto-close each other's findings.
+         *     `token` is required and write-only, encrypted at rest with
+         *     `INTEGRATION_SECRET_KEY` (AES-256-GCM); without that key this returns 400.
+         *     For `dependency-track`, `defectdojo`, `snyk-api`, `github` and `gitlab` it
+         *     is the remote's API token; for `wiz` and `tenable`, whose auth is two
+         *     secrets, it is a JSON object carrying both, so both are sealed together
+         *     (`{"client_id":"...","client_secret":"..."}` for Wiz,
+         *     `{"access_key":"...","secret_key":"..."}` for Tenable). `auth_url` is the
+         *     Wiz OAuth token endpoint (required for `wiz` only; not a secret). One
+         *     connector per kind per project version (409 otherwise): two would
+         *     auto-close each other's findings.
          */
         post: operations["createProjectConnector"];
         delete?: never;
@@ -5039,15 +5044,18 @@ export interface paths {
          * Pull now
          * @description Project `editor`. Also runs every `CONNECTOR_PULL_INTERVAL` for enabled
          *     connectors. Fetches every finding the remote reports and records them as
-         *     one scan by scanner `dependency-track` / `defectdojo` on the connector's
-         *     version, through the normal ingest pipeline — so findings no longer
-         *     reported are auto-closed. A failed or incomplete fetch applies nothing
-         *     (502, recorded in `last_error`); findings are never closed because the
-         *     remote was unreachable. A remote triage verdict (Dependency-Track analysis
-         *     NOT_AFFECTED / FALSE_POSITIVE → false positive, EXPLOITABLE → confirmed;
-         *     DefectDojo false positive / risk accepted / verified) is kept in the
-         *     finding's metadata and applied only to newly imported, untriaged findings —
-         *     it never overturns Xila's triage. 409 while a pull of this connector runs.
+         *     one scan by the connector's scanner (its `kind`, except `snyk-api`, whose
+         *     pull API is kept distinct from the file-upload Snyk parser's `snyk`
+         *     scanner) on the connector's version, through the normal ingest pipeline
+         *     — so findings no longer reported are auto-closed. A failed or incomplete
+         *     fetch applies nothing (502, recorded in `last_error`); findings are never
+         *     closed because the remote was unreachable. Each kind's dismissed/ignored/
+         *     rejected verdict (Dependency-Track analysis, DefectDojo flags, a Snyk
+         *     ignore, a dismissed GitHub code scanning/Dependabot alert, a dismissed
+         *     GitLab vulnerability, a rejected Wiz finding, a Tenable severity
+         *     acceptance) is kept in the finding's metadata and applied only to newly
+         *     imported, untriaged findings — it never overturns Xila's triage. 409
+         *     while a pull of this connector runs.
          */
         post: operations["pullProjectConnector"];
         delete?: never;
@@ -7218,13 +7226,15 @@ export interface components {
             /** Format: uuid */
             project_id?: string;
             /** @enum {string} */
-            kind?: "dependency-track" | "defectdojo";
+            kind?: "dependency-track" | "defectdojo" | "snyk-api" | "github" | "gitlab" | "wiz" | "tenable";
             name?: string;
-            /** @description Server root, e.g. https://dtrack.example.com or https://defectdojo.example.com (no /api suffix). */
+            /** @description Server/API root; normalized per kind (e.g. the /api/v1, /api/v2, /api/v3, /api/v4 or /rest suffix is added or stripped as needed). */
             base_url?: string;
-            /** @description Dependency-Track project UUID; DefectDojo product id (42) or engagement id (engagement:42). */
+            /** @description Dependency-Track project UUID; DefectDojo product id (42) or engagement id (engagement:42); Snyk org id, optionally ":<project id>"; GitHub "owner/repo" or "org:<org>"; GitLab project path ("group/project"); comma-separated Wiz project UUIDs (empty = every project); or a Tenable "category=value" asset tag filter (empty = the whole instance). */
             remote_project?: string;
             has_token?: boolean;
+            /** @description Wiz OAuth token endpoint; empty for every other kind. */
+            auth_url?: string;
             /** @description Project version (branch) the findings land in; empty = the default version. */
             version?: string;
             /** @description Pulled on the schedule. */
@@ -7252,12 +7262,14 @@ export interface components {
              * @description Required when creating; can't change.
              * @enum {string}
              */
-            kind?: "dependency-track" | "defectdojo";
+            kind?: "dependency-track" | "defectdojo" | "snyk-api" | "github" | "gitlab" | "wiz" | "tenable";
             name?: string;
             base_url: string;
             remote_project: string;
-            /** @description Required when creating or changing base_url; omit to keep the stored token. */
+            /** @description Required when creating, or when changing base_url or auth_url; omit to keep the stored token. The remote's API token for every kind except wiz and tenable, whose two secrets are sealed together as one JSON object: {"client_id":"...","client_secret":"..."} for wiz, {"access_key":"...","secret_key":"..."} for tenable. */
             token?: string;
+            /** @description Wiz OAuth token endpoint; required for kind wiz, ignored otherwise. */
+            auth_url?: string;
             version?: string;
             /** @default true */
             enabled: boolean;

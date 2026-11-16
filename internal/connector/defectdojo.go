@@ -144,15 +144,7 @@ func (d *defectDojo) Fetch(ctx context.Context) ([]finding.Finding, error) {
 // Category is the most common finding category (a DefectDojo product mixes
 // tools), SAST when there are none.
 func (d *defectDojo) Category(fs []finding.Finding) domain.Category {
-	counts := map[domain.Category]int{}
-	best, bestN := domain.CategorySAST, 0
-	for _, f := range fs {
-		counts[f.Category]++
-		if n := counts[f.Category]; n > bestN {
-			best, bestN = f.Category, n
-		}
-	}
-	return best
+	return mostCommonCategory(fs, domain.CategorySAST)
 }
 
 // ddTriage maps DefectDojo's triage flags onto a Xila verdict, applied only to

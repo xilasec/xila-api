@@ -346,7 +346,7 @@ roles, and password login can optionally be turned off. See [Single sign-on](#si
 | GET    | `/api/v1/root-causes`               | The same change merged across every project you can see (`?kind=`, `?ecosystem=`, `?q=`, `?kev=`, `?min_severity=`) |
 | GET    | `/api/v1/root-causes/{kind}/{key}`  | One root cause's affected projects (`key` base64url-encoded; findings, priority, live action if any) |
 | POST   | `/api/v1/root-causes/{kind}/{key}/remediation` | Create the missing remediation action everywhere you can edit; skips and reports the rest, idempotent |
-| GET/POST | `/api/v1/projects/{id}/connectors` | The project's Dependency-Track / DefectDojo pull connectors (token write-only); adding needs project owner |
+| GET/POST | `/api/v1/projects/{id}/connectors` | The project's pull connectors (Dependency-Track, DefectDojo, Snyk, GitHub, GitLab, Wiz, Tenable; token write-only); adding needs project owner |
 | PUT/DELETE | `/api/v1/projects/{id}/connectors/{connectorID}` | Change / remove a connector (owner; its imported findings stay) |
 | POST   | `/api/v1/projects/{id}/connectors/{connectorID}/test` | Verify the stored connector credentials (owner; `502` with the remote's error) |
 | POST   | `/api/v1/projects/{id}/connectors/{connectorID}/pull` | Pull now and report imported / new / closed counts (editor; also runs on `CONNECTOR_PULL_INTERVAL`) |
@@ -836,7 +836,8 @@ alongside remediation actions; the nav has a Root Causes page with the same
 list, an expandable row per change for its affected projects, and a button to
 create the missing actions.
 
-Pull connectors (Dependency-Track, DefectDojo): point a project at a running
+Pull connectors (Dependency-Track, DefectDojo, Snyk, GitHub, GitLab, Wiz,
+Tenable): point a project at a running
 Dependency-Track project (by UUID) or DefectDojo product (`42`) or engagement
 (`engagement:42`) and Xila imports its findings, either on demand (Pull now,
 project editor) or every `CONNECTOR_PULL_INTERVAL` (6 h). A project can have
@@ -862,6 +863,22 @@ overturn Xila's triage. Tokens are encrypted at rest the same way as tracker tok
 (`INTEGRATION_SECRET_KEY`), only the owner can configure them, and changing `base_url`
 requires re-entering the token. Scheduled pulls are serialized across instances
 by a per-connector advisory lock. A failing remote does not stop the others.
+
+The other kinds, each its own scanner name so they never close each other's
+findings. Every one pages through the vendor API, honours `Retry-After` on 429,
+lifts the CVE and maps the vendor's dismissal to remote triage:
+
+| Kind | `remote_project` | API | Remote triage |
+| ---- | ---------------- | --- | ------------- |
+| `snyk-api` | `<org id>` or `<org id>:<project id>` | REST `GET /orgs/{org}/issues` (SCA, Code, IaC, license), `Authorization: token` | ignored issues |
+| `github` | `owner/repo` or `org:<org>` (github.com or GitHub Enterprise Server) | code scanning and Dependabot alerts, Bearer token | dismissed alerts, with the reason |
+| `gitlab` | namespaced project path (gitlab.com or self-managed) | GraphQL `project.vulnerabilities`, `read_api` token | dismissed vulnerabilities, with the reason |
+| `wiz` | comma-separated Wiz project ids, or empty for all | OAuth client credentials at the tenant's token URL (`auth_url`), GraphQL `vulnerabilityFindings` | rejected findings |
+| `tenable` | optional asset tag `<category>=<value>` | Vulnerability Management export (`POST /vulns/export`, poll, download chunks), `X-ApiKeys` | accepted (risk-accepted) vulnerabilities |
+
+Fixed or resolved items aren't fetched, so the next pull auto-closes them. Wiz and
+Tenable take two secrets (client id and secret, access and secret key), stored
+together like any connector token.
 
 Auto-triage rules (noise reduction): persistent rules (*conditions → action*)
 that run automatically on every ingest and across the existing backlog, so
@@ -2520,7 +2537,7 @@ Azure Key Vault, Vault) hand secrets to the app. It applies to `JWT_SECRET`,
 | `ISSUE_SYNC_INTERVAL`         | `15m`                | how often issue-tracker state is synced in both directions and auto-create runs (`0` = off) |
 | `REMEDIATION_SWEEP_INTERVAL`  | `15m`                | how often open findings are grouped into remediation actions and live actions are refreshed (due date, owner, auto-close) (`0` = off; ingest still runs it per scan) |
 | `REMEDIATION_AUTO_CREATE`     | `false`              | create remediation actions from proposals automatically instead of waiting for a user to accept them |
-| `CONNECTOR_PULL_INTERVAL`     | `6h`                 | how often each enabled Dependency-Track / DefectDojo connector is pulled (`0` = off; Pull now still works) |
+| `CONNECTOR_PULL_INTERVAL`     | `6h`                 | how often each enabled pull connector is pulled (`0` = off; Pull now still works) |
 | `METRICS_SNAPSHOT_INTERVAL`   | `1h`                 | how often today's and yesterday's metric snapshots are recomputed; the first run backfills 90 days (`0` = off) |
 | `INGEST_MAX_QUEUE_DEPTH`      | `10000`              | pending job count at which uploads are rejected with `429` (`0` = unbounded) |
 | `INGEST_QUEUE_SAMPLE_INTERVAL`| `5s`                 | how often queue depth is measured             |
