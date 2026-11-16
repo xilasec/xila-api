@@ -263,3 +263,62 @@ upsert all key on `(version_id, fingerprint)` across statuses, so a
 status-partitioned table would move rows between partitions on every
 transition; archiving gets the same effect for live queries without that.
 
+## Three nodes, 10M findings (M11 11.10)
+
+Same machine, Postgres on stock settings (`shared_buffers` 128 MB) with a 13 GB
+database: 10,100,000 findings across 6,010 projects (10 at 500,000, 6,000 at
+850), 30 orgs, 150 teams, 300,500 components. Seeding took 56 minutes.
+Three API nodes on one database, `INGEST_ASYNC=true`, 4 workers each, the
+load generator spreading uploaders over the nodes (`--base-url a,b,c`).
+
+Reads (one node, `http-bench`, one of the big projects):
+
+| Endpoint | p50 | p95 |
+|---|---|---|
+| Findings list (default, priority, severity+scanner, all projects) | 3.7 to 4.9 ms | 4.8 to 6.3 ms |
+| Findings search | 14 ms | 16 ms |
+| Components (project / search) | 450 / 227 ms | 486 / 245 ms |
+| Project summary | 897 ms | 2,354 ms |
+| Portfolio, live | 12,555 ms | 13,472 ms |
+| Portfolio, `PORTFOLIO_FROM_SNAPSHOTS` | 162 ms | 177 ms |
+
+Keyset lists stay flat at 10× the data. The live portfolio is the cost 11.9
+targets: compliance alone took 13.6 s. Served from the snapshot run it is
+about 80× faster and equal to the live view apart from SLA deadlines that
+passed in between. The snapshot run itself (two days plus the parts) takes
+57 s on the job pool; the first run's 90-day backfill took 9.5 minutes.
+
+Ingest, a burst of 1,000 scans of 1,000 findings (100 uploaders × 10 scans,
+100 projects, 3 nodes):
+
+| | Findings/s | Burst drained in | Per-scan p50 (queue wait included) | 429s |
+|---|---|---|---|---|
+| Before migration 000108 | 896 | 18 min 36 s | 111 s | 0 |
+| With it, 12 workers | 6,486 | 2 min 34 s | 15 s | 0 |
+| With it, 24 workers (set live) | 5,757 | 2 min 54 s | 17 s | 0 |
+
+What the run found and fixed:
+
+- No index on `findings.last_scan_id`. Every scan-scoped pass that looks up a
+  scan's findings by it alone (exposure evidence, reprioritize, feed tags,
+  the skip-unchanged carry-forward, archive, retention) was a full table
+  scan, invisible at 1M findings where the table stays cached. At 10M each
+  read about 800,000 pages, 17 s cold, and a 1,000-finding scan took 13 s.
+  Migration 000108 adds the index (built in 10.6 s, 67 MB at 10M): the pass
+  takes 0.04 ms and throughput went up 7.2×.
+- The snapshot day query's per-project category count, written as a scalar
+  subquery, was planned as a rescan of the whole finding set per project:
+  minutes at 10M. Joined outside the aggregate it takes 15 s.
+- The snapshot's full passes ran into the 30 s request statement timeout.
+  They now run on a 2-connection pool capped by `DB_JOB_STATEMENT_TIMEOUT`.
+- Compliance (13.6 s) and SLA (4.6 s) were still live in snapshot mode;
+  they are now snapshotted per project too.
+
+Twelve workers saturate this machine (three API nodes, Postgres and the
+load generator share 16 cores and 16 GB): doubling them through
+`PUT /ingest/settings`, which all three nodes picked up without a restart,
+didn't add throughput. On separate database hardware the workers are the
+knob to turn; per project, ingest still serializes on the dedup lock by
+design. The fair claim kept every uploader's scans moving: the slowest
+scan of the burst finished within 1.3× of the median.
+

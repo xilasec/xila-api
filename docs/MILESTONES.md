@@ -737,8 +737,13 @@ For 1,000,000 (bursts of a billion findings):
   upsert brings back one reported again), and `DB_READ_URL` /
   `DB_READ_STATEMENT_TIMEOUT` give reporting reads a replica and a capped pool of
   their own. Migrations 000106 and 000107.
-- ⬜ 11.10 Multi-node load test: 10M findings, 3 API nodes, 1,000-scan bursts;
-  record the results in `docs/SCALE.md`.
+- ✅ 11.10 Multi-node load test: 10.1M findings, 3 API nodes on one
+  database, 1,000-scan bursts of 1M findings absorbed with no `429` and drained
+  in 2.5 minutes (6,486 findings/s); the snapshot-served portfolio answers in
+  162 ms against 12.6 s live. The run found a missing `last_scan_id` index
+  (full scans on every ingest, 7.2× throughput once added, migration 000108)
+  and two snapshot-job problems at that size (a per-project rescan, the
+  request statement timeout), all fixed. Numbers in `docs/SCALE.md`.
 
 ## M12: Parity review 3 (November 2026)
 
