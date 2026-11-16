@@ -471,3 +471,41 @@ func MaxTeamRole(roles ...TeamRole) (TeamRole, bool) {
 	}
 	return best, found
 }
+
+// Capability is a fine-grained action a custom role can deny on top of its
+// base TeamRole (viewer/uploader/editor/owner). A custom role is always a
+// base role minus a subset of these; the ladder rank used everywhere else
+// (RoleOnProject, RoleOnTeam, authz's minRole) stays the base role — a
+// capability only narrows specific route classes within it, it never changes
+// what role a grant ranks as.
+type Capability string
+
+// Capabilities a custom role may deny.
+const (
+	CapTriage                Capability = "triage"                  // finding status / assignee / severity changes
+	CapComment               Capability = "comment"                 // finding comments
+	CapManageMembers         Capability = "manage_members"          // team/org/project member + group management
+	CapProjectSettings       Capability = "project_settings"        // gate policy, SLA, issue tracker, connectors
+	CapUpload                Capability = "upload"                  // pushing scans/SBOMs/VEX, running the gate
+	CapExport                Capability = "export"                  // CSV/XLSX exports of findings/components/VEX
+	CapRiskAcceptanceApprove Capability = "risk_acceptance_approve" // approve/reject/revoke a risk acceptance
+)
+
+// Capabilities lists every capability a custom role may deny, in the order
+// they are presented to admins.
+var Capabilities = []Capability{
+	CapTriage, CapComment, CapManageMembers, CapProjectSettings, CapUpload, CapExport, CapRiskAcceptanceApprove,
+}
+
+// Valid reports whether c is a known capability.
+func (c Capability) Valid() bool { return slices.Contains(Capabilities, c) }
+
+// ValidCapabilities reports whether every capability in cs is known.
+func ValidCapabilities(cs []Capability) bool {
+	for _, c := range cs {
+		if !c.Valid() {
+			return false
+		}
+	}
+	return true
+}

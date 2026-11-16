@@ -27,6 +27,15 @@ type resolver interface {
 	OrgIDsForUser(ctx context.Context, userID string) ([]string, error)
 	ProjectIDsForUser(ctx context.Context, userID string) ([]string, error)
 	OwnedProjectIDs(ctx context.Context, userID string) ([]string, error)
+	// TeamCapabilityAllowed and ProjectCapabilityAllowed check a custom
+	// role's deny-list on top of the minimum role: a capability denied by one
+	// grant is still allowed if another grant meeting min doesn't deny it
+	// (roles only add access — see membership.anyGrantAllows).
+	TeamCapabilityAllowed(ctx context.Context, userID, teamID string, min domain.TeamRole, cap domain.Capability) (bool, error)
+	ProjectCapabilityAllowed(ctx context.Context, userID, projectID string, min domain.TeamRole, cap domain.Capability) (bool, error)
+	// ProjectIDsAllowing narrows ids to the projects where some grant of
+	// userID doesn't deny cap.
+	ProjectIDsAllowing(ctx context.Context, userID string, ids []string, cap domain.Capability) ([]string, error)
 }
 
 // Scope is the set of resources an actor may see, stashed for list handlers.
@@ -78,6 +87,13 @@ func Middleware(m resolver) fiber.Handler {
 			if err != nil {
 				return err
 			}
+			if s.capability != "" {
+				// A cross-project read a custom role can deny (exports): only
+				// the projects where some grant allows it.
+				if pids, err = m.ProjectIDsAllowing(ctx, actor.UserID, pids, s.capability); err != nil {
+					return err
+				}
+			}
 			tids, err := m.TeamIDsForUser(ctx, actor.UserID)
 			if err != nil {
 				return err
@@ -117,6 +133,15 @@ func Middleware(m resolver) fiber.Handler {
 			if !role.AtLeast(s.minRole) {
 				return fiber.NewError(fiber.StatusForbidden, "insufficient role for this action")
 			}
+			if s.capability != "" {
+				allowed, err := m.TeamCapabilityAllowed(c.UserContext(), actor.UserID, s.teamID, s.minRole, s.capability)
+				if err != nil {
+					return err
+				}
+				if !allowed {
+					return fiber.NewError(fiber.StatusForbidden, "this role cannot perform this action")
+				}
+			}
 			return c.Next()
 		}
 
@@ -140,6 +165,11 @@ func Middleware(m resolver) fiber.Handler {
 		if !member {
 			return fiber.NewError(fiber.StatusForbidden, "no access to this project")
 		}
+		// capMin is the role threshold that actually granted access — the
+		// uploader carve-out passes at TeamUploader, not minRole, so the
+		// capability check (upload, for those routes) is asked about the
+		// grant that really authorized the request.
+		capMin := s.minRole
 		if !role.AtLeast(s.minRole) {
 			// uploader is viewer plus uploads: it never reaches editor on its
 			// own, so only the specific upload/gate routes that opt in
@@ -147,6 +177,16 @@ func Middleware(m resolver) fiber.Handler {
 			// otherwise require.
 			if !(s.allowUploader && role.AtLeast(domain.TeamUploader)) {
 				return fiber.NewError(fiber.StatusForbidden, "insufficient role for this action")
+			}
+			capMin = domain.TeamUploader
+		}
+		if s.capability != "" {
+			allowed, err := m.ProjectCapabilityAllowed(c.UserContext(), actor.UserID, projectID, capMin, s.capability)
+			if err != nil {
+				return err
+			}
+			if !allowed {
+				return fiber.NewError(fiber.StatusForbidden, "this role cannot perform this action")
 			}
 		}
 		return c.Next()
@@ -173,6 +213,10 @@ type routeScope struct {
 	// even though it fails minRole: the specific scan/SBOM/VEX upload, the
 	// gate run, and reading the scan it just pushed.
 	allowUploader bool
+	// capability, when set, additionally requires some grant meeting minRole
+	// (capMin for the uploader carve-out) not to deny it — a custom role's
+	// deny-list on top of the role ladder (internal/domain.Capability).
+	capability domain.Capability
 }
 
 // resolveProject finds the project a request targets: named in the path, or the
@@ -194,6 +238,96 @@ func (s routeScope) resolveProject(ctx context.Context, m resolver) (string, err
 // parseScope derives the authorization scope from the request path + method.
 // Params aren't bound in group middleware, so we parse the path string.
 func parseScope(path, method string) routeScope {
+	s := baseScope(path, method)
+	s.capability = capabilityFor(path, method)
+	return s
+}
+
+// capabilityFor is the custom-role capability a route needs on top of its
+// minimum role ("" = none): the route classes a custom role can deny
+// (domain.Capability). Keep it in step with the routes it names; the
+// capability table test walks them.
+func capabilityFor(path, method string) domain.Capability {
+	segs := apiSegments(path)
+	if len(segs) < 2 {
+		return ""
+	}
+	get := method == fiber.MethodGet
+	last := segs[len(segs)-1]
+	if get {
+		if last == "export" {
+			return domain.CapExport // findings, components, VEX exports
+		}
+		return ""
+	}
+	switch segs[0] {
+	case "findings":
+		if len(segs) == 2 && segs[1] == "bulk" {
+			return domain.CapTriage // the handler checks it per project too
+		}
+		if len(segs) < 3 {
+			return domain.CapTriage // PATCH /findings/{id}: status / severity
+		}
+		switch segs[2] {
+		case "fields", "assignee":
+			return domain.CapTriage
+		case "ai-proposals":
+			if last == "accept" {
+				return domain.CapTriage
+			}
+		case "comments", "attachments":
+			return domain.CapComment
+		}
+	case "assessments":
+		return domain.CapTriage // approving a status / severity change
+	case "teams":
+		if len(segs) >= 3 && (segs[2] == "members" || segs[2] == "groups") {
+			return domain.CapManageMembers
+		}
+	case "projects":
+		if len(segs) < 3 {
+			return ""
+		}
+		switch segs[2] {
+		case "scans", "sboms", "vex":
+			if len(segs) == 3 {
+				return domain.CapUpload
+			}
+		case "gate":
+			if len(segs) == 3 {
+				return domain.CapUpload // running the gate is part of a CI upload
+			}
+			return domain.CapProjectSettings // gate policy
+		case "members", "groups":
+			return domain.CapManageMembers
+		case "connectors":
+			if last == "pull" {
+				return domain.CapUpload
+			}
+			return domain.CapProjectSettings
+		case "sla", "issue-tracker", "versions", "badge-token":
+			return domain.CapProjectSettings
+		case "risk-acceptances":
+			if last == "approve" || last == "reject" || last == "revoke" {
+				return domain.CapRiskAcceptanceApprove
+			}
+		}
+	}
+	return ""
+}
+
+// apiSegments is the path after /api/v1, split on "/".
+func apiSegments(path string) []string {
+	segs := strings.Split(strings.Trim(path, "/"), "/")
+	for i, s := range segs {
+		if s == "v1" {
+			return segs[i+1:]
+		}
+	}
+	return nil
+}
+
+func baseScope(path, method string) routeScope {
 	segs := strings.Split(strings.Trim(path, "/"), "/")
 	i := 0
 	for i < len(segs) && segs[i] != "v1" {
@@ -279,7 +413,7 @@ func parseScope(path, method string) routeScope {
 		// Granting access to a project is itself an owner-level act: an editor who
 		// could add members could grant themselves nothing new, but could hand the
 		// project to anyone.
-		if len(segs) >= 3 && (segs[2] == "members" || segs[2] == "access") {
+		if len(segs) >= 3 && (segs[2] == "members" || segs[2] == "groups" || segs[2] == "access") {
 			s.minRole = domain.TeamOwner // who can reach the project and why: owner-level, like managing it
 		}
 		// Watching is a personal subscription: anyone who can see the project.
@@ -467,7 +601,7 @@ func parseScope(path, method string) routeScope {
 			return routeScope{globalList: true}
 		}
 		return routeScope{adminOnly: true}
-	case "users", "permissions", "service-accounts", "federation", "enrich", "vulnmatch", "feed-rules", "psirt", "notifications", "triage-rules", "gate", "ingest", "sla", "issue-trackers", "sso", "retention", "audit-log", "exploit-intel":
+	case "users", "permissions", "service-accounts", "scim-tokens", "federation", "enrich", "vulnmatch", "feed-rules", "psirt", "notifications", "triage-rules", "gate", "ingest", "sla", "issue-trackers", "sso", "retention", "audit-log", "exploit-intel":
 		// User admin, service accounts + workload identity federation, SSO
 		// providers + group → role mappings, portfolio-wide
 		// enrichment, advisory feed rules, PSIRT advisory publishing, notification-channel management,

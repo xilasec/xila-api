@@ -388,19 +388,56 @@ export const api = {
 	/** @param {string} teamId */
 	listMembers: (teamId) =>
 		request('GET', `/teams/${teamId}/members`).then((d) => d.members ?? []),
-	/** @param {string} teamId @param {string} email @param {string} role */
-	addMember: (teamId, email, role) =>
-		request('POST', `/teams/${teamId}/members`, { body: { email, role } }),
+	// A grant: a user ({ email }) or a user group ({ group_id }) with a role,
+	// optionally narrowed by a custom role (custom_role_id).
+	/** @param {string} teamId @param {{ email?: string, group_id?: string, role: string, custom_role_id?: string }} grant */
+	addMember: (teamId, grant) => request('POST', `/teams/${teamId}/members`, { body: grant }),
 	/** @param {string} teamId @param {string} userId */
 	removeMember: (teamId, userId) => request('DELETE', `/teams/${teamId}/members/${userId}`),
+	/** @param {string} teamId @param {string} groupId */
+	removeTeamGroup: (teamId, groupId) => request('DELETE', `/teams/${teamId}/groups/${groupId}`),
+
+	// --- user groups and custom roles (org admin) ---
+	/** @param {string} orgId */
+	listGroups: (orgId) => request('GET', `/orgs/${orgId}/groups`).then((d) => d.groups ?? []),
+	/** @param {string} orgId @param {string} name */
+	createGroup: (orgId, name) => request('POST', `/orgs/${orgId}/groups`, { body: { name } }),
+	/** @param {string} orgId @param {string} groupId */
+	getGroup: (orgId, groupId) => request('GET', `/orgs/${orgId}/groups/${groupId}`),
+	/** @param {string} orgId @param {string} groupId @param {string} name */
+	renameGroup: (orgId, groupId, name) => request('PUT', `/orgs/${orgId}/groups/${groupId}`, { body: { name } }),
+	/** @param {string} orgId @param {string} groupId */
+	deleteGroup: (orgId, groupId) => request('DELETE', `/orgs/${orgId}/groups/${groupId}`),
+	/** @param {string} orgId @param {string} groupId @param {string} email */
+	addGroupMember: (orgId, groupId, email) =>
+		request('POST', `/orgs/${orgId}/groups/${groupId}/members`, { body: { email } }),
+	/** @param {string} orgId @param {string} groupId @param {string} userId */
+	removeGroupMember: (orgId, groupId, userId) =>
+		request('DELETE', `/orgs/${orgId}/groups/${groupId}/members/${userId}`),
+	/** @param {string} orgId */
+	listCustomRoles: (orgId) => request('GET', `/orgs/${orgId}/custom-roles`).then((d) => d.custom_roles ?? []),
+	/** @param {string} orgId @param {{ name: string, base_role: string, denied_capabilities: string[] }} role */
+	createCustomRole: (orgId, role) => request('POST', `/orgs/${orgId}/custom-roles`, { body: role }),
+	/** @param {string} orgId @param {string} roleId @param {{ name: string, base_role: string, denied_capabilities: string[] }} role */
+	updateCustomRole: (orgId, roleId, role) => request('PUT', `/orgs/${orgId}/custom-roles/${roleId}`, { body: role }),
+	/** @param {string} orgId @param {string} roleId */
+	deleteCustomRole: (orgId, roleId) => request('DELETE', `/orgs/${orgId}/custom-roles/${roleId}`),
+	capabilities: () => request('GET', '/capabilities').then((d) => d.capabilities ?? []),
+	// SCIM provisioning tokens (instance admin); the secret is returned once.
+	listSCIMTokens: () => request('GET', '/scim-tokens').then((d) => d.tokens ?? []),
+	/** @param {string} name @param {string} orgId */
+	createSCIMToken: (name, orgId) => request('POST', '/scim-tokens', { body: { name, org_id: orgId } }),
+	/** @param {string} id */
+	revokeSCIMToken: (id) => request('DELETE', `/scim-tokens/${id}`),
 
 	// --- project members (access to one project, without joining its team) ---
 	/** @param {string} projectId */
 	listProjectMembers: (projectId) =>
 		request('GET', `/projects/${projectId}/members`).then((d) => d.members ?? []),
-	/** @param {string} projectId @param {string} email @param {string} role */
-	addProjectMember: (projectId, email, role) =>
-		request('POST', `/projects/${projectId}/members`, { body: { email, role } }),
+	/** @param {string} projectId @param {{ email?: string, group_id?: string, role: string, custom_role_id?: string }} grant */
+	addProjectMember: (projectId, grant) => request('POST', `/projects/${projectId}/members`, { body: grant }),
+	/** @param {string} projectId @param {string} groupId */
+	removeProjectGroup: (projectId, groupId) => request('DELETE', `/projects/${projectId}/groups/${groupId}`),
 	/** @param {string} projectId @param {string} userId */
 	removeProjectMember: (projectId, userId) =>
 		request('DELETE', `/projects/${projectId}/members/${userId}`),

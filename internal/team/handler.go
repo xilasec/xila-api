@@ -15,7 +15,7 @@ import (
 
 // memberAdder adds the creator of a team as its owner.
 type memberAdder interface {
-	Add(ctx context.Context, teamID, userID string, role domain.TeamRole) error
+	Add(ctx context.Context, teamID, userID string, role domain.TeamRole, customRoleID string) error
 }
 
 // Handler exposes team CRUD over HTTP.
@@ -75,7 +75,7 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 	}
 	// The creator becomes the team's owner.
 	if actor := auth.CurrentActor(c); actor.UserID != "" {
-		if err := h.members.Add(c.UserContext(), t.ID, actor.UserID, domain.TeamOwner); err != nil {
+		if err := h.members.Add(c.UserContext(), t.ID, actor.UserID, domain.TeamOwner, ""); err != nil {
 			return err
 		}
 	}

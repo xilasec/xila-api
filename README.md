@@ -170,6 +170,32 @@ and access can be granted at any level:
   is `editor` (which already includes upload). Recommended for CI service
   accounts and project-scoped tokens that only push reports (see "Break the
   build in CI").
+- User groups: an org admin defines named groups of users in the organization
+  (`/orgs/{id}/groups`, or the Groups & roles page) and grants a group on the
+  org, a team or a project exactly like a person (`group_id` in the members
+  endpoints). Every member gets the role; leaving the group takes it away. A
+  group or custom role can only be granted inside its own organization. The
+  permission audit names the group behind each grant.
+- Custom roles: a base role minus denied capabilities (`/orgs/{id}/custom-roles`),
+  assignable on team and project grants (`custom_role_id`). The capabilities are
+  `triage`, `comment`, `manage_members`, `project_settings`, `upload`, `export` and
+  `risk_acceptance_approve` (`GET /capabilities`; the spec lists what each
+  covers). "Editor without triage" uploads and comments but gets `403` on a
+  status change, in bulk edits too. Grants still only add access: a capability
+  one grant denies is allowed when another grant at the needed level doesn't
+  deny it.
+- SCIM 2.0 provisioning: an instance admin creates an org-scoped SCIM token
+  (`POST /scim-tokens`); the identity provider (Okta, Entra ID, OneLogin,
+  JumpCloud) then manages that organization's users and groups at
+  `/api/v1/scim/v2` (`Users`, `Groups`, `ServiceProviderConfig`, `ResourceTypes`,
+  `Schemas`; `filter=userName eq "…"`, PATCH ops, Entra's string booleans).
+  `userName` is the email. A provisioned user has no password and signs in through
+  SSO. `active: false` or DELETE disables the account and ends its sessions; a
+  user who also belongs to another organization is only removed from this one.
+  The instance owner and service accounts are out of SCIM's reach, SCIM tokens
+  work only on SCIM and other credentials don't work there, and every change is
+  in the audit log with the token as the actor. SCIM groups are ordinary groups:
+  their grants stay with the org admin.
 - Project hierarchy: a project may have a parent project in the same organization
   (`parent_id`, at most 5 levels, no cycles; enforced in the database). A project
   or team grant on a parent applies to every descendant with the same role (the

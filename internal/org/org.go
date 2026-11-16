@@ -34,12 +34,16 @@ type Organization struct {
 
 // Member is a user's membership in an org.
 type Member struct {
-	UserID string         `json:"user_id"`
-	Email  string         `json:"email"`
+	UserID string         `json:"user_id,omitempty"`
+	Email  string         `json:"email,omitempty"`
 	Role   domain.OrgRole `json:"role"`
 	// Source is "manual" (granted here) or "sso" (an IdP group mapping, synced
 	// on that user's every SSO login).
 	Source string `json:"source"`
+	// GroupID/GroupName are set instead of UserID/Email when this grant is on
+	// a user group rather than an individual user.
+	GroupID   string `json:"group_id,omitempty"`
+	GroupName string `json:"group_name,omitempty"`
 }
 
 // Repository provides access to organizations + org_members.
@@ -135,14 +139,57 @@ func (r *Repository) query(ctx context.Context, q string, args ...any) ([]Organi
 // SSO-synced row for the same org, which the group sync then leaves alone.
 func (r *Repository) AddMember(ctx context.Context, orgID, userID string, role domain.OrgRole) error {
 	const q = `INSERT INTO org_members (org_id, user_id, role) VALUES ($1, $2, $3)
-		ON CONFLICT (org_id, user_id) DO UPDATE SET role = EXCLUDED.role, source = 'manual'`
+		ON CONFLICT (org_id, user_id) WHERE user_id IS NOT NULL
+		DO UPDATE SET role = EXCLUDED.role, source = 'manual'`
 	_, err := r.db.Exec(ctx, q, orgID, userID, role)
 	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23503" {
+	if errors.As(err, &pgErr) && (pgErr.Code == "23503" || pgErr.Code == "23514") {
 		return ErrNoUser
 	}
 	if err != nil {
 		return fmt.Errorf("add org member: %w", err)
+	}
+	return nil
+}
+
+// AddGroupMember grants a user group a role on an org: every member of the
+// group gets that org role.
+func (r *Repository) AddGroupMember(ctx context.Context, orgID, groupID string, role domain.OrgRole) error {
+	const q = `INSERT INTO org_members (org_id, group_id, role) VALUES ($1, $2, $3)
+		ON CONFLICT (org_id, group_id) WHERE group_id IS NOT NULL
+		DO UPDATE SET role = EXCLUDED.role, source = 'manual'`
+	_, err := r.db.Exec(ctx, q, orgID, groupID, role)
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && (pgErr.Code == "23503" || pgErr.Code == "23514") {
+		return ErrNoUser
+	}
+	if err != nil {
+		return fmt.Errorf("add org group member: %w", err)
+	}
+	return nil
+}
+
+// RemoveGroupMember drops a group's role on an org, refusing to drop the
+// last admin row.
+func (r *Repository) RemoveGroupMember(ctx context.Context, orgID, groupID string) error {
+	var admins int
+	if err := r.db.QueryRow(ctx,
+		`SELECT count(*) FROM org_members WHERE org_id = $1 AND role = 'admin'`, orgID).Scan(&admins); err != nil {
+		return fmt.Errorf("count org admins: %w", err)
+	}
+	var role domain.OrgRole
+	err := r.db.QueryRow(ctx, `SELECT role FROM org_members WHERE org_id = $1 AND group_id = $2`, orgID, groupID).Scan(&role)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("get org group member: %w", err)
+	}
+	if role == domain.OrgAdmin && admins <= 1 {
+		return ErrLastAdmin
+	}
+	if _, err := r.db.Exec(ctx, `DELETE FROM org_members WHERE org_id = $1 AND group_id = $2`, orgID, groupID); err != nil {
+		return fmt.Errorf("remove org group member: %w", err)
 	}
 	return nil
 }
@@ -171,11 +218,17 @@ func (r *Repository) RemoveMember(ctx context.Context, orgID, userID string) err
 	return nil
 }
 
-// ListMembers returns an org's members with email + role.
+// ListMembers returns an org's members (users and groups) with email/name + role.
 func (r *Repository) ListMembers(ctx context.Context, orgID string) ([]Member, error) {
-	const q = `SELECT m.user_id, u.email, m.role, m.source
-		FROM org_members m JOIN users u ON u.id = m.user_id
-		WHERE m.org_id = $1 ORDER BY m.role DESC, u.email`
+	const q = `
+		SELECT m.user_id::text, u.email, ''::text, ''::text, m.role, m.source
+		  FROM org_members m JOIN users u ON u.id = m.user_id
+		 WHERE m.org_id = $1 AND m.user_id IS NOT NULL
+		UNION ALL
+		SELECT ''::text, ''::text, m.group_id::text, g.name, m.role, m.source
+		  FROM org_members m JOIN user_groups g ON g.id = m.group_id
+		 WHERE m.org_id = $1 AND m.group_id IS NOT NULL
+		 ORDER BY 5 DESC, 2, 4`
 	rows, err := r.db.Query(ctx, q, orgID)
 	if err != nil {
 		return nil, fmt.Errorf("list org members: %w", err)
@@ -184,7 +237,7 @@ func (r *Repository) ListMembers(ctx context.Context, orgID string) ([]Member, e
 	members := []Member{}
 	for rows.Next() {
 		var m Member
-		if err := rows.Scan(&m.UserID, &m.Email, &m.Role, &m.Source); err != nil {
+		if err := rows.Scan(&m.UserID, &m.Email, &m.GroupID, &m.GroupName, &m.Role, &m.Source); err != nil {
 			return nil, fmt.Errorf("scan org member: %w", err)
 		}
 		members = append(members, m)

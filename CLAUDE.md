@@ -242,7 +242,16 @@ in `org_members` (`admin`/`member`, `domain.OrgRole`), a per-team role in
 highest, computed in `membership.RoleOnProject`. Its grant rows are one SQL constant,
 `membership.ProjectGrantsSQL`, which the permission audit (`internal/access`) and
 `UsersWithProjectAccess` also read. A new kind of grant goes there, or the audit
-and authorization disagree (`TestAuditAgreesWithAuthorization` checks a random matrix). Roles only add access. A lower grant does not
+and authorization disagree (`TestAuditAgreesWithAuthorization` checks a random matrix).
+User groups are such a grant: a grant row has `user_id` or `group_id` (exactly one),
+and `ProjectGrantsSQL` expands group members, so every reader agrees. The
+`grant_same_org` trigger refuses a group or custom role from another org. Custom
+roles (`custom_role_id`) never change a grant's rank; they deny capabilities
+(`domain.Capability`) per route class, mapped in `authz.capabilityFor`. A new
+mutating route that a custom role should be able to deny goes there, and a
+cross-project path the middleware can't see (like `/findings/bulk`) checks
+`ProjectCapabilityAllowed` in its handler. SCIM (`internal/scim`) has its own
+tokens and mounts before the secured group; it never grants roles. Roles only add access. A lower grant does not
 demote a higher one. `is_admin` is read from the DB on every request
 (`membership.AdminStatus`), not from the JWT claim. Trusting the claim would
 mean a demotion takes effect only when the token expires. Any new portfolio-wide list

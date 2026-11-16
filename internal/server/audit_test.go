@@ -98,8 +98,9 @@ func TestAuditLogCoversEveryMutatingRoute(t *testing.T) {
 		default:
 			continue
 		}
-		if !strings.HasPrefix(r.Path, "/api/v1/") || r.Path == "/api/v1/auth" || strings.HasPrefix(r.Path, "/api/v1/auth/") {
-			continue // group mounts; the public sign-in endpoints have their own test
+		if !strings.HasPrefix(r.Path, "/api/v1/") || r.Path == "/api/v1/auth" || strings.HasPrefix(r.Path, "/api/v1/auth/") ||
+			strings.HasPrefix(r.Path, "/api/v1/scim/") {
+			continue // group mounts; the public sign-in endpoints and SCIM (its own tokens) have their own tests
 		}
 		if audit.Envelope(r.Path) {
 			continue // its inner requests are audited (TestMCPServer)

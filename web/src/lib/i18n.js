@@ -54,6 +54,7 @@ export const TRANSLATED_ROUTES = new Set([
 	'/advisories',
 	'/advisories/[id]',
 	'/approvals',
+	'/groups',
 	'/components',
 	'/cra',
 	'/exceptions',

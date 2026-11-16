@@ -576,6 +576,39 @@ func (e CRAPayloadStage) Valid() bool {
 	}
 }
 
+// Defines values for Capability.
+const (
+	CapabilityComment               Capability = "comment"
+	CapabilityExport                Capability = "export"
+	CapabilityManageMembers         Capability = "manage_members"
+	CapabilityProjectSettings       Capability = "project_settings"
+	CapabilityRiskAcceptanceApprove Capability = "risk_acceptance_approve"
+	CapabilityTriage                Capability = "triage"
+	CapabilityUpload                Capability = "upload"
+)
+
+// Valid indicates whether the value is a known member of the Capability enum.
+func (e Capability) Valid() bool {
+	switch e {
+	case CapabilityComment:
+		return true
+	case CapabilityExport:
+		return true
+	case CapabilityManageMembers:
+		return true
+	case CapabilityProjectSettings:
+		return true
+	case CapabilityRiskAcceptanceApprove:
+		return true
+	case CapabilityTriage:
+		return true
+	case CapabilityUpload:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Category.
 const (
 	CategoryCloud      Category = "cloud"
@@ -921,6 +954,30 @@ func (e CustomFieldType) Valid() bool {
 	case CustomFieldTypeText:
 		return true
 	case CustomFieldTypeUser:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CustomRoleBaseRole.
+const (
+	CustomRoleBaseRoleEditor   CustomRoleBaseRole = "editor"
+	CustomRoleBaseRoleOwner    CustomRoleBaseRole = "owner"
+	CustomRoleBaseRoleUploader CustomRoleBaseRole = "uploader"
+	CustomRoleBaseRoleViewer   CustomRoleBaseRole = "viewer"
+)
+
+// Valid indicates whether the value is a known member of the CustomRoleBaseRole enum.
+func (e CustomRoleBaseRole) Valid() bool {
+	switch e {
+	case CustomRoleBaseRoleEditor:
+		return true
+	case CustomRoleBaseRoleOwner:
+		return true
+	case CustomRoleBaseRoleUploader:
+		return true
+	case CustomRoleBaseRoleViewer:
 		return true
 	default:
 		return false
@@ -3456,6 +3513,54 @@ func (e PutMeNotificationsJSONBodyMethodsMinSeverity) Valid() bool {
 	}
 }
 
+// Defines values for CreateOrgCustomRoleJSONBodyBaseRole.
+const (
+	CreateOrgCustomRoleJSONBodyBaseRoleEditor   CreateOrgCustomRoleJSONBodyBaseRole = "editor"
+	CreateOrgCustomRoleJSONBodyBaseRoleOwner    CreateOrgCustomRoleJSONBodyBaseRole = "owner"
+	CreateOrgCustomRoleJSONBodyBaseRoleUploader CreateOrgCustomRoleJSONBodyBaseRole = "uploader"
+	CreateOrgCustomRoleJSONBodyBaseRoleViewer   CreateOrgCustomRoleJSONBodyBaseRole = "viewer"
+)
+
+// Valid indicates whether the value is a known member of the CreateOrgCustomRoleJSONBodyBaseRole enum.
+func (e CreateOrgCustomRoleJSONBodyBaseRole) Valid() bool {
+	switch e {
+	case CreateOrgCustomRoleJSONBodyBaseRoleEditor:
+		return true
+	case CreateOrgCustomRoleJSONBodyBaseRoleOwner:
+		return true
+	case CreateOrgCustomRoleJSONBodyBaseRoleUploader:
+		return true
+	case CreateOrgCustomRoleJSONBodyBaseRoleViewer:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PutOrgCustomRoleJSONBodyBaseRole.
+const (
+	PutOrgCustomRoleJSONBodyBaseRoleEditor   PutOrgCustomRoleJSONBodyBaseRole = "editor"
+	PutOrgCustomRoleJSONBodyBaseRoleOwner    PutOrgCustomRoleJSONBodyBaseRole = "owner"
+	PutOrgCustomRoleJSONBodyBaseRoleUploader PutOrgCustomRoleJSONBodyBaseRole = "uploader"
+	PutOrgCustomRoleJSONBodyBaseRoleViewer   PutOrgCustomRoleJSONBodyBaseRole = "viewer"
+)
+
+// Valid indicates whether the value is a known member of the PutOrgCustomRoleJSONBodyBaseRole enum.
+func (e PutOrgCustomRoleJSONBodyBaseRole) Valid() bool {
+	switch e {
+	case PutOrgCustomRoleJSONBodyBaseRoleEditor:
+		return true
+	case PutOrgCustomRoleJSONBodyBaseRoleOwner:
+		return true
+	case PutOrgCustomRoleJSONBodyBaseRoleUploader:
+		return true
+	case PutOrgCustomRoleJSONBodyBaseRoleViewer:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CreateOrgMemberJSONBodyRole.
 const (
 	CreateOrgMemberJSONBodyRoleAdmin  CreateOrgMemberJSONBodyRole = "admin"
@@ -4293,9 +4398,16 @@ type AccessEntry struct {
 	EffectiveRole *AccessEntryEffectiveRole `json:"effective_role,omitempty"`
 	Email         *string                   `json:"email,omitempty"`
 	Grants        *[]struct {
-		Kind   *AccessEntryGrantsKind   `json:"kind,omitempty"`
-		Role   *string                  `json:"role,omitempty"`
-		Source *AccessEntryGrantsSource `json:"source,omitempty"`
+		// CustomRole The custom role narrowing the grant.
+		CustomRole         *string   `json:"custom_role,omitempty"`
+		DeniedCapabilities *[]string `json:"denied_capabilities,omitempty"`
+
+		// GroupId The user group the grant reaches the user through.
+		GroupId   *openapi_types.UUID      `json:"group_id,omitempty"`
+		GroupName *string                  `json:"group_name,omitempty"`
+		Kind      *AccessEntryGrantsKind   `json:"kind,omitempty"`
+		Role      *string                  `json:"role,omitempty"`
+		Source    *AccessEntryGrantsSource `json:"source,omitempty"`
 
 		// SsoMappings "provider:group" of the SSO mappings that produce this grant.
 		SsoMappings *[]string `json:"sso_mappings,omitempty"`
@@ -4743,6 +4855,15 @@ type CRAProduct struct {
 	ProductVersion *string   `json:"product_version,omitempty"`
 }
 
+// Capability What a custom role can deny: `triage` (status, severity, assignee, accepting AI
+// proposals, deciding assessments, bulk edits), `comment` (comments and
+// attachments), `manage_members` (team and project members and groups),
+// `project_settings` (gate policy, SLA, issue tracker, connectors, versions,
+// badge token), `upload` (scans, SBOMs, VEX, gate runs, connector pulls), `export`
+// (CSV/XLSX and VEX exports), `risk_acceptance_approve` (approving, rejecting,
+// revoking risk acceptances).
+type Capability string
+
 // Category `cloud` is CSPM, `kubernetes` is KSPM.
 type Category string
 
@@ -5079,6 +5200,20 @@ type CustomFieldEntity string
 
 // CustomFieldType defines model for CustomField.Type.
 type CustomFieldType string
+
+// CustomRole defines model for CustomRole.
+type CustomRole struct {
+	BaseRole           *CustomRoleBaseRole `json:"base_role,omitempty"`
+	CreatedAt          *time.Time          `json:"created_at,omitempty"`
+	DeniedCapabilities *[]Capability       `json:"denied_capabilities,omitempty"`
+	Id                 *openapi_types.UUID `json:"id,omitempty"`
+	Name               *string             `json:"name,omitempty"`
+	OrgId              *openapi_types.UUID `json:"org_id,omitempty"`
+	UpdatedAt          *time.Time          `json:"updated_at,omitempty"`
+}
+
+// CustomRoleBaseRole defines model for CustomRole.BaseRole.
+type CustomRoleBaseRole string
 
 // CustomValues Custom-field values by key — text, a number, a `YYYY-MM-DD` date, an enum option or a user id. Unset fields are absent.
 type CustomValues map[string]*interface{}
@@ -5929,8 +6064,15 @@ type ManualFinding struct {
 
 // Member defines model for Member.
 type Member struct {
-	Email *openapi_types.Email `json:"email,omitempty"`
-	Role  *string              `json:"role,omitempty"`
+	// CustomRoleId The custom role narrowing `role`, if any.
+	CustomRoleId   *openapi_types.UUID  `json:"custom_role_id,omitempty"`
+	CustomRoleName *string              `json:"custom_role_name,omitempty"`
+	Email          *openapi_types.Email `json:"email,omitempty"`
+
+	// GroupId Set instead of user_id for a grant on a user group.
+	GroupId   *openapi_types.UUID `json:"group_id,omitempty"`
+	GroupName *string             `json:"group_name,omitempty"`
+	Role      *string             `json:"role,omitempty"`
 
 	// Source `sso` = granted by an IdP group mapping and synced on that user's SSO logins; `manual` = granted here.
 	Source *MemberSource       `json:"source,omitempty"`
@@ -6755,6 +6897,20 @@ type SAMLPost struct {
 	SAMLResponse *string `json:"SAMLResponse,omitempty"`
 }
 
+// SCIMResource A SCIM 2.0 User or Group (RFC 7643), `application/scim+json`.
+type SCIMResource map[string]interface{}
+
+// SCIMToken defines model for SCIMToken.
+type SCIMToken struct {
+	CreatedAt  *time.Time          `json:"created_at,omitempty"`
+	Id         *openapi_types.UUID `json:"id,omitempty"`
+	LastUsedAt *time.Time          `json:"last_used_at,omitempty"`
+	Name       *string             `json:"name,omitempty"`
+	OrgId      *openapi_types.UUID `json:"org_id,omitempty"`
+	OrgName    *string             `json:"org_name,omitempty"`
+	RevokedAt  *time.Time          `json:"revoked_at,omitempty"`
+}
+
 // SLADays Days to remediate, per severity. A policy states all five: an omitted or
 // null one means no SLA for that severity at this scope. 1–3650.
 type SLADays struct {
@@ -7438,6 +7594,19 @@ type UserAdminSource string
 // UserKind `service` for a service account (no password, never an admin).
 type UserKind string
 
+// UserGroup defines model for UserGroup.
+type UserGroup struct {
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+
+	// ExternalId Set when a SCIM client provisioned it.
+	ExternalId  *string             `json:"external_id,omitempty"`
+	Id          *openapi_types.UUID `json:"id,omitempty"`
+	MemberCount *int                `json:"member_count,omitempty"`
+	Name        *string             `json:"name,omitempty"`
+	OrgId       *openapi_types.UUID `json:"org_id,omitempty"`
+	UpdatedAt   *time.Time          `json:"updated_at,omitempty"`
+}
+
 // VexStatement defines model for VexStatement.
 type VexStatement struct {
 	CreatedAt *time.Time          `json:"created_at,omitempty"`
@@ -7544,6 +7713,9 @@ type ExportFormat string
 // FindingID defines model for FindingID.
 type FindingID = openapi_types.UUID
 
+// GroupID defines model for GroupID.
+type GroupID = openapi_types.UUID
+
 // IfMatch defines model for IfMatch.
 type IfMatch = string
 
@@ -7625,6 +7797,9 @@ type RemediationStatusFilter = string
 // RiskAcceptanceID defines model for RiskAcceptanceID.
 type RiskAcceptanceID = openapi_types.UUID
 
+// RoleID defines model for RoleID.
+type RoleID = openapi_types.UUID
+
 // RootCauseKey defines model for RootCauseKey.
 type RootCauseKey = string
 
@@ -7633,6 +7808,9 @@ type RootCauseKind = RemediationKind
 
 // RuleID defines model for RuleID.
 type RuleID = openapi_types.UUID
+
+// SCIMID defines model for SCIMID.
+type SCIMID = string
 
 // SLAFilter Where a finding stands against its deadline. `due_soon` = live and in the
 // last 25% of its window; `paused` = in an exception state (risk accepted,
@@ -8549,10 +8727,46 @@ type CreateOrgJSONBody struct {
 	Slug string `json:"slug"`
 }
 
+// CreateOrgCustomRoleJSONBody defines parameters for CreateOrgCustomRole.
+type CreateOrgCustomRoleJSONBody struct {
+	BaseRole           CreateOrgCustomRoleJSONBodyBaseRole `json:"base_role"`
+	DeniedCapabilities *[]Capability                       `json:"denied_capabilities,omitempty"`
+	Name               string                              `json:"name"`
+}
+
+// CreateOrgCustomRoleJSONBodyBaseRole defines parameters for CreateOrgCustomRole.
+type CreateOrgCustomRoleJSONBodyBaseRole string
+
+// PutOrgCustomRoleJSONBody defines parameters for PutOrgCustomRole.
+type PutOrgCustomRoleJSONBody struct {
+	BaseRole           PutOrgCustomRoleJSONBodyBaseRole `json:"base_role"`
+	DeniedCapabilities *[]Capability                    `json:"denied_capabilities,omitempty"`
+	Name               string                           `json:"name"`
+}
+
+// PutOrgCustomRoleJSONBodyBaseRole defines parameters for PutOrgCustomRole.
+type PutOrgCustomRoleJSONBodyBaseRole string
+
+// CreateOrgGroupJSONBody defines parameters for CreateOrgGroup.
+type CreateOrgGroupJSONBody struct {
+	Name string `json:"name"`
+}
+
+// PutOrgGroupJSONBody defines parameters for PutOrgGroup.
+type PutOrgGroupJSONBody struct {
+	Name string `json:"name"`
+}
+
+// CreateOrgGroupMemberJSONBody defines parameters for CreateOrgGroupMember.
+type CreateOrgGroupMemberJSONBody struct {
+	Email openapi_types.Email `json:"email"`
+}
+
 // CreateOrgMemberJSONBody defines parameters for CreateOrgMember.
 type CreateOrgMemberJSONBody struct {
-	Email openapi_types.Email         `json:"email"`
-	Role  CreateOrgMemberJSONBodyRole `json:"role"`
+	Email   *openapi_types.Email        `json:"email,omitempty"`
+	GroupId *openapi_types.UUID         `json:"group_id,omitempty"`
+	Role    CreateOrgMemberJSONBodyRole `json:"role"`
 }
 
 // CreateOrgMemberJSONBodyRole defines parameters for CreateOrgMember.
@@ -9031,7 +9245,12 @@ type EvaluateProjectGateParams struct {
 
 // CreateProjectMemberJSONBody defines parameters for CreateProjectMember.
 type CreateProjectMemberJSONBody struct {
-	Email openapi_types.Email `json:"email"`
+	// CustomRoleId A custom role of the same organization: `role` minus its denied capabilities.
+	CustomRoleId *openapi_types.UUID  `json:"custom_role_id,omitempty"`
+	Email        *openapi_types.Email `json:"email,omitempty"`
+
+	// GroupId A user group of the same organization; every member gets the role.
+	GroupId *openapi_types.UUID `json:"group_id,omitempty"`
 
 	// Role `viewer` is strictly read-only; `editor` can upload and triage; `owner` can also grant access; `uploader` is viewer plus uploads — it reads everything a viewer does and may also upload scans/SBOMs/VEX and run the gate, for CI tokens.
 	Role CreateProjectMemberJSONBodyRole `json:"role"`
@@ -9444,6 +9663,26 @@ type DeleteScanParams struct {
 	Purge *Purge `form:"purge,omitempty" json:"purge,omitempty"`
 }
 
+// CreateScimTokenJSONBody defines parameters for CreateScimToken.
+type CreateScimTokenJSONBody struct {
+	Name  string             `json:"name"`
+	OrgId openapi_types.UUID `json:"org_id"`
+}
+
+// ListScimV2GroupsParams defines parameters for ListScimV2Groups.
+type ListScimV2GroupsParams struct {
+	Filter     *string `form:"filter,omitempty" json:"filter,omitempty"`
+	StartIndex *int    `form:"startIndex,omitempty" json:"startIndex,omitempty"`
+	Count      *int    `form:"count,omitempty" json:"count,omitempty"`
+}
+
+// ListScimV2UsersParams defines parameters for ListScimV2Users.
+type ListScimV2UsersParams struct {
+	Filter     *string `form:"filter,omitempty" json:"filter,omitempty"`
+	StartIndex *int    `form:"startIndex,omitempty" json:"startIndex,omitempty"`
+	Count      *int    `form:"count,omitempty" json:"count,omitempty"`
+}
+
 // CreateServiceAccountJSONBody defines parameters for CreateServiceAccount.
 type CreateServiceAccountJSONBody struct {
 	Description *string `json:"description,omitempty"`
@@ -9480,7 +9719,12 @@ type UpdateTeamJSONBody struct {
 
 // CreateTeamMemberJSONBody defines parameters for CreateTeamMember.
 type CreateTeamMemberJSONBody struct {
-	Email openapi_types.Email `json:"email"`
+	// CustomRoleId A custom role of the same organization: `role` minus its denied capabilities.
+	CustomRoleId *openapi_types.UUID  `json:"custom_role_id,omitempty"`
+	Email        *openapi_types.Email `json:"email,omitempty"`
+
+	// GroupId A user group of the same organization; every member gets the role.
+	GroupId *openapi_types.UUID `json:"group_id,omitempty"`
 
 	// Role `viewer` is strictly read-only; `editor` can triage and upload; `owner` manages the team; `uploader` is viewer plus uploads — it reads everything a viewer does and may also upload scans/SBOMs/VEX and run the gate, for CI tokens.
 	Role CreateTeamMemberJSONBodyRole `json:"role"`
@@ -9726,6 +9970,21 @@ type UpdateNotificationChannelJSONRequestBody = Channel
 // CreateOrgJSONRequestBody defines body for CreateOrg for application/json ContentType.
 type CreateOrgJSONRequestBody CreateOrgJSONBody
 
+// CreateOrgCustomRoleJSONRequestBody defines body for CreateOrgCustomRole for application/json ContentType.
+type CreateOrgCustomRoleJSONRequestBody CreateOrgCustomRoleJSONBody
+
+// PutOrgCustomRoleJSONRequestBody defines body for PutOrgCustomRole for application/json ContentType.
+type PutOrgCustomRoleJSONRequestBody PutOrgCustomRoleJSONBody
+
+// CreateOrgGroupJSONRequestBody defines body for CreateOrgGroup for application/json ContentType.
+type CreateOrgGroupJSONRequestBody CreateOrgGroupJSONBody
+
+// PutOrgGroupJSONRequestBody defines body for PutOrgGroup for application/json ContentType.
+type PutOrgGroupJSONRequestBody PutOrgGroupJSONBody
+
+// CreateOrgGroupMemberJSONRequestBody defines body for CreateOrgGroupMember for application/json ContentType.
+type CreateOrgGroupMemberJSONRequestBody CreateOrgGroupMemberJSONBody
+
 // CreateOrgMemberJSONRequestBody defines body for CreateOrgMember for application/json ContentType.
 type CreateOrgMemberJSONRequestBody CreateOrgMemberJSONBody
 
@@ -9842,6 +10101,27 @@ type CreateReportTemplateJSONRequestBody = ReportTemplate
 
 // PutReportTemplateJSONRequestBody defines body for PutReportTemplate for application/json ContentType.
 type PutReportTemplateJSONRequestBody = ReportTemplate
+
+// CreateScimTokenJSONRequestBody defines body for CreateScimToken for application/json ContentType.
+type CreateScimTokenJSONRequestBody CreateScimTokenJSONBody
+
+// CreateScimV2GroupApplicationScimPlusJSONRequestBody defines body for CreateScimV2Group for application/scim+json ContentType.
+type CreateScimV2GroupApplicationScimPlusJSONRequestBody = SCIMResource
+
+// UpdateScimV2GroupApplicationScimPlusJSONRequestBody defines body for UpdateScimV2Group for application/scim+json ContentType.
+type UpdateScimV2GroupApplicationScimPlusJSONRequestBody = SCIMResource
+
+// PutScimV2GroupApplicationScimPlusJSONRequestBody defines body for PutScimV2Group for application/scim+json ContentType.
+type PutScimV2GroupApplicationScimPlusJSONRequestBody = SCIMResource
+
+// CreateScimV2UserApplicationScimPlusJSONRequestBody defines body for CreateScimV2User for application/scim+json ContentType.
+type CreateScimV2UserApplicationScimPlusJSONRequestBody = SCIMResource
+
+// UpdateScimV2UserApplicationScimPlusJSONRequestBody defines body for UpdateScimV2User for application/scim+json ContentType.
+type UpdateScimV2UserApplicationScimPlusJSONRequestBody = SCIMResource
+
+// PutScimV2UserApplicationScimPlusJSONRequestBody defines body for PutScimV2User for application/scim+json ContentType.
+type PutScimV2UserApplicationScimPlusJSONRequestBody = SCIMResource
 
 // CreateServiceAccountJSONRequestBody defines body for CreateServiceAccount for application/json ContentType.
 type CreateServiceAccountJSONRequestBody CreateServiceAccountJSONBody
@@ -10721,6 +11001,11 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /badges/{token}/{file} (the `GetBadgeFile` operationId).
 	GetBadgeFile(ctx context.Context, token string, file GetBadgeFileParamsFile, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListCapabilities What a custom role can deny
+	//
+	// Corresponds with GET /capabilities (the `ListCapabilities` operationId).
+	ListCapabilities(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListComponents Which projects ship this package?
 	//
@@ -12206,6 +12491,131 @@ type ClientInterface interface {
 	// Corresponds with GET /orgs/{orgID} (the `GetOrg` operationId).
 	GetOrg(ctx context.Context, orgID OrgID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListOrgCustomRoles The organization's custom roles
+	//
+	// Corresponds with GET /orgs/{orgID}/custom-roles (the `ListOrgCustomRoles` operationId).
+	ListOrgCustomRoles(ctx context.Context, orgID OrgID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateOrgCustomRoleWithBody Create a custom role
+	//
+	// Requires org `admin`. A custom role is a base role minus denied capabilities,
+	// assignable on team and project grants (`custom_role_id`). Several grants
+	// combine by union: a capability one grant denies is allowed when another
+	// grant at the needed level doesn't deny it.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /orgs/{orgID}/custom-roles (the `CreateOrgCustomRole` operationId).
+	CreateOrgCustomRoleWithBody(ctx context.Context, orgID OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateOrgCustomRole Create a custom role
+	//
+	// Requires org `admin`. A custom role is a base role minus denied capabilities,
+	// assignable on team and project grants (`custom_role_id`). Several grants
+	// combine by union: a capability one grant denies is allowed when another
+	// grant at the needed level doesn't deny it.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /orgs/{orgID}/custom-roles (the `CreateOrgCustomRole` operationId).
+	CreateOrgCustomRole(ctx context.Context, orgID OrgID, body CreateOrgCustomRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteOrgCustomRole Delete a custom role (grants using it fall back to their base role)
+	//
+	// Corresponds with DELETE /orgs/{orgID}/custom-roles/{roleID} (the `DeleteOrgCustomRole` operationId).
+	DeleteOrgCustomRole(ctx context.Context, orgID OrgID, roleID RoleID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutOrgCustomRoleWithBody Change a custom role
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /orgs/{orgID}/custom-roles/{roleID} (the `PutOrgCustomRole` operationId).
+	PutOrgCustomRoleWithBody(ctx context.Context, orgID OrgID, roleID RoleID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutOrgCustomRole Change a custom role
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /orgs/{orgID}/custom-roles/{roleID} (the `PutOrgCustomRole` operationId).
+	PutOrgCustomRole(ctx context.Context, orgID OrgID, roleID RoleID, body PutOrgCustomRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListOrgGroups The organization's user groups
+	//
+	// Corresponds with GET /orgs/{orgID}/groups (the `ListOrgGroups` operationId).
+	ListOrgGroups(ctx context.Context, orgID OrgID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateOrgGroupWithBody Create a user group
+	//
+	// Requires org `admin`. A group is grantable on the organization, a team or a
+	// project exactly like a user (`group_id` in the members endpoints); every
+	// member gets the role. SCIM clients can provision groups too.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /orgs/{orgID}/groups (the `CreateOrgGroup` operationId).
+	CreateOrgGroupWithBody(ctx context.Context, orgID OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateOrgGroup Create a user group
+	//
+	// Requires org `admin`. A group is grantable on the organization, a team or a
+	// project exactly like a user (`group_id` in the members endpoints); every
+	// member gets the role. SCIM clients can provision groups too.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /orgs/{orgID}/groups (the `CreateOrgGroup` operationId).
+	CreateOrgGroup(ctx context.Context, orgID OrgID, body CreateOrgGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteOrgGroup Delete a user group (its grants go with it)
+	//
+	// Corresponds with DELETE /orgs/{orgID}/groups/{groupID} (the `DeleteOrgGroup` operationId).
+	DeleteOrgGroup(ctx context.Context, orgID OrgID, groupID GroupID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetOrgGroup A user group and its members
+	//
+	// Corresponds with GET /orgs/{orgID}/groups/{groupID} (the `GetOrgGroup` operationId).
+	GetOrgGroup(ctx context.Context, orgID OrgID, groupID GroupID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutOrgGroupWithBody Rename a user group
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /orgs/{orgID}/groups/{groupID} (the `PutOrgGroup` operationId).
+	PutOrgGroupWithBody(ctx context.Context, orgID OrgID, groupID GroupID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutOrgGroup Rename a user group
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /orgs/{orgID}/groups/{groupID} (the `PutOrgGroup` operationId).
+	PutOrgGroup(ctx context.Context, orgID OrgID, groupID GroupID, body PutOrgGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateOrgGroupMemberWithBody Add a user to a group
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /orgs/{orgID}/groups/{groupID}/members (the `CreateOrgGroupMember` operationId).
+	CreateOrgGroupMemberWithBody(ctx context.Context, orgID OrgID, groupID GroupID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateOrgGroupMember Add a user to a group
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /orgs/{orgID}/groups/{groupID}/members (the `CreateOrgGroupMember` operationId).
+	CreateOrgGroupMember(ctx context.Context, orgID OrgID, groupID GroupID, body CreateOrgGroupMemberJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteOrgGroupMember Remove a user from a group
+	//
+	// Corresponds with DELETE /orgs/{orgID}/groups/{groupID}/members/{userID} (the `DeleteOrgGroupMember` operationId).
+	DeleteOrgGroupMember(ctx context.Context, orgID OrgID, groupID GroupID, userID UserID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteOrgMemberGroup Remove a user group's grant on the organization
+	//
+	// Requires org `admin`.
+	//
+	// Corresponds with DELETE /orgs/{orgID}/member-groups/{groupID} (the `DeleteOrgMemberGroup` operationId).
+	DeleteOrgMemberGroup(ctx context.Context, orgID OrgID, groupID GroupID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListOrgMembers List organization members
 	//
 	// Corresponds with GET /orgs/{orgID}/members (the `ListOrgMembers` operationId).
@@ -12979,6 +13389,11 @@ type ClientInterface interface {
 	//
 	// Corresponds with PUT /projects/{projectID}/gate/policy (the `PutProjectGatePolicy` operationId).
 	PutProjectGatePolicy(ctx context.Context, projectID ProjectID, body PutProjectGatePolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteProjectGroup Remove a user group's grant on the project
+	//
+	// Corresponds with DELETE /projects/{projectID}/groups/{groupID} (the `DeleteProjectGroup` operationId).
+	DeleteProjectGroup(ctx context.Context, projectID ProjectID, groupID GroupID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetProjectIngestionHealth Ingestion problems of one project
 	//
@@ -13981,6 +14396,167 @@ type ClientInterface interface {
 	// Corresponds with POST /scans/{scanID}/restore (the `RestoreScan` operationId).
 	RestoreScan(ctx context.Context, scanID ScanID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListScimTokens SCIM tokens (instance admin)
+	//
+	// Corresponds with GET /scim-tokens (the `ListScimTokens` operationId).
+	ListScimTokens(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateScimTokenWithBody Create a SCIM token for an organization (instance admin)
+	//
+	// The secret is shown once. It authenticates `/scim/v2` only, and only for this organization.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /scim-tokens (the `CreateScimToken` operationId).
+	CreateScimTokenWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateScimToken Create a SCIM token for an organization (instance admin)
+	//
+	// The secret is shown once. It authenticates `/scim/v2` only, and only for this organization.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /scim-tokens (the `CreateScimToken` operationId).
+	CreateScimToken(ctx context.Context, body CreateScimTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteScimToken Revoke a SCIM token
+	//
+	// Corresponds with DELETE /scim-tokens/{tokenID} (the `DeleteScimToken` operationId).
+	DeleteScimToken(ctx context.Context, tokenID TokenID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListScimV2Groups List Groups
+	//
+	// `filter` supports `attr eq "value"` only. Paged by `startIndex` (1-based) and `count` (max 200).
+	//
+	// Corresponds with GET /scim/v2/Groups (the `ListScimV2Groups` operationId).
+	ListScimV2Groups(ctx context.Context, params *ListScimV2GroupsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateScimV2GroupWithBody Create a Group
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /scim/v2/Groups (the `CreateScimV2Group` operationId).
+	CreateScimV2GroupWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateScimV2GroupWithApplicationScimPlusJSONBody Create a Group
+	//
+	// Takes a body of the `application/scim+json` content type.
+	//
+	// Corresponds with POST /scim/v2/Groups (the `CreateScimV2Group` operationId).
+	CreateScimV2GroupWithApplicationScimPlusJSONBody(ctx context.Context, body CreateScimV2GroupApplicationScimPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteScimV2Group Delete a Group
+	//
+	// Corresponds with DELETE /scim/v2/Groups/{id} (the `DeleteScimV2Group` operationId).
+	DeleteScimV2Group(ctx context.Context, id SCIMID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetScimV2Group Get a Group
+	//
+	// Corresponds with GET /scim/v2/Groups/{id} (the `GetScimV2Group` operationId).
+	GetScimV2Group(ctx context.Context, id SCIMID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateScimV2GroupWithBody Change a Group (PatchOp)
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /scim/v2/Groups/{id} (the `UpdateScimV2Group` operationId).
+	UpdateScimV2GroupWithBody(ctx context.Context, id SCIMID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateScimV2GroupWithApplicationScimPlusJSONBody Change a Group (PatchOp)
+	//
+	// Takes a body of the `application/scim+json` content type.
+	//
+	// Corresponds with PATCH /scim/v2/Groups/{id} (the `UpdateScimV2Group` operationId).
+	UpdateScimV2GroupWithApplicationScimPlusJSONBody(ctx context.Context, id SCIMID, body UpdateScimV2GroupApplicationScimPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutScimV2GroupWithBody Replace a Group
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /scim/v2/Groups/{id} (the `PutScimV2Group` operationId).
+	PutScimV2GroupWithBody(ctx context.Context, id SCIMID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutScimV2GroupWithApplicationScimPlusJSONBody Replace a Group
+	//
+	// Takes a body of the `application/scim+json` content type.
+	//
+	// Corresponds with PUT /scim/v2/Groups/{id} (the `PutScimV2Group` operationId).
+	PutScimV2GroupWithApplicationScimPlusJSONBody(ctx context.Context, id SCIMID, body PutScimV2GroupApplicationScimPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListScimV2ResourceTypes SCIM resource types
+	//
+	// Corresponds with GET /scim/v2/ResourceTypes (the `ListScimV2ResourceTypes` operationId).
+	ListScimV2ResourceTypes(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListScimV2Schemas SCIM schemas
+	//
+	// Corresponds with GET /scim/v2/Schemas (the `ListScimV2Schemas` operationId).
+	ListScimV2Schemas(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetScimV2ServiceProviderConfig SCIM service provider configuration
+	//
+	// Corresponds with GET /scim/v2/ServiceProviderConfig (the `GetScimV2ServiceProviderConfig` operationId).
+	GetScimV2ServiceProviderConfig(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListScimV2Users List Users
+	//
+	// `filter` supports `attr eq "value"` only. Paged by `startIndex` (1-based) and `count` (max 200).
+	//
+	// Corresponds with GET /scim/v2/Users (the `ListScimV2Users` operationId).
+	ListScimV2Users(ctx context.Context, params *ListScimV2UsersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateScimV2UserWithBody Create a User
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /scim/v2/Users (the `CreateScimV2User` operationId).
+	CreateScimV2UserWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateScimV2UserWithApplicationScimPlusJSONBody Create a User
+	//
+	// Takes a body of the `application/scim+json` content type.
+	//
+	// Corresponds with POST /scim/v2/Users (the `CreateScimV2User` operationId).
+	CreateScimV2UserWithApplicationScimPlusJSONBody(ctx context.Context, body CreateScimV2UserApplicationScimPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteScimV2User Delete a User
+	//
+	// Corresponds with DELETE /scim/v2/Users/{id} (the `DeleteScimV2User` operationId).
+	DeleteScimV2User(ctx context.Context, id SCIMID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetScimV2User Get a User
+	//
+	// Corresponds with GET /scim/v2/Users/{id} (the `GetScimV2User` operationId).
+	GetScimV2User(ctx context.Context, id SCIMID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateScimV2UserWithBody Change a User (PatchOp)
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /scim/v2/Users/{id} (the `UpdateScimV2User` operationId).
+	UpdateScimV2UserWithBody(ctx context.Context, id SCIMID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateScimV2UserWithApplicationScimPlusJSONBody Change a User (PatchOp)
+	//
+	// Takes a body of the `application/scim+json` content type.
+	//
+	// Corresponds with PATCH /scim/v2/Users/{id} (the `UpdateScimV2User` operationId).
+	UpdateScimV2UserWithApplicationScimPlusJSONBody(ctx context.Context, id SCIMID, body UpdateScimV2UserApplicationScimPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutScimV2UserWithBody Replace a User
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /scim/v2/Users/{id} (the `PutScimV2User` operationId).
+	PutScimV2UserWithBody(ctx context.Context, id SCIMID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutScimV2UserWithApplicationScimPlusJSONBody Replace a User
+	//
+	// Takes a body of the `application/scim+json` content type.
+	//
+	// Corresponds with PUT /scim/v2/Users/{id} (the `PutScimV2User` operationId).
+	PutScimV2UserWithApplicationScimPlusJSONBody(ctx context.Context, id SCIMID, body PutScimV2UserApplicationScimPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListServiceAccounts List service accounts
 	//
 	// Instance admin only.
@@ -14364,6 +14940,11 @@ type ClientInterface interface {
 	//
 	// Corresponds with PATCH /teams/{teamID} (the `UpdateTeam` operationId).
 	UpdateTeam(ctx context.Context, teamID TeamID, body UpdateTeamJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteTeamGroup Remove a user group's grant on the team
+	//
+	// Corresponds with DELETE /teams/{teamID}/groups/{groupID} (the `DeleteTeamGroup` operationId).
+	DeleteTeamGroup(ctx context.Context, teamID TeamID, groupID GroupID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListTeamMembers List team members
 	//
@@ -16074,6 +16655,21 @@ func (c *Client) ExchangeTokenWithFormdataBody(ctx context.Context, body Exchang
 // Corresponds with GET /badges/{token}/{file} (the `GetBadgeFile` operationId).
 func (c *Client) GetBadgeFile(ctx context.Context, token string, file GetBadgeFileParamsFile, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetBadgeFileRequest(c.Server, token, file)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListCapabilities What a custom role can deny
+//
+// Corresponds with GET /capabilities (the `ListCapabilities` operationId).
+func (c *Client) ListCapabilities(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListCapabilitiesRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -19158,6 +19754,301 @@ func (c *Client) GetOrg(ctx context.Context, orgID OrgID, reqEditors ...RequestE
 	return c.Client.Do(req)
 }
 
+// ListOrgCustomRoles The organization's custom roles
+//
+// Corresponds with GET /orgs/{orgID}/custom-roles (the `ListOrgCustomRoles` operationId).
+func (c *Client) ListOrgCustomRoles(ctx context.Context, orgID OrgID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListOrgCustomRolesRequest(c.Server, orgID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateOrgCustomRoleWithBody Create a custom role
+//
+// Requires org `admin`. A custom role is a base role minus denied capabilities,
+// assignable on team and project grants (`custom_role_id`). Several grants
+// combine by union: a capability one grant denies is allowed when another
+// grant at the needed level doesn't deny it.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /orgs/{orgID}/custom-roles (the `CreateOrgCustomRole` operationId).
+func (c *Client) CreateOrgCustomRoleWithBody(ctx context.Context, orgID OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateOrgCustomRoleRequestWithBody(c.Server, orgID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateOrgCustomRole Create a custom role
+//
+// Requires org `admin`. A custom role is a base role minus denied capabilities,
+// assignable on team and project grants (`custom_role_id`). Several grants
+// combine by union: a capability one grant denies is allowed when another
+// grant at the needed level doesn't deny it.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /orgs/{orgID}/custom-roles (the `CreateOrgCustomRole` operationId).
+func (c *Client) CreateOrgCustomRole(ctx context.Context, orgID OrgID, body CreateOrgCustomRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateOrgCustomRoleRequest(c.Server, orgID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteOrgCustomRole Delete a custom role (grants using it fall back to their base role)
+//
+// Corresponds with DELETE /orgs/{orgID}/custom-roles/{roleID} (the `DeleteOrgCustomRole` operationId).
+func (c *Client) DeleteOrgCustomRole(ctx context.Context, orgID OrgID, roleID RoleID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteOrgCustomRoleRequest(c.Server, orgID, roleID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutOrgCustomRoleWithBody Change a custom role
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /orgs/{orgID}/custom-roles/{roleID} (the `PutOrgCustomRole` operationId).
+func (c *Client) PutOrgCustomRoleWithBody(ctx context.Context, orgID OrgID, roleID RoleID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutOrgCustomRoleRequestWithBody(c.Server, orgID, roleID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutOrgCustomRole Change a custom role
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /orgs/{orgID}/custom-roles/{roleID} (the `PutOrgCustomRole` operationId).
+func (c *Client) PutOrgCustomRole(ctx context.Context, orgID OrgID, roleID RoleID, body PutOrgCustomRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutOrgCustomRoleRequest(c.Server, orgID, roleID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListOrgGroups The organization's user groups
+//
+// Corresponds with GET /orgs/{orgID}/groups (the `ListOrgGroups` operationId).
+func (c *Client) ListOrgGroups(ctx context.Context, orgID OrgID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListOrgGroupsRequest(c.Server, orgID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateOrgGroupWithBody Create a user group
+//
+// Requires org `admin`. A group is grantable on the organization, a team or a
+// project exactly like a user (`group_id` in the members endpoints); every
+// member gets the role. SCIM clients can provision groups too.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /orgs/{orgID}/groups (the `CreateOrgGroup` operationId).
+func (c *Client) CreateOrgGroupWithBody(ctx context.Context, orgID OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateOrgGroupRequestWithBody(c.Server, orgID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateOrgGroup Create a user group
+//
+// Requires org `admin`. A group is grantable on the organization, a team or a
+// project exactly like a user (`group_id` in the members endpoints); every
+// member gets the role. SCIM clients can provision groups too.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /orgs/{orgID}/groups (the `CreateOrgGroup` operationId).
+func (c *Client) CreateOrgGroup(ctx context.Context, orgID OrgID, body CreateOrgGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateOrgGroupRequest(c.Server, orgID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteOrgGroup Delete a user group (its grants go with it)
+//
+// Corresponds with DELETE /orgs/{orgID}/groups/{groupID} (the `DeleteOrgGroup` operationId).
+func (c *Client) DeleteOrgGroup(ctx context.Context, orgID OrgID, groupID GroupID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteOrgGroupRequest(c.Server, orgID, groupID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetOrgGroup A user group and its members
+//
+// Corresponds with GET /orgs/{orgID}/groups/{groupID} (the `GetOrgGroup` operationId).
+func (c *Client) GetOrgGroup(ctx context.Context, orgID OrgID, groupID GroupID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetOrgGroupRequest(c.Server, orgID, groupID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutOrgGroupWithBody Rename a user group
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /orgs/{orgID}/groups/{groupID} (the `PutOrgGroup` operationId).
+func (c *Client) PutOrgGroupWithBody(ctx context.Context, orgID OrgID, groupID GroupID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutOrgGroupRequestWithBody(c.Server, orgID, groupID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutOrgGroup Rename a user group
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /orgs/{orgID}/groups/{groupID} (the `PutOrgGroup` operationId).
+func (c *Client) PutOrgGroup(ctx context.Context, orgID OrgID, groupID GroupID, body PutOrgGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutOrgGroupRequest(c.Server, orgID, groupID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateOrgGroupMemberWithBody Add a user to a group
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /orgs/{orgID}/groups/{groupID}/members (the `CreateOrgGroupMember` operationId).
+func (c *Client) CreateOrgGroupMemberWithBody(ctx context.Context, orgID OrgID, groupID GroupID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateOrgGroupMemberRequestWithBody(c.Server, orgID, groupID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateOrgGroupMember Add a user to a group
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /orgs/{orgID}/groups/{groupID}/members (the `CreateOrgGroupMember` operationId).
+func (c *Client) CreateOrgGroupMember(ctx context.Context, orgID OrgID, groupID GroupID, body CreateOrgGroupMemberJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateOrgGroupMemberRequest(c.Server, orgID, groupID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteOrgGroupMember Remove a user from a group
+//
+// Corresponds with DELETE /orgs/{orgID}/groups/{groupID}/members/{userID} (the `DeleteOrgGroupMember` operationId).
+func (c *Client) DeleteOrgGroupMember(ctx context.Context, orgID OrgID, groupID GroupID, userID UserID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteOrgGroupMemberRequest(c.Server, orgID, groupID, userID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteOrgMemberGroup Remove a user group's grant on the organization
+//
+// Requires org `admin`.
+//
+// Corresponds with DELETE /orgs/{orgID}/member-groups/{groupID} (the `DeleteOrgMemberGroup` operationId).
+func (c *Client) DeleteOrgMemberGroup(ctx context.Context, orgID OrgID, groupID GroupID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteOrgMemberGroupRequest(c.Server, orgID, groupID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListOrgMembers List organization members
 //
 // Corresponds with GET /orgs/{orgID}/members (the `ListOrgMembers` operationId).
@@ -20712,6 +21603,21 @@ func (c *Client) PutProjectGatePolicyWithBody(ctx context.Context, projectID Pro
 // Corresponds with PUT /projects/{projectID}/gate/policy (the `PutProjectGatePolicy` operationId).
 func (c *Client) PutProjectGatePolicy(ctx context.Context, projectID ProjectID, body PutProjectGatePolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPutProjectGatePolicyRequest(c.Server, projectID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteProjectGroup Remove a user group's grant on the project
+//
+// Corresponds with DELETE /projects/{projectID}/groups/{groupID} (the `DeleteProjectGroup` operationId).
+func (c *Client) DeleteProjectGroup(ctx context.Context, projectID ProjectID, groupID GroupID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteProjectGroupRequest(c.Server, projectID, groupID)
 	if err != nil {
 		return nil, err
 	}
@@ -22763,6 +23669,417 @@ func (c *Client) RestoreScan(ctx context.Context, scanID ScanID, reqEditors ...R
 	return c.Client.Do(req)
 }
 
+// ListScimTokens SCIM tokens (instance admin)
+//
+// Corresponds with GET /scim-tokens (the `ListScimTokens` operationId).
+func (c *Client) ListScimTokens(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListScimTokensRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateScimTokenWithBody Create a SCIM token for an organization (instance admin)
+//
+// The secret is shown once. It authenticates `/scim/v2` only, and only for this organization.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /scim-tokens (the `CreateScimToken` operationId).
+func (c *Client) CreateScimTokenWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateScimTokenRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateScimToken Create a SCIM token for an organization (instance admin)
+//
+// The secret is shown once. It authenticates `/scim/v2` only, and only for this organization.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /scim-tokens (the `CreateScimToken` operationId).
+func (c *Client) CreateScimToken(ctx context.Context, body CreateScimTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateScimTokenRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteScimToken Revoke a SCIM token
+//
+// Corresponds with DELETE /scim-tokens/{tokenID} (the `DeleteScimToken` operationId).
+func (c *Client) DeleteScimToken(ctx context.Context, tokenID TokenID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteScimTokenRequest(c.Server, tokenID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListScimV2Groups List Groups
+//
+// `filter` supports `attr eq "value"` only. Paged by `startIndex` (1-based) and `count` (max 200).
+//
+// Corresponds with GET /scim/v2/Groups (the `ListScimV2Groups` operationId).
+func (c *Client) ListScimV2Groups(ctx context.Context, params *ListScimV2GroupsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListScimV2GroupsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateScimV2GroupWithBody Create a Group
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /scim/v2/Groups (the `CreateScimV2Group` operationId).
+func (c *Client) CreateScimV2GroupWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateScimV2GroupRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateScimV2GroupWithApplicationScimPlusJSONBody Create a Group
+//
+// Takes a body of the `application/scim+json` content type.
+//
+// Corresponds with POST /scim/v2/Groups (the `CreateScimV2Group` operationId).
+func (c *Client) CreateScimV2GroupWithApplicationScimPlusJSONBody(ctx context.Context, body CreateScimV2GroupApplicationScimPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateScimV2GroupRequestWithApplicationScimPlusJSONBody(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteScimV2Group Delete a Group
+//
+// Corresponds with DELETE /scim/v2/Groups/{id} (the `DeleteScimV2Group` operationId).
+func (c *Client) DeleteScimV2Group(ctx context.Context, id SCIMID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteScimV2GroupRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetScimV2Group Get a Group
+//
+// Corresponds with GET /scim/v2/Groups/{id} (the `GetScimV2Group` operationId).
+func (c *Client) GetScimV2Group(ctx context.Context, id SCIMID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetScimV2GroupRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateScimV2GroupWithBody Change a Group (PatchOp)
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /scim/v2/Groups/{id} (the `UpdateScimV2Group` operationId).
+func (c *Client) UpdateScimV2GroupWithBody(ctx context.Context, id SCIMID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateScimV2GroupRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateScimV2GroupWithApplicationScimPlusJSONBody Change a Group (PatchOp)
+//
+// Takes a body of the `application/scim+json` content type.
+//
+// Corresponds with PATCH /scim/v2/Groups/{id} (the `UpdateScimV2Group` operationId).
+func (c *Client) UpdateScimV2GroupWithApplicationScimPlusJSONBody(ctx context.Context, id SCIMID, body UpdateScimV2GroupApplicationScimPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateScimV2GroupRequestWithApplicationScimPlusJSONBody(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutScimV2GroupWithBody Replace a Group
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /scim/v2/Groups/{id} (the `PutScimV2Group` operationId).
+func (c *Client) PutScimV2GroupWithBody(ctx context.Context, id SCIMID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutScimV2GroupRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutScimV2GroupWithApplicationScimPlusJSONBody Replace a Group
+//
+// Takes a body of the `application/scim+json` content type.
+//
+// Corresponds with PUT /scim/v2/Groups/{id} (the `PutScimV2Group` operationId).
+func (c *Client) PutScimV2GroupWithApplicationScimPlusJSONBody(ctx context.Context, id SCIMID, body PutScimV2GroupApplicationScimPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutScimV2GroupRequestWithApplicationScimPlusJSONBody(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListScimV2ResourceTypes SCIM resource types
+//
+// Corresponds with GET /scim/v2/ResourceTypes (the `ListScimV2ResourceTypes` operationId).
+func (c *Client) ListScimV2ResourceTypes(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListScimV2ResourceTypesRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListScimV2Schemas SCIM schemas
+//
+// Corresponds with GET /scim/v2/Schemas (the `ListScimV2Schemas` operationId).
+func (c *Client) ListScimV2Schemas(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListScimV2SchemasRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetScimV2ServiceProviderConfig SCIM service provider configuration
+//
+// Corresponds with GET /scim/v2/ServiceProviderConfig (the `GetScimV2ServiceProviderConfig` operationId).
+func (c *Client) GetScimV2ServiceProviderConfig(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetScimV2ServiceProviderConfigRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListScimV2Users List Users
+//
+// `filter` supports `attr eq "value"` only. Paged by `startIndex` (1-based) and `count` (max 200).
+//
+// Corresponds with GET /scim/v2/Users (the `ListScimV2Users` operationId).
+func (c *Client) ListScimV2Users(ctx context.Context, params *ListScimV2UsersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListScimV2UsersRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateScimV2UserWithBody Create a User
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /scim/v2/Users (the `CreateScimV2User` operationId).
+func (c *Client) CreateScimV2UserWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateScimV2UserRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateScimV2UserWithApplicationScimPlusJSONBody Create a User
+//
+// Takes a body of the `application/scim+json` content type.
+//
+// Corresponds with POST /scim/v2/Users (the `CreateScimV2User` operationId).
+func (c *Client) CreateScimV2UserWithApplicationScimPlusJSONBody(ctx context.Context, body CreateScimV2UserApplicationScimPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateScimV2UserRequestWithApplicationScimPlusJSONBody(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteScimV2User Delete a User
+//
+// Corresponds with DELETE /scim/v2/Users/{id} (the `DeleteScimV2User` operationId).
+func (c *Client) DeleteScimV2User(ctx context.Context, id SCIMID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteScimV2UserRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetScimV2User Get a User
+//
+// Corresponds with GET /scim/v2/Users/{id} (the `GetScimV2User` operationId).
+func (c *Client) GetScimV2User(ctx context.Context, id SCIMID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetScimV2UserRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateScimV2UserWithBody Change a User (PatchOp)
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /scim/v2/Users/{id} (the `UpdateScimV2User` operationId).
+func (c *Client) UpdateScimV2UserWithBody(ctx context.Context, id SCIMID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateScimV2UserRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateScimV2UserWithApplicationScimPlusJSONBody Change a User (PatchOp)
+//
+// Takes a body of the `application/scim+json` content type.
+//
+// Corresponds with PATCH /scim/v2/Users/{id} (the `UpdateScimV2User` operationId).
+func (c *Client) UpdateScimV2UserWithApplicationScimPlusJSONBody(ctx context.Context, id SCIMID, body UpdateScimV2UserApplicationScimPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateScimV2UserRequestWithApplicationScimPlusJSONBody(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutScimV2UserWithBody Replace a User
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /scim/v2/Users/{id} (the `PutScimV2User` operationId).
+func (c *Client) PutScimV2UserWithBody(ctx context.Context, id SCIMID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutScimV2UserRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutScimV2UserWithApplicationScimPlusJSONBody Replace a User
+//
+// Takes a body of the `application/scim+json` content type.
+//
+// Corresponds with PUT /scim/v2/Users/{id} (the `PutScimV2User` operationId).
+func (c *Client) PutScimV2UserWithApplicationScimPlusJSONBody(ctx context.Context, id SCIMID, body PutScimV2UserApplicationScimPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutScimV2UserRequestWithApplicationScimPlusJSONBody(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListServiceAccounts List service accounts
 //
 // Instance admin only.
@@ -23537,6 +24854,21 @@ func (c *Client) UpdateTeamWithBody(ctx context.Context, teamID TeamID, contentT
 // Corresponds with PATCH /teams/{teamID} (the `UpdateTeam` operationId).
 func (c *Client) UpdateTeam(ctx context.Context, teamID TeamID, body UpdateTeamJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateTeamRequest(c.Server, teamID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteTeamGroup Remove a user group's grant on the team
+//
+// Corresponds with DELETE /teams/{teamID}/groups/{groupID} (the `DeleteTeamGroup` operationId).
+func (c *Client) DeleteTeamGroup(ctx context.Context, teamID TeamID, groupID GroupID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteTeamGroupRequest(c.Server, teamID, groupID)
 	if err != nil {
 		return nil, err
 	}
@@ -26748,6 +28080,33 @@ func NewGetBadgeFileRequest(server string, token string, file GetBadgeFileParams
 	}
 
 	operationPath := fmt.Sprintf("/badges/%s/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListCapabilitiesRequest constructs an http.Request for the ListCapabilities method
+func NewListCapabilitiesRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/capabilities")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -32594,6 +33953,542 @@ func NewGetOrgRequest(server string, orgID OrgID) (*http.Request, error) {
 	return req, nil
 }
 
+// NewListOrgCustomRolesRequest constructs an http.Request for the ListOrgCustomRoles method
+func NewListOrgCustomRolesRequest(server string, orgID OrgID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "orgID", orgID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/orgs/%s/custom-roles", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateOrgCustomRoleRequest calls the generic CreateOrgCustomRole builder with application/json body
+func NewCreateOrgCustomRoleRequest(server string, orgID OrgID, body CreateOrgCustomRoleJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateOrgCustomRoleRequestWithBody(server, orgID, "application/json", bodyReader)
+}
+
+// NewCreateOrgCustomRoleRequestWithBody constructs an http.Request for the CreateOrgCustomRole method, with any body, and a specified content type
+func NewCreateOrgCustomRoleRequestWithBody(server string, orgID OrgID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "orgID", orgID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/orgs/%s/custom-roles", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteOrgCustomRoleRequest constructs an http.Request for the DeleteOrgCustomRole method
+func NewDeleteOrgCustomRoleRequest(server string, orgID OrgID, roleID RoleID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "orgID", orgID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "roleID", roleID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/orgs/%s/custom-roles/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutOrgCustomRoleRequest calls the generic PutOrgCustomRole builder with application/json body
+func NewPutOrgCustomRoleRequest(server string, orgID OrgID, roleID RoleID, body PutOrgCustomRoleJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutOrgCustomRoleRequestWithBody(server, orgID, roleID, "application/json", bodyReader)
+}
+
+// NewPutOrgCustomRoleRequestWithBody constructs an http.Request for the PutOrgCustomRole method, with any body, and a specified content type
+func NewPutOrgCustomRoleRequestWithBody(server string, orgID OrgID, roleID RoleID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "orgID", orgID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "roleID", roleID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/orgs/%s/custom-roles/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListOrgGroupsRequest constructs an http.Request for the ListOrgGroups method
+func NewListOrgGroupsRequest(server string, orgID OrgID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "orgID", orgID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/orgs/%s/groups", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateOrgGroupRequest calls the generic CreateOrgGroup builder with application/json body
+func NewCreateOrgGroupRequest(server string, orgID OrgID, body CreateOrgGroupJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateOrgGroupRequestWithBody(server, orgID, "application/json", bodyReader)
+}
+
+// NewCreateOrgGroupRequestWithBody constructs an http.Request for the CreateOrgGroup method, with any body, and a specified content type
+func NewCreateOrgGroupRequestWithBody(server string, orgID OrgID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "orgID", orgID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/orgs/%s/groups", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteOrgGroupRequest constructs an http.Request for the DeleteOrgGroup method
+func NewDeleteOrgGroupRequest(server string, orgID OrgID, groupID GroupID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "orgID", orgID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "groupID", groupID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/orgs/%s/groups/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetOrgGroupRequest constructs an http.Request for the GetOrgGroup method
+func NewGetOrgGroupRequest(server string, orgID OrgID, groupID GroupID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "orgID", orgID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "groupID", groupID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/orgs/%s/groups/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutOrgGroupRequest calls the generic PutOrgGroup builder with application/json body
+func NewPutOrgGroupRequest(server string, orgID OrgID, groupID GroupID, body PutOrgGroupJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutOrgGroupRequestWithBody(server, orgID, groupID, "application/json", bodyReader)
+}
+
+// NewPutOrgGroupRequestWithBody constructs an http.Request for the PutOrgGroup method, with any body, and a specified content type
+func NewPutOrgGroupRequestWithBody(server string, orgID OrgID, groupID GroupID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "orgID", orgID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "groupID", groupID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/orgs/%s/groups/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewCreateOrgGroupMemberRequest calls the generic CreateOrgGroupMember builder with application/json body
+func NewCreateOrgGroupMemberRequest(server string, orgID OrgID, groupID GroupID, body CreateOrgGroupMemberJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateOrgGroupMemberRequestWithBody(server, orgID, groupID, "application/json", bodyReader)
+}
+
+// NewCreateOrgGroupMemberRequestWithBody constructs an http.Request for the CreateOrgGroupMember method, with any body, and a specified content type
+func NewCreateOrgGroupMemberRequestWithBody(server string, orgID OrgID, groupID GroupID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "orgID", orgID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "groupID", groupID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/orgs/%s/groups/%s/members", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteOrgGroupMemberRequest constructs an http.Request for the DeleteOrgGroupMember method
+func NewDeleteOrgGroupMemberRequest(server string, orgID OrgID, groupID GroupID, userID UserID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "orgID", orgID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "groupID", groupID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "userID", userID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/orgs/%s/groups/%s/members/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDeleteOrgMemberGroupRequest constructs an http.Request for the DeleteOrgMemberGroup method
+func NewDeleteOrgMemberGroupRequest(server string, orgID OrgID, groupID GroupID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "orgID", orgID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "groupID", groupID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/orgs/%s/member-groups/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListOrgMembersRequest constructs an http.Request for the ListOrgMembers method
 func NewListOrgMembersRequest(server string, orgID OrgID) (*http.Request, error) {
 	var err error
@@ -36550,6 +38445,47 @@ func NewPutProjectGatePolicyRequestWithBody(server string, projectID ProjectID, 
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteProjectGroupRequest constructs an http.Request for the DeleteProjectGroup method
+func NewDeleteProjectGroupRequest(server string, projectID ProjectID, groupID GroupID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "groupID", groupID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/groups/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -40920,6 +42856,748 @@ func NewRestoreScanRequest(server string, scanID ScanID) (*http.Request, error) 
 	return req, nil
 }
 
+// NewListScimTokensRequest constructs an http.Request for the ListScimTokens method
+func NewListScimTokensRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/scim-tokens")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateScimTokenRequest calls the generic CreateScimToken builder with application/json body
+func NewCreateScimTokenRequest(server string, body CreateScimTokenJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateScimTokenRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateScimTokenRequestWithBody constructs an http.Request for the CreateScimToken method, with any body, and a specified content type
+func NewCreateScimTokenRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/scim-tokens")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteScimTokenRequest constructs an http.Request for the DeleteScimToken method
+func NewDeleteScimTokenRequest(server string, tokenID TokenID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tokenID", tokenID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/scim-tokens/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListScimV2GroupsRequest constructs an http.Request for the ListScimV2Groups method
+func NewListScimV2GroupsRequest(server string, params *ListScimV2GroupsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/scim/v2/Groups")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Filter != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "filter", *params.Filter, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.StartIndex != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "startIndex", *params.StartIndex, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Count != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "count", *params.Count, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateScimV2GroupRequestWithApplicationScimPlusJSONBody calls the generic CreateScimV2Group builder with application/scim+json body
+func NewCreateScimV2GroupRequestWithApplicationScimPlusJSONBody(server string, body CreateScimV2GroupApplicationScimPlusJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateScimV2GroupRequestWithBody(server, "application/scim+json", bodyReader)
+}
+
+// NewCreateScimV2GroupRequestWithBody constructs an http.Request for the CreateScimV2Group method, with any body, and a specified content type
+func NewCreateScimV2GroupRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/scim/v2/Groups")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteScimV2GroupRequest constructs an http.Request for the DeleteScimV2Group method
+func NewDeleteScimV2GroupRequest(server string, id SCIMID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/scim/v2/Groups/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetScimV2GroupRequest constructs an http.Request for the GetScimV2Group method
+func NewGetScimV2GroupRequest(server string, id SCIMID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/scim/v2/Groups/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateScimV2GroupRequestWithApplicationScimPlusJSONBody calls the generic UpdateScimV2Group builder with application/scim+json body
+func NewUpdateScimV2GroupRequestWithApplicationScimPlusJSONBody(server string, id SCIMID, body UpdateScimV2GroupApplicationScimPlusJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateScimV2GroupRequestWithBody(server, id, "application/scim+json", bodyReader)
+}
+
+// NewUpdateScimV2GroupRequestWithBody constructs an http.Request for the UpdateScimV2Group method, with any body, and a specified content type
+func NewUpdateScimV2GroupRequestWithBody(server string, id SCIMID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/scim/v2/Groups/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPutScimV2GroupRequestWithApplicationScimPlusJSONBody calls the generic PutScimV2Group builder with application/scim+json body
+func NewPutScimV2GroupRequestWithApplicationScimPlusJSONBody(server string, id SCIMID, body PutScimV2GroupApplicationScimPlusJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutScimV2GroupRequestWithBody(server, id, "application/scim+json", bodyReader)
+}
+
+// NewPutScimV2GroupRequestWithBody constructs an http.Request for the PutScimV2Group method, with any body, and a specified content type
+func NewPutScimV2GroupRequestWithBody(server string, id SCIMID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/scim/v2/Groups/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListScimV2ResourceTypesRequest constructs an http.Request for the ListScimV2ResourceTypes method
+func NewListScimV2ResourceTypesRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/scim/v2/ResourceTypes")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListScimV2SchemasRequest constructs an http.Request for the ListScimV2Schemas method
+func NewListScimV2SchemasRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/scim/v2/Schemas")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetScimV2ServiceProviderConfigRequest constructs an http.Request for the GetScimV2ServiceProviderConfig method
+func NewGetScimV2ServiceProviderConfigRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/scim/v2/ServiceProviderConfig")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListScimV2UsersRequest constructs an http.Request for the ListScimV2Users method
+func NewListScimV2UsersRequest(server string, params *ListScimV2UsersParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/scim/v2/Users")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Filter != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "filter", *params.Filter, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.StartIndex != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "startIndex", *params.StartIndex, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Count != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "count", *params.Count, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateScimV2UserRequestWithApplicationScimPlusJSONBody calls the generic CreateScimV2User builder with application/scim+json body
+func NewCreateScimV2UserRequestWithApplicationScimPlusJSONBody(server string, body CreateScimV2UserApplicationScimPlusJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateScimV2UserRequestWithBody(server, "application/scim+json", bodyReader)
+}
+
+// NewCreateScimV2UserRequestWithBody constructs an http.Request for the CreateScimV2User method, with any body, and a specified content type
+func NewCreateScimV2UserRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/scim/v2/Users")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteScimV2UserRequest constructs an http.Request for the DeleteScimV2User method
+func NewDeleteScimV2UserRequest(server string, id SCIMID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/scim/v2/Users/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetScimV2UserRequest constructs an http.Request for the GetScimV2User method
+func NewGetScimV2UserRequest(server string, id SCIMID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/scim/v2/Users/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateScimV2UserRequestWithApplicationScimPlusJSONBody calls the generic UpdateScimV2User builder with application/scim+json body
+func NewUpdateScimV2UserRequestWithApplicationScimPlusJSONBody(server string, id SCIMID, body UpdateScimV2UserApplicationScimPlusJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateScimV2UserRequestWithBody(server, id, "application/scim+json", bodyReader)
+}
+
+// NewUpdateScimV2UserRequestWithBody constructs an http.Request for the UpdateScimV2User method, with any body, and a specified content type
+func NewUpdateScimV2UserRequestWithBody(server string, id SCIMID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/scim/v2/Users/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPutScimV2UserRequestWithApplicationScimPlusJSONBody calls the generic PutScimV2User builder with application/scim+json body
+func NewPutScimV2UserRequestWithApplicationScimPlusJSONBody(server string, id SCIMID, body PutScimV2UserApplicationScimPlusJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutScimV2UserRequestWithBody(server, id, "application/scim+json", bodyReader)
+}
+
+// NewPutScimV2UserRequestWithBody constructs an http.Request for the PutScimV2User method, with any body, and a specified content type
+func NewPutScimV2UserRequestWithBody(server string, id SCIMID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/scim/v2/Users/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListServiceAccountsRequest constructs an http.Request for the ListServiceAccounts method
 func NewListServiceAccountsRequest(server string) (*http.Request, error) {
 	var err error
@@ -41975,6 +44653,47 @@ func NewUpdateTeamRequestWithBody(server string, teamID TeamID, contentType stri
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteTeamGroupRequest constructs an http.Request for the DeleteTeamGroup method
+func NewDeleteTeamGroupRequest(server string, teamID TeamID, groupID GroupID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "teamID", teamID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "groupID", groupID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/teams/%s/groups/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -44047,6 +46766,13 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /badges/{token}/{file} (the `GetBadgeFile` operationId).
 	GetBadgeFileWithResponse(ctx context.Context, token string, file GetBadgeFileParamsFile, reqEditors ...RequestEditorFn) (*GetBadgeFileResponse, error)
 
+	// ListCapabilitiesWithResponse What a custom role can deny
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /capabilities (the `ListCapabilities` operationId).
+	ListCapabilitiesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListCapabilitiesResponse, error)
+
 	// ListComponentsWithResponse Which projects ship this package?
 	//
 	// Cross-portfolio component search — the question you ask the morning a
@@ -45695,6 +48421,145 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /orgs/{orgID} (the `GetOrg` operationId).
 	GetOrgWithResponse(ctx context.Context, orgID OrgID, reqEditors ...RequestEditorFn) (*GetOrgResponse, error)
 
+	// ListOrgCustomRolesWithResponse The organization's custom roles
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /orgs/{orgID}/custom-roles (the `ListOrgCustomRoles` operationId).
+	ListOrgCustomRolesWithResponse(ctx context.Context, orgID OrgID, reqEditors ...RequestEditorFn) (*ListOrgCustomRolesResponse, error)
+
+	// CreateOrgCustomRoleWithBodyWithResponse Create a custom role
+	//
+	// Requires org `admin`. A custom role is a base role minus denied capabilities,
+	// assignable on team and project grants (`custom_role_id`). Several grants
+	// combine by union: a capability one grant denies is allowed when another
+	// grant at the needed level doesn't deny it.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /orgs/{orgID}/custom-roles (the `CreateOrgCustomRole` operationId).
+	CreateOrgCustomRoleWithBodyWithResponse(ctx context.Context, orgID OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateOrgCustomRoleResponse, error)
+
+	// CreateOrgCustomRoleWithResponse Create a custom role
+	//
+	// Requires org `admin`. A custom role is a base role minus denied capabilities,
+	// assignable on team and project grants (`custom_role_id`). Several grants
+	// combine by union: a capability one grant denies is allowed when another
+	// grant at the needed level doesn't deny it.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /orgs/{orgID}/custom-roles (the `CreateOrgCustomRole` operationId).
+	CreateOrgCustomRoleWithResponse(ctx context.Context, orgID OrgID, body CreateOrgCustomRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateOrgCustomRoleResponse, error)
+
+	// DeleteOrgCustomRoleWithResponse Delete a custom role (grants using it fall back to their base role)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /orgs/{orgID}/custom-roles/{roleID} (the `DeleteOrgCustomRole` operationId).
+	DeleteOrgCustomRoleWithResponse(ctx context.Context, orgID OrgID, roleID RoleID, reqEditors ...RequestEditorFn) (*DeleteOrgCustomRoleResponse, error)
+
+	// PutOrgCustomRoleWithBodyWithResponse Change a custom role
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /orgs/{orgID}/custom-roles/{roleID} (the `PutOrgCustomRole` operationId).
+	PutOrgCustomRoleWithBodyWithResponse(ctx context.Context, orgID OrgID, roleID RoleID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutOrgCustomRoleResponse, error)
+
+	// PutOrgCustomRoleWithResponse Change a custom role
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /orgs/{orgID}/custom-roles/{roleID} (the `PutOrgCustomRole` operationId).
+	PutOrgCustomRoleWithResponse(ctx context.Context, orgID OrgID, roleID RoleID, body PutOrgCustomRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*PutOrgCustomRoleResponse, error)
+
+	// ListOrgGroupsWithResponse The organization's user groups
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /orgs/{orgID}/groups (the `ListOrgGroups` operationId).
+	ListOrgGroupsWithResponse(ctx context.Context, orgID OrgID, reqEditors ...RequestEditorFn) (*ListOrgGroupsResponse, error)
+
+	// CreateOrgGroupWithBodyWithResponse Create a user group
+	//
+	// Requires org `admin`. A group is grantable on the organization, a team or a
+	// project exactly like a user (`group_id` in the members endpoints); every
+	// member gets the role. SCIM clients can provision groups too.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /orgs/{orgID}/groups (the `CreateOrgGroup` operationId).
+	CreateOrgGroupWithBodyWithResponse(ctx context.Context, orgID OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateOrgGroupResponse, error)
+
+	// CreateOrgGroupWithResponse Create a user group
+	//
+	// Requires org `admin`. A group is grantable on the organization, a team or a
+	// project exactly like a user (`group_id` in the members endpoints); every
+	// member gets the role. SCIM clients can provision groups too.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /orgs/{orgID}/groups (the `CreateOrgGroup` operationId).
+	CreateOrgGroupWithResponse(ctx context.Context, orgID OrgID, body CreateOrgGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateOrgGroupResponse, error)
+
+	// DeleteOrgGroupWithResponse Delete a user group (its grants go with it)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /orgs/{orgID}/groups/{groupID} (the `DeleteOrgGroup` operationId).
+	DeleteOrgGroupWithResponse(ctx context.Context, orgID OrgID, groupID GroupID, reqEditors ...RequestEditorFn) (*DeleteOrgGroupResponse, error)
+
+	// GetOrgGroupWithResponse A user group and its members
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /orgs/{orgID}/groups/{groupID} (the `GetOrgGroup` operationId).
+	GetOrgGroupWithResponse(ctx context.Context, orgID OrgID, groupID GroupID, reqEditors ...RequestEditorFn) (*GetOrgGroupResponse, error)
+
+	// PutOrgGroupWithBodyWithResponse Rename a user group
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /orgs/{orgID}/groups/{groupID} (the `PutOrgGroup` operationId).
+	PutOrgGroupWithBodyWithResponse(ctx context.Context, orgID OrgID, groupID GroupID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutOrgGroupResponse, error)
+
+	// PutOrgGroupWithResponse Rename a user group
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /orgs/{orgID}/groups/{groupID} (the `PutOrgGroup` operationId).
+	PutOrgGroupWithResponse(ctx context.Context, orgID OrgID, groupID GroupID, body PutOrgGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*PutOrgGroupResponse, error)
+
+	// CreateOrgGroupMemberWithBodyWithResponse Add a user to a group
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /orgs/{orgID}/groups/{groupID}/members (the `CreateOrgGroupMember` operationId).
+	CreateOrgGroupMemberWithBodyWithResponse(ctx context.Context, orgID OrgID, groupID GroupID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateOrgGroupMemberResponse, error)
+
+	// CreateOrgGroupMemberWithResponse Add a user to a group
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /orgs/{orgID}/groups/{groupID}/members (the `CreateOrgGroupMember` operationId).
+	CreateOrgGroupMemberWithResponse(ctx context.Context, orgID OrgID, groupID GroupID, body CreateOrgGroupMemberJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateOrgGroupMemberResponse, error)
+
+	// DeleteOrgGroupMemberWithResponse Remove a user from a group
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /orgs/{orgID}/groups/{groupID}/members/{userID} (the `DeleteOrgGroupMember` operationId).
+	DeleteOrgGroupMemberWithResponse(ctx context.Context, orgID OrgID, groupID GroupID, userID UserID, reqEditors ...RequestEditorFn) (*DeleteOrgGroupMemberResponse, error)
+
+	// DeleteOrgMemberGroupWithResponse Remove a user group's grant on the organization
+	//
+	// Requires org `admin`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /orgs/{orgID}/member-groups/{groupID} (the `DeleteOrgMemberGroup` operationId).
+	DeleteOrgMemberGroupWithResponse(ctx context.Context, orgID OrgID, groupID GroupID, reqEditors ...RequestEditorFn) (*DeleteOrgMemberGroupResponse, error)
+
 	// ListOrgMembersWithResponse List organization members
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -46554,6 +49419,13 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with PUT /projects/{projectID}/gate/policy (the `PutProjectGatePolicy` operationId).
 	PutProjectGatePolicyWithResponse(ctx context.Context, projectID ProjectID, body PutProjectGatePolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*PutProjectGatePolicyResponse, error)
+
+	// DeleteProjectGroupWithResponse Remove a user group's grant on the project
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /projects/{projectID}/groups/{groupID} (the `DeleteProjectGroup` operationId).
+	DeleteProjectGroupWithResponse(ctx context.Context, projectID ProjectID, groupID GroupID, reqEditors ...RequestEditorFn) (*DeleteProjectGroupResponse, error)
 
 	// GetProjectIngestionHealthWithResponse Ingestion problems of one project
 	//
@@ -47680,6 +50552,189 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /scans/{scanID}/restore (the `RestoreScan` operationId).
 	RestoreScanWithResponse(ctx context.Context, scanID ScanID, reqEditors ...RequestEditorFn) (*RestoreScanResponse, error)
 
+	// ListScimTokensWithResponse SCIM tokens (instance admin)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /scim-tokens (the `ListScimTokens` operationId).
+	ListScimTokensWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListScimTokensResponse, error)
+
+	// CreateScimTokenWithBodyWithResponse Create a SCIM token for an organization (instance admin)
+	//
+	// The secret is shown once. It authenticates `/scim/v2` only, and only for this organization.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /scim-tokens (the `CreateScimToken` operationId).
+	CreateScimTokenWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateScimTokenResponse, error)
+
+	// CreateScimTokenWithResponse Create a SCIM token for an organization (instance admin)
+	//
+	// The secret is shown once. It authenticates `/scim/v2` only, and only for this organization.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /scim-tokens (the `CreateScimToken` operationId).
+	CreateScimTokenWithResponse(ctx context.Context, body CreateScimTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateScimTokenResponse, error)
+
+	// DeleteScimTokenWithResponse Revoke a SCIM token
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /scim-tokens/{tokenID} (the `DeleteScimToken` operationId).
+	DeleteScimTokenWithResponse(ctx context.Context, tokenID TokenID, reqEditors ...RequestEditorFn) (*DeleteScimTokenResponse, error)
+
+	// ListScimV2GroupsWithResponse List Groups
+	//
+	// `filter` supports `attr eq "value"` only. Paged by `startIndex` (1-based) and `count` (max 200).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /scim/v2/Groups (the `ListScimV2Groups` operationId).
+	ListScimV2GroupsWithResponse(ctx context.Context, params *ListScimV2GroupsParams, reqEditors ...RequestEditorFn) (*ListScimV2GroupsResponse, error)
+
+	// CreateScimV2GroupWithBodyWithResponse Create a Group
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /scim/v2/Groups (the `CreateScimV2Group` operationId).
+	CreateScimV2GroupWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateScimV2GroupResponse, error)
+
+	// CreateScimV2GroupWithApplicationScimPlusJSONBodyWithResponse Create a Group
+	//
+	// Takes a body of the `application/scim+json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /scim/v2/Groups (the `CreateScimV2Group` operationId).
+	CreateScimV2GroupWithApplicationScimPlusJSONBodyWithResponse(ctx context.Context, body CreateScimV2GroupApplicationScimPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateScimV2GroupResponse, error)
+
+	// DeleteScimV2GroupWithResponse Delete a Group
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /scim/v2/Groups/{id} (the `DeleteScimV2Group` operationId).
+	DeleteScimV2GroupWithResponse(ctx context.Context, id SCIMID, reqEditors ...RequestEditorFn) (*DeleteScimV2GroupResponse, error)
+
+	// GetScimV2GroupWithResponse Get a Group
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /scim/v2/Groups/{id} (the `GetScimV2Group` operationId).
+	GetScimV2GroupWithResponse(ctx context.Context, id SCIMID, reqEditors ...RequestEditorFn) (*GetScimV2GroupResponse, error)
+
+	// UpdateScimV2GroupWithBodyWithResponse Change a Group (PatchOp)
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /scim/v2/Groups/{id} (the `UpdateScimV2Group` operationId).
+	UpdateScimV2GroupWithBodyWithResponse(ctx context.Context, id SCIMID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateScimV2GroupResponse, error)
+
+	// UpdateScimV2GroupWithApplicationScimPlusJSONBodyWithResponse Change a Group (PatchOp)
+	//
+	// Takes a body of the `application/scim+json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /scim/v2/Groups/{id} (the `UpdateScimV2Group` operationId).
+	UpdateScimV2GroupWithApplicationScimPlusJSONBodyWithResponse(ctx context.Context, id SCIMID, body UpdateScimV2GroupApplicationScimPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateScimV2GroupResponse, error)
+
+	// PutScimV2GroupWithBodyWithResponse Replace a Group
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /scim/v2/Groups/{id} (the `PutScimV2Group` operationId).
+	PutScimV2GroupWithBodyWithResponse(ctx context.Context, id SCIMID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutScimV2GroupResponse, error)
+
+	// PutScimV2GroupWithApplicationScimPlusJSONBodyWithResponse Replace a Group
+	//
+	// Takes a body of the `application/scim+json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /scim/v2/Groups/{id} (the `PutScimV2Group` operationId).
+	PutScimV2GroupWithApplicationScimPlusJSONBodyWithResponse(ctx context.Context, id SCIMID, body PutScimV2GroupApplicationScimPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*PutScimV2GroupResponse, error)
+
+	// ListScimV2ResourceTypesWithResponse SCIM resource types
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /scim/v2/ResourceTypes (the `ListScimV2ResourceTypes` operationId).
+	ListScimV2ResourceTypesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListScimV2ResourceTypesResponse, error)
+
+	// ListScimV2SchemasWithResponse SCIM schemas
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /scim/v2/Schemas (the `ListScimV2Schemas` operationId).
+	ListScimV2SchemasWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListScimV2SchemasResponse, error)
+
+	// GetScimV2ServiceProviderConfigWithResponse SCIM service provider configuration
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /scim/v2/ServiceProviderConfig (the `GetScimV2ServiceProviderConfig` operationId).
+	GetScimV2ServiceProviderConfigWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetScimV2ServiceProviderConfigResponse, error)
+
+	// ListScimV2UsersWithResponse List Users
+	//
+	// `filter` supports `attr eq "value"` only. Paged by `startIndex` (1-based) and `count` (max 200).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /scim/v2/Users (the `ListScimV2Users` operationId).
+	ListScimV2UsersWithResponse(ctx context.Context, params *ListScimV2UsersParams, reqEditors ...RequestEditorFn) (*ListScimV2UsersResponse, error)
+
+	// CreateScimV2UserWithBodyWithResponse Create a User
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /scim/v2/Users (the `CreateScimV2User` operationId).
+	CreateScimV2UserWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateScimV2UserResponse, error)
+
+	// CreateScimV2UserWithApplicationScimPlusJSONBodyWithResponse Create a User
+	//
+	// Takes a body of the `application/scim+json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /scim/v2/Users (the `CreateScimV2User` operationId).
+	CreateScimV2UserWithApplicationScimPlusJSONBodyWithResponse(ctx context.Context, body CreateScimV2UserApplicationScimPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateScimV2UserResponse, error)
+
+	// DeleteScimV2UserWithResponse Delete a User
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /scim/v2/Users/{id} (the `DeleteScimV2User` operationId).
+	DeleteScimV2UserWithResponse(ctx context.Context, id SCIMID, reqEditors ...RequestEditorFn) (*DeleteScimV2UserResponse, error)
+
+	// GetScimV2UserWithResponse Get a User
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /scim/v2/Users/{id} (the `GetScimV2User` operationId).
+	GetScimV2UserWithResponse(ctx context.Context, id SCIMID, reqEditors ...RequestEditorFn) (*GetScimV2UserResponse, error)
+
+	// UpdateScimV2UserWithBodyWithResponse Change a User (PatchOp)
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /scim/v2/Users/{id} (the `UpdateScimV2User` operationId).
+	UpdateScimV2UserWithBodyWithResponse(ctx context.Context, id SCIMID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateScimV2UserResponse, error)
+
+	// UpdateScimV2UserWithApplicationScimPlusJSONBodyWithResponse Change a User (PatchOp)
+	//
+	// Takes a body of the `application/scim+json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /scim/v2/Users/{id} (the `UpdateScimV2User` operationId).
+	UpdateScimV2UserWithApplicationScimPlusJSONBodyWithResponse(ctx context.Context, id SCIMID, body UpdateScimV2UserApplicationScimPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateScimV2UserResponse, error)
+
+	// PutScimV2UserWithBodyWithResponse Replace a User
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /scim/v2/Users/{id} (the `PutScimV2User` operationId).
+	PutScimV2UserWithBodyWithResponse(ctx context.Context, id SCIMID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutScimV2UserResponse, error)
+
+	// PutScimV2UserWithApplicationScimPlusJSONBodyWithResponse Replace a User
+	//
+	// Takes a body of the `application/scim+json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /scim/v2/Users/{id} (the `PutScimV2User` operationId).
+	PutScimV2UserWithApplicationScimPlusJSONBodyWithResponse(ctx context.Context, id SCIMID, body PutScimV2UserApplicationScimPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*PutScimV2UserResponse, error)
+
 	// ListServiceAccountsWithResponse List service accounts
 	//
 	// Instance admin only.
@@ -48103,6 +51158,13 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with PATCH /teams/{teamID} (the `UpdateTeam` operationId).
 	UpdateTeamWithResponse(ctx context.Context, teamID TeamID, body UpdateTeamJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateTeamResponse, error)
+
+	// DeleteTeamGroupWithResponse Remove a user group's grant on the team
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /teams/{teamID}/groups/{groupID} (the `DeleteTeamGroup` operationId).
+	DeleteTeamGroupWithResponse(ctx context.Context, teamID TeamID, groupID GroupID, reqEditors ...RequestEditorFn) (*DeleteTeamGroupResponse, error)
 
 	// ListTeamMembersWithResponse List team members
 	//
@@ -50996,6 +54058,51 @@ func (r GetBadgeFileResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetBadgeFileResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListCapabilitiesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Capabilities *[]Capability `json:"capabilities,omitempty"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListCapabilitiesResponse) GetJSON200() *struct {
+	Capabilities *[]Capability `json:"capabilities,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ListCapabilitiesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListCapabilitiesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListCapabilitiesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListCapabilitiesResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -57474,6 +60581,581 @@ func (r GetOrgResponse) ContentType() string {
 	return ""
 }
 
+type ListOrgCustomRolesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		CustomRoles *[]CustomRole `json:"custom_roles,omitempty"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListOrgCustomRolesResponse) GetJSON200() *struct {
+	CustomRoles *[]CustomRole `json:"custom_roles,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ListOrgCustomRolesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListOrgCustomRolesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListOrgCustomRolesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListOrgCustomRolesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateOrgCustomRoleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *CustomRole
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateOrgCustomRoleResponse) GetJSON201() *CustomRole {
+	return r.JSON201
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r CreateOrgCustomRoleResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r CreateOrgCustomRoleResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateOrgCustomRoleResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateOrgCustomRoleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateOrgCustomRoleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateOrgCustomRoleResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteOrgCustomRoleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r DeleteOrgCustomRoleResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteOrgCustomRoleResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteOrgCustomRoleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteOrgCustomRoleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteOrgCustomRoleResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PutOrgCustomRoleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *CustomRole
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PutOrgCustomRoleResponse) GetJSON200() *CustomRole {
+	return r.JSON200
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r PutOrgCustomRoleResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r PutOrgCustomRoleResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PutOrgCustomRoleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutOrgCustomRoleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PutOrgCustomRoleResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListOrgGroupsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Groups *[]UserGroup `json:"groups,omitempty"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListOrgGroupsResponse) GetJSON200() *struct {
+	Groups *[]UserGroup `json:"groups,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ListOrgGroupsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListOrgGroupsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListOrgGroupsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListOrgGroupsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateOrgGroupResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *UserGroup
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateOrgGroupResponse) GetJSON201() *UserGroup {
+	return r.JSON201
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r CreateOrgGroupResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r CreateOrgGroupResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateOrgGroupResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateOrgGroupResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateOrgGroupResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateOrgGroupResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteOrgGroupResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r DeleteOrgGroupResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteOrgGroupResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteOrgGroupResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteOrgGroupResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteOrgGroupResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetOrgGroupResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Group   *UserGroup `json:"group,omitempty"`
+		Members *[]struct {
+			Email  *openapi_types.Email `json:"email,omitempty"`
+			UserId *openapi_types.UUID  `json:"user_id,omitempty"`
+		} `json:"members,omitempty"`
+	}
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetOrgGroupResponse) GetJSON200() *struct {
+	Group   *UserGroup `json:"group,omitempty"`
+	Members *[]struct {
+		Email  *openapi_types.Email `json:"email,omitempty"`
+		UserId *openapi_types.UUID  `json:"user_id,omitempty"`
+	} `json:"members,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r GetOrgGroupResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetOrgGroupResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetOrgGroupResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetOrgGroupResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetOrgGroupResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PutOrgGroupResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *UserGroup
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PutOrgGroupResponse) GetJSON200() *UserGroup {
+	return r.JSON200
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r PutOrgGroupResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r PutOrgGroupResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r PutOrgGroupResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PutOrgGroupResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutOrgGroupResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PutOrgGroupResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateOrgGroupMemberResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r CreateOrgGroupMemberResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateOrgGroupMemberResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateOrgGroupMemberResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateOrgGroupMemberResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateOrgGroupMemberResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteOrgGroupMemberResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r DeleteOrgGroupMemberResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteOrgGroupMemberResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteOrgGroupMemberResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteOrgGroupMemberResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteOrgGroupMemberResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteOrgMemberGroupResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r DeleteOrgMemberGroupResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r DeleteOrgMemberGroupResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteOrgMemberGroupResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteOrgMemberGroupResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteOrgMemberGroupResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteOrgMemberGroupResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListOrgMembersResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -60616,6 +64298,47 @@ func (r PutProjectGatePolicyResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r PutProjectGatePolicyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteProjectGroupResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r DeleteProjectGroupResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteProjectGroupResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteProjectGroupResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteProjectGroupResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteProjectGroupResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -65045,6 +68768,873 @@ func (r RestoreScanResponse) ContentType() string {
 	return ""
 }
 
+type ListScimTokensResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Tokens *[]SCIMToken `json:"tokens,omitempty"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListScimTokensResponse) GetJSON200() *struct {
+	Tokens *[]SCIMToken `json:"tokens,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ListScimTokensResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListScimTokensResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListScimTokensResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListScimTokensResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateScimTokenResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Secret *string    `json:"secret,omitempty"`
+		Token  *SCIMToken `json:"token,omitempty"`
+	}
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateScimTokenResponse) GetJSON201() *struct {
+	Secret *string    `json:"secret,omitempty"`
+	Token  *SCIMToken `json:"token,omitempty"`
+} {
+	return r.JSON201
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r CreateScimTokenResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateScimTokenResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateScimTokenResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateScimTokenResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateScimTokenResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteScimTokenResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r DeleteScimTokenResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteScimTokenResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteScimTokenResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteScimTokenResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteScimTokenResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListScimV2GroupsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationscimJSON200 the response for an HTTP 200 `application/scim+json` response
+	ApplicationscimJSON200 *SCIMResource
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+}
+
+// GetApplicationscimJSON200 returns the response for an HTTP 200 `application/scim+json` response
+func (r ListScimV2GroupsResponse) GetApplicationscimJSON200() *SCIMResource {
+	return r.ApplicationscimJSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r ListScimV2GroupsResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r ListScimV2GroupsResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetBody returns the raw response body bytes
+func (r ListScimV2GroupsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListScimV2GroupsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListScimV2GroupsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListScimV2GroupsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateScimV2GroupResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationscimJSON201 the response for an HTTP 201 `application/scim+json` response
+	ApplicationscimJSON201 *SCIMResource
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+}
+
+// GetApplicationscimJSON201 returns the response for an HTTP 201 `application/scim+json` response
+func (r CreateScimV2GroupResponse) GetApplicationscimJSON201() *SCIMResource {
+	return r.ApplicationscimJSON201
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r CreateScimV2GroupResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r CreateScimV2GroupResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateScimV2GroupResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateScimV2GroupResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateScimV2GroupResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateScimV2GroupResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteScimV2GroupResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r DeleteScimV2GroupResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteScimV2GroupResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteScimV2GroupResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteScimV2GroupResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteScimV2GroupResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetScimV2GroupResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationscimJSON200 the response for an HTTP 200 `application/scim+json` response
+	ApplicationscimJSON200 *SCIMResource
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetApplicationscimJSON200 returns the response for an HTTP 200 `application/scim+json` response
+func (r GetScimV2GroupResponse) GetApplicationscimJSON200() *SCIMResource {
+	return r.ApplicationscimJSON200
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r GetScimV2GroupResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetScimV2GroupResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetScimV2GroupResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetScimV2GroupResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetScimV2GroupResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateScimV2GroupResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationscimJSON200 the response for an HTTP 200 `application/scim+json` response
+	ApplicationscimJSON200 *SCIMResource
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetApplicationscimJSON200 returns the response for an HTTP 200 `application/scim+json` response
+func (r UpdateScimV2GroupResponse) GetApplicationscimJSON200() *SCIMResource {
+	return r.ApplicationscimJSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r UpdateScimV2GroupResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r UpdateScimV2GroupResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateScimV2GroupResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateScimV2GroupResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateScimV2GroupResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateScimV2GroupResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PutScimV2GroupResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationscimJSON200 the response for an HTTP 200 `application/scim+json` response
+	ApplicationscimJSON200 *SCIMResource
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetApplicationscimJSON200 returns the response for an HTTP 200 `application/scim+json` response
+func (r PutScimV2GroupResponse) GetApplicationscimJSON200() *SCIMResource {
+	return r.ApplicationscimJSON200
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r PutScimV2GroupResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r PutScimV2GroupResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PutScimV2GroupResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutScimV2GroupResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PutScimV2GroupResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListScimV2ResourceTypesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationscimJSON200 the response for an HTTP 200 `application/scim+json` response
+	ApplicationscimJSON200 *SCIMResource
+}
+
+// GetApplicationscimJSON200 returns the response for an HTTP 200 `application/scim+json` response
+func (r ListScimV2ResourceTypesResponse) GetApplicationscimJSON200() *SCIMResource {
+	return r.ApplicationscimJSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ListScimV2ResourceTypesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListScimV2ResourceTypesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListScimV2ResourceTypesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListScimV2ResourceTypesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListScimV2SchemasResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationscimJSON200 the response for an HTTP 200 `application/scim+json` response
+	ApplicationscimJSON200 *SCIMResource
+}
+
+// GetApplicationscimJSON200 returns the response for an HTTP 200 `application/scim+json` response
+func (r ListScimV2SchemasResponse) GetApplicationscimJSON200() *SCIMResource {
+	return r.ApplicationscimJSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ListScimV2SchemasResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListScimV2SchemasResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListScimV2SchemasResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListScimV2SchemasResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetScimV2ServiceProviderConfigResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationscimJSON200 the response for an HTTP 200 `application/scim+json` response
+	ApplicationscimJSON200 *SCIMResource
+}
+
+// GetApplicationscimJSON200 returns the response for an HTTP 200 `application/scim+json` response
+func (r GetScimV2ServiceProviderConfigResponse) GetApplicationscimJSON200() *SCIMResource {
+	return r.ApplicationscimJSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r GetScimV2ServiceProviderConfigResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetScimV2ServiceProviderConfigResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetScimV2ServiceProviderConfigResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetScimV2ServiceProviderConfigResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListScimV2UsersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationscimJSON200 the response for an HTTP 200 `application/scim+json` response
+	ApplicationscimJSON200 *SCIMResource
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+}
+
+// GetApplicationscimJSON200 returns the response for an HTTP 200 `application/scim+json` response
+func (r ListScimV2UsersResponse) GetApplicationscimJSON200() *SCIMResource {
+	return r.ApplicationscimJSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r ListScimV2UsersResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r ListScimV2UsersResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetBody returns the raw response body bytes
+func (r ListScimV2UsersResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListScimV2UsersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListScimV2UsersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListScimV2UsersResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateScimV2UserResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationscimJSON201 the response for an HTTP 201 `application/scim+json` response
+	ApplicationscimJSON201 *SCIMResource
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+}
+
+// GetApplicationscimJSON201 returns the response for an HTTP 201 `application/scim+json` response
+func (r CreateScimV2UserResponse) GetApplicationscimJSON201() *SCIMResource {
+	return r.ApplicationscimJSON201
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r CreateScimV2UserResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r CreateScimV2UserResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateScimV2UserResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateScimV2UserResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateScimV2UserResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateScimV2UserResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteScimV2UserResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r DeleteScimV2UserResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteScimV2UserResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteScimV2UserResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteScimV2UserResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteScimV2UserResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetScimV2UserResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationscimJSON200 the response for an HTTP 200 `application/scim+json` response
+	ApplicationscimJSON200 *SCIMResource
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetApplicationscimJSON200 returns the response for an HTTP 200 `application/scim+json` response
+func (r GetScimV2UserResponse) GetApplicationscimJSON200() *SCIMResource {
+	return r.ApplicationscimJSON200
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r GetScimV2UserResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetScimV2UserResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetScimV2UserResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetScimV2UserResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetScimV2UserResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateScimV2UserResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationscimJSON200 the response for an HTTP 200 `application/scim+json` response
+	ApplicationscimJSON200 *SCIMResource
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetApplicationscimJSON200 returns the response for an HTTP 200 `application/scim+json` response
+func (r UpdateScimV2UserResponse) GetApplicationscimJSON200() *SCIMResource {
+	return r.ApplicationscimJSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r UpdateScimV2UserResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r UpdateScimV2UserResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateScimV2UserResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateScimV2UserResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateScimV2UserResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateScimV2UserResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PutScimV2UserResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationscimJSON200 the response for an HTTP 200 `application/scim+json` response
+	ApplicationscimJSON200 *SCIMResource
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetApplicationscimJSON200 returns the response for an HTTP 200 `application/scim+json` response
+func (r PutScimV2UserResponse) GetApplicationscimJSON200() *SCIMResource {
+	return r.ApplicationscimJSON200
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r PutScimV2UserResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r PutScimV2UserResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PutScimV2UserResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutScimV2UserResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PutScimV2UserResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListServiceAccountsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -66585,6 +71175,47 @@ func (r UpdateTeamResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r UpdateTeamResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteTeamGroupResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r DeleteTeamGroupResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteTeamGroupResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteTeamGroupResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteTeamGroupResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteTeamGroupResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -69450,6 +74081,19 @@ func (c *ClientWithResponses) GetBadgeFileWithResponse(ctx context.Context, toke
 	return ParseGetBadgeFileResponse(rsp)
 }
 
+// ListCapabilitiesWithResponse What a custom role can deny
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /capabilities (the `ListCapabilities` operationId).
+func (c *ClientWithResponses) ListCapabilitiesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListCapabilitiesResponse, error) {
+	rsp, err := c.ListCapabilities(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListCapabilitiesResponse(rsp)
+}
+
 // ListComponentsWithResponse Which projects ship this package?
 //
 // Cross-portfolio component search — the question you ask the morning a
@@ -72052,6 +76696,247 @@ func (c *ClientWithResponses) GetOrgWithResponse(ctx context.Context, orgID OrgI
 	return ParseGetOrgResponse(rsp)
 }
 
+// ListOrgCustomRolesWithResponse The organization's custom roles
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /orgs/{orgID}/custom-roles (the `ListOrgCustomRoles` operationId).
+func (c *ClientWithResponses) ListOrgCustomRolesWithResponse(ctx context.Context, orgID OrgID, reqEditors ...RequestEditorFn) (*ListOrgCustomRolesResponse, error) {
+	rsp, err := c.ListOrgCustomRoles(ctx, orgID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListOrgCustomRolesResponse(rsp)
+}
+
+// CreateOrgCustomRoleWithBodyWithResponse Create a custom role
+//
+// Requires org `admin`. A custom role is a base role minus denied capabilities,
+// assignable on team and project grants (`custom_role_id`). Several grants
+// combine by union: a capability one grant denies is allowed when another
+// grant at the needed level doesn't deny it.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /orgs/{orgID}/custom-roles (the `CreateOrgCustomRole` operationId).
+func (c *ClientWithResponses) CreateOrgCustomRoleWithBodyWithResponse(ctx context.Context, orgID OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateOrgCustomRoleResponse, error) {
+	rsp, err := c.CreateOrgCustomRoleWithBody(ctx, orgID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateOrgCustomRoleResponse(rsp)
+}
+
+// CreateOrgCustomRoleWithResponse Create a custom role
+//
+// Requires org `admin`. A custom role is a base role minus denied capabilities,
+// assignable on team and project grants (`custom_role_id`). Several grants
+// combine by union: a capability one grant denies is allowed when another
+// grant at the needed level doesn't deny it.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /orgs/{orgID}/custom-roles (the `CreateOrgCustomRole` operationId).
+func (c *ClientWithResponses) CreateOrgCustomRoleWithResponse(ctx context.Context, orgID OrgID, body CreateOrgCustomRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateOrgCustomRoleResponse, error) {
+	rsp, err := c.CreateOrgCustomRole(ctx, orgID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateOrgCustomRoleResponse(rsp)
+}
+
+// DeleteOrgCustomRoleWithResponse Delete a custom role (grants using it fall back to their base role)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /orgs/{orgID}/custom-roles/{roleID} (the `DeleteOrgCustomRole` operationId).
+func (c *ClientWithResponses) DeleteOrgCustomRoleWithResponse(ctx context.Context, orgID OrgID, roleID RoleID, reqEditors ...RequestEditorFn) (*DeleteOrgCustomRoleResponse, error) {
+	rsp, err := c.DeleteOrgCustomRole(ctx, orgID, roleID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteOrgCustomRoleResponse(rsp)
+}
+
+// PutOrgCustomRoleWithBodyWithResponse Change a custom role
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /orgs/{orgID}/custom-roles/{roleID} (the `PutOrgCustomRole` operationId).
+func (c *ClientWithResponses) PutOrgCustomRoleWithBodyWithResponse(ctx context.Context, orgID OrgID, roleID RoleID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutOrgCustomRoleResponse, error) {
+	rsp, err := c.PutOrgCustomRoleWithBody(ctx, orgID, roleID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutOrgCustomRoleResponse(rsp)
+}
+
+// PutOrgCustomRoleWithResponse Change a custom role
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /orgs/{orgID}/custom-roles/{roleID} (the `PutOrgCustomRole` operationId).
+func (c *ClientWithResponses) PutOrgCustomRoleWithResponse(ctx context.Context, orgID OrgID, roleID RoleID, body PutOrgCustomRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*PutOrgCustomRoleResponse, error) {
+	rsp, err := c.PutOrgCustomRole(ctx, orgID, roleID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutOrgCustomRoleResponse(rsp)
+}
+
+// ListOrgGroupsWithResponse The organization's user groups
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /orgs/{orgID}/groups (the `ListOrgGroups` operationId).
+func (c *ClientWithResponses) ListOrgGroupsWithResponse(ctx context.Context, orgID OrgID, reqEditors ...RequestEditorFn) (*ListOrgGroupsResponse, error) {
+	rsp, err := c.ListOrgGroups(ctx, orgID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListOrgGroupsResponse(rsp)
+}
+
+// CreateOrgGroupWithBodyWithResponse Create a user group
+//
+// Requires org `admin`. A group is grantable on the organization, a team or a
+// project exactly like a user (`group_id` in the members endpoints); every
+// member gets the role. SCIM clients can provision groups too.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /orgs/{orgID}/groups (the `CreateOrgGroup` operationId).
+func (c *ClientWithResponses) CreateOrgGroupWithBodyWithResponse(ctx context.Context, orgID OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateOrgGroupResponse, error) {
+	rsp, err := c.CreateOrgGroupWithBody(ctx, orgID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateOrgGroupResponse(rsp)
+}
+
+// CreateOrgGroupWithResponse Create a user group
+//
+// Requires org `admin`. A group is grantable on the organization, a team or a
+// project exactly like a user (`group_id` in the members endpoints); every
+// member gets the role. SCIM clients can provision groups too.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /orgs/{orgID}/groups (the `CreateOrgGroup` operationId).
+func (c *ClientWithResponses) CreateOrgGroupWithResponse(ctx context.Context, orgID OrgID, body CreateOrgGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateOrgGroupResponse, error) {
+	rsp, err := c.CreateOrgGroup(ctx, orgID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateOrgGroupResponse(rsp)
+}
+
+// DeleteOrgGroupWithResponse Delete a user group (its grants go with it)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /orgs/{orgID}/groups/{groupID} (the `DeleteOrgGroup` operationId).
+func (c *ClientWithResponses) DeleteOrgGroupWithResponse(ctx context.Context, orgID OrgID, groupID GroupID, reqEditors ...RequestEditorFn) (*DeleteOrgGroupResponse, error) {
+	rsp, err := c.DeleteOrgGroup(ctx, orgID, groupID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteOrgGroupResponse(rsp)
+}
+
+// GetOrgGroupWithResponse A user group and its members
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /orgs/{orgID}/groups/{groupID} (the `GetOrgGroup` operationId).
+func (c *ClientWithResponses) GetOrgGroupWithResponse(ctx context.Context, orgID OrgID, groupID GroupID, reqEditors ...RequestEditorFn) (*GetOrgGroupResponse, error) {
+	rsp, err := c.GetOrgGroup(ctx, orgID, groupID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetOrgGroupResponse(rsp)
+}
+
+// PutOrgGroupWithBodyWithResponse Rename a user group
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /orgs/{orgID}/groups/{groupID} (the `PutOrgGroup` operationId).
+func (c *ClientWithResponses) PutOrgGroupWithBodyWithResponse(ctx context.Context, orgID OrgID, groupID GroupID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutOrgGroupResponse, error) {
+	rsp, err := c.PutOrgGroupWithBody(ctx, orgID, groupID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutOrgGroupResponse(rsp)
+}
+
+// PutOrgGroupWithResponse Rename a user group
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /orgs/{orgID}/groups/{groupID} (the `PutOrgGroup` operationId).
+func (c *ClientWithResponses) PutOrgGroupWithResponse(ctx context.Context, orgID OrgID, groupID GroupID, body PutOrgGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*PutOrgGroupResponse, error) {
+	rsp, err := c.PutOrgGroup(ctx, orgID, groupID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutOrgGroupResponse(rsp)
+}
+
+// CreateOrgGroupMemberWithBodyWithResponse Add a user to a group
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /orgs/{orgID}/groups/{groupID}/members (the `CreateOrgGroupMember` operationId).
+func (c *ClientWithResponses) CreateOrgGroupMemberWithBodyWithResponse(ctx context.Context, orgID OrgID, groupID GroupID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateOrgGroupMemberResponse, error) {
+	rsp, err := c.CreateOrgGroupMemberWithBody(ctx, orgID, groupID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateOrgGroupMemberResponse(rsp)
+}
+
+// CreateOrgGroupMemberWithResponse Add a user to a group
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /orgs/{orgID}/groups/{groupID}/members (the `CreateOrgGroupMember` operationId).
+func (c *ClientWithResponses) CreateOrgGroupMemberWithResponse(ctx context.Context, orgID OrgID, groupID GroupID, body CreateOrgGroupMemberJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateOrgGroupMemberResponse, error) {
+	rsp, err := c.CreateOrgGroupMember(ctx, orgID, groupID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateOrgGroupMemberResponse(rsp)
+}
+
+// DeleteOrgGroupMemberWithResponse Remove a user from a group
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /orgs/{orgID}/groups/{groupID}/members/{userID} (the `DeleteOrgGroupMember` operationId).
+func (c *ClientWithResponses) DeleteOrgGroupMemberWithResponse(ctx context.Context, orgID OrgID, groupID GroupID, userID UserID, reqEditors ...RequestEditorFn) (*DeleteOrgGroupMemberResponse, error) {
+	rsp, err := c.DeleteOrgGroupMember(ctx, orgID, groupID, userID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteOrgGroupMemberResponse(rsp)
+}
+
+// DeleteOrgMemberGroupWithResponse Remove a user group's grant on the organization
+//
+// Requires org `admin`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /orgs/{orgID}/member-groups/{groupID} (the `DeleteOrgMemberGroup` operationId).
+func (c *ClientWithResponses) DeleteOrgMemberGroupWithResponse(ctx context.Context, orgID OrgID, groupID GroupID, reqEditors ...RequestEditorFn) (*DeleteOrgMemberGroupResponse, error) {
+	rsp, err := c.DeleteOrgMemberGroup(ctx, orgID, groupID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteOrgMemberGroupResponse(rsp)
+}
+
 // ListOrgMembersWithResponse List organization members
 //
 // Returns a wrapper object for the known response body format(s).
@@ -73384,6 +78269,19 @@ func (c *ClientWithResponses) PutProjectGatePolicyWithResponse(ctx context.Conte
 		return nil, err
 	}
 	return ParsePutProjectGatePolicyResponse(rsp)
+}
+
+// DeleteProjectGroupWithResponse Remove a user group's grant on the project
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /projects/{projectID}/groups/{groupID} (the `DeleteProjectGroup` operationId).
+func (c *ClientWithResponses) DeleteProjectGroupWithResponse(ctx context.Context, projectID ProjectID, groupID GroupID, reqEditors ...RequestEditorFn) (*DeleteProjectGroupResponse, error) {
+	rsp, err := c.DeleteProjectGroup(ctx, projectID, groupID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteProjectGroupResponse(rsp)
 }
 
 // GetProjectIngestionHealthWithResponse Ingestion problems of one project
@@ -75135,6 +80033,339 @@ func (c *ClientWithResponses) RestoreScanWithResponse(ctx context.Context, scanI
 	return ParseRestoreScanResponse(rsp)
 }
 
+// ListScimTokensWithResponse SCIM tokens (instance admin)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /scim-tokens (the `ListScimTokens` operationId).
+func (c *ClientWithResponses) ListScimTokensWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListScimTokensResponse, error) {
+	rsp, err := c.ListScimTokens(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListScimTokensResponse(rsp)
+}
+
+// CreateScimTokenWithBodyWithResponse Create a SCIM token for an organization (instance admin)
+//
+// The secret is shown once. It authenticates `/scim/v2` only, and only for this organization.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /scim-tokens (the `CreateScimToken` operationId).
+func (c *ClientWithResponses) CreateScimTokenWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateScimTokenResponse, error) {
+	rsp, err := c.CreateScimTokenWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateScimTokenResponse(rsp)
+}
+
+// CreateScimTokenWithResponse Create a SCIM token for an organization (instance admin)
+//
+// The secret is shown once. It authenticates `/scim/v2` only, and only for this organization.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /scim-tokens (the `CreateScimToken` operationId).
+func (c *ClientWithResponses) CreateScimTokenWithResponse(ctx context.Context, body CreateScimTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateScimTokenResponse, error) {
+	rsp, err := c.CreateScimToken(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateScimTokenResponse(rsp)
+}
+
+// DeleteScimTokenWithResponse Revoke a SCIM token
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /scim-tokens/{tokenID} (the `DeleteScimToken` operationId).
+func (c *ClientWithResponses) DeleteScimTokenWithResponse(ctx context.Context, tokenID TokenID, reqEditors ...RequestEditorFn) (*DeleteScimTokenResponse, error) {
+	rsp, err := c.DeleteScimToken(ctx, tokenID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteScimTokenResponse(rsp)
+}
+
+// ListScimV2GroupsWithResponse List Groups
+//
+// `filter` supports `attr eq "value"` only. Paged by `startIndex` (1-based) and `count` (max 200).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /scim/v2/Groups (the `ListScimV2Groups` operationId).
+func (c *ClientWithResponses) ListScimV2GroupsWithResponse(ctx context.Context, params *ListScimV2GroupsParams, reqEditors ...RequestEditorFn) (*ListScimV2GroupsResponse, error) {
+	rsp, err := c.ListScimV2Groups(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListScimV2GroupsResponse(rsp)
+}
+
+// CreateScimV2GroupWithBodyWithResponse Create a Group
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /scim/v2/Groups (the `CreateScimV2Group` operationId).
+func (c *ClientWithResponses) CreateScimV2GroupWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateScimV2GroupResponse, error) {
+	rsp, err := c.CreateScimV2GroupWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateScimV2GroupResponse(rsp)
+}
+
+// CreateScimV2GroupWithApplicationScimPlusJSONBodyWithResponse Create a Group
+//
+// Takes a body of the `application/scim+json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /scim/v2/Groups (the `CreateScimV2Group` operationId).
+func (c *ClientWithResponses) CreateScimV2GroupWithApplicationScimPlusJSONBodyWithResponse(ctx context.Context, body CreateScimV2GroupApplicationScimPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateScimV2GroupResponse, error) {
+	rsp, err := c.CreateScimV2GroupWithApplicationScimPlusJSONBody(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateScimV2GroupResponse(rsp)
+}
+
+// DeleteScimV2GroupWithResponse Delete a Group
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /scim/v2/Groups/{id} (the `DeleteScimV2Group` operationId).
+func (c *ClientWithResponses) DeleteScimV2GroupWithResponse(ctx context.Context, id SCIMID, reqEditors ...RequestEditorFn) (*DeleteScimV2GroupResponse, error) {
+	rsp, err := c.DeleteScimV2Group(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteScimV2GroupResponse(rsp)
+}
+
+// GetScimV2GroupWithResponse Get a Group
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /scim/v2/Groups/{id} (the `GetScimV2Group` operationId).
+func (c *ClientWithResponses) GetScimV2GroupWithResponse(ctx context.Context, id SCIMID, reqEditors ...RequestEditorFn) (*GetScimV2GroupResponse, error) {
+	rsp, err := c.GetScimV2Group(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetScimV2GroupResponse(rsp)
+}
+
+// UpdateScimV2GroupWithBodyWithResponse Change a Group (PatchOp)
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /scim/v2/Groups/{id} (the `UpdateScimV2Group` operationId).
+func (c *ClientWithResponses) UpdateScimV2GroupWithBodyWithResponse(ctx context.Context, id SCIMID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateScimV2GroupResponse, error) {
+	rsp, err := c.UpdateScimV2GroupWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateScimV2GroupResponse(rsp)
+}
+
+// UpdateScimV2GroupWithApplicationScimPlusJSONBodyWithResponse Change a Group (PatchOp)
+//
+// Takes a body of the `application/scim+json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /scim/v2/Groups/{id} (the `UpdateScimV2Group` operationId).
+func (c *ClientWithResponses) UpdateScimV2GroupWithApplicationScimPlusJSONBodyWithResponse(ctx context.Context, id SCIMID, body UpdateScimV2GroupApplicationScimPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateScimV2GroupResponse, error) {
+	rsp, err := c.UpdateScimV2GroupWithApplicationScimPlusJSONBody(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateScimV2GroupResponse(rsp)
+}
+
+// PutScimV2GroupWithBodyWithResponse Replace a Group
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /scim/v2/Groups/{id} (the `PutScimV2Group` operationId).
+func (c *ClientWithResponses) PutScimV2GroupWithBodyWithResponse(ctx context.Context, id SCIMID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutScimV2GroupResponse, error) {
+	rsp, err := c.PutScimV2GroupWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutScimV2GroupResponse(rsp)
+}
+
+// PutScimV2GroupWithApplicationScimPlusJSONBodyWithResponse Replace a Group
+//
+// Takes a body of the `application/scim+json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /scim/v2/Groups/{id} (the `PutScimV2Group` operationId).
+func (c *ClientWithResponses) PutScimV2GroupWithApplicationScimPlusJSONBodyWithResponse(ctx context.Context, id SCIMID, body PutScimV2GroupApplicationScimPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*PutScimV2GroupResponse, error) {
+	rsp, err := c.PutScimV2GroupWithApplicationScimPlusJSONBody(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutScimV2GroupResponse(rsp)
+}
+
+// ListScimV2ResourceTypesWithResponse SCIM resource types
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /scim/v2/ResourceTypes (the `ListScimV2ResourceTypes` operationId).
+func (c *ClientWithResponses) ListScimV2ResourceTypesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListScimV2ResourceTypesResponse, error) {
+	rsp, err := c.ListScimV2ResourceTypes(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListScimV2ResourceTypesResponse(rsp)
+}
+
+// ListScimV2SchemasWithResponse SCIM schemas
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /scim/v2/Schemas (the `ListScimV2Schemas` operationId).
+func (c *ClientWithResponses) ListScimV2SchemasWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListScimV2SchemasResponse, error) {
+	rsp, err := c.ListScimV2Schemas(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListScimV2SchemasResponse(rsp)
+}
+
+// GetScimV2ServiceProviderConfigWithResponse SCIM service provider configuration
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /scim/v2/ServiceProviderConfig (the `GetScimV2ServiceProviderConfig` operationId).
+func (c *ClientWithResponses) GetScimV2ServiceProviderConfigWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetScimV2ServiceProviderConfigResponse, error) {
+	rsp, err := c.GetScimV2ServiceProviderConfig(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetScimV2ServiceProviderConfigResponse(rsp)
+}
+
+// ListScimV2UsersWithResponse List Users
+//
+// `filter` supports `attr eq "value"` only. Paged by `startIndex` (1-based) and `count` (max 200).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /scim/v2/Users (the `ListScimV2Users` operationId).
+func (c *ClientWithResponses) ListScimV2UsersWithResponse(ctx context.Context, params *ListScimV2UsersParams, reqEditors ...RequestEditorFn) (*ListScimV2UsersResponse, error) {
+	rsp, err := c.ListScimV2Users(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListScimV2UsersResponse(rsp)
+}
+
+// CreateScimV2UserWithBodyWithResponse Create a User
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /scim/v2/Users (the `CreateScimV2User` operationId).
+func (c *ClientWithResponses) CreateScimV2UserWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateScimV2UserResponse, error) {
+	rsp, err := c.CreateScimV2UserWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateScimV2UserResponse(rsp)
+}
+
+// CreateScimV2UserWithApplicationScimPlusJSONBodyWithResponse Create a User
+//
+// Takes a body of the `application/scim+json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /scim/v2/Users (the `CreateScimV2User` operationId).
+func (c *ClientWithResponses) CreateScimV2UserWithApplicationScimPlusJSONBodyWithResponse(ctx context.Context, body CreateScimV2UserApplicationScimPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateScimV2UserResponse, error) {
+	rsp, err := c.CreateScimV2UserWithApplicationScimPlusJSONBody(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateScimV2UserResponse(rsp)
+}
+
+// DeleteScimV2UserWithResponse Delete a User
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /scim/v2/Users/{id} (the `DeleteScimV2User` operationId).
+func (c *ClientWithResponses) DeleteScimV2UserWithResponse(ctx context.Context, id SCIMID, reqEditors ...RequestEditorFn) (*DeleteScimV2UserResponse, error) {
+	rsp, err := c.DeleteScimV2User(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteScimV2UserResponse(rsp)
+}
+
+// GetScimV2UserWithResponse Get a User
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /scim/v2/Users/{id} (the `GetScimV2User` operationId).
+func (c *ClientWithResponses) GetScimV2UserWithResponse(ctx context.Context, id SCIMID, reqEditors ...RequestEditorFn) (*GetScimV2UserResponse, error) {
+	rsp, err := c.GetScimV2User(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetScimV2UserResponse(rsp)
+}
+
+// UpdateScimV2UserWithBodyWithResponse Change a User (PatchOp)
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /scim/v2/Users/{id} (the `UpdateScimV2User` operationId).
+func (c *ClientWithResponses) UpdateScimV2UserWithBodyWithResponse(ctx context.Context, id SCIMID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateScimV2UserResponse, error) {
+	rsp, err := c.UpdateScimV2UserWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateScimV2UserResponse(rsp)
+}
+
+// UpdateScimV2UserWithApplicationScimPlusJSONBodyWithResponse Change a User (PatchOp)
+//
+// Takes a body of the `application/scim+json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /scim/v2/Users/{id} (the `UpdateScimV2User` operationId).
+func (c *ClientWithResponses) UpdateScimV2UserWithApplicationScimPlusJSONBodyWithResponse(ctx context.Context, id SCIMID, body UpdateScimV2UserApplicationScimPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateScimV2UserResponse, error) {
+	rsp, err := c.UpdateScimV2UserWithApplicationScimPlusJSONBody(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateScimV2UserResponse(rsp)
+}
+
+// PutScimV2UserWithBodyWithResponse Replace a User
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /scim/v2/Users/{id} (the `PutScimV2User` operationId).
+func (c *ClientWithResponses) PutScimV2UserWithBodyWithResponse(ctx context.Context, id SCIMID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutScimV2UserResponse, error) {
+	rsp, err := c.PutScimV2UserWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutScimV2UserResponse(rsp)
+}
+
+// PutScimV2UserWithApplicationScimPlusJSONBodyWithResponse Replace a User
+//
+// Takes a body of the `application/scim+json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /scim/v2/Users/{id} (the `PutScimV2User` operationId).
+func (c *ClientWithResponses) PutScimV2UserWithApplicationScimPlusJSONBodyWithResponse(ctx context.Context, id SCIMID, body PutScimV2UserApplicationScimPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*PutScimV2UserResponse, error) {
+	rsp, err := c.PutScimV2UserWithApplicationScimPlusJSONBody(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutScimV2UserResponse(rsp)
+}
+
 // ListServiceAccountsWithResponse List service accounts
 //
 // Instance admin only.
@@ -75797,6 +81028,19 @@ func (c *ClientWithResponses) UpdateTeamWithResponse(ctx context.Context, teamID
 		return nil, err
 	}
 	return ParseUpdateTeamResponse(rsp)
+}
+
+// DeleteTeamGroupWithResponse Remove a user group's grant on the team
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /teams/{teamID}/groups/{groupID} (the `DeleteTeamGroup` operationId).
+func (c *ClientWithResponses) DeleteTeamGroupWithResponse(ctx context.Context, teamID TeamID, groupID GroupID, reqEditors ...RequestEditorFn) (*DeleteTeamGroupResponse, error) {
+	rsp, err := c.DeleteTeamGroup(ctx, teamID, groupID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteTeamGroupResponse(rsp)
 }
 
 // ListTeamMembersWithResponse List team members
@@ -78169,6 +83413,34 @@ func ParseGetBadgeFileResponse(rsp *http.Response) (*GetBadgeFileResponse, error
 	response := &GetBadgeFileResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseListCapabilitiesResponse parses an HTTP response from a ListCapabilitiesWithResponse call
+func ParseListCapabilitiesResponse(rsp *http.Response) (*ListCapabilitiesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListCapabilitiesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Capabilities *[]Capability `json:"capabilities,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	}
 
 	return response, nil
@@ -82582,6 +87854,406 @@ func ParseGetOrgResponse(rsp *http.Response) (*GetOrgResponse, error) {
 	return response, nil
 }
 
+// ParseListOrgCustomRolesResponse parses an HTTP response from a ListOrgCustomRolesWithResponse call
+func ParseListOrgCustomRolesResponse(rsp *http.Response) (*ListOrgCustomRolesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListOrgCustomRolesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			CustomRoles *[]CustomRole `json:"custom_roles,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateOrgCustomRoleResponse parses an HTTP response from a CreateOrgCustomRoleWithResponse call
+func ParseCreateOrgCustomRoleResponse(rsp *http.Response) (*CreateOrgCustomRoleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateOrgCustomRoleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest CustomRole
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteOrgCustomRoleResponse parses an HTTP response from a DeleteOrgCustomRoleWithResponse call
+func ParseDeleteOrgCustomRoleResponse(rsp *http.Response) (*DeleteOrgCustomRoleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteOrgCustomRoleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutOrgCustomRoleResponse parses an HTTP response from a PutOrgCustomRoleWithResponse call
+func ParsePutOrgCustomRoleResponse(rsp *http.Response) (*PutOrgCustomRoleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutOrgCustomRoleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CustomRole
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListOrgGroupsResponse parses an HTTP response from a ListOrgGroupsWithResponse call
+func ParseListOrgGroupsResponse(rsp *http.Response) (*ListOrgGroupsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListOrgGroupsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Groups *[]UserGroup `json:"groups,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateOrgGroupResponse parses an HTTP response from a CreateOrgGroupWithResponse call
+func ParseCreateOrgGroupResponse(rsp *http.Response) (*CreateOrgGroupResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateOrgGroupResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest UserGroup
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteOrgGroupResponse parses an HTTP response from a DeleteOrgGroupWithResponse call
+func ParseDeleteOrgGroupResponse(rsp *http.Response) (*DeleteOrgGroupResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteOrgGroupResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetOrgGroupResponse parses an HTTP response from a GetOrgGroupWithResponse call
+func ParseGetOrgGroupResponse(rsp *http.Response) (*GetOrgGroupResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetOrgGroupResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Group   *UserGroup `json:"group,omitempty"`
+			Members *[]struct {
+				Email  *openapi_types.Email `json:"email,omitempty"`
+				UserId *openapi_types.UUID  `json:"user_id,omitempty"`
+			} `json:"members,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutOrgGroupResponse parses an HTTP response from a PutOrgGroupWithResponse call
+func ParsePutOrgGroupResponse(rsp *http.Response) (*PutOrgGroupResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutOrgGroupResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest UserGroup
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateOrgGroupMemberResponse parses an HTTP response from a CreateOrgGroupMemberWithResponse call
+func ParseCreateOrgGroupMemberResponse(rsp *http.Response) (*CreateOrgGroupMemberResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateOrgGroupMemberResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteOrgGroupMemberResponse parses an HTTP response from a DeleteOrgGroupMemberWithResponse call
+func ParseDeleteOrgGroupMemberResponse(rsp *http.Response) (*DeleteOrgGroupMemberResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteOrgGroupMemberResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteOrgMemberGroupResponse parses an HTTP response from a DeleteOrgMemberGroupWithResponse call
+func ParseDeleteOrgMemberGroupResponse(rsp *http.Response) (*DeleteOrgMemberGroupResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteOrgMemberGroupResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListOrgMembersResponse parses an HTTP response from a ListOrgMembersWithResponse call
 func ParseListOrgMembersResponse(rsp *http.Response) (*ListOrgMembersResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -84743,6 +90415,35 @@ func ParsePutProjectGatePolicyResponse(rsp *http.Response) (*PutProjectGatePolic
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteProjectGroupResponse parses an HTTP response from a DeleteProjectGroupWithResponse call
+func ParseDeleteProjectGroupResponse(rsp *http.Response) (*DeleteProjectGroupResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteProjectGroupResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	}
 
@@ -87851,6 +93552,619 @@ func ParseRestoreScanResponse(rsp *http.Response) (*RestoreScanResponse, error) 
 	return response, nil
 }
 
+// ParseListScimTokensResponse parses an HTTP response from a ListScimTokensWithResponse call
+func ParseListScimTokensResponse(rsp *http.Response) (*ListScimTokensResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListScimTokensResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Tokens *[]SCIMToken `json:"tokens,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateScimTokenResponse parses an HTTP response from a CreateScimTokenWithResponse call
+func ParseCreateScimTokenResponse(rsp *http.Response) (*CreateScimTokenResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateScimTokenResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Secret *string    `json:"secret,omitempty"`
+			Token  *SCIMToken `json:"token,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteScimTokenResponse parses an HTTP response from a DeleteScimTokenWithResponse call
+func ParseDeleteScimTokenResponse(rsp *http.Response) (*DeleteScimTokenResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteScimTokenResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListScimV2GroupsResponse parses an HTTP response from a ListScimV2GroupsWithResponse call
+func ParseListScimV2GroupsResponse(rsp *http.Response) (*ListScimV2GroupsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListScimV2GroupsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SCIMResource
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationscimJSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateScimV2GroupResponse parses an HTTP response from a CreateScimV2GroupWithResponse call
+func ParseCreateScimV2GroupResponse(rsp *http.Response) (*CreateScimV2GroupResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateScimV2GroupResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest SCIMResource
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationscimJSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteScimV2GroupResponse parses an HTTP response from a DeleteScimV2GroupWithResponse call
+func ParseDeleteScimV2GroupResponse(rsp *http.Response) (*DeleteScimV2GroupResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteScimV2GroupResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetScimV2GroupResponse parses an HTTP response from a GetScimV2GroupWithResponse call
+func ParseGetScimV2GroupResponse(rsp *http.Response) (*GetScimV2GroupResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetScimV2GroupResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SCIMResource
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationscimJSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateScimV2GroupResponse parses an HTTP response from a UpdateScimV2GroupWithResponse call
+func ParseUpdateScimV2GroupResponse(rsp *http.Response) (*UpdateScimV2GroupResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateScimV2GroupResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SCIMResource
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationscimJSON200 = &dest
+
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutScimV2GroupResponse parses an HTTP response from a PutScimV2GroupWithResponse call
+func ParsePutScimV2GroupResponse(rsp *http.Response) (*PutScimV2GroupResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutScimV2GroupResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SCIMResource
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationscimJSON200 = &dest
+
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListScimV2ResourceTypesResponse parses an HTTP response from a ListScimV2ResourceTypesWithResponse call
+func ParseListScimV2ResourceTypesResponse(rsp *http.Response) (*ListScimV2ResourceTypesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListScimV2ResourceTypesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SCIMResource
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationscimJSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListScimV2SchemasResponse parses an HTTP response from a ListScimV2SchemasWithResponse call
+func ParseListScimV2SchemasResponse(rsp *http.Response) (*ListScimV2SchemasResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListScimV2SchemasResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SCIMResource
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationscimJSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetScimV2ServiceProviderConfigResponse parses an HTTP response from a GetScimV2ServiceProviderConfigWithResponse call
+func ParseGetScimV2ServiceProviderConfigResponse(rsp *http.Response) (*GetScimV2ServiceProviderConfigResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetScimV2ServiceProviderConfigResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SCIMResource
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationscimJSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListScimV2UsersResponse parses an HTTP response from a ListScimV2UsersWithResponse call
+func ParseListScimV2UsersResponse(rsp *http.Response) (*ListScimV2UsersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListScimV2UsersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SCIMResource
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationscimJSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateScimV2UserResponse parses an HTTP response from a CreateScimV2UserWithResponse call
+func ParseCreateScimV2UserResponse(rsp *http.Response) (*CreateScimV2UserResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateScimV2UserResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest SCIMResource
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationscimJSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteScimV2UserResponse parses an HTTP response from a DeleteScimV2UserWithResponse call
+func ParseDeleteScimV2UserResponse(rsp *http.Response) (*DeleteScimV2UserResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteScimV2UserResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetScimV2UserResponse parses an HTTP response from a GetScimV2UserWithResponse call
+func ParseGetScimV2UserResponse(rsp *http.Response) (*GetScimV2UserResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetScimV2UserResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SCIMResource
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationscimJSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateScimV2UserResponse parses an HTTP response from a UpdateScimV2UserWithResponse call
+func ParseUpdateScimV2UserResponse(rsp *http.Response) (*UpdateScimV2UserResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateScimV2UserResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SCIMResource
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationscimJSON200 = &dest
+
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutScimV2UserResponse parses an HTTP response from a PutScimV2UserWithResponse call
+func ParsePutScimV2UserResponse(rsp *http.Response) (*PutScimV2UserResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutScimV2UserResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SCIMResource
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationscimJSON200 = &dest
+
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListServiceAccountsResponse parses an HTTP response from a ListServiceAccountsWithResponse call
 func ParseListServiceAccountsResponse(rsp *http.Response) (*ListServiceAccountsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -88921,6 +95235,35 @@ func ParseUpdateTeamResponse(rsp *http.Response) (*UpdateTeamResponse, error) {
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteTeamGroupResponse parses an HTTP response from a DeleteTeamGroupWithResponse call
+func ParseDeleteTeamGroupResponse(rsp *http.Response) (*DeleteTeamGroupResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteTeamGroupResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	}
 

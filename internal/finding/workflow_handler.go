@@ -30,6 +30,7 @@ import (
 type accessChecker interface {
 	RoleOnProject(ctx context.Context, userID, projectID string) (domain.TeamRole, bool, error)
 	AdminStatus(ctx context.Context, userID string) (isAdmin, isOwner bool, err error)
+	ProjectCapabilityAllowed(ctx context.Context, userID, projectID string, min domain.TeamRole, cap domain.Capability) (bool, error)
 }
 
 // MaxAttachmentBytes caps one evidence file.
@@ -53,6 +54,20 @@ func (h *Handler) can(c *fiber.Ctx, userID, projectID string, min domain.TeamRol
 		return false, err
 	}
 	return role.AtLeast(min), nil
+}
+
+// canDo is can plus a custom role's deny-list: some grant meeting min must
+// not deny cap (the middleware's rule, for the cross-project bulk edit it
+// can't authorize).
+func (h *Handler) canDo(c *fiber.Ctx, userID, projectID string, min domain.TeamRole, cap domain.Capability) (bool, error) {
+	ok, err := h.can(c, userID, projectID, min)
+	if err != nil || !ok {
+		return false, err
+	}
+	if isAdmin, _, err := h.access.AdminStatus(c.UserContext(), userID); err != nil || isAdmin {
+		return isAdmin, err
+	}
+	return h.access.ProjectCapabilityAllowed(c.UserContext(), userID, projectID, min, cap)
 }
 
 // assignable checks a would-be assignee can see every project involved.
@@ -332,7 +347,7 @@ func (h *Handler) Bulk(c *fiber.Ctx) error {
 		}
 		ok, seen := allowed[pid]
 		if !seen {
-			if ok, err = h.can(c, auth.UserID(c), pid, domain.TeamEditor); err != nil {
+			if ok, err = h.canDo(c, auth.UserID(c), pid, domain.TeamEditor, domain.CapTriage); err != nil {
 				return err
 			}
 			allowed[pid] = ok

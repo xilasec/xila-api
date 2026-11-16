@@ -70,6 +70,7 @@ import (
 	"github.com/xilasec/xila-api/internal/sbom"
 	"github.com/xilasec/xila-api/internal/scan"
 	"github.com/xilasec/xila-api/internal/scanner"
+	"github.com/xilasec/xila-api/internal/scim"
 	"github.com/xilasec/xila-api/internal/secretbox"
 	"github.com/xilasec/xila-api/internal/server"
 	"github.com/xilasec/xila-api/internal/serviceaccount"
@@ -448,6 +449,7 @@ func run() error {
 		ApiToken:     apitoken.NewHandler(tokenRepo, tokenSvc),
 		SvcAccount:   serviceaccount.NewHandler(serviceaccount.NewRepository(db), tokenSvc, tokenRepo, cfg.ServiceAccounts.KeyMaxDays),
 		Federation:   federation.NewHandler(federationRepo, federationSvc, !cfg.IsProduction()),
+		SCIM:         scim.NewHandler(scim.NewStore(db), auditRepo),
 		TokenAuth:    tokenSvc,
 		Sessions:     userRepo,
 		AuthLimiter: ratelimit.New(db, ratelimit.Limits{
