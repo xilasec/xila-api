@@ -2205,6 +2205,46 @@ paths:
                 properties:
                   projects: { type: array, items: { $ref: "#/components/schemas/Project" } }
 
+  /projects/{projectID}/priority-weights:
+    get:
+      operationId: listProjectPriorityWeights
+      tags: [Projects]
+      summary: The project's priority weights
+      description: What the project's priorities are computed with, whether that's its own override (`custom`), and the defaults.
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }]
+      responses:
+        "200": { $ref: "#/components/responses/PriorityWeightsResult" }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      operationId: putProjectPriorityWeights
+      tags: [Projects]
+      summary: Override the project's priority weights
+      description: |
+        Owner. Fields left out keep their default. Discounts (`transitive`, `dev`,
+        `optional`, `isolated`) stay in (0, 1]; uplifts (`kev`, `weaponized`, `poc`,
+        `internet`) stay at 1 or more; severities keep their order; and an exploited
+        critical in a transitive dev dependency on an isolated asset must still
+        outrank a quiet medium on an internet-facing one. The project's priorities
+        are recomputed at once (`reprioritized`) and its findings regrouped.
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PriorityWeights" }
+      responses:
+        "200": { $ref: "#/components/responses/PriorityWeightsResult" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deleteProjectPriorityWeights
+      tags: [Projects]
+      summary: Back to the default priority weights
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }]
+      responses:
+        "200": { $ref: "#/components/responses/PriorityWeightsResult" }
+        "403": { $ref: "#/components/responses/Error" }
+
   /projects/{projectID}/summary:
     get:
       operationId: getProjectSummary
@@ -8531,6 +8571,17 @@ components:
       schema: { type: string, enum: [csv, xlsx], default: csv }
 
   responses:
+    PriorityWeightsResult:
+      description: The weights in force
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              weights: { $ref: "#/components/schemas/PriorityWeights" }
+              custom: { type: boolean, description: Whether the project overrides the defaults. }
+              defaults: { $ref: "#/components/schemas/PriorityWeights" }
+              reprioritized: { type: integer, description: Findings whose priority changed (PUT / DELETE). }
     Watching:
       description: Whether you watch the project.
       content:
@@ -9031,6 +9082,26 @@ components:
           type: string
           enum: [manual, sso]
           description: "`sso` = granted by an IdP group mapping and synced on that user's SSO logins; `manual` = granted here."
+
+    PriorityWeights:
+      type: object
+      additionalProperties: false
+      description: The factors of a finding's priority (severity weight × exploitability × reachability × exposure).
+      properties:
+        critical: { type: number, default: 15 }
+        high: { type: number, default: 7 }
+        medium: { type: number, default: 3 }
+        low: { type: number, default: 1 }
+        info: { type: number, default: 0 }
+        kev: { type: number, default: 3, description: Multiplier of a finding on a KEV catalog. }
+        epss_slope: { type: number, default: 2, description: "The EPSS factor is 1 + epss_slope × EPSS." }
+        weaponized: { type: number, default: 2.5, description: Floor set by a weaponized exploit (Metasploit). }
+        poc: { type: number, default: 1.5, description: Floor set by a public proof of concept. }
+        transitive: { type: number, default: 0.8 }
+        dev: { type: number, default: 0.25 }
+        optional: { type: number, default: 0.5 }
+        internet: { type: number, default: 1.25 }
+        isolated: { type: number, default: 0.75 }
 
     Criticality:
       type: string

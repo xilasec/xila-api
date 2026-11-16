@@ -179,7 +179,7 @@ func (s *Service) Enrich(ctx context.Context) (Result, error) {
 		}
 
 		x := domain.Exploitability{EPSS: maxEPSS, KEV: kev, Maturity: f.ExploitMaturity}
-		if err := s.findings.SetEnrichment(ctx, f.ID, epss, kevSources, ransomware, domain.Priority(f.Severity, x, f.Reachability(), f.AssetExposure)); err != nil {
+		if err := s.findings.SetEnrichment(ctx, f.ID, epss, kevSources, ransomware, f.Weights.Priority(f.Severity, x, f.Reachability(), f.AssetExposure)); err != nil {
 			return res, err
 		}
 		res.Findings++
