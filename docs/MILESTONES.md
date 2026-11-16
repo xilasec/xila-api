@@ -824,6 +824,8 @@ Tier 2:
     refreshes it. API tokens can't mint tokens.
   - CryptoLyzer (checked against BSI TR-02102-2, plus its attack verdicts with
     CVEs) and drHEADer parsers.
+  - Splitting a multi-host scan per asset: `split_assets=true` files each
+    finding under its machine's host asset (`scanner.HostOf`). Migration 000105.
 
 Deliberately not pursued: FedRAMP POA&M and OSCAL export (US federal niche),
 threat modeling, AI-generated fix pull requests, active cloud scanning (Xila

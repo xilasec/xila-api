@@ -88,6 +88,15 @@ type IngestRequest struct {
 	// Force bypasses skip-unchanged: always run the full pipeline even if this
 	// report's content hash matches the target's previous scan.
 	Force bool
+	// SplitAssets attributes each finding to the host asset of the machine it
+	// names (multi-host infrastructure scans); exclusive with AssetID.
+	SplitAssets bool
+}
+
+// hostResolver finds or creates a project's host assets by name
+// (asset.Repository satisfies it).
+type hostResolver interface {
+	ResolveHosts(ctx context.Context, projectID string, hosts []string) (map[string]string, error)
 }
 
 // parserKey selects the parser: an explicit format wins, else the scanner name.
@@ -109,6 +118,9 @@ type Service struct {
 	// followUps run after dedup, on the scan's final findings (see WithFollowUps).
 	followUps []Applier
 	jobs      jobStore // optional (required for async Enqueue)
+	// hosts resolves split-assets scans' host assets (optional; without it a
+	// split scan keeps every finding on its own target).
+	hosts hostResolver
 	// payloads is where a queued job's raw upload lives between Enqueue and
 	// ProcessJob when INGEST_PAYLOAD_STORE=s3 (see WithPayloadStore). Nil
 	// keeps payloads in scan_jobs.payload (the default).
@@ -291,6 +303,7 @@ func (s *Service) createScan(ctx context.Context, req IngestRequest) (Scan, erro
 		Branch:       name,
 		Kind:         kind,
 		EngagementID: engagementID,
+		SplitAssets:  req.SplitAssets,
 	})
 }
 
@@ -319,10 +332,21 @@ func (s *Service) runPipeline(ctx context.Context, sc Scan, raw io.Reader, forma
 		return Scan{}, fmt.Errorf("parse scan: %w", err)
 	}
 
+	hostAsset, err := s.hostAssets(ctx, sc, parsed)
+	if err != nil {
+		if _, ferr := s.scans.Finalize(ctx, sc.ID, domain.ScanFailed, nil, err.Error(), ""); ferr != nil {
+			return Scan{}, errors.Join(err, ferr)
+		}
+		return Scan{}, err
+	}
 	summary := map[string]int{}
 	findings := make([]finding.Finding, 0, len(parsed))
 	for _, pf := range parsed {
-		findings = append(findings, toFinding(sc.ProjectID, sc.Scanner, sc.ID, sc.AssetID, pf))
+		assetID := sc.AssetID
+		if id, ok := hostAsset[scanner.HostOf(pf)]; ok {
+			assetID = &id
+		}
+		findings = append(findings, toFinding(sc.ProjectID, sc.Scanner, sc.ID, assetID, pf))
 		summary[string(pf.Severity)]++
 	}
 
@@ -672,4 +696,35 @@ func contentHash(scannerName string, parsed []scanner.ParsedFinding, closeMissin
 	}
 	sum := sha256.Sum256(b)
 	return hex.EncodeToString(sum[:]), nil
+}
+
+// hostAssets resolves the host asset of every machine a split-assets scan's
+// findings name (scanner.HostOf), creating the missing ones. Findings that name
+// no host stay on the scan's own target. nil when the scan isn't split.
+func (s *Service) hostAssets(ctx context.Context, sc Scan, parsed []scanner.ParsedFinding) (map[string]string, error) {
+	if !sc.SplitAssets || s.hosts == nil {
+		return nil, nil
+	}
+	seen := map[string]bool{}
+	var hosts []string
+	for _, pf := range parsed {
+		if h := scanner.HostOf(pf); h != "" && !seen[h] {
+			seen[h] = true
+			hosts = append(hosts, h)
+		}
+	}
+	if len(hosts) == 0 {
+		return nil, nil
+	}
+	ids, err := s.hosts.ResolveHosts(ctx, sc.ProjectID, hosts)
+	if err != nil {
+		return nil, fmt.Errorf("host assets: %w", err)
+	}
+	return ids, nil
+}
+
+// WithHostAssets lets split-assets scans find and create host assets.
+func (s *Service) WithHostAssets(h hostResolver) *Service {
+	s.hosts = h
+	return s
 }

@@ -140,6 +140,10 @@ func (h *Handler) Ingest(c *fiber.Ctx) error {
 		EngagementID: c.Query("engagement_id"),
 		CloseMissing: c.QueryBool("close_missing", true),
 		Force:        c.QueryBool("force", false),
+		SplitAssets:  c.QueryBool("split_assets", false),
+	}
+	if req.SplitAssets && req.AssetID != "" {
+		return fiber.NewError(fiber.StatusBadRequest, "give split_assets or asset_id, not both")
 	}
 	if req.EngagementID != "" {
 		if uuid.Validate(req.EngagementID) != nil {

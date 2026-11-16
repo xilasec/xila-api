@@ -7374,8 +7374,11 @@ type Scan struct {
 	Id         *openapi_types.UUID `json:"id,omitempty"`
 	ProjectId  *openapi_types.UUID `json:"project_id,omitempty"`
 	Scanner    *string             `json:"scanner,omitempty"`
-	StartedAt  *time.Time          `json:"started_at,omitempty"`
-	Status     *ScanStatus         `json:"status,omitempty"`
+
+	// SplitAssets The upload filed its findings under one host asset per machine.
+	SplitAssets *bool       `json:"split_assets,omitempty"`
+	StartedAt   *time.Time  `json:"started_at,omitempty"`
+	Status      *ScanStatus `json:"status,omitempty"`
 
 	// Summary Findings per severity in this scan.
 	Summary *map[string]int `json:"summary,omitempty"`
@@ -9472,6 +9475,12 @@ type CreateProjectScanParams struct {
 	// matches the target's previous completed scan (bypasses
 	// `INGEST_SKIP_UNCHANGED`).
 	Force *bool `form:"force,omitempty" json:"force,omitempty"`
+
+	// SplitAssets File each finding under the host asset of the machine it names (Nessus,
+	// OpenVAS, Qualys, Nmap, testssl.sh and other infrastructure scanners
+	// record the host), creating missing host assets. For multi-host network
+	// scans; not together with `asset_id`.
+	SplitAssets *bool `form:"split_assets,omitempty" json:"split_assets,omitempty"`
 }
 
 // CreateProjectScanParamsFormat defines parameters for CreateProjectScan.
@@ -38996,6 +39005,18 @@ func NewCreateProjectScanRequestWithBody(server string, projectID ProjectID, par
 		if params.Force != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "force", *params.Force, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.SplitAssets != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "split_assets", *params.SplitAssets, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {

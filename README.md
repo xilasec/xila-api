@@ -2634,6 +2634,14 @@ reported reopens, a reset field gets the scanner's value back).
 `force=true` (`xila upload --force`) always processes in full. Works the same
 whether ingestion is sync or async.
 
+Multi-host scans. A network scan (Nessus, OpenVAS, Qualys, Nmap, testssl.sh)
+covers many machines at once. Upload it with `split_assets=true` (`xila upload
+--split-assets`) and each finding is filed under the host asset of the machine
+it names, created on first sight and reused by later scans, so exposure,
+relations and per-asset views work per machine. Findings that name no host stay
+on the project. Auto-close still treats the whole scan as one target: a host's
+finding the next scan no longer reports is closed.
+
 ### Backpressure & queue visibility
 
 Accepting an upload we can't process for an hour is worse than refusing it. The
