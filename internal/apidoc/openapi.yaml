@@ -2798,6 +2798,14 @@ paths:
             matches the target's previous completed scan (bypasses
             `INGEST_SKIP_UNCHANGED`).
           schema: { type: boolean, default: false }
+        - name: split_assets
+          in: query
+          description: |
+            File each finding under the host asset of the machine it names (Nessus,
+            OpenVAS, Qualys, Nmap, testssl.sh and other infrastructure scanners
+            record the host), creating missing host assets. For multi-host network
+            scans; not together with `asset_id`.
+          schema: { type: boolean, default: false }
       requestBody:
         required: true
         description: The raw scanner output.
@@ -10310,6 +10318,7 @@ components:
             Digest of the parsed report's findings, set once ingestion finishes.
             `null` for a scan with no raw report (manual findings, the OSV
             matcher) or where hashing failed. See `unchanged_of`.
+        split_assets: { type: boolean, readOnly: true, description: The upload filed its findings under one host asset per machine. }
         unchanged_of:
           type: [string, "null"]
           format: uuid

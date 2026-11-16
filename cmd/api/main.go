@@ -291,6 +291,7 @@ func run() error {
 	ingestSvc := scan.NewService(scanRepo, findingRepo, projectRepo, parsers, notifySvc, appliers, scanRepo).
 		WithFollowUps(remediationSvc).
 		WithSkipUnchanged(cfg.Ingest.SkipUnchanged).
+		WithHostAssets(assetRepo).
 		WithPayloadStore(payloadStore)
 	// Ingest queue depth: sampled once per interval and shared by the metrics
 	// exporter, the upload handler's backpressure check, and (M11 11.7) the

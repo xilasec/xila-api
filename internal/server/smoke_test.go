@@ -232,7 +232,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 	ingestSvc := scan.NewService(scanRepo, findingRepo, projectRepo, parsers, notifySvc,
 		[]scan.Applier{correlation.NewReacher(findingRepo, findingRepo), exploitSvc, vexSvc, triageSvc, assetSvc,
 			connector.NewRemoteTriage(connectorRepo, findingRepo).WithApproval(cfg.RiskAcceptanceRequiresApproval),
-			enrichment.NewNVD(findingRepo, nil)}, scanRepo).WithFollowUps(remediationSvc).WithSkipUnchanged(true)
+			enrichment.NewNVD(findingRepo, nil)}, scanRepo).WithFollowUps(remediationSvc).WithSkipUnchanged(true).WithHostAssets(assetRepo)
 	// Advisory sources without network: the local OSV mirror + private advisories.
 	osvMirrorRepo := vulnmatch.NewOSVRepository(pool)
 	advisoryRepo := vulnmatch.NewAdvisoryRepository(pool, "")

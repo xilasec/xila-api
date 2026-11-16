@@ -160,3 +160,18 @@ func decodeJSONLines(r io.Reader, fn func(json.RawMessage) error) error {
 		}
 	}
 }
+
+// HostOf is the machine a finding is about, as infrastructure parsers record
+// it (metadata host, else hostname, else ip; lowercased), or "" when the
+// finding names none. A split-assets scan files the finding under that host's
+// asset.
+func HostOf(pf ParsedFinding) string {
+	for _, k := range []string{"host", "hostname", "ip"} {
+		if v, ok := pf.Metadata[k].(string); ok {
+			if v = strings.ToLower(strings.TrimSpace(v)); v != "" {
+				return v
+			}
+		}
+	}
+	return ""
+}

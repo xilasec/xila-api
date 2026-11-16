@@ -8357,6 +8357,8 @@ export interface components {
              *     matcher) or where hashing failed. See `unchanged_of`.
              */
             readonly content_hash?: string | null;
+            /** @description The upload filed its findings under one host asset per machine. */
+            readonly split_assets?: boolean;
             /**
              * Format: uuid
              * @description Set when this scan's content hash matched its target's previous
@@ -14146,6 +14148,13 @@ export interface operations {
                  *     `INGEST_SKIP_UNCHANGED`).
                  */
                 force?: boolean;
+                /**
+                 * @description File each finding under the host asset of the machine it names (Nessus,
+                 *     OpenVAS, Qualys, Nmap, testssl.sh and other infrastructure scanners
+                 *     record the host), creating missing host assets. For multi-host network
+                 *     scans; not together with `asset_id`.
+                 */
+                split_assets?: boolean;
             };
             header?: never;
             path: {

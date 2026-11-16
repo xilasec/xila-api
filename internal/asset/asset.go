@@ -237,3 +237,34 @@ func (r *Repository) RaiseExposure(ctx context.Context, id string, e domain.Expo
 	}
 	return tag.RowsAffected() > 0, nil
 }
+
+// ResolveHosts returns the id of the project's host asset for each name
+// (identifier = name), creating the missing ones. Existing rows aren't
+// rewritten: a rescan of the same network touches nothing here.
+func (r *Repository) ResolveHosts(ctx context.Context, projectID string, hosts []string) (map[string]string, error) {
+	if _, err := r.db.Exec(ctx, `
+		INSERT INTO assets (project_id, type, name, identifier)
+		SELECT $1, 'host', h, h FROM unnest($2::text[]) AS h
+		ON CONFLICT (project_id, type, identifier) DO NOTHING`, projectID, hosts); err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23503" {
+			return nil, ErrNoProject
+		}
+		return nil, fmt.Errorf("create host assets: %w", err)
+	}
+	rows, err := r.db.Query(ctx, `SELECT identifier, id FROM assets
+		WHERE project_id = $1 AND type = 'host' AND identifier = ANY($2)`, projectID, hosts)
+	if err != nil {
+		return nil, fmt.Errorf("host assets: %w", err)
+	}
+	defer rows.Close()
+	out := make(map[string]string, len(hosts))
+	for rows.Next() {
+		var name, id string
+		if err := rows.Scan(&name, &id); err != nil {
+			return nil, err
+		}
+		out[name] = id
+	}
+	return out, rows.Err()
+}
