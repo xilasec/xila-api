@@ -196,6 +196,7 @@ var projectDaySQL = `
 		FROM (SELECT project_id, category, count(*) AS n FROM f WHERE is_open GROUP BY project_id, category) g
 		GROUP BY project_id
 	)
+	SELECT m.*, COALESCE(c.cats, '{}') FROM (
 	SELECT p.id, p.team_id, t.org_id, p.business_criticality,
 		count(f.project_id) FILTER (WHERE f.is_open AND f.severity = 'critical'),
 		count(f.project_id) FILTER (WHERE f.is_open AND f.severity = 'high'),
@@ -211,13 +212,16 @@ var projectDaySQL = `
 		count(f.project_id) FILTER (WHERE f.is_open AND f.kev),
 		count(f.project_id) FILTER (WHERE f.is_open AND (f.kev OR f.epss >= $3)),
 		count(f.project_id) FILTER (WHERE f.exception_expiry > LEAST($2, now())
-		                            AND f.exception_expiry <= LEAST($2, now()) + make_interval(days => $4)),
-		COALESCE((SELECT c.cats FROM cats c WHERE c.project_id = p.id), '{}')
+		                            AND f.exception_expiry <= LEAST($2, now()) + make_interval(days => $4))
 	FROM projects p
 	JOIN teams t ON t.id = p.team_id
 	LEFT JOIN f ON f.project_id = p.id
 	WHERE` + archive.Project("p") + `
-	GROUP BY p.id, t.org_id`
+	GROUP BY p.id, t.org_id
+	) m
+	-- Joined outside the grouped query: as a scalar subquery per project the
+	-- planner rescans the whole CTE for each project (minutes at 10M).
+	LEFT JOIN cats c ON c.project_id = m.id`
 
 type scopeKey struct {
 	kind ScopeKind
