@@ -2379,6 +2379,43 @@ paths:
                   oldest_wait_seconds: { type: number }
                   saturated: { type: boolean, description: Uploads are being shed with 429 }
 
+  /ingest/settings:
+    get:
+      operationId: getIngestSettings
+      tags: [Admin]
+      summary: Live ingest tuning overrides
+      description: |
+        Instance admin (M11 11.7). The queue-depth backpressure threshold
+        (`INGEST_MAX_QUEUE_DEPTH`) and the worker count per node
+        (`INGEST_WORKERS`) as instance-wide overrides, applied by every node on
+        its next queue sample — no restart. A null field means "use the env
+        default"; `effective_*` is what's actually in force on the node that
+        answered this request right now.
+      responses:
+        "200": { $ref: "#/components/responses/IngestSettings" }
+    put:
+      operationId: putIngestSettings
+      tags: [Admin]
+      summary: Change live ingest tuning overrides
+      description: |
+        Instance admin. Every node watching the queue picks up the change on
+        its next sample (`INGEST_QUEUE_SAMPLE_INTERVAL`): the backpressure
+        threshold and that node's worker count change within one sample
+        interval. Set a field to `null` to revert it to its env default.
+        `workers: 0` is valid (a web-only node).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                max_queue_depth: { type: integer, minimum: 0, nullable: true }
+                workers: { type: integer, minimum: 0, nullable: true }
+      responses:
+        "200": { $ref: "#/components/responses/IngestSettings" }
+        "400": { $ref: "#/components/responses/Error" }
+
   /findings:
     get:
       operationId: listFindings
@@ -8384,6 +8421,18 @@ components:
       content:
         application/json:
           schema: { type: object, properties: { watching: { type: boolean } } }
+    IngestSettings:
+      description: OK
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              max_queue_depth: { type: integer, nullable: true, description: "Override; null = use INGEST_MAX_QUEUE_DEPTH" }
+              workers: { type: integer, nullable: true, description: "Override; null = use INGEST_WORKERS" }
+              updated_at: { type: string, format: date-time }
+              effective_max_queue_depth: { type: integer, description: What's actually in force on the responding node right now }
+              effective_workers: { type: integer, description: Workers actually running on the responding node right now }
     RiskAcceptanceList:
       description: OK
       content:

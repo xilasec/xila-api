@@ -701,7 +701,13 @@ and `internal/server/smoke_test.go` (missing smoke wiring causes a nil panic in 
   on an interval (one query per tick, not per request) and feeds both the OTel
   gauges and the upload handler's `429` shed at `INGEST_MAX_QUEUE_DEPTH`. A failed
   sample keeps the last good snapshot. Reporting an empty queue when the DB is
-  down would disable backpressure when it's needed most.
+  down would disable backpressure when it's needed most. The same sample applies
+  the live `ingest_settings` (limit, workers per worker node) and keeps the
+  current values when they can't be read; web-only nodes never take workers.
+- The queue claim is fair (`fairClaimSQL`): least-loaded org first, one
+  processing job per project (a unique index; a lost race retries). Keep it
+  independent of queue depth: no global look-ahead window, which would let one
+  org's backlog hide everyone else.
 - The ingest tail is scan-scoped and must stay that way. `scan.finish` runs
   `triage.ApplyToScan` + `finding.DeduplicateScan`, both scoped to the findings
   *this scan* reported, so ingest cost tracks the scan's size, not the project's

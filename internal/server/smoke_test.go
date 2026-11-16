@@ -282,7 +282,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		Project: project.NewHandler(projectRepo, findingRepo, membershipRepo).WithTagsChanged(func(id string) {
 			policySvc.Reevaluate([]string{id}, false) // tag-scoped policies may now (not) apply
 		}),
-		Scan: scan.NewHandler(scanRepo, ingestSvc, false, nil),
+		Scan: scan.NewHandler(scanRepo, ingestSvc, false, nil, nil),
 		Finding: finding.NewHandler(findingRepo, notifySvc, membershipRepo, cfg.AssessmentRequiresApproval).
 			WithRiskAcceptanceApproval(cfg.RiskAcceptanceRequiresApproval).WithCustomFields(customFieldRepo),
 		AITriage: aitriage.NewHandler(aitriage.NewService(aitriage.NewRepository(pool), findingRepo, aiProvider,

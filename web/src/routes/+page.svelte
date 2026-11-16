@@ -9,6 +9,7 @@
 	import SeverityDots from '#lib/components/SeverityDots.svelte';
 	import TrendChart from '#lib/components/TrendChart.svelte';
 	import ReportMenu from '#lib/components/ReportMenu.svelte';
+	import IngestQueueCard from '#lib/components/IngestQueueCard.svelte';
 	import { OPEN_BY_SEVERITY, RISK, fmtCount, fmtRisk, windowStats } from '#lib/trends.js';
 	import { flattenTree, parentChoices } from '#lib/projectTree.js';
 
@@ -326,6 +327,8 @@
 			</a>
 		{/if}
 	</div>
+
+	{#if $me?.is_admin}<IngestQueueCard />{/if}
 
 	{#if anomalies.length > 0}
 		<div class="alert alert-warning mb-4 items-start" role="status">

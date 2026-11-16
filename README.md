@@ -381,6 +381,7 @@ roles, and password login can optionally be turned off. See [Single sign-on](#si
 | GET    | `/api/v1/projects/{id}/vex/export`  | Export the project's analysis (`?format=openvex\|cyclonedx\|csaf`, `?branch=` / `?version_id=`) |
 | DELETE | `/api/v1/vex/{id}`                  | Remove a VEX statement               |
 | GET    | `/api/v1/ingest/queue`              | Ingest queue depth + oldest wait (admin) |
+| GET/PUT | `/api/v1/ingest/settings`          | Live overrides of the queue limit and workers per worker node (admin; `null` = the env default); every node applies them within one sample interval |
 | POST   | `/api/v1/projects/{id}/sboms`       | Upload a CycloneDX SBOM (snapshot)   |
 | GET    | `/api/v1/projects/{id}/sboms`       | SBOM history for a project           |
 | GET    | `/api/v1/projects/{id}/components`  | Project components (`?latest=true` for current inventory, `?vulnerable=true\|false`, `?license=<SPDX id>`, `?license_category=<ScanCode category>`, `?outdated=true\|false`, `?kind=ai\|model\|dataset\|ai-service\|software`) |
@@ -2593,6 +2594,16 @@ Accepting an upload we can't process for an hour is worse than refusing it. The
 client believes it was ingested and gates on a backlog that was never updated.
 Once `INGEST_MAX_QUEUE_DEPTH` pending jobs accumulate, uploads are rejected with
 `429` and `Retry-After` (set it to `0` to accept without limit).
+
+Workers claim jobs fairly. The org with the fewest jobs processing goes first
+(its oldest job wins ties), and a project never has more than one job
+processing: its other uploads wait while workers move on to other projects. So a
+tenant that queues 100,000 reports doesn't hold up another tenant's single
+upload. Admins can change the queue limit and the worker count per worker node
+at runtime (`PUT /api/v1/ingest/settings`, or the Ingest queue card on the
+home page); every node picks the change up on its next queue sample
+(`INGEST_QUEUE_SAMPLE_INTERVAL`). `null` returns to the env value, and web-only
+nodes (`INGEST_WORKERS=0`) never start workers.
 
 `GET /api/v1/ingest/queue` (admin) reports `pending`, `processing`, `failed`,
 and `oldest_wait_seconds`. Alert on the last one, since depth alone is

@@ -204,3 +204,20 @@ Connections: each node opens up to `DB_MAX_CONNS` (default 20). Past about 5
 nodes, put PgBouncer (transaction pooling) in front of Postgres and lower
 `DB_MAX_CONNS` per node, so the total stays below Postgres `max_connections`.
 
+## Fair queueing and live tuning
+
+The claim picks, in one statement, the org with the fewest jobs processing
+and that org's oldest job whose project has nothing processing; a partial
+unique index allows one processing job per project, so a burst against one
+project uses one worker and the others move on. Orgs with pending work are
+found by a loose index scan (one probe per org), and each org is looked into
+at most 64 jobs deep, so the cost depends on the number of orgs with work
+queued, not on queue depth. With 100,000 pending jobs in 20 orgs the claim
+runs in a few milliseconds (`TestClaimQueryScalesToDeepQueue`); 2,000 jobs of
+one org don't delay another org's single upload past the second claim
+(`TestClaimFairUnderDeepBacklog`).
+
+`PUT /ingest/settings` changes the 429 threshold and the workers per worker
+node at runtime; each node applies it on its next queue sample. If the
+settings can't be read, a node keeps what it has rather than falling back to
+the env values.

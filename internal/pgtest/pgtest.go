@@ -67,6 +67,11 @@ func Truncate(t testing.TB, pool *pgxpool.Pool) {
 		INSERT INTO sla_settings DEFAULT VALUES`); err != nil {
 		t.Fatalf("reset sla_settings: %v", err)
 	}
+	if _, err := pool.Exec(context.Background(), `
+		DELETE FROM ingest_settings;
+		INSERT INTO ingest_settings DEFAULT VALUES`); err != nil {
+		t.Fatalf("reset ingest_settings: %v", err)
+	}
 	// Keep in step with migration 000040's seed.
 	if _, err := pool.Exec(context.Background(), `
 		INSERT INTO policies (id, name, description, operator, violation_state, scope, versions, conditions)

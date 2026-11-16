@@ -217,10 +217,6 @@ func run() error {
 	customFieldSvc := customfield.NewService(customFieldRepo, membershipRepo, findingRepo)
 	triageSvc := triage.NewService(triageRepo, findingRepo, findingRepo).WithCustomFields(customFieldSvc)
 
-	// Ingest queue depth: sampled once per interval and shared by the metrics
-	// exporter and the upload handler's backpressure check.
-	queueMon := scan.NewQueueMonitor(scanRepo, cfg.Ingest.QueueSampleInterval, cfg.Ingest.MaxQueueDepth)
-
 	parsers := newParserRegistry()
 	// Post-ingest passes, in order: reachability first (it sets priority, which the
 	// later passes can match on and which dedup uses to elect a primary); then VEX,
@@ -270,6 +266,12 @@ func run() error {
 	ingestSvc := scan.NewService(scanRepo, findingRepo, projectRepo, parsers, notifySvc, appliers, scanRepo).
 		WithFollowUps(remediationSvc).
 		WithSkipUnchanged(cfg.Ingest.SkipUnchanged)
+	// Ingest queue depth: sampled once per interval and shared by the metrics
+	// exporter, the upload handler's backpressure check, and (M11 11.7) the
+	// live-tuning sample that resizes this node's worker pool.
+	workerPool := scan.NewWorkerPool(scanRepo, ingestSvc, cfg.Ingest.PollInterval, cfg.Ingest.MaxAttempts)
+	queueMon := scan.NewQueueMonitor(scanRepo, cfg.Ingest.QueueSampleInterval, cfg.Ingest.MaxQueueDepth).
+		WithLiveSettings(scanRepo, workerPool, cfg.Ingest.Workers)
 	connectorSvc := connector.NewService(connectorRepo, ingestSvc, trackerCipher)
 	// Component policies: evaluated on every SBOM upload (the sbom post-ingest
 	// hook), after each policy change, and on POLICY_EVAL_INTERVAL.
@@ -403,7 +405,7 @@ func run() error {
 		Project: project.NewHandler(projectRepo, findingRepo, membershipRepo).WithTagsChanged(func(id string) {
 			policySvc.Reevaluate([]string{id}, false) // tag-scoped policies may now (not) apply
 		}),
-		Scan: scan.NewHandler(scanRepo, ingestSvc, cfg.Ingest.Async, queueMon),
+		Scan: scan.NewHandler(scanRepo, ingestSvc, cfg.Ingest.Async, queueMon, workerPool),
 		Finding: finding.NewHandler(findingRepo, notifySvc, membershipRepo, cfg.AssessmentRequiresApproval).
 			WithRiskAcceptanceApproval(cfg.RiskAcceptanceRequiresApproval).WithCustomFields(customFieldRepo),
 		AITriage: aitriage.NewHandler(aitriage.NewService(aitriage.NewRepository(db), findingRepo, aiProvider,
@@ -568,10 +570,10 @@ func run() error {
 	// return immediately and processing scales with worker count, not request rate.
 	if cfg.Ingest.Async {
 		// INGEST_WORKERS=0 makes a web-only node: it accepts and queues uploads,
-		// and dedicated worker nodes drain the queue.
-		for i := 0; i < cfg.Ingest.Workers; i++ {
-			go runScanWorker(rootCtx, scanRepo, ingestSvc, cfg.Ingest.PollInterval, cfg.Ingest.MaxAttempts)
-		}
+		// and dedicated worker nodes drain the queue. The queue monitor's sample
+		// (M11 11.7) keeps resizing this to the live-tuned count every interval,
+		// so this initial Resize just avoids waiting a full interval at startup.
+		workerPool.Resize(rootCtx, cfg.Ingest.Workers)
 		// Watch the backlog: the gauges say how far behind we are, and the same
 		// sample sheds uploads (429) once the queue is deeper than we can drain.
 		if err := queueMon.RegisterMetrics(); err != nil {
@@ -857,44 +859,6 @@ func corsMode(origins []string) string {
 		return "same-origin"
 	}
 	return strings.Join(origins, ",")
-}
-
-// runScanWorker drains queued ingest jobs until the context ends. Each iteration
-// claims one job (SKIP LOCKED), processes it off the request path, and either
-// deletes it or re-queues/parks it on failure. Many workers/instances run safely
-// in parallel. Idle workers poll on an interval.
-func runScanWorker(ctx context.Context, jobs *scan.Repository, ingest *scan.Service, poll time.Duration, maxAttempts int) {
-	const staleAfter = 5 * time.Minute
-	ticker := time.NewTicker(poll)
-	defer ticker.Stop()
-	for {
-		// Drain everything available before sleeping, so bursts don't wait a tick.
-		for {
-			if ctx.Err() != nil {
-				return
-			}
-			job, err := jobs.ClaimJob(ctx, staleAfter)
-			if err != nil {
-				slog.WarnContext(ctx, "claim scan job failed", "error", err)
-				break
-			}
-			if job == nil {
-				break // queue empty
-			}
-			if err := ingest.ProcessJob(ctx, *job); err != nil {
-				retry, ferr := jobs.FailJob(ctx, job.ID, err.Error(), maxAttempts)
-				slog.WarnContext(ctx, "scan job failed", "job_id", job.ID, "scan_id", job.ScanID,
-					"attempts", job.Attempts, "will_retry", retry, "error", err, "fail_err", ferr)
-			} else if err := jobs.CompleteJob(ctx, job.ID); err != nil {
-				slog.WarnContext(ctx, "complete scan job failed", "job_id", job.ID, "error", err)
-			}
-		}
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-		}
-	}
 }
 
 // runPolicyEval evaluates every project against the component policies once

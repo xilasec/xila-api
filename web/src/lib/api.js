@@ -565,6 +565,13 @@ export const api = {
 	/** @param {string} projectId */
 	revokeBadgeToken: (projectId) => request('DELETE', `/projects/${projectId}/badge-token`),
 
+	// Async ingest queue (admin): depth, and the live tuning every node applies
+	// on its next sample (null = the env default).
+	ingestQueue: () => request('GET', '/ingest/queue'),
+	ingestSettings: () => request('GET', '/ingest/settings'),
+	/** @param {{ max_queue_depth: number | null, workers: number | null }} body */
+	setIngestSettings: (body) => request('PUT', '/ingest/settings', { body }),
+
 	// --- findings ---
 	/** @param {string} projectId @param {Record<string, any>} [filters] */
 	listFindings: (projectId, filters = {}) =>

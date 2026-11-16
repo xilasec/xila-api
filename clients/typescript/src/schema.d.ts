@@ -1821,6 +1821,39 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ingest/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Live ingest tuning overrides
+         * @description Instance admin (M11 11.7). The queue-depth backpressure threshold
+         *     (`INGEST_MAX_QUEUE_DEPTH`) and the worker count per node
+         *     (`INGEST_WORKERS`) as instance-wide overrides, applied by every node on
+         *     its next queue sample — no restart. A null field means "use the env
+         *     default"; `effective_*` is what's actually in force on the node that
+         *     answered this request right now.
+         */
+        get: operations["getIngestSettings"];
+        /**
+         * Change live ingest tuning overrides
+         * @description Instance admin. Every node watching the queue picks up the change on
+         *     its next sample (`INGEST_QUEUE_SAMPLE_INTERVAL`): the backpressure
+         *     threshold and that node's worker count change within one sample
+         *     interval. Set a field to `null` to revert it to its env default.
+         *     `workers: 0` is valid (a web-only node).
+         */
+        put: operations["putIngestSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/findings": {
         parameters: {
             query?: never;
@@ -9458,6 +9491,26 @@ export interface components {
             };
         };
         /** @description OK */
+        IngestSettings: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": {
+                    /** @description Override; null = use INGEST_MAX_QUEUE_DEPTH */
+                    max_queue_depth?: number | null;
+                    /** @description Override; null = use INGEST_WORKERS */
+                    workers?: number | null;
+                    /** Format: date-time */
+                    updated_at?: string;
+                    /** @description What's actually in force on the responding node right now */
+                    effective_max_queue_depth?: number;
+                    /** @description Workers actually running on the responding node right now */
+                    effective_workers?: number;
+                };
+            };
+        };
+        /** @description OK */
         RiskAcceptanceList: {
             headers: {
                 [name: string]: unknown;
@@ -12646,6 +12699,38 @@ export interface operations {
                     };
                 };
             };
+        };
+    };
+    getIngestSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["IngestSettings"];
+        };
+    };
+    putIngestSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    max_queue_depth?: number | null;
+                    workers?: number | null;
+                };
+            };
+        };
+        responses: {
+            200: components["responses"]["IngestSettings"];
+            400: components["responses"]["Error"];
         };
     };
     listFindings: {
