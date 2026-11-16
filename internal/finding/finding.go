@@ -645,16 +645,92 @@ type SLAStats struct {
 	WindowDays int                         `json:"window_days"`
 }
 
-// SLAStats computes SLA posture. projectIDs nil means every project.
+// SLAParts is one project's share of SLAStats, in summable form (counts, and
+// remediation days as a sum and a count), so a portfolio can be combined from
+// per-project parts, live or from snapshots, with the same result.
+type SLAParts struct {
+	Breached  map[domain.Severity]int     `json:"breached"`
+	DueSoon   int                         `json:"due_soon"`
+	OnTrack   int                         `json:"on_track"`
+	Paused    int                         `json:"paused"`
+	Met       int                         `json:"met"`
+	Missed    int                         `json:"missed"`
+	DaysSum   map[domain.Severity]float64 `json:"days_sum"`
+	DaysCount map[domain.Severity]int     `json:"days_count"`
+}
+
+func newSLAParts() *SLAParts {
+	return &SLAParts{Breached: map[domain.Severity]int{}, DaysSum: map[domain.Severity]float64{}, DaysCount: map[domain.Severity]int{}}
+}
+
+// SLAStats is the SLA posture of projectIDs (nil = every project): the
+// combination of their SLAParts.
 func (r *Repository) SLAStats(ctx context.Context, projectIDs []string) (SLAStats, error) {
+	parts, err := r.SLAPartsByProject(ctx, projectIDs)
+	if err != nil {
+		return SLAStats{}, err
+	}
+	list := make([]SLAParts, 0, len(parts))
+	for _, p := range parts {
+		list = append(list, p)
+	}
+	return CombineSLA(list), nil
+}
+
+// CombineSLA adds up per-project SLAParts into SLAStats.
+func CombineSLA(parts []SLAParts) SLAStats {
 	out := SLAStats{
 		BreachedBySeverity: map[domain.Severity]int{},
 		MTTRDays:           map[domain.Severity]float64{},
 		WindowDays:         SLAResolvedWindowDays,
 	}
+	sum := map[domain.Severity]float64{}
+	cnt := map[domain.Severity]int{}
+	for _, p := range parts {
+		for sev, n := range p.Breached {
+			out.Breached += n
+			if n > 0 {
+				out.BreachedBySeverity[sev] += n
+			}
+		}
+		out.DueSoon += p.DueSoon
+		out.OnTrack += p.OnTrack
+		out.Paused += p.Paused
+		out.Met += p.Met
+		out.Missed += p.Missed
+		for sev, v := range p.DaysSum {
+			sum[sev] += v
+		}
+		for sev, n := range p.DaysCount {
+			cnt[sev] += n
+		}
+	}
+	for sev, n := range cnt {
+		if n > 0 {
+			out.MTTRDays[sev] = sum[sev] / float64(n)
+		}
+	}
+	if total := out.Met + out.Missed; total > 0 {
+		c := float64(out.Met) / float64(total)
+		out.Compliance = &c
+	}
+	return out
+}
 
+// SLAPartsByProject computes each project's SLAParts (projects with no
+// finding under an SLA are absent).
+func (r *Repository) SLAPartsByProject(ctx context.Context, projectIDs []string) (map[string]SLAParts, error) {
+	out := map[string]*SLAParts{}
+	get := func(pid string) *SLAParts {
+		p := out[pid]
+		if p == nil {
+			p = newSLAParts()
+			out[pid] = p
+		}
+		return p
+	}
 	live := `
-		SELECT severity,
+		SELECT project_id, severity,
 			count(*) FILTER (WHERE ` + slaLiveStatuses + ` AND sla_due_at < now()),
 			count(*) FILTER (WHERE ` + slaLiveStatuses + ` AND sla_due_at >= now()
 			                   AND sla_due_at - now() <= make_interval(days => sla_days) * $2),
@@ -663,65 +739,70 @@ func (r *Repository) SLAStats(ctx context.Context, projectIDs []string) (SLAStat
 		FROM findings
 		WHERE duplicate_of IS NULL AND sla_due_at IS NOT NULL AND` + onDefaultVersion + ` AND` + archive.Finding("") + `
 		  AND ($1::uuid[] IS NULL OR project_id = ANY($1))
-		GROUP BY severity`
+		GROUP BY project_id, severity`
 	rows, err := r.db.Query(ctx, live, projectIDs, domain.SLADueSoonFraction)
 	if err != nil {
-		return SLAStats{}, fmt.Errorf("sla live stats: %w", err)
+		return nil, fmt.Errorf("sla live stats: %w", err)
 	}
 	for rows.Next() {
+		var pid string
 		var sev domain.Severity
 		var breached, dueSoon, onTrack, paused int
-		if err := rows.Scan(&sev, &breached, &dueSoon, &onTrack, &paused); err != nil {
+		if err := rows.Scan(&pid, &sev, &breached, &dueSoon, &onTrack, &paused); err != nil {
 			rows.Close()
-			return SLAStats{}, fmt.Errorf("scan sla live stats: %w", err)
+			return nil, fmt.Errorf("scan sla live stats: %w", err)
 		}
-		out.Breached += breached
-		out.DueSoon += dueSoon
-		out.OnTrack += onTrack
-		out.Paused += paused
+		p := get(pid)
 		if breached > 0 {
-			out.BreachedBySeverity[sev] = breached
+			p.Breached[sev] += breached
 		}
+		p.DueSoon += dueSoon
+		p.OnTrack += onTrack
+		p.Paused += paused
 	}
 	rows.Close()
 	if err := rows.Err(); err != nil {
-		return SLAStats{}, fmt.Errorf("sla live stats: %w", err)
+		return nil, fmt.Errorf("sla live stats: %w", err)
 	}
 
 	resolved := `
-		SELECT severity,
+		SELECT project_id, severity,
 			count(*) FILTER (WHERE resolved_at <= sla_due_at),
 			count(*) FILTER (WHERE resolved_at > sla_due_at),
-			avg(extract(epoch FROM resolved_at - first_seen_at)) / 86400
+			COALESCE(sum(extract(epoch FROM resolved_at - first_seen_at)) / 86400, 0)::float8,
+			count(*)
 		FROM findings
 		WHERE status = 'remediated' AND duplicate_of IS NULL AND` + onDefaultVersion + ` AND` + archive.Finding("") + `
 		  AND resolved_at > now() - make_interval(days => $2)
 		  AND ($1::uuid[] IS NULL OR project_id = ANY($1))
-		GROUP BY severity`
+		GROUP BY project_id, severity`
 	rows, err = r.db.Query(ctx, resolved, projectIDs, SLAResolvedWindowDays)
 	if err != nil {
-		return SLAStats{}, fmt.Errorf("sla resolved stats: %w", err)
+		return nil, fmt.Errorf("sla resolved stats: %w", err)
 	}
 	defer rows.Close()
 	for rows.Next() {
+		var pid string
 		var sev domain.Severity
-		var met, missed int
-		var mttr float64
-		if err := rows.Scan(&sev, &met, &missed, &mttr); err != nil {
-			return SLAStats{}, fmt.Errorf("scan sla resolved stats: %w", err)
+		var met, missed, n int
+		var days float64
+		if err := rows.Scan(&pid, &sev, &met, &missed, &days, &n); err != nil {
+			return nil, fmt.Errorf("scan sla resolved stats: %w", err)
 		}
-		out.Met += met
-		out.Missed += missed
-		out.MTTRDays[sev] = mttr
+		p := get(pid)
+		p.Met += met
+		p.Missed += missed
+		p.DaysSum[sev] += days
+		p.DaysCount[sev] += n
 	}
 	if err := rows.Err(); err != nil {
-		return SLAStats{}, fmt.Errorf("sla resolved stats: %w", err)
+		return nil, fmt.Errorf("sla resolved stats: %w", err)
 	}
-	if total := out.Met + out.Missed; total > 0 {
-		c := float64(out.Met) / float64(total)
-		out.Compliance = &c
+	res := make(map[string]SLAParts, len(out))
+	for k, v := range out {
+		res[k] = *v
 	}
-	return out, nil
+	return res, nil
 }
 
 // Get returns a finding by id.

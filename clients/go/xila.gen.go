@@ -6680,7 +6680,7 @@ type PolicyPreviewViolationsCategory string
 
 // Portfolio defines model for Portfolio.
 type Portfolio struct {
-	// AsOf When those snapshots were taken (snapshots only).
+	// AsOf When the oldest part of that snapshot run was taken (snapshots only).
 	AsOf       *time.Time `json:"as_of,omitempty"`
 	Compliance *[]struct {
 		AvgScore         *float32 `json:"avg_score,omitempty"`
@@ -6705,9 +6705,8 @@ type Portfolio struct {
 	// remediated in the last `window_days` (90).
 	Sla *SLAStats `json:"sla,omitempty"`
 
-	// Source `snapshots` when the counts, risk and top projects come from the latest
-	// metric snapshots (`PORTFOLIO_FROM_SNAPSHOTS`); compliance and SLA are
-	// always live.
+	// Source `snapshots` when the whole overview comes from the latest snapshot
+	// run (`PORTFOLIO_FROM_SNAPSHOTS`) rather than from findings now.
 	Source      *PortfolioSource `json:"source,omitempty"`
 	TopProjects *[]struct {
 		Critical  *int                `json:"critical,omitempty"`
@@ -6720,9 +6719,8 @@ type Portfolio struct {
 	TotalOpen *int `json:"total_open,omitempty"`
 }
 
-// PortfolioSource `snapshots` when the counts, risk and top projects come from the latest
-// metric snapshots (`PORTFOLIO_FROM_SNAPSHOTS`); compliance and SLA are
-// always live.
+// PortfolioSource `snapshots` when the whole overview comes from the latest snapshot
+// run (`PORTFOLIO_FROM_SNAPSHOTS`) rather than from findings now.
 type PortfolioSource string
 
 // PriorityWeights The factors of a finding's priority (severity weight × exploitability × reachability × exposure).

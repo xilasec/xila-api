@@ -9618,15 +9618,14 @@ export interface components {
             }[];
             sla?: components["schemas"]["SLAStats"];
             /**
-             * @description `snapshots` when the counts, risk and top projects come from the latest
-             *     metric snapshots (`PORTFOLIO_FROM_SNAPSHOTS`); compliance and SLA are
-             *     always live.
+             * @description `snapshots` when the whole overview comes from the latest snapshot
+             *     run (`PORTFOLIO_FROM_SNAPSHOTS`) rather than from findings now.
              * @enum {string}
              */
             source?: "live" | "snapshots";
             /**
              * Format: date-time
-             * @description When those snapshots were taken (snapshots only).
+             * @description When the oldest part of that snapshot run was taken (snapshots only).
              */
             as_of?: string;
         };

@@ -7,9 +7,11 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"sort"
 	"sync"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/xilasec/xila-api/internal/archive"
@@ -59,8 +61,8 @@ type Overview struct {
 	// SLA is the estate's posture against its remediation deadlines.
 	SLA finding.SLAStats `json:"sla"`
 	// Source is "live" (computed from findings now) or "snapshots" (the
-	// latest metric snapshots, PORTFOLIO_FROM_SNAPSHOTS); AsOf is when those
-	// snapshots were taken. Compliance and SLA are always live.
+	// latest snapshot run, PORTFOLIO_FROM_SNAPSHOTS); AsOf is when the oldest
+	// part of it was taken.
 	Source string     `json:"source"`
 	AsOf   *time.Time `json:"as_of,omitempty"`
 }
@@ -79,10 +81,10 @@ func NewRepository(db *pgxpool.Pool) *Repository {
 	return &Repository{db: db, findings: finding.NewRepository(db)}
 }
 
-// WithSnapshots serves the portfolio's finding counts from the latest metric
-// snapshots (as of the last METRICS_SNAPSHOT_INTERVAL run) rather than
-// scanning every finding on each request: past 100M findings the live scans
-// are the slow part. Compliance and SLA stay live.
+// WithSnapshots serves the whole portfolio from the latest snapshot run (as
+// of the last METRICS_SNAPSHOT_INTERVAL run): the counts from the metric
+// snapshots, compliance and SLA from portfolio_parts. Past 100M findings the
+// live scans take seconds per request.
 func (r *Repository) WithSnapshots(on bool) *Repository {
 	r.snapshots = on
 	return r
@@ -137,23 +139,38 @@ func (r *Repository) Overview(ctx context.Context, pids []string) (Overview, err
 		}
 		return nil
 	})
-	if snapDay != nil {
-		run(func() error { return r.fromSnapshots(ctx, &out, pids, *snapDay) })
-	} else {
-		run(func() error { return r.aggregateRisk(ctx, &out, pids) })
-		run(func() error { return r.aggregateCategory(ctx, &out, pids) })
-		run(func() error { return r.aggregateExploit(ctx, &out, pids) })
-		run(func() error { return r.aggregateExpiring(ctx, &out, pids) })
-	}
-	run(func() error { return r.aggregateCompliance(ctx, &out, pids) })
-	run(func() error {
+	liveSLA := func() error {
 		sla, err := r.findings.SLAStats(ctx, pids)
 		if err != nil {
 			return err
 		}
 		out.SLA = sla
 		return nil
-	})
+	}
+	if snapDay != nil {
+		// One goroutine: the counts, then compliance and SLA from the parts
+		// (live if none have been taken yet); both may move AsOf.
+		run(func() error {
+			if err := r.fromSnapshots(ctx, &out, pids, *snapDay); err != nil {
+				return err
+			}
+			ok, err := r.partsFromSnapshot(ctx, &out, pids)
+			if err != nil || ok {
+				return err
+			}
+			if err := r.aggregateCompliance(ctx, &out, pids); err != nil {
+				return err
+			}
+			return liveSLA()
+		})
+	} else {
+		run(func() error { return r.aggregateRisk(ctx, &out, pids) })
+		run(func() error { return r.aggregateCategory(ctx, &out, pids) })
+		run(func() error { return r.aggregateExploit(ctx, &out, pids) })
+		run(func() error { return r.aggregateExpiring(ctx, &out, pids) })
+		run(func() error { return r.aggregateCompliance(ctx, &out, pids) })
+		run(liveSLA)
+	}
 	wg.Wait()
 	if firstErr != nil {
 		return Overview{}, firstErr
@@ -337,6 +354,57 @@ func (r *Repository) aggregateExploit(ctx context.Context, out *Overview, pids [
 // A control fails when an open finding maps to it (by CWE or scanner rule) — the
 // same rule as compliance.Evaluate, here rolled up across the portfolio.
 func (r *Repository) aggregateCompliance(ctx context.Context, out *Overview, pids []string) error {
+	scores, err := r.ComplianceByProject(ctx, pids)
+	if err != nil {
+		return err
+	}
+	out.Compliance = combineCompliance(scores)
+	return nil
+}
+
+// ProjectCompliance is one project's score on one framework.
+type ProjectCompliance struct {
+	ProjectID string  `json:"project_id"`
+	Framework string  `json:"framework"`
+	Name      string  `json:"name"`
+	Score     float64 `json:"score"`
+}
+
+// combineCompliance averages per-project scores into the per-framework
+// means (live and from snapshots alike), ordered by framework name.
+func combineCompliance(scores []ProjectCompliance) []FrameworkAverage {
+	type acc struct {
+		name  string
+		sum   float64
+		count int
+	}
+	byKey := map[string]*acc{}
+	for _, s := range scores {
+		a := byKey[s.Framework]
+		if a == nil {
+			a = &acc{name: s.Name}
+			byKey[s.Framework] = a
+		}
+		a.sum += s.Score
+		a.count++
+	}
+	out := make([]FrameworkAverage, 0, len(byKey))
+	for key, a := range byKey {
+		out = append(out, FrameworkAverage{Framework: key, Name: a.name,
+			AvgScore: math.Round(a.sum/float64(a.count)*10) / 10, ProjectsAssessed: a.count})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Name != out[j].Name {
+			return out[i].Name < out[j].Name
+		}
+		return out[i].Framework < out[j].Framework
+	})
+	return out
+}
+
+// ComplianceByProject scores each project on each framework: the share of
+// its scored controls that aren't failing.
+func (r *Repository) ComplianceByProject(ctx context.Context, pids []string) ([]ProjectCompliance, error) {
 	// Same rule as compliance.Evaluate (its shared SQL); manual controls are
 	// scored (as met) only while attested, and a framework with nothing
 	// scored has no score.
@@ -362,21 +430,21 @@ func (r *Repository) aggregateCompliance(ctx context.Context, out *Overview, pid
 			       count(*) FILTER (WHERE NOT failing)::float / count(*) * 100 AS score
 			FROM proj_control GROUP BY project_id, key, name
 		)
-		SELECT key, name, round(avg(score)::numeric, 1)::float, count(*)
-		FROM proj_score GROUP BY key, name ORDER BY name`
+		SELECT project_id, key, name, score FROM proj_score`
 	rows, err := r.db.Query(ctx, q, pids)
 	if err != nil {
-		return fmt.Errorf("aggregate compliance: %w", err)
+		return nil, fmt.Errorf("aggregate compliance: %w", err)
 	}
 	defer rows.Close()
+	out := []ProjectCompliance{}
 	for rows.Next() {
-		var fa FrameworkAverage
-		if err := rows.Scan(&fa.Framework, &fa.Name, &fa.AvgScore, &fa.ProjectsAssessed); err != nil {
-			return fmt.Errorf("scan compliance avg: %w", err)
+		var pc ProjectCompliance
+		if err := rows.Scan(&pc.ProjectID, &pc.Framework, &pc.Name, &pc.Score); err != nil {
+			return nil, fmt.Errorf("scan compliance score: %w", err)
 		}
-		out.Compliance = append(out.Compliance, fa)
+		out = append(out, pc)
 	}
-	return rows.Err()
+	return out, rows.Err()
 }
 
 // sortTopProjects orders by risk score descending (simple insertion sort — the
@@ -387,4 +455,95 @@ func sortTopProjects(ps []ProjectRisk) {
 			ps[j], ps[j-1] = ps[j-1], ps[j]
 		}
 	}
+}
+
+// SnapshotParts recomputes every live project's compliance scores and SLA
+// parts and replaces portfolio_parts with them (the metric snapshot job runs
+// it, on the job pool, whose statement cap is long enough for a full pass).
+func (r *Repository) SnapshotParts(ctx context.Context) error {
+	scores, err := r.ComplianceByProject(ctx, nil)
+	if err != nil {
+		return err
+	}
+	sla, err := r.findings.SLAPartsByProject(ctx, nil)
+	if err != nil {
+		return err
+	}
+	byProject := map[string][]ProjectCompliance{}
+	for _, s := range scores {
+		byProject[s.ProjectID] = append(byProject[s.ProjectID], s)
+	}
+	ids := map[string]bool{}
+	for id := range byProject {
+		ids[id] = true
+	}
+	for id := range sla {
+		ids[id] = true
+	}
+	rows := make([][]any, 0, len(ids))
+	for id := range ids {
+		c := byProject[id]
+		if c == nil {
+			c = []ProjectCompliance{}
+		}
+		var parts any = map[string]any{}
+		if p, ok := sla[id]; ok {
+			parts = p
+		}
+		rows = append(rows, []any{id, c, parts})
+	}
+	return pgx.BeginFunc(ctx, r.db, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `DELETE FROM portfolio_parts`); err != nil {
+			return fmt.Errorf("clear portfolio parts: %w", err)
+		}
+		if _, err := tx.CopyFrom(ctx, pgx.Identifier{"portfolio_parts"}, []string{"project_id", "compliance", "sla"},
+			pgx.CopyFromRows(rows)); err != nil {
+			return fmt.Errorf("write portfolio parts: %w", err)
+		}
+		return nil
+	})
+}
+
+// partsFromSnapshot fills compliance and SLA from portfolio_parts; false when
+// none have been taken yet.
+func (r *Repository) partsFromSnapshot(ctx context.Context, out *Overview, pids []string) (bool, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT pp.compliance, pp.sla, pp.computed_at FROM portfolio_parts pp JOIN projects p ON p.id = pp.project_id
+		WHERE`+archive.Project("p")+` AND ($1::uuid[] IS NULL OR p.id = ANY($1))`, pids)
+	if err != nil {
+		return false, fmt.Errorf("portfolio parts: %w", err)
+	}
+	defer rows.Close()
+	var scores []ProjectCompliance
+	var sla []finding.SLAParts
+	any := false
+	for rows.Next() {
+		var c []ProjectCompliance
+		var s finding.SLAParts
+		var at time.Time
+		if err := rows.Scan(&c, &s, &at); err != nil {
+			return false, fmt.Errorf("scan portfolio parts: %w", err)
+		}
+		any = true
+		scores = append(scores, c...)
+		sla = append(sla, s)
+		if out.AsOf == nil || at.Before(*out.AsOf) {
+			out.AsOf = &at
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return false, err
+	}
+	if !any {
+		var taken bool
+		if err := r.db.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM portfolio_parts)`).Scan(&taken); err != nil {
+			return false, err
+		}
+		if !taken {
+			return false, nil
+		}
+	}
+	out.Compliance = combineCompliance(scores)
+	out.SLA = finding.CombineSLA(sla)
+	return true, nil
 }

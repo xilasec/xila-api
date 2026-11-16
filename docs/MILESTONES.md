@@ -732,8 +732,8 @@ For 1,000,000 (bursts of a billion findings):
   behave identically for both stores.
 - ✅ 11.9 Data lifecycle past 100M findings: `PORTFOLIO_FROM_SNAPSHOTS` serves
   the portfolio's counts from the metric snapshots (which now also store KEV,
-  exploitable, per-category and expiring counts; a test checks they equal the
-  live view), `FINDING_ARCHIVE_AFTER` archives old fixed findings in batches (the
+  exploitable, per-category and expiring counts, plus per-project compliance
+  scores and SLA parts; a test checks they equal the live view), `FINDING_ARCHIVE_AFTER` archives old fixed findings in batches (the
   upsert brings back one reported again), and `DB_READ_URL` /
   `DB_READ_STATEMENT_TIMEOUT` give reporting reads a replica and a capped pool of
   their own. Migrations 000106 and 000107.

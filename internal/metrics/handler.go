@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"context"
 	"slices"
 	"strconv"
 	"time"
@@ -14,12 +15,22 @@ import (
 
 // Handler exposes metric trends and the on-demand snapshot.
 type Handler struct {
-	repo *Repository
+	repo   *Repository
+	writer *Repository
+	after  func(context.Context) error
 }
 
 // NewHandler constructs a metrics Handler.
 func NewHandler(repo *Repository) *Handler {
-	return &Handler{repo: repo}
+	return &Handler{repo: repo, writer: repo}
+}
+
+// WithSnapshotter makes POST /metrics/snapshot write through writer (repo may
+// read from a replica) and then run after (the portfolio parts), like the job.
+func (h *Handler) WithSnapshotter(writer *Repository, after func(context.Context) error) *Handler {
+	h.writer = writer
+	h.after = after
+	return h
 }
 
 // Register mounts the metrics routes.
@@ -144,9 +155,14 @@ func (h *Handler) scopeTrend(kind ScopeKind, param string) fiber.Handler {
 // SnapshotNow handles POST /metrics/snapshot (admin): runs the periodic job
 // immediately — backfill on first run, then yesterday and today.
 func (h *Handler) SnapshotNow(c *fiber.Ctx) error {
-	res, err := h.repo.Run(c.UserContext(), time.Now())
+	res, err := h.writer.Run(c.UserContext(), time.Now())
 	if err != nil {
 		return err
+	}
+	if h.after != nil {
+		if err := h.after(c.UserContext()); err != nil {
+			return err
+		}
 	}
 	return c.JSON(res)
 }

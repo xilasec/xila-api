@@ -449,6 +449,10 @@ type DB struct {
 	ReadURL              string
 	ReadStatementTimeout time.Duration
 	ReadMaxConns         int32
+	// JobStatementTimeout (DB_JOB_STATEMENT_TIMEOUT) caps the metric snapshot
+	// job's queries, which make a full pass over the findings and on a large
+	// instance outlast StatementTimeout. They run on a small pool of their own.
+	JobStatementTimeout time.Duration
 }
 
 // ReadDSN is the reporting pool's DSN: the replica, else the primary.
@@ -654,6 +658,7 @@ func Load() (Config, error) {
 			ReadURL:              sec.get("DB_READ_URL", ""),
 			ReadStatementTimeout: getdur("DB_READ_STATEMENT_TIMEOUT", 0),
 			ReadMaxConns:         int32(getint("DB_READ_MAX_CONNS", 10)),
+			JobStatementTimeout:  getdur("DB_JOB_STATEMENT_TIMEOUT", 15*time.Minute),
 		},
 		JWT: JWT{
 			Secret:       sec.get("JWT_SECRET", ""),
@@ -925,8 +930,8 @@ func (c Config) validate() error {
 			return fmt.Errorf("DB_READ_URL must be a postgres:// URL")
 		}
 	}
-	if c.DB.ReadStatementTimeout < 0 || c.DB.ReadMaxConns < 1 {
-		return fmt.Errorf("DB_READ_STATEMENT_TIMEOUT must be 0 or more and DB_READ_MAX_CONNS at least 1")
+	if c.DB.ReadStatementTimeout < 0 || c.DB.ReadMaxConns < 1 || c.DB.JobStatementTimeout < 0 {
+		return fmt.Errorf("DB_READ_STATEMENT_TIMEOUT and DB_JOB_STATEMENT_TIMEOUT must be 0 or more and DB_READ_MAX_CONNS at least 1")
 	}
 	if c.JWT.ReauthWindow < 0 {
 		return fmt.Errorf("REAUTH_WINDOW must be 0 or more, got %s", c.JWT.ReauthWindow)

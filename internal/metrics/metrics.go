@@ -190,6 +190,11 @@ var projectDaySQL = `
 		WHERE duplicate_of IS NULL AND first_seen_at < $2
 		  AND version_id IN (SELECT id FROM project_versions WHERE is_default)
 		  AND` + archive.Finding("") + `
+	),
+	cats AS (
+		SELECT project_id, jsonb_object_agg(category, n) AS cats
+		FROM (SELECT project_id, category, count(*) AS n FROM f WHERE is_open GROUP BY project_id, category) g
+		GROUP BY project_id
 	)
 	SELECT p.id, p.team_id, t.org_id, p.business_criticality,
 		count(f.project_id) FILTER (WHERE f.is_open AND f.severity = 'critical'),
@@ -207,9 +212,7 @@ var projectDaySQL = `
 		count(f.project_id) FILTER (WHERE f.is_open AND (f.kev OR f.epss >= $3)),
 		count(f.project_id) FILTER (WHERE f.exception_expiry > LEAST($2, now())
 		                            AND f.exception_expiry <= LEAST($2, now()) + make_interval(days => $4)),
-		COALESCE((SELECT jsonb_object_agg(c.category, c.n) FROM (
-			SELECT f2.category, count(*) AS n FROM f f2
-			WHERE f2.project_id = p.id AND f2.is_open GROUP BY f2.category) c), '{}')
+		COALESCE((SELECT c.cats FROM cats c WHERE c.project_id = p.id), '{}')
 	FROM projects p
 	JOIN teams t ON t.id = p.team_id
 	LEFT JOIN f ON f.project_id = p.id

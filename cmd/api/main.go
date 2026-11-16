@@ -191,6 +191,23 @@ func run() error {
 		slog.Info("reporting reads use their own pool", "replica", cfg.DB.ReadURL != "", "statement_timeout", timeout)
 	}
 
+	// The metric snapshot job makes a full pass over the findings: on a large
+	// instance that outlasts DB_STATEMENT_TIMEOUT, so it gets a small pool
+	// capped by DB_JOB_STATEMENT_TIMEOUT instead.
+	jobDB, err := database.Connect(rootCtx, cfg.DB.DSN(), database.PoolConfig{
+		MaxConns:          2,
+		MinConns:          0,
+		MaxConnLifetime:   cfg.DB.MaxConnLifetime,
+		MaxConnIdleTime:   cfg.DB.MaxConnIdleTime,
+		HealthCheckPeriod: cfg.DB.HealthCheckPeriod,
+		StatementTimeout:  cfg.DB.JobStatementTimeout,
+		StartupWait:       time.Minute,
+	})
+	if err != nil {
+		return fmt.Errorf("job database pool: %w", err)
+	}
+	defer jobDB.Close()
+
 	// Payload storage for queued ingest jobs (INGEST_PAYLOAD_STORE, M11 11.8):
 	// postgres (scan_jobs.payload, the default) or s3 (any S3-compatible
 	// object storage; scan_jobs keeps only a reference). Built here, with a
@@ -232,8 +249,9 @@ func run() error {
 	// Reporting reads go to readDB (replica / capped pool); the snapshot job
 	// writes through the primary.
 	portfolioRepo := portfolio.NewRepository(readDB).WithSnapshots(cfg.PortfolioFromSnapshots)
-	metricsRepo := metrics.NewRepository(db)
+	metricsRepo := metrics.NewRepository(jobDB)
 	metricsReadRepo := metrics.NewRepository(readDB)
+	portfolioParts := portfolio.NewRepository(jobDB)
 	notifyRepo := notify.NewRepository(db)
 	features := feature.NewStore(db, feature.Unavailable(cfg)...)
 	notifySvc := notify.NewService(notifyRepo, notify.SMTPConfig(cfg.SMTP)).WithFeatures(features)
@@ -470,7 +488,7 @@ func run() error {
 		Asset:      asset.NewHandler(assetRepo, assetSvc, membershipRepo),
 		Compliance: compliance.NewHandler(complianceRepo),
 		Portfolio:  portfolio.NewHandler(portfolioRepo),
-		Metrics:    metrics.NewHandler(metricsReadRepo),
+		Metrics:    metrics.NewHandler(metricsReadRepo).WithSnapshotter(metricsRepo, portfolioParts.SnapshotParts),
 		Report: report.NewHandler(report.NewService(portfolioRepo, finding.NewRepository(readDB), complianceRepo, projectRepo,
 			report.NewRepository(db)).WithEngagements(engagementRepo), reportTemplates),
 		Engagement:   engagement.NewHandler(engagementRepo, ingestSvc, findingRepo, findingTemplates),
@@ -617,7 +635,7 @@ func run() error {
 		// Ingestion health: alert once when a project's intake looks broken.
 		job(func() { ingestHealth.RunSweep(ctx, notifySvc) })
 		// Daily metric snapshots for the trend charts (backfills 90 days on first run).
-		job(func() { runMetricsSnapshots(ctx, metricsRepo, cfg.MetricsSnapshotInterval) })
+		job(func() { runMetricsSnapshots(ctx, metricsRepo, portfolioParts, cfg.MetricsSnapshotInterval) })
 		// Scheduled per-channel summaries (daily / weekly, set on each channel).
 		job(func() { notifySvc.RunSummaries(ctx, findingRepo) })
 		wg.Wait()
@@ -1089,13 +1107,18 @@ func runPackageMeta(ctx context.Context, svc *pkgmeta.Service, interval time.Dur
 // a fresh instance's first run backfills history and the charts aren't empty —
 // then every interval, each run rewriting yesterday (closing it out) and today.
 // interval 0 disables it.
-func runMetricsSnapshots(ctx context.Context, repo *metrics.Repository, interval time.Duration) {
+func runMetricsSnapshots(ctx context.Context, repo *metrics.Repository, parts *portfolio.Repository, interval time.Duration) {
 	if interval <= 0 {
 		return
 	}
 	snap := func() {
 		start := time.Now()
 		res, err := repo.Run(ctx, time.Now())
+		if err == nil {
+			// The rest of the portfolio (compliance, SLA) for
+			// PORTFOLIO_FROM_SNAPSHOTS, taken with the counts.
+			err = parts.SnapshotParts(ctx)
+		}
 		observability.RecordJob(ctx, "metrics_snapshot", start, err)
 		if err != nil {
 			slog.WarnContext(ctx, "metric snapshot failed", "error", err)
