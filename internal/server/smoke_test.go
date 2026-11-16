@@ -293,7 +293,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		Asset:      asset.NewHandler(assetRepo, assetSvc, membershipRepo),
 		Compliance: compliance.NewHandler(complianceRepo),
 		Portfolio:  portfolio.NewHandler(portfolio.NewRepository(pool)),
-		Metrics:    metrics.NewHandler(metrics.NewRepository(pool)),
+		Metrics:    metrics.NewHandler(metrics.NewRepository(pool)).WithSnapshotter(metrics.NewRepository(pool), portfolio.NewRepository(pool).SnapshotParts),
 		Report: report.NewHandler(report.NewService(portfolio.NewRepository(pool), findingRepo, complianceRepo,
 			projectRepo, report.NewRepository(pool)).WithEngagements(engagementRepo), reportTemplates),
 		Engagement:   engagement.NewHandler(engagementRepo, ingestSvc, findingRepo, findingTemplates),

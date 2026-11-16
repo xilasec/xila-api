@@ -202,7 +202,11 @@ func TestPortfolioFromSnapshotsMatchesLive(t *testing.T) {
 	if _, err := metrics.NewRepository(pool).Run(ctx, time.Now()); err != nil {
 		t.Fatalf("snapshot run: %v", err)
 	}
-	for _, pids := range [][]string{nil, {pLow}} {
+	if err := portfolio.NewRepository(pool).SnapshotParts(ctx); err != nil {
+		t.Fatalf("snapshot parts: %v", err)
+	}
+	frozen := map[int]portfolio.Overview{}
+	for i, pids := range [][]string{nil, {pLow}} {
 		live, err := portfolio.NewRepository(pool).Overview(ctx, pids)
 		if err != nil {
 			t.Fatal(err)
@@ -217,6 +221,28 @@ func TestPortfolioFromSnapshotsMatchesLive(t *testing.T) {
 		got.Source, got.AsOf = live.Source, live.AsOf
 		if !reflect.DeepEqual(got, live) {
 			t.Errorf("projects %v:\n snapshots %+v\n live      %+v", pids, got, live)
+		}
+		if len(got.Compliance) == 0 || got.SLA.OnTrack+got.SLA.DueSoon+got.SLA.Breached == 0 {
+			t.Errorf("projects %v: compliance %v / SLA %+v empty, the comparison proves nothing", pids, got.Compliance, got.SLA)
+		}
+		frozen[i] = got
+	}
+
+	// Every part is served from the snapshot run: a finding added since
+	// moves the live view but not the snapshot one, SLA included.
+	addFinding(t, pool, pLow, "f", "trivy", "sca", "critical", "open")
+	for i, pids := range [][]string{nil, {pLow}} {
+		live, _ := portfolio.NewRepository(pool).Overview(ctx, pids)
+		got, err := snap.Overview(ctx, pids)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got.Source, got.AsOf = frozen[i].Source, frozen[i].AsOf
+		if !reflect.DeepEqual(got, frozen[i]) {
+			t.Errorf("projects %v: snapshot view moved with live data:\n now    %+v\n before %+v", pids, got, frozen[i])
+		}
+		if reflect.DeepEqual(live.SLA, got.SLA) && live.TotalOpen == got.TotalOpen {
+			t.Errorf("projects %v: live view didn't change either; the check proves nothing", pids)
 		}
 	}
 }

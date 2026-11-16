@@ -10773,10 +10773,9 @@ components:
           type: string
           enum: [live, snapshots]
           description: |
-            `snapshots` when the counts, risk and top projects come from the latest
-            metric snapshots (`PORTFOLIO_FROM_SNAPSHOTS`); compliance and SLA are
-            always live.
-        as_of: { type: string, format: date-time, description: When those snapshots were taken (snapshots only). }
+            `snapshots` when the whole overview comes from the latest snapshot
+            run (`PORTFOLIO_FROM_SNAPSHOTS`) rather than from findings now.
+        as_of: { type: string, format: date-time, description: When the oldest part of that snapshot run was taken (snapshots only). }
     MetricPoint:
       type: object
       description: |

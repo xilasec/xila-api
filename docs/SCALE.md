@@ -246,10 +246,14 @@ rows and fewer per-request scans:
   5,000 per statement, through a partial index on live fixed findings. Every
   list, count, gate and dedup query already skips archived rows. A finding a
   later scan reports again is unarchived by the upsert and reopens.
-- `PORTFOLIO_FROM_SNAPSHOTS` reads the portfolio from one snapshot row per
-  project instead of grouping every open finding. Numbers are as of the last
-  `METRICS_SNAPSHOT_INTERVAL` run (the response says `source` and `as_of`);
-  compliance and SLA posture stay live.
+- `PORTFOLIO_FROM_SNAPSHOTS` reads the portfolio from what the snapshot job
+  stored per project instead of grouping every open finding: the counts from
+  `metric_snapshots`, compliance scores and SLA parts from `portfolio_parts`.
+  Every part is summable, so the live path combines the same per-project
+  parts and a test checks the two views are equal. Numbers are as of the last
+  `METRICS_SNAPSHOT_INTERVAL` run (the response says `source` and `as_of`).
+  The job's full passes run on a pool of their own capped by
+  `DB_JOB_STATEMENT_TIMEOUT`, not by the request timeout.
 - `DB_READ_URL` points portfolio, trend and report reads at a replica (replica
   lag applies to them), and `DB_READ_STATEMENT_TIMEOUT` caps them in their own
   pool of `DB_READ_MAX_CONNS`, so ingest keeps its connections.

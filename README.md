@@ -2439,6 +2439,7 @@ Azure Key Vault, Vault) hand secrets to the app. It applies to `JWT_SECRET`,
 | `DB_READ_URL`                 | (none)               | `postgres://` URL of a read replica for reporting reads (portfolio, trends, reports); also `DB_READ_URL_FILE` |
 | `DB_READ_STATEMENT_TIMEOUT`   | `0` (= `DB_STATEMENT_TIMEOUT`) | statement cap for reporting reads; set it or `DB_READ_URL` to give reporting its own pool |
 | `DB_READ_MAX_CONNS`           | `10`                 | size of that reporting pool |
+| `DB_JOB_STATEMENT_TIMEOUT`    | `15m`                | statement cap for the metric snapshot job, which runs on a 2-connection pool of its own |
 | `HTTP_READ_TIMEOUT` / `_WRITE_TIMEOUT` / `_IDLE_TIMEOUT` | `15s`/`30s`/`60s` | server timeouts |
 | `HTTP_BODY_LIMIT_MB`          | `32`                 | max upload size (scans/SBOMs)           |
 | `JWT_SECRET`                  | dev-only fallback    | **Must be a strong value in production (boot fails otherwise).** |
@@ -2566,7 +2567,7 @@ Azure Key Vault, Vault) hand secrets to the app. It applies to `JWT_SECRET`,
 | `REMEDIATION_AUTO_CREATE`     | `false`              | create remediation actions from proposals automatically instead of waiting for a user to accept them |
 | `CONNECTOR_PULL_INTERVAL`     | `6h`                 | how often each enabled pull connector is pulled (`0` = off; Pull now still works) |
 | `METRICS_SNAPSHOT_INTERVAL`   | `1h`                 | how often today's and yesterday's metric snapshots are recomputed; the first run backfills 90 days (`0` = off) |
-| `PORTFOLIO_FROM_SNAPSHOTS`    | `false`              | serve `/portfolio`'s counts, risk and top projects from the latest snapshots instead of scanning findings per request (as of the last snapshot run; compliance and SLA stay live) |
+| `PORTFOLIO_FROM_SNAPSHOTS`    | `false`              | serve `/portfolio` (counts, risk, top projects, compliance, SLA) from the latest snapshot run instead of scanning findings per request |
 | `INGEST_MAX_QUEUE_DEPTH`      | `10000`              | pending job count at which uploads are rejected with `429` (`0` = unbounded) |
 | `INGEST_QUEUE_SAMPLE_INTERVAL`| `5s`                 | how often queue depth is measured             |
 | `INGEST_SKIP_UNCHANGED`       | `true`               | skip the pipeline when a report's content hash matches its target's previous completed scan (see "Skip unchanged scans"); a per-upload `force=true` always processes in full |
@@ -2695,7 +2696,7 @@ reproduces both are in [docs/SCALE.md](docs/SCALE.md).
 Four settings keep large instances fast. `FINDING_ARCHIVE_AFTER` moves old
 fixed findings out of every live query (they stay restorable until
 `ARCHIVE_RETENTION`). `PORTFOLIO_FROM_SNAPSHOTS` serves the portfolio from the
-hourly metric snapshots rather than scanning every finding per request.
+hourly snapshot run rather than scanning every finding per request.
 `DB_READ_URL` sends portfolio, trend and report reads to a read replica, and
 `DB_READ_STATEMENT_TIMEOUT` caps them in a pool of their own, so a heavy report
 can't take connections ingest needs. `docs/SCALE.md` has the details.
