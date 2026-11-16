@@ -171,7 +171,7 @@ func TestScanArchiveAndPurge(t *testing.T) {
 	if _, err := arch.Restore(ctx, archive.KindScan, scanB, 30*24*time.Hour); !errors.Is(err, archive.ErrExpired) {
 		t.Errorf("restore past the window = %v, want ErrExpired", err)
 	}
-	svc := retention.NewService(pool, nil, retention.Policy{ArchiveAge: 30 * 24 * time.Hour})
+	svc := retention.NewService(pool, nil, retention.Policy{ArchiveAge: 30 * 24 * time.Hour}, nil)
 	res, err := svc.Run(ctx)
 	if err != nil {
 		t.Fatal(err)

@@ -14,7 +14,7 @@ import (
 // fakeJobs accepts enqueues without a database.
 type fakeJobs struct{ enqueued int }
 
-func (f *fakeJobs) EnqueueJob(context.Context, string, []byte, string, bool, bool) error {
+func (f *fakeJobs) EnqueueJob(context.Context, string, []byte, string, string, bool, bool) error {
 	f.enqueued++
 	return nil
 }

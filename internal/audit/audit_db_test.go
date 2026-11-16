@@ -56,7 +56,7 @@ func TestAuditLogAppendOnly(t *testing.T) {
 	}
 	conn.Release()
 
-	res, err := retention.NewService(pool, nil, retention.Policy{AuditAge: 365 * 24 * time.Hour}).Run(ctx)
+	res, err := retention.NewService(pool, nil, retention.Policy{AuditAge: 365 * 24 * time.Hour}, nil).Run(ctx)
 	if err != nil {
 		t.Fatalf("retention: %v", err)
 	}

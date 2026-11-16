@@ -109,6 +109,10 @@ type Service struct {
 	// followUps run after dedup, on the scan's final findings (see WithFollowUps).
 	followUps []Applier
 	jobs      jobStore // optional (required for async Enqueue)
+	// payloads is where a queued job's raw upload lives between Enqueue and
+	// ProcessJob when INGEST_PAYLOAD_STORE=s3 (see WithPayloadStore). Nil
+	// keeps payloads in scan_jobs.payload (the default).
+	payloads PayloadStore
 	// skipUnchanged short-circuits the pipeline when a report's content hash
 	// matches its target's previous completed scan (INGEST_SKIP_UNCHANGED; see
 	// WithSkipUnchanged and runPipeline). Off by default: callers that want it
@@ -130,7 +134,18 @@ type Applier interface {
 // jobStore persists queued ingest jobs (scan.Repository satisfies it). Only used
 // by the async Enqueue path.
 type jobStore interface {
-	EnqueueJob(ctx context.Context, scanID string, payload []byte, format string, closeMissing, force bool) error
+	EnqueueJob(ctx context.Context, scanID string, payload []byte, payloadRef, format string, closeMissing, force bool) error
+}
+
+// PayloadStore is where a queued job's raw upload lives between Enqueue and
+// ProcessJob when INGEST_PAYLOAD_STORE=s3 (internal/objectstore.Client
+// satisfies it structurally; M11 11.8). Keys are store-relative
+// ("scan-jobs/<scan id>"). Nil (the default) keeps payloads in
+// scan_jobs.payload instead.
+type PayloadStore interface {
+	Put(ctx context.Context, key string, payload []byte) error
+	Get(ctx context.Context, key string) ([]byte, error)
+	Delete(ctx context.Context, key string) error
 }
 
 // NewService wires the ingestion dependencies. notifier, appliers and jobs may be nil.
@@ -144,6 +159,17 @@ func NewService(scans scanStore, findings findingWriter, projects projectChecker
 // Like appliers they're best-effort: a failure is logged, never fatal.
 func (s *Service) WithFollowUps(p ...Applier) *Service {
 	s.followUps = append(s.followUps, p...)
+	return s
+}
+
+// WithPayloadStore moves queued jobs' raw uploads out of scan_jobs.payload and
+// into store (INGEST_PAYLOAD_STORE=s3): Enqueue uploads the payload and keeps
+// only a reference, ProcessJob fetches it, and it is deleted once the job
+// completes. A job that fails and exhausts its retries keeps its object so
+// it stays inspectable — the failed-job retention sweep (LOG_RETENTION)
+// deletes it alongside the row.
+func (s *Service) WithPayloadStore(store PayloadStore) *Service {
+	s.payloads = store
 	return s
 }
 
@@ -165,22 +191,45 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest, raw io.Reader) 
 	return s.runPipeline(ctx, sc, raw, req.Format, req.CloseMissing, s.skipUnchanged && !req.Force)
 }
 
-// Enqueue persists the raw payload + a scan row and returns immediately; a worker
-// processes it later via ProcessJob. Used when async ingestion is enabled so
-// uploads don't hold a request (or a DB connection) for the whole pipeline.
+// payloadKey is the PayloadStore key Enqueue/ProcessJob use for a scan's
+// queued payload.
+func payloadKey(scanID string) string { return "scan-jobs/" + scanID }
+
+// Enqueue persists the raw payload + a scan row and returns immediately; a
+// worker processes it later via ProcessJob. Used when async ingestion is
+// enabled so uploads don't hold a request (or a DB connection) for the whole
+// pipeline. With WithPayloadStore configured, the payload is uploaded there
+// instead of scan_jobs.payload and only its key is persisted.
 func (s *Service) Enqueue(ctx context.Context, req IngestRequest, payload []byte) (Scan, error) {
 	sc, err := s.createScan(ctx, req)
 	if err != nil {
 		return Scan{}, err
 	}
-	if err := s.jobs.EnqueueJob(ctx, sc.ID, payload, req.Format, req.CloseMissing, req.Force); err != nil {
+	dbPayload, ref := payload, ""
+	if s.payloads != nil {
+		ref = payloadKey(sc.ID)
+		if err := s.payloads.Put(ctx, ref, payload); err != nil {
+			err = fmt.Errorf("store queued payload: %w", err)
+			_, _ = s.scans.Finalize(ctx, sc.ID, domain.ScanFailed, nil, err.Error(), "")
+			return Scan{}, err
+		}
+		dbPayload = nil
+	}
+	if err := s.jobs.EnqueueJob(ctx, sc.ID, dbPayload, ref, req.Format, req.CloseMissing, req.Force); err != nil {
+		if ref != "" {
+			_ = s.payloads.Delete(ctx, ref) // best-effort: don't orphan the object
+		}
 		_, _ = s.scans.Finalize(ctx, sc.ID, domain.ScanFailed, nil, err.Error(), "")
 		return Scan{}, err
 	}
 	return sc, nil
 }
 
-// ProcessJob runs a queued job through the pipeline. Called by worker goroutines.
+// ProcessJob runs a queued job through the pipeline. Called by worker
+// goroutines. A job's PayloadRef (when set) is fetched from the configured
+// PayloadStore and deleted once the pipeline completes successfully; on
+// failure the object is left in place for the retry, or — once retries are
+// exhausted — for the failed-job retention sweep to remove alongside the row.
 func (s *Service) ProcessJob(ctx context.Context, job Job) (err error) {
 	defer func(start time.Time) { observeJob(ctx, start, err) }(time.Now())
 
@@ -188,8 +237,24 @@ func (s *Service) ProcessJob(ctx context.Context, job Job) (err error) {
 	if err != nil {
 		return err
 	}
-	_, err = s.runPipeline(ctx, sc, bytes.NewReader(job.Payload), job.Format, job.CloseMissing, s.skipUnchanged && !job.Force)
-	return err
+	payload := job.Payload
+	if job.PayloadRef != "" {
+		if s.payloads == nil {
+			return fmt.Errorf("scan job %s references payload %q but no payload store is configured", job.ID, job.PayloadRef)
+		}
+		if payload, err = s.payloads.Get(ctx, job.PayloadRef); err != nil {
+			return fmt.Errorf("fetch queued payload: %w", err)
+		}
+	}
+	if _, err = s.runPipeline(ctx, sc, bytes.NewReader(payload), job.Format, job.CloseMissing, s.skipUnchanged && !job.Force); err != nil {
+		return err
+	}
+	if job.PayloadRef != "" {
+		if derr := s.payloads.Delete(ctx, job.PayloadRef); derr != nil {
+			slog.WarnContext(ctx, "delete queued payload", "ref", job.PayloadRef, "error", derr)
+		}
+	}
+	return nil
 }
 
 // createScan validates the scanner + project and inserts the scan row.

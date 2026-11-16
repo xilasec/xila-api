@@ -180,9 +180,11 @@ What this means for bursts (a scan of about 1,000 findings each):
   1,000 requests would wait minutes for a connection and many CI clients would
   time out.
 - 1,000,000 repositories at once is about 1B findings: roughly 30 node-hours at
-  this rate, and about 1 TB of raw reports waiting in the queue. That needs the
-  work in milestone M11 (horizontal workers, reports outside Postgres, skipping
-  unchanged scans, fair queueing per tenant).
+  this rate, and about 1 TB of raw reports that would otherwise sit in the
+  queue. `INGEST_PAYLOAD_STORE=s3` (M11 11.8) moves that out of Postgres —
+  `scan_jobs` keeps only an object-store reference, not the bytes — and the
+  remaining M11 work (horizontal workers, skipping unchanged scans, fair
+  queueing per tenant) covers the rest.
 
 ## Web and worker nodes
 
@@ -203,4 +205,17 @@ the same in depth but not in how long uploads wait.
 Connections: each node opens up to `DB_MAX_CONNS` (default 20). Past about 5
 nodes, put PgBouncer (transaction pooling) in front of Postgres and lower
 `DB_MAX_CONNS` per node, so the total stays below Postgres `max_connections`.
+
+## Queue storage (S3)
+
+`scan_jobs.payload` holds the raw upload until a worker processes it — fine at
+moderate volume, but a terabyte of bytea traffic through Postgres at the
+1,000,000-repository scale above. `INGEST_PAYLOAD_STORE=s3` moves the bytes to
+any S3-compatible object storage and leaves only a key (`payload_ref`) in the
+row; the worker fetches the object, and it is deleted once the job finishes
+(or, for a job that exhausted its retries, once `LOG_RETENTION` purges the
+parked row). This is a storage-location change, not a pipeline change:
+skip-unchanged, dedup, and the queue's `SELECT … FOR UPDATE SKIP LOCKED`
+claim/retry/backpressure all behave identically with either store — see
+README.md "Payload storage (S3)" for the setting reference.
 

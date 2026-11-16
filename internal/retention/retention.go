@@ -36,7 +36,8 @@ type Policy struct {
 	// scan and the latest scan of each scan target.
 	ScanAge time.Duration
 	// LogAge deletes notification delivery-log entries and failed ingest jobs
-	// (which hold the uploaded report) older than this.
+	// (which hold the uploaded report, or its payload_ref object — see
+	// payloadDeleter) older than this.
 	LogAge time.Duration
 	// AuditAge deletes audit log entries older than this, through the one
 	// path the log's append-only trigger allows (audit_log_purge).
@@ -72,17 +73,26 @@ type versionPruner interface {
 	PruneStaleVersions(ctx context.Context, kind string, maxAge time.Duration) (int64, error)
 }
 
+// payloadDeleter removes an object-store payload a purged failed job
+// referenced (internal/objectstore.Client satisfies it structurally). Nil
+// when INGEST_PAYLOAD_STORE=postgres, since nothing lives outside the row.
+type payloadDeleter interface {
+	Delete(ctx context.Context, key string) error
+}
+
 // Service applies a Policy.
 type Service struct {
 	db       *pgxpool.Pool
 	versions versionPruner
 	archived *archive.Repository
 	policy   Policy
+	payloads payloadDeleter
 }
 
-// NewService constructs the housekeeper.
-func NewService(db *pgxpool.Pool, versions versionPruner, p Policy) *Service {
-	return &Service{db: db, versions: versions, archived: archive.NewRepository(db), policy: p}
+// NewService constructs the housekeeper. payloads may be nil (postgres
+// payload store: nothing to clean up outside scan_jobs itself).
+func NewService(db *pgxpool.Pool, versions versionPruner, p Policy, payloads payloadDeleter) *Service {
+	return &Service{db: db, versions: versions, archived: archive.NewRepository(db), policy: p, payloads: payloads}
 }
 
 // Policy returns the configured policy.
@@ -116,7 +126,7 @@ func (s *Service) Run(ctx context.Context) (Result, error) {
 		return s.exec(ctx, `DELETE FROM notification_deliveries WHERE created_at < now() - make_interval(secs => $1)`, p.LogAge.Seconds())
 	})
 	step("failed ingest jobs", p.LogAge > 0, &res.FailedJobs, func() (int64, error) {
-		return s.exec(ctx, `DELETE FROM scan_jobs WHERE status = 'failed' AND created_at < now() - make_interval(secs => $1)`, p.LogAge.Seconds())
+		return s.pruneFailedJobs(ctx, p.LogAge)
 	})
 	if p.ArchiveAge > 0 {
 		// Through the same delete paths an explicit purge takes.
@@ -179,6 +189,45 @@ func (s *Service) pruneScans(ctx context.Context) (int64, error) {
 		                AND newer.branch IS NOT DISTINCT FROM sc.branch
 		                AND newer.created_at > sc.created_at)`,
 		s.policy.ScanAge.Seconds())
+}
+
+// pruneFailedJobs deletes parked (status='failed') ingest jobs older than age
+// — along with each one's payload_ref object, when INGEST_PAYLOAD_STORE=s3,
+// since nothing else ever cleans those up for a job that exhausted its
+// retries (a successfully processed job's object is deleted by
+// scan.Service.ProcessJob; a parked one is kept, on purpose, so an operator
+// can still fetch and inspect what failed, until this sweep removes it along
+// with the row).
+func (s *Service) pruneFailedJobs(ctx context.Context, age time.Duration) (int64, error) {
+	if s.payloads != nil {
+		rows, err := s.db.Query(ctx,
+			`SELECT payload_ref FROM scan_jobs
+			 WHERE status = 'failed' AND payload_ref IS NOT NULL
+			   AND created_at < now() - make_interval(secs => $1)`,
+			age.Seconds())
+		if err != nil {
+			return 0, fmt.Errorf("list failed job payloads: %w", err)
+		}
+		var refs []string
+		for rows.Next() {
+			var ref string
+			if err := rows.Scan(&ref); err != nil {
+				rows.Close()
+				return 0, err
+			}
+			refs = append(refs, ref)
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			return 0, err
+		}
+		for _, ref := range refs {
+			if err := s.payloads.Delete(ctx, ref); err != nil {
+				slog.WarnContext(ctx, "retention: delete queued payload", "ref", ref, "error", err)
+			}
+		}
+	}
+	return s.exec(ctx, `DELETE FROM scan_jobs WHERE status = 'failed' AND created_at < now() - make_interval(secs => $1)`, age.Seconds())
 }
 
 // RunEvery applies the policy daily (and once at start) until ctx ends.

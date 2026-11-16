@@ -708,6 +708,14 @@ and `internal/server/smoke_test.go` (missing smoke wiring causes a nil panic in 
   gauges and the upload handler's `429` shed at `INGEST_MAX_QUEUE_DEPTH`. A failed
   sample keeps the last good snapshot. Reporting an empty queue when the DB is
   down would disable backpressure when it's needed most.
+- Queued payloads can live outside Postgres (`INGEST_PAYLOAD_STORE=s3`, M11
+  11.8, `internal/objectstore`): `scan.Service.Enqueue` uploads to the object
+  store and leaves only `scan_jobs.payload_ref`; `ProcessJob` fetches it and
+  deletes it on success. A job that exhausts its retries keeps its object —
+  deliberately, so it stays inspectable — until `LOG_RETENTION` purges the
+  parked row and the object together (`retention.pruneFailedJobs`). Anything
+  that reads `scan_jobs.payload` directly must handle it being `NULL` when
+  `payload_ref` is set (the migration's xor `CHECK`).
 - The ingest tail is scan-scoped and must stay that way. `scan.finish` runs
   `triage.ApplyToScan` + `finding.DeduplicateScan`, both scoped to the findings
   *this scan* reported, so ingest cost tracks the scan's size, not the project's
@@ -810,7 +818,8 @@ deploy/helm/xila           Helm chart (bundled or external Postgres; see its REA
 cmd/xila                   stdlib CI client (upload + gate); repo is also a GitHub Action (action.yml)
 internal/{team,project,asset}          ownership hierarchy (CRUD)
 internal/{scan,scanner}                ingestion + parser registry (60+ native parsers + SARIF; see docs/PARSERS.md)
-                                       scan/queue.go = durable SKIP-LOCKED job queue for async ingest (INGEST_ASYNC)
+                                       scan/queue.go = durable SKIP-LOCKED job queue for async ingest (INGEST_ASYNC);
+                                       queued payloads optionally live in internal/objectstore (INGEST_PAYLOAD_STORE=s3)
 internal/finding                       dedup store, triage, exceptions, enrichment fields, priority
 internal/triage                        auto-triage rules (conditions→action) applied on ingest + backlog
 internal/{sbom,correlation,license}    SBOM history/search (+ CycloneDX services), finding↔component link, SPDX license data
@@ -823,6 +832,7 @@ internal/metrics                       daily metric snapshots (90-day backfill) 
 internal/{export,report}               CSV/XLSX export of any list filter; printable HTML project/portfolio reports
 internal/connector                     pull findings from Dependency-Track, DefectDojo, Snyk, GitHub, GitLab, Wiz, Tenable (+ RemoteTriage applier)
 internal/issuetracker                  Jira / GitHub / GitLab issues, two-way sync
+internal/objectstore                   S3-compatible object storage client for queued ingest payloads (M11 11.8)
 internal/secretbox                     AES-GCM for integration tokens at rest
 internal/engagement                    DefectDojo-style engagements (scans as tests) + manual findings
 internal/findingtemplate               reusable write-ups for manual findings
