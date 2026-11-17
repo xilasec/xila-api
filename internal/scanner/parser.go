@@ -16,24 +16,25 @@ import (
 
 // ParsedFinding is a scanner-agnostic finding produced by a Parser. It carries
 // no persistence concerns (no IDs, no fingerprint) — the ingestion service
-// derives those.
+// derives those. JSON tags exist only for internal/customparser's dry-run
+// preview endpoint (no other caller serializes a ParsedFinding).
 type ParsedFinding struct {
-	Category       domain.Category
-	RuleID         string
-	Title          string
-	Description    string
-	Severity       domain.Severity
-	CWE            *int
-	CVE            []string
-	FilePath       string
-	Line           *int
-	Package        string
-	PackageVersion string
-	FixedVersion   string
-	Purl           string
-	URL            string
-	CVSS           *float64
-	Metadata       map[string]any
+	Category       domain.Category `json:"category"`
+	RuleID         string          `json:"rule_id"`
+	Title          string          `json:"title"`
+	Description    string          `json:"description"`
+	Severity       domain.Severity `json:"severity"`
+	CWE            *int            `json:"cwe"`
+	CVE            []string        `json:"cve"`
+	FilePath       string          `json:"file_path"`
+	Line           *int            `json:"line"`
+	Package        string          `json:"package"`
+	PackageVersion string          `json:"package_version"`
+	FixedVersion   string          `json:"fixed_version"`
+	Purl           string          `json:"purl"`
+	URL            string          `json:"url"`
+	CVSS           *float64        `json:"cvss"`
+	Metadata       map[string]any  `json:"metadata,omitempty"`
 }
 
 // Parser converts one tool's raw output into normalized findings.

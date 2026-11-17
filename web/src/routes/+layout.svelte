@@ -109,6 +109,7 @@
 	const adminNav = [
 		{ href: '/triage-rules', key: 'nav.triageRules' },
 		{ href: '/custom-fields', key: 'nav.customFields' },
+		{ href: '/custom-parsers', key: 'nav.customParsers' },
 		{ href: '/psirt', key: 'nav.psirt' },
 		{ href: '/feed-rules', key: 'nav.feedRules' },
 		{ href: '/finding-templates', key: 'nav.findingTemplates' },

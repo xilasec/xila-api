@@ -2105,6 +2105,82 @@ export interface paths {
         patch: operations["updateCustomField"];
         trace?: never;
     };
+    "/custom-parsers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List no-code parser definitions
+         * @description Instance admin.
+         */
+        get: operations["listCustomParsers"];
+        put?: never;
+        /**
+         * Define a no-code parser
+         * @description Instance admin. `name` becomes the scanner identifier for uploads
+         *     (`?scanner=<name>`); it must be a lowercase slug and must not collide with a
+         *     built-in parser's name. `fields.title` is required; every other field is
+         *     optional. See `CustomParser` for the mapping shape.
+         */
+        post: operations["createCustomParser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/custom-parsers/dry-run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview a definition against a pasted sample
+         * @description Instance admin. Body is a definition (saved or not) plus `sample`, the raw
+         *     report text. Parses `sample` and returns the findings it would create, with
+         *     per-record errors; writes nothing.
+         */
+        post: operations["dryRunCustomParser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/custom-parsers/{parserID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read a no-code parser definition */
+        get: operations["getCustomParser"];
+        /**
+         * Replace a no-code parser's mapping
+         * @description Instance admin. A full replacement, same id, so findings it already created
+         *     keep referencing this scanner name. Picked up by the next upload on every
+         *     node (re-read by `updated_at`), no restart needed.
+         */
+        put: operations["updateCustomParser"];
+        post?: never;
+        /**
+         * Delete a no-code parser definition
+         * @description Instance admin. Its findings keep this scanner name as history; new uploads with this name are refused.
+         */
+        delete: operations["deleteCustomParser"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/finding-templates": {
         parameters: {
             query?: never;
@@ -7110,6 +7186,85 @@ export interface components {
         CustomValues: {
             [key: string]: string | number | null;
         };
+        /**
+         * @description One ParsedFinding field's mapping. Resolution order: `template` (its
+         *     `{path}` placeholders are other paths/columns in the same record), else
+         *     `path` (falling back to `value` if absent or empty), else the static
+         *     `value` alone. `value_map` is only valid on the `severity` field: maps
+         *     the raw mapped text (e.g. a tool's numeric or custom severity code) to
+         *     critical/high/medium/low/info; unmapped text falls back to the same
+         *     normalization every built-in parser uses.
+         */
+        CustomParserFieldMap: {
+            /**
+             * @description A record path/column: a CSV header, a dotted JSON path
+             *     ("vulnerability.id", "aliases.0"), or an XML element/attribute path
+             *     relative to the record element ("name", "@severity").
+             */
+            path?: string;
+            /** @description A "{path} in {path2}" template over other paths/columns in the same record, e.g. "{rule} in {component}". */
+            template?: string;
+            /** @description A static value, used when no path/template is set or the path is absent/empty. */
+            value?: string;
+            /** @description severity only: raw mapped text -> critical/high/medium/low/info, e.g. {"4": "critical", "Sev3": "medium"}. */
+            value_map?: {
+                [key: string]: string;
+            };
+        };
+        /**
+         * @description A no-code parser (M12 12.4): maps the fields of a CSV, JSON or XML
+         *     report onto findings without a Go parser. `name` is the scanner
+         *     identifier used in uploads (`?scanner=<name>`); it must be a lowercase
+         *     slug and must not collide with a built-in parser's name.
+         */
+        CustomParser: {
+            /** Format: uuid */
+            readonly id?: string;
+            /** @example acme-scanner */
+            name: string;
+            category: components["schemas"]["Category"];
+            /** @enum {string} */
+            format: "csv" | "json" | "xml";
+            /**
+             * @description Where the repeated records live. json: a dotted path to the array
+             *     ("results", "runs.0.results"), or "$" for a top-level array. xml: a
+             *     "/"-separated element path from the document root ("report/item").
+             *     csv: unused — the header row already defines each record's fields.
+             */
+            record_selector?: string;
+            /**
+             * @description ParsedFinding field -> mapping. Keys: title (required), severity,
+             *     rule_id, description, cve, cwe, file_path, line, package,
+             *     package_version, fixed_version, url, cvss.
+             */
+            fields: {
+                [key: string]: components["schemas"]["CustomParserFieldMap"];
+            };
+            /** Format: uuid */
+            readonly created_by?: string | null;
+            /** Format: date-time */
+            readonly created_at?: string;
+            /** Format: date-time */
+            readonly updated_at?: string;
+        };
+        /** @description One finding a parser (built-in or no-code) would create. Returned only by the custom-parser dry-run preview. */
+        ParsedFinding: {
+            category?: components["schemas"]["Category"];
+            rule_id?: string;
+            title?: string;
+            description?: string;
+            severity?: components["schemas"]["Severity"];
+            cwe?: number | null;
+            cve?: string[];
+            file_path?: string;
+            line?: number | null;
+            package?: string;
+            package_version?: string;
+            fixed_version?: string;
+            purl?: string;
+            url?: string;
+            cvss?: number | null;
+        };
         /** @description A branch or release of a project. */
         ProjectVersion: {
             /** Format: uuid */
@@ -9727,6 +9882,7 @@ export interface components {
         ScanID: string;
         FindingID: string;
         CustomFieldID: string;
+        CustomParserID: string;
         /** @description The finding's updated_at as last read (quoted RFC 3339); a stale value answers 412. */
         IfMatch: string;
         RiskAcceptanceID: string;
@@ -13426,6 +13582,163 @@ export interface operations {
                 };
             };
             400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    listCustomParsers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        custom_parsers?: components["schemas"]["CustomParser"][];
+                    };
+                };
+            };
+        };
+    };
+    createCustomParser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomParser"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomParser"];
+                };
+            };
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    dryRunCustomParser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomParser"] & {
+                    /** @description The raw report text (CSV */
+                    sample: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        findings?: components["schemas"]["ParsedFinding"][];
+                        record_errors?: {
+                            /** @description 0-based position of the record that failed to map. */
+                            index?: number;
+                            error?: string;
+                        }[];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    getCustomParser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                parserID: components["parameters"]["CustomParserID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomParser"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    updateCustomParser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                parserID: components["parameters"]["CustomParserID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomParser"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomParser"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    deleteCustomParser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                parserID: components["parameters"]["CustomParserID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             404: components["responses"]["Error"];
         };
     };

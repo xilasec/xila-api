@@ -36,6 +36,7 @@ import (
 	"github.com/xilasec/xila-api/internal/correlation"
 	"github.com/xilasec/xila-api/internal/cra"
 	"github.com/xilasec/xila-api/internal/customfield"
+	"github.com/xilasec/xila-api/internal/customparser"
 	"github.com/xilasec/xila-api/internal/engagement"
 	"github.com/xilasec/xila-api/internal/enrichment"
 	"github.com/xilasec/xila-api/internal/evidence"
@@ -119,6 +120,7 @@ type Handlers struct {
 	FindingTmpl  *findingtemplate.Handler
 	ReportTmpl   *report.TemplateHandler
 	CustomFields *customfield.Handler
+	CustomParser *customparser.Handler
 	Triage       *triage.Handler
 	Gate         *gate.Handler
 	SLA          *sla.Handler
@@ -324,6 +326,7 @@ func New(cfg config.Config, h Handlers) *Server {
 	h.FindingTmpl.Register(secured)
 	h.ReportTmpl.Register(secured)
 	h.CustomFields.Register(secured)
+	h.CustomParser.Register(secured)
 	h.Triage.Register(secured)
 	h.Gate.Register(secured)
 	h.SLA.Register(secured)

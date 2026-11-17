@@ -31,6 +31,7 @@ import (
 	"github.com/xilasec/xila-api/internal/correlation"
 	"github.com/xilasec/xila-api/internal/cra"
 	"github.com/xilasec/xila-api/internal/customfield"
+	"github.com/xilasec/xila-api/internal/customparser"
 	"github.com/xilasec/xila-api/internal/database"
 	"github.com/xilasec/xila-api/internal/demo"
 	"github.com/xilasec/xila-api/internal/engagement"
@@ -242,6 +243,10 @@ func run() error {
 	triageSvc := triage.NewService(triageRepo, findingRepo, findingRepo).WithCustomFields(customFieldSvc)
 
 	parsers := newParserRegistry()
+	// No-code parsers (M12 12.4): admin-defined CSV/JSON/XML mappings the
+	// upload path falls back to when ?scanner= names no built-in parser.
+	customParserRepo := customparser.NewRepository(db)
+	customParserSvc := customparser.NewService(customParserRepo, parsers)
 	// Post-ingest passes, in order: reachability first (it sets priority, which the
 	// later passes can match on and which dedup uses to elect a primary); then VEX,
 	// whose verdicts are authoritative and must win over a generic rule; then the
@@ -290,7 +295,8 @@ func run() error {
 	ingestSvc := scan.NewService(scanRepo, findingRepo, projectRepo, parsers, notifySvc, appliers, scanRepo).
 		WithFollowUps(remediationSvc).
 		WithSkipUnchanged(cfg.Ingest.SkipUnchanged).
-		WithPayloadStore(payloadStore)
+		WithPayloadStore(payloadStore).
+		WithCustomParsers(customParserSvc)
 	// Ingest queue depth: sampled once per interval and shared by the metrics
 	// exporter, the upload handler's backpressure check, and (M11 11.7) the
 	// live-tuning sample that resizes this node's worker pool.
@@ -454,6 +460,7 @@ func run() error {
 		FindingTmpl:  findingtemplate.NewHandler(findingTemplates),
 		ReportTmpl:   report.NewTemplateHandler(reportTemplates),
 		CustomFields: customfield.NewHandler(customFieldRepo, customFieldSvc),
+		CustomParser: customparser.NewHandler(customParserSvc),
 		Notify:       notify.NewHandler(notifyRepo, notifySvc),
 		Retention:    retention.NewHandler(retentionSvc),
 		Archive:      archive.NewHandler(archive.NewRepository(db), findingRepo, cfg.Retention.ArchiveAge),

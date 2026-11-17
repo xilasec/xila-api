@@ -185,6 +185,35 @@ not work). SecObserve has no machine-readable file export (CSV/Excel only), so p
 REST observation list. To keep the original tool identity, upload with
 `?scanner=<tool>&format=defectdojo-generic` (or `format=secobserve`).
 
+## No-code parsers
+
+Not every tool is worth a Go file. An instance admin can map a CSV, JSON or
+XML report onto findings from the UI (**Custom Parsers**, admin-only) or
+`POST /custom-parsers`: a scanner name (a lowercase slug that must not collide
+with a built-in parser's name), a category, the format, a record selector
+(where the repeated records live — json: a dotted path to the array, or `$`
+for a top-level array; xml: an element path; csv: unused, the header row
+already defines each record), and a mapping per `ParsedFinding` field. Each
+mapping is a record path/column, a static value, a `"{path} in {path2}"`
+template over other paths in the record, or (severity only) a value map from
+the tool's raw text to our vocabulary (e.g. `{"4": "critical"}`), falling back
+to `normalizeSeverity` otherwise. `POST /custom-parsers/dry-run` previews a
+(saved or draft) definition against a pasted sample without storing anything.
+
+Once saved, upload with `?scanner=<name>` like any built-in tool — the
+ingest path falls back to the no-code definition when the static registry has
+no match, so dedup, triage, priority, gates and alerts all work unchanged. The
+resolved parser is cached and re-read by the definition's `updated_at`, so an
+edit on one node takes effect on every replica's very next upload, not after
+a restart. Deleting a definition keeps its findings — they stay under that
+scanner name as history, like removing support for a built-in parser would.
+
+This is the same compiler + mapping engine as a built-in parser
+(`internal/scanner/custom.go`): it reuses `normalizeSeverity`, `cweFrom`,
+`cvesInText` and `mergeSameLocation` rather than re-deriving them, and its XML
+reader never resolves external entities (no XXE), like every XML parser in
+this repo.
+
 ## Syft
 
 Syft (`syft <target> -o json`) is an SBOM generator, not a vulnerability scanner.

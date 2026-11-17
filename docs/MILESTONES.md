@@ -774,8 +774,16 @@ Tier 1:
   project you can edit, idempotently. The grouping stays in `fixplan`
   (`fixplan.RootCauses`, pure). A Root Causes page in the UI (EN, DE), gated by
   the `remediation` feature switch.
-- ⬜ 12.4 No-code parser (DefectDojo Pro "Universal Parser"): map fields of any
-  CSV, JSON or XML report to findings from the UI.
+- ✅ 12.4 No-code parser (DefectDojo Pro "Universal Parser"): an instance admin
+  defines a `custom_parsers` row (scanner name, category, CSV/JSON/XML format,
+  a record selector, and field mappings — path/column, static value, a
+  `{path}` template, or a severity value map) via `POST /custom-parsers` + a
+  `/custom-parsers/dry-run` preview and a Custom Parsers admin page. The upload
+  path (`?scanner=<name>`) falls back to a compiled definition when no
+  built-in parser matches (`internal/scanner.CustomParser`, reusing
+  `normalizeSeverity`/`cweFrom`/`cvesInText`/`mergeSameLocation`), cached and
+  re-read by `updated_at` so an edit applies on every replica's next upload.
+  Migration 000100.
 - ⬜ 12.5 Vulnerability policies (Dependency-Track 5): CEL rules on a component and
   vulnerability pair that set an analysis or rating atomically at ingest, with a
   validity window, priority, and GitOps policy bundles.
