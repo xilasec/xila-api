@@ -7233,19 +7233,21 @@ export interface components {
             /** Format: uuid */
             project_id?: string;
             /** @enum {string} */
-            kind?: "jira" | "github" | "gitlab";
-            /** @description Jira site, GitHub API (https://api.github.com, or https://host/api/v3 for Enterprise), or GitLab instance (https://gitlab.com). */
+            kind?: "jira" | "github" | "gitlab" | "azure-devops" | "linear" | "servicenow";
+            /** @description Jira site, GitHub API (https://api.github.com, or https://host/api/v3 for Enterprise), GitLab instance (https://gitlab.com), Azure DevOps organization/collection (https://dev.azure.com/your-org), Linear API (https://api.linear.app), or ServiceNow instance (https://your-instance.service-now.com). */
             base_url?: string;
-            /** @description Jira project key, GitHub owner/repo, or GitLab project id or full path. */
+            /** @description Jira project key, GitHub owner/repo, GitLab project id or full path, Azure DevOps project name, Linear team id, or ServiceNow table name (default incident). */
             target?: string;
             has_token?: boolean;
             /** @description Jira Cloud account email (basic auth with the API token); empty sends the token as a Bearer PAT. */
             jira_email?: string;
-            /** @description Jira issue type. */
+            /** @description ServiceNow HTTP Basic auth username; empty sends the token as an OAuth Bearer access token instead. */
+            auth_user?: string;
+            /** @description Jira issue type */
             issue_type?: string;
-            /** @description Jira transition (or target status) used to close. */
+            /** @description Jira transition (or target status), Azure DevOps System.State value, Linear workflow state type, or ServiceNow state value used to close. */
             done_transition?: string;
-            /** @description Jira transition (or target status) used to reopen. */
+            /** @description Jira transition (or target status), Azure DevOps System.State value, Linear workflow state type, or ServiceNow state value used to reopen. */
             reopen_transition?: string;
             min_severity?: components["schemas"]["Severity"];
             auto_create?: boolean;
@@ -7258,13 +7260,15 @@ export interface components {
         };
         IssueTrackerInput: {
             /** @enum {string} */
-            kind: "jira" | "github" | "gitlab";
-            /** @description Defaults to https://api.github.com / https://gitlab.com; required for Jira. */
+            kind: "jira" | "github" | "gitlab" | "azure-devops" | "linear" | "servicenow";
+            /** @description Defaults to https://api.github.com / https://gitlab.com / https://api.linear.app; required for Jira, Azure DevOps and ServiceNow. */
             base_url?: string;
             target: string;
             /** @description Required when creating; omit to keep the stored token. */
             token?: string;
             jira_email?: string;
+            /** @description ServiceNow only; empty uses OAuth Bearer auth. */
+            auth_user?: string;
             /** @default Bug */
             issue_type: string;
             /** @default Done */
@@ -7287,7 +7291,7 @@ export interface components {
             /** Format: uuid */
             tracker_id?: string;
             /** @enum {string} */
-            kind?: "jira" | "github" | "gitlab";
+            kind?: "jira" | "github" | "gitlab" | "azure-devops" | "linear" | "servicenow";
             /** @description Jira key, GitHub issue number or GitLab iid. */
             external_id?: string;
             url?: string;
@@ -7480,7 +7484,7 @@ export interface components {
             /** Format: uuid */
             tracker_id?: string;
             /** @enum {string} */
-            kind?: "jira" | "github" | "gitlab";
+            kind?: "jira" | "github" | "gitlab" | "azure-devops" | "linear" | "servicenow";
             external_id?: string;
             url?: string;
             /** @enum {string} */

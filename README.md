@@ -773,30 +773,42 @@ re-dates that project's findings. `GET /sla/settings` returns the resulting
 criticality × severity matrix, and a project's `GET …/sla/policy` adds the
 windows it actually gets (`applied`).
 
-Issue trackers (Jira, GitHub Issues, GitLab Issues): each project can have
-one tracker. The project owner configures it: kind, base URL, target (Jira
-project key, GitHub `owner/repo`, or GitLab project id/path), and an API token.
-The token is encrypted at rest (AES-256-GCM with `INTEGRATION_SECRET_KEY`,
-bound to the project) and is not returned; the API only reports `has_token`.
-Without the key configured, trackers can't be created (400). An editor files a
-finding with `POST /findings/{id}/issue`. This is idempotent: a finding has at most one
-issue. With `auto_create` on, every sync also files live, non-duplicate findings
-at or above `min_severity` (at most 50 per tracker per run, most severe first).
-The issue title is `[severity] title`, and the body contains the description, package@version, fixed
-version, CVEs, CVSS / EPSS / KEV and, when `PUBLIC_URL` is set, a link back.
-The sync (`ISSUE_SYNC_INTERVAL`, 15 min, or `POST /issue-trackers/sync`) is
-two-way. A finding leaving the backlog (remediated, risk accepted, false
-positive, won't fix) closes its issue, and one coming back reopens it. An issue
-closed in the tracker marks the finding remediated. If the problem is still
-there, the next scan reopens the finding, and the sync then reopens the issue.
-An issue reopened in the tracker reopens a remediated finding, but does not overturn a
-risk acceptance or false positive; in that case the issue is closed again. Each link stores
-the last state both sides agreed on, so the sync can tell which side changed and
-the two directions don't undo each other. Jira closes and reopens issues via workflow
-transitions matched by name (`done_transition` / `reopen_transition`, default
-`Done` / `To Do`). Jira Cloud authenticates with `jira_email` + API token; Server
-/ Data Center uses a PAT. A failing tracker or issue is logged and counted, and does not
-stop the run.
+Issue trackers (Jira, GitHub Issues, GitLab Issues, Azure DevOps Boards,
+Linear, ServiceNow): each project can have one tracker. The project owner
+configures it: kind, base URL, target (Jira project key, GitHub
+`owner/repo`, GitLab project id/path, Azure DevOps project name, Linear team
+id, or ServiceNow table, default `incident`), and an API token (ServiceNow:
+HTTP Basic user/password via `auth_user`, or an OAuth Bearer access token
+when `auth_user` is blank). The token is encrypted at rest (AES-256-GCM with
+`INTEGRATION_SECRET_KEY`, bound to the project) and is not returned; the API
+only reports `has_token`. Without the key configured, trackers can't be
+created (400). An editor files a finding with `POST /findings/{id}/issue`.
+This is idempotent: a finding has at most one issue. With `auto_create` on,
+every sync also files live, non-duplicate findings at or above
+`min_severity` (at most 50 per tracker per run, most severe first). The
+issue title is `[severity] title`, and the body contains the description,
+package@version, fixed version, CVEs, CVSS / EPSS / KEV and, when
+`PUBLIC_URL` is set, a link back. The sync (`ISSUE_SYNC_INTERVAL`, 15 min, or
+`POST /issue-trackers/sync`) is two-way. A finding leaving the backlog
+(remediated, risk accepted, false positive, won't fix) closes its issue, and
+one coming back reopens it. An issue closed in the tracker marks the finding
+remediated. If the problem is still there, the next scan reopens the
+finding, and the sync then reopens the issue. An issue reopened in the
+tracker reopens a remediated finding, but does not overturn a risk
+acceptance or false positive; in that case the issue is closed again. Each
+link stores the last state both sides agreed on, so the sync can tell which
+side changed and the two directions don't undo each other. GitHub and GitLab
+have a plain open/closed flag; the other four close/reopen by writing a
+state value instead (`done_transition` / `reopen_transition`): Jira a
+workflow transition matched by name (default `Done` / `To Do`), Azure DevOps
+the `System.State` field (default `Closed` / `Active`), Linear a workflow
+state *type* (`completed`/`canceled` vs. `unstarted`, not a per-team state
+name, resolved to a concrete state id on each call), and ServiceNow the
+table's `state` field (default `6` Resolved / `1` New for `incident`). Jira
+Cloud authenticates with `jira_email` + API token; Server / Data Center and
+Azure DevOps use a PAT as the Basic auth password with an empty username;
+Linear sends its API key as-is (no `Bearer` prefix). A failing tracker or
+issue is logged and counted, and does not stop the run.
 
 Remediation actions: open findings grouped by the single change that fixes
 them, tracked as work items with an owner, a due date and a status (`open`,

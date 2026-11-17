@@ -789,7 +789,12 @@ Tier 1:
 
 Tier 2:
 
-- ⬜ 12.7 More issue trackers: Azure DevOps, Linear, ServiceNow.
+- ✅ 12.7 More issue trackers: Azure DevOps, Linear, ServiceNow.
+  `internal/issuetracker` (101): work items (Azure Boards REST, PAT as the Basic
+  auth password), GraphQL issues (Linear, API key, workflow state *types* resolved
+  to a team's concrete state id) and Table API records (ServiceNow, Basic or OAuth
+  Bearer, `sys_id` as the issue key) alongside Jira/GitHub/GitLab, same create /
+  status-sync / test-connection capabilities and `Decide` two-way reconciliation.
 - ⬜ 12.8 Custom roles and user groups, and SCIM provisioning.
 - ✅ 12.9 Security gate caps for every severity: `max_medium`, `max_low` and
   `max_info` beside `max_critical` / `max_high` (Xila's "unknown" is `info`), in

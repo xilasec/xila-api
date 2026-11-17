@@ -9231,14 +9231,15 @@ components:
       properties:
         id: { type: string, format: uuid }
         project_id: { type: string, format: uuid }
-        kind: { type: string, enum: [jira, github, gitlab] }
-        base_url: { type: string, description: "Jira site, GitHub API (https://api.github.com, or https://host/api/v3 for Enterprise), or GitLab instance (https://gitlab.com)." }
-        target: { type: string, description: "Jira project key, GitHub owner/repo, or GitLab project id or full path." }
+        kind: { type: string, enum: [jira, github, gitlab, azure-devops, linear, servicenow] }
+        base_url: { type: string, description: "Jira site, GitHub API (https://api.github.com, or https://host/api/v3 for Enterprise), GitLab instance (https://gitlab.com), Azure DevOps organization/collection (https://dev.azure.com/your-org), Linear API (https://api.linear.app), or ServiceNow instance (https://your-instance.service-now.com)." }
+        target: { type: string, description: "Jira project key, GitHub owner/repo, GitLab project id or full path, Azure DevOps project name, Linear team id, or ServiceNow table name (default incident)." }
         has_token: { type: boolean }
         jira_email: { type: string, description: "Jira Cloud account email (basic auth with the API token); empty sends the token as a Bearer PAT." }
-        issue_type: { type: string, description: Jira issue type. }
-        done_transition: { type: string, description: Jira transition (or target status) used to close. }
-        reopen_transition: { type: string, description: Jira transition (or target status) used to reopen. }
+        auth_user: { type: string, description: "ServiceNow HTTP Basic auth username; empty sends the token as an OAuth Bearer access token instead." }
+        issue_type: { type: string, description: Jira issue type, or Azure DevOps work item type (e.g. Bug, Issue, Task). }
+        done_transition: { type: string, description: "Jira transition (or target status), Azure DevOps System.State value, Linear workflow state type, or ServiceNow state value used to close." }
+        reopen_transition: { type: string, description: "Jira transition (or target status), Azure DevOps System.State value, Linear workflow state type, or ServiceNow state value used to reopen." }
         min_severity: { $ref: "#/components/schemas/Severity" }
         auto_create: { type: boolean }
         labels: { type: array, items: { type: string } }
@@ -9250,11 +9251,12 @@ components:
       type: object
       required: [kind, target]
       properties:
-        kind: { type: string, enum: [jira, github, gitlab] }
-        base_url: { type: string, description: "Defaults to https://api.github.com / https://gitlab.com; required for Jira." }
+        kind: { type: string, enum: [jira, github, gitlab, azure-devops, linear, servicenow] }
+        base_url: { type: string, description: "Defaults to https://api.github.com / https://gitlab.com / https://api.linear.app; required for Jira, Azure DevOps and ServiceNow." }
         target: { type: string }
         token: { type: string, writeOnly: true, description: Required when creating; omit to keep the stored token. }
         jira_email: { type: string }
+        auth_user: { type: string, description: ServiceNow only; empty uses OAuth Bearer auth. }
         issue_type: { type: string, default: Bug }
         done_transition: { type: string, default: Done }
         reopen_transition: { type: string, default: To Do }
@@ -9269,7 +9271,7 @@ components:
         id: { type: string, format: uuid }
         finding_id: { type: string, format: uuid }
         tracker_id: { type: string, format: uuid }
-        kind: { type: string, enum: [jira, github, gitlab] }
+        kind: { type: string, enum: [jira, github, gitlab, azure-devops, linear, servicenow] }
         external_id: { type: string, description: "Jira key, GitHub issue number or GitLab iid." }
         url: { type: string }
         state: { type: string, enum: [open, closed], description: The state both sides last agreed on. }
@@ -9448,7 +9450,7 @@ components:
         id: { type: string, format: uuid }
         action_id: { type: string, format: uuid }
         tracker_id: { type: string, format: uuid }
-        kind: { type: string, enum: [jira, github, gitlab] }
+        kind: { type: string, enum: [jira, github, gitlab, azure-devops, linear, servicenow] }
         external_id: { type: string }
         url: { type: string }
         state: { type: string, enum: [open, closed] }

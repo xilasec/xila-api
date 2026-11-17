@@ -50,6 +50,15 @@ func NewClient(t Tracker, token string, hc *http.Client) (Client, error) {
 		return &githubClient{api: api{base: base, hc: hc, auth: githubAuth(token)}, repo: t.Target}, nil
 	case KindGitLab:
 		return &gitlabClient{api: api{base: base + "/api/v4", hc: hc, auth: gitlabAuth(token)}, project: t.Target}, nil
+	case KindAzureDevOps:
+		return &azureClient{api: api{base: base, hc: hc, auth: azureAuth(token)},
+			project: t.Target, workType: t.IssueType, done: t.DoneTransition, reopen: t.ReopenTransition}, nil
+	case KindLinear:
+		return &linearClient{api: api{base: base, hc: hc, auth: linearAuth(token)},
+			team: t.Target, done: t.DoneTransition, reopen: t.ReopenTransition}, nil
+	case KindServiceNow:
+		return &serviceNowClient{api: api{base: base, hc: hc, auth: serviceNowAuth(t.AuthUser, token)},
+			table: t.Target, done: t.DoneTransition, reopen: t.ReopenTransition}, nil
 	}
 	return nil, fmt.Errorf("unsupported tracker kind %q", t.Kind)
 }
@@ -65,6 +74,12 @@ type api struct {
 // out (may be nil). Non-2xx responses become errors carrying a snippet of the
 // tracker's message — never the request, which holds the credential.
 func (a api) do(ctx context.Context, method, path string, body, out any) error {
+	return a.doCT(ctx, method, path, "application/json", body, out)
+}
+
+// doCT is do with an explicit request Content-Type: Azure DevOps work item
+// writes require "application/json-patch+json" rather than plain JSON.
+func (a api) doCT(ctx context.Context, method, path, contentType string, body, out any) error {
 	var rd io.Reader
 	if body != nil {
 		b, err := json.Marshal(body)
@@ -79,7 +94,7 @@ func (a api) do(ctx context.Context, method, path string, body, out any) error {
 	}
 	req.Header.Set("Accept", "application/json")
 	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Content-Type", contentType)
 	}
 	a.auth(req)
 	resp, err := a.hc.Do(req)
@@ -89,7 +104,15 @@ func (a api) do(ctx context.Context, method, path string, body, out any) error {
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		snippet, _ := io.ReadAll(io.LimitReader(resp.Body, 300))
-		return RemoteError{msg: method + " " + path + ": " + resp.Status, detail: strings.TrimSpace(string(snippet))}
+		msg := method + " " + path + ": " + resp.Status
+		// Surfaced to instance admins (RemoteError.detail) so a rate-limited
+		// tracker can be told apart from one that's actually misconfigured.
+		if resp.StatusCode == http.StatusTooManyRequests {
+			if ra := strings.TrimSpace(resp.Header.Get("Retry-After")); ra != "" {
+				msg += " (Retry-After: " + ra + "s)"
+			}
+		}
+		return RemoteError{msg: msg, detail: strings.TrimSpace(string(snippet))}
 	}
 	if out == nil {
 		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<20))
