@@ -33,27 +33,28 @@ const insecureDevSecret = "insecure-development-secret-change-me"
 
 // Config is the fully resolved application configuration.
 type Config struct {
-	Env        string
-	HTTP       HTTP
-	DB         DB
-	JWT        JWT
-	OIDC       OIDC
-	SAML       SAML
-	LDAP       LDAP
-	SSO        SSO
-	SMTP       SMTP
-	Otel       Otel
-	Metrics    Metrics
-	Security   Security
-	Policy     Policy
-	VulnPolicy VulnPolicy
-	Enrich     Enrich
-	Exploit    ExploitIntel
-	CRA        CRA
-	NVD        NVD
-	AI         AI
-	Notify     Notify
-	Ingest     Ingest
+	Env            string
+	HTTP           HTTP
+	DB             DB
+	JWT            JWT
+	OIDC           OIDC
+	SAML           SAML
+	LDAP           LDAP
+	SSO            SSO
+	SMTP           SMTP
+	Otel           Otel
+	Metrics        Metrics
+	Security       Security
+	Policy         Policy
+	VulnPolicy     VulnPolicy
+	ComputedFields ComputedFields
+	Enrich         Enrich
+	Exploit        ExploitIntel
+	CRA            CRA
+	NVD            NVD
+	AI             AI
+	Notify         Notify
+	Ingest         Ingest
 	// S3 is the object-storage connection used when Ingest.PayloadStore is
 	// "s3" (M11 11.8).
 	S3        S3
@@ -218,6 +219,15 @@ type VulnPolicy struct {
 	// leaves the current set untouched.
 	BundleURL      string
 	BundleInterval time.Duration
+}
+
+// ComputedFields holds the computed-custom-field recompute schedule.
+type ComputedFields struct {
+	// Interval is how often every project, asset and finding's computed
+	// custom fields are recomputed (0 = off; ingest and a definition
+	// change still recompute), catching facts that change without a new
+	// scan (EPSS/KEV, status, exposure).
+	Interval time.Duration
 }
 
 // Enrich holds the exploit-intel enrichment schedule and its KEV catalogs.
@@ -755,6 +765,9 @@ func Load() (Config, error) {
 			EvalInterval:   getdur("VULN_POLICY_EVAL_INTERVAL", 6*time.Hour),
 			BundleURL:      strings.TrimSpace(getenv("VULN_POLICY_BUNDLE_URL", "")),
 			BundleInterval: getdur("VULN_POLICY_BUNDLE_INTERVAL", time.Hour),
+		},
+		ComputedFields: ComputedFields{
+			Interval: getdur("COMPUTED_FIELDS_INTERVAL", 15*time.Minute),
 		},
 		Enrich: Enrich{
 			Enabled:    getbool("ENRICH_ENABLED", true),

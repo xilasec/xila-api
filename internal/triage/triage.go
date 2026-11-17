@@ -106,7 +106,7 @@ type Rule struct {
 	KEV                bool                 `json:"kev"`
 	ProjectCriticality []domain.Criticality `json:"project_criticality"`
 	// Expression is an optional CEL condition over the finding's facts
-	// (findingDoc), for what the fixed conditions can't say:
+	// (FindingDoc), for what the fixed conditions can't say:
 	// `finding.cvss >= 9 && finding.tags.exists(t, t == "internet-facing")`.
 	Expression string `json:"expression"`
 
@@ -266,7 +266,7 @@ func (r *Rule) Matches(f finding.Finding, p ProjectFacts) bool {
 	if len(r.ProjectCriticality) > 0 && !slices.Contains(r.ProjectCriticality, crit) {
 		return false
 	}
-	if r.expr != nil && !r.expr.Match(context.Background(), findingDoc(f, p)) {
+	if r.expr != nil && !r.expr.Match(context.Background(), FindingDoc(f, p)) {
 		return false
 	}
 	return true

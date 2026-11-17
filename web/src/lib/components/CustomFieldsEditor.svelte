@@ -50,6 +50,7 @@
 		/** @type {Record<string, any>} */
 		const patch = {};
 		for (const f of fields) {
+			if (f.computed) continue; // read-only: the server recomputes it
 			const v = draft[f.key];
 			if (v === '' || v === null || v === undefined) patch[f.key] = null;
 			else patch[f.key] = f.type === 'number' ? Number(v) : v;
@@ -79,8 +80,13 @@
 			<div class="grid gap-3 md:grid-cols-2">
 				{#each fields as f (f.id)}
 					<label class="form-control w-full">
-						<span class="label-text mb-1 font-medium">{f.label}{#if f.required}<span class="text-error"> *</span>{/if}</span>
-						{#if f.type === 'enum'}
+						<span class="label-text mb-1 font-medium">
+							{f.label}{#if f.required}<span class="text-error"> *</span>{/if}
+							{#if f.computed}<span class="badge badge-ghost badge-xs ml-1">{$t('customfields.computedBadge')}</span>{/if}
+						</span>
+						{#if f.computed}
+							<span class="text-sm py-1">{display(f, values?.[f.key])}</span>
+						{:else if f.type === 'enum'}
 							<select bind:value={draft[f.key]} class="select select-bordered select-sm">
 								<option value="">—</option>
 								{#each f.options as o}<option value={o}>{o}</option>{/each}
@@ -107,7 +113,9 @@
 		{:else}
 			<dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
 				{#each fields as f (f.id)}
-					<dt class="text-base-content/60">{f.label}</dt>
+					<dt class="text-base-content/60">
+						{f.label}{#if f.computed}<span class="badge badge-ghost badge-xs ml-1">{$t('customfields.computedBadge')}</span>{/if}
+					</dt>
 					<dd>{display(f, values?.[f.key])}</dd>
 				{/each}
 			</dl>

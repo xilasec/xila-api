@@ -9,11 +9,13 @@ import (
 	"github.com/xilasec/xila-api/internal/finding"
 )
 
-// findingDoc is what a rule's expression sees about a finding. Unknown facts
+// FindingDoc is what a rule's expression sees about a finding. Unknown facts
 // are null and never match: no CVSS or EPSS yet, no CWE, no dependency graph.
 // Custom fields are finding.custom.<key> / project.custom.<key>; one that is
-// unset is absent, so reading it is "no match" (has() tests for it).
-func findingDoc(f finding.Finding, p ProjectFacts) map[string]any {
+// unset is absent, so reading it is "no match" (has() tests for it). Exported
+// so internal/computed can build the same document for a computed finding
+// field's expression, rather than copying this logic.
+func FindingDoc(f finding.Finding, p ProjectFacts) map[string]any {
 	crit := p.Criticality
 	str := func(xs []string) []any {
 		out := make([]any, len(xs))
@@ -73,7 +75,7 @@ func customDoc(m map[string]any) map[string]any {
 }
 
 // FindingSchema is the document triage expressions are checked against, built
-// by findingDoc itself so the two can't drift. It carries no custom fields;
+// by FindingDoc itself so the two can't drift. It carries no custom fields;
 // FindingSchemaFor adds the defined ones.
 var FindingSchema = FindingSchemaFor(nil, nil)
 
@@ -83,7 +85,7 @@ var FindingSchema = FindingSchemaFor(nil, nil)
 func FindingSchemaFor(findingFields, projectFields []customfield.Definition) expr.Schema {
 	cwe, depth, direct := 79, 2, false
 	cvss, epss := 9.8, 0.5
-	sample := findingDoc(finding.Finding{
+	sample := FindingDoc(finding.Finding{
 		Scanner: "trivy", Category: domain.CategorySCA, RuleID: "CVE-2021-44228", Title: "t", Severity: domain.SeverityHigh,
 		Status: domain.FindingOpen, CVE: []string{"CVE-2021-44228"}, CWE: &cwe, CVSS: &cvss, EPSS: &epss, KEV: true,
 		KEVSources:  []string{"cisa", "enisa"},

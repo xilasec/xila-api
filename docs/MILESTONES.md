@@ -859,9 +859,9 @@ Tier 2:
   critical can't be buried under a quiet medium. Every priority writer and the
   upsert read the project's weights; saving re-ranks and regroups the project.
   Gate tab in the UI. Migration 000099.
-- ⬜ 12.16 Smaller items: computed custom fields, triage rule chaining, splitting
+- ✅ 12.16 Smaller items: computed custom fields, triage rule chaining, splitting
   a multi-host infrastructure scan per asset, re-authentication before creating
-  API tokens, CryptoLyzer and DrHeader parsers. Done so far:
+  API tokens, CryptoLyzer and DrHeader parsers:
   - Triage rule chaining: `continue` on a rule lets the rules after it evaluate
     against the finding as it left it; preview simulates the same chain.
     Migration 000098.
@@ -873,6 +873,16 @@ Tier 2:
     CVEs) and drHEADer parsers.
   - Splitting a multi-host scan per asset: `split_assets=true` files each
     finding under its machine's host asset (`scanner.HostOf`). Migration 000105.
+  - Computed custom fields: a definition may carry a CEL `expression` instead
+    of a person's write; read-only through the API (400 on a direct write),
+    recomputed from the entity's facts for findings (`finding.*`/`project.*`,
+    the same document triage rules evaluate), projects (`project.*`: name,
+    slug, tags, criticality, custom, open finding counts by severity) and
+    assets (`asset.*` plus `project.*`). Recomputed on every ingest (after the
+    triage rules), on save when a definition is created or its expression
+    changes, and every `COMPUTED_FIELDS_INTERVAL` (15m default). A computed
+    field never sees another's value (cycle-free by construction). Migration
+    000104.
 
 Deliberately not pursued: FedRAMP POA&M and OSCAL export (US federal niche),
 threat modeling, AI-generated fix pull requests, active cloud scanning (Xila

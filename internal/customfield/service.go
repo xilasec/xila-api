@@ -80,6 +80,9 @@ func (s *Service) Prepare(ctx context.Context, entity Entity, id string, patch m
 		if !ok {
 			return Change{}, invalid("unknown custom field %q for this %s", k, entity)
 		}
+		if d.Computed {
+			return Change{}, invalid("%s is computed and can't be set directly", k)
+		}
 		v, err := d.Normalize(patch[k])
 		if err != nil {
 			return Change{}, err

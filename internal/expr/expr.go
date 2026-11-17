@@ -44,7 +44,14 @@ type Schema struct {
 // Program is a compiled, validated expression.
 type Program struct {
 	Source string
-	prg    cel.Program
+	// OutputType is CEL's statically inferred result type name ("bool",
+	// "string", "double", "int", "uint", "null_type", "dyn" when it can't be
+	// determined — e.g. the expression reads a custom field). A value-mode
+	// caller (internal/customfield.Type.FitsOutputType) uses it to reject an
+	// expression that can never fit the field at save time; every result is
+	// still checked again, leniently, on each evaluation (see Fit).
+	OutputType string
+	prg        cel.Program
 }
 
 func env(s Schema) (*cel.Env, error) {
@@ -56,9 +63,10 @@ func env(s Schema) (*cel.Env, error) {
 }
 
 // Compile validates src against the schema and returns the runnable program.
+// The result must be true or false (a triage rule or policy condition).
 // Errors are user-facing (they explain what to fix).
 func Compile(s Schema, src string) (*Program, error) {
-	return compile(s, src, true)
+	return compile(s, src, true, true)
 }
 
 // Load compiles an expression that was validated when it was saved, without
@@ -66,10 +74,23 @@ func Compile(s Schema, src string) (*Program, error) {
 // make the expression not match — Match treats the missing key as no match —
 // rather than fail to load.
 func Load(vars []string, src string) (*Program, error) {
-	return compile(Schema{Vars: vars}, src, false)
+	return compile(Schema{Vars: vars}, src, false, true)
 }
 
-func compile(s Schema, src string, dryRun bool) (*Program, error) {
+// CompileValue validates src against the schema and returns a program whose
+// result is a value rather than a boolean (a computed custom field). Errors
+// are user-facing.
+func CompileValue(s Schema, src string) (*Program, error) {
+	return compile(s, src, true, false)
+}
+
+// LoadValue compiles a value-returning expression that was validated when it
+// was saved, without the dry run (see Load).
+func LoadValue(vars []string, src string) (*Program, error) {
+	return compile(Schema{Vars: vars}, src, false, false)
+}
+
+func compile(s Schema, src string, dryRun, wantBool bool) (*Program, error) {
 	src = strings.TrimSpace(src)
 	if src == "" {
 		return nil, errors.New("expression is empty")
@@ -85,14 +106,17 @@ func compile(s Schema, src string, dryRun bool) (*Program, error) {
 	if iss.Err() != nil {
 		return nil, fmt.Errorf("expression: %s", iss.Err())
 	}
-	if t := ast.OutputType(); !t.IsAssignableType(cel.BoolType) && t != cel.DynType {
-		return nil, fmt.Errorf("expression must be true or false, not %s", t)
+	outputType := ast.OutputType()
+	if wantBool {
+		if t := outputType; !t.IsAssignableType(cel.BoolType) && t != cel.DynType {
+			return nil, fmt.Errorf("expression must be true or false, not %s", t)
+		}
 	}
 	prg, err := e.Program(ast, cel.CostLimit(costLimit), cel.InterruptCheckFrequency(100))
 	if err != nil {
 		return nil, fmt.Errorf("expression: %w", err)
 	}
-	p := &Program{Source: src, prg: prg}
+	p := &Program{Source: src, OutputType: outputType.TypeName(), prg: prg}
 	if !dryRun {
 		return p, nil
 	}
@@ -102,7 +126,7 @@ func compile(s Schema, src string, dryRun bool) (*Program, error) {
 	if err != nil {
 		return nil, fmt.Errorf("expression: %s (available: %s)", err, strings.Join(fieldList(s.Sample, ""), ", "))
 	}
-	if out.Type() != types.BoolType {
+	if wantBool && out.Type() != types.BoolType {
 		return nil, fmt.Errorf("expression must be true or false, not %s", out.Type().TypeName())
 	}
 	return p, nil
@@ -117,6 +141,22 @@ func (p *Program) Match(ctx context.Context, doc map[string]any) bool {
 	}
 	b, ok := out.Value().(bool)
 	return ok && b
+}
+
+// Eval evaluates the expression on doc and returns its native Go value — a
+// bool, string, int64, float64, time.Time, or nil for CEL's null (an unknown
+// fact the expression read, or an explicit null result). An error — a key
+// the document lacks, a runtime type error, the cost limit — is returned as
+// is; callers that want "no match" semantics instead of a value use Match.
+func (p *Program) Eval(ctx context.Context, doc map[string]any) (any, error) {
+	out, _, err := p.prg.ContextEval(ctx, doc)
+	if err != nil {
+		return nil, err
+	}
+	if out.Type() == types.NullType {
+		return nil, nil
+	}
+	return out.Value(), nil
 }
 
 // fieldList names every field of the sample, for error messages.

@@ -20,7 +20,7 @@
 	let fields = $state(/** @type {any[]} */ ([]));
 	let saving = $state(false);
 	let editing = $state(/** @type {any} */ (null));
-	const blank = () => ({ entity: 'finding', key: '', label: '', type: 'text', options: '', required: false });
+	const blank = () => ({ entity: 'finding', key: '', label: '', type: 'text', options: '', required: false, computed: false, expression: '' });
 	let form = $state(blank());
 
 	async function load() {
@@ -38,7 +38,10 @@
 	/** @param {any} f */
 	function edit(f) {
 		editing = f;
-		form = { entity: f.entity, key: f.key, label: f.label, type: f.type, options: (f.options ?? []).join(', '), required: f.required };
+		form = {
+			entity: f.entity, key: f.key, label: f.label, type: f.type, options: (f.options ?? []).join(', '),
+			required: f.required, computed: !!f.computed, expression: f.expression ?? ''
+		};
 	}
 
 	function reset() {
@@ -51,8 +54,10 @@
 		e.preventDefault();
 		saving = true;
 		const body = {
-			entity: form.entity, key: form.key.trim(), label: form.label.trim(), type: form.type, required: form.required,
-			options: form.type === 'enum' ? form.options.split(',').map((o) => o.trim()).filter(Boolean) : []
+			entity: form.entity, key: form.key.trim(), label: form.label.trim(), type: form.type,
+			required: form.computed ? false : form.required,
+			options: form.type === 'enum' ? form.options.split(',').map((o) => o.trim()).filter(Boolean) : [],
+			computed: form.computed, expression: form.computed ? form.expression.trim() : ''
 		};
 		try {
 			if (editing) await api.updateCustomField(editing.id, body);
@@ -106,7 +111,7 @@
 		</Field>
 		<Field label={$t('customfields.typeLabel')}>
 			<select bind:value={form.type} class="select select-bordered select-sm w-full" disabled={!!editing}>
-				{#each TYPES as ty}<option value={ty}>{$t(/** @type {import('#lib/i18n.js').MessageKey} */ ('customfields.type.' + ty))}</option>{/each}
+				{#each TYPES as ty}<option value={ty} disabled={form.computed && ty === 'user'}>{$t(/** @type {import('#lib/i18n.js').MessageKey} */ ('customfields.type.' + ty))}</option>{/each}
 			</select>
 		</Field>
 		{#if form.type === 'enum'}
@@ -115,9 +120,22 @@
 			</Field>
 		{/if}
 		<label class="label cursor-pointer justify-start gap-2 self-end">
-			<input type="checkbox" class="checkbox checkbox-sm" bind:checked={form.required} />
-			<span class="label-text">{$t('customfields.requiredLabel')}</span>
+			<input type="checkbox" class="checkbox checkbox-sm" bind:checked={form.computed}
+				disabled={form.type === 'user'} onchange={() => { if (form.computed) form.required = false; }} />
+			<span class="label-text">{$t('customfields.computedLabel')}</span>
 		</label>
+		{#if !form.computed}
+			<label class="label cursor-pointer justify-start gap-2 self-end">
+				<input type="checkbox" class="checkbox checkbox-sm" bind:checked={form.required} />
+				<span class="label-text">{$t('customfields.requiredLabel')}</span>
+			</label>
+		{/if}
+		{#if form.computed}
+			<Field label={$t('customfields.expressionLabel')} hint={$t('customfields.expressionHint')}>
+				<textarea bind:value={form.expression} required rows="2"
+					class="textarea textarea-bordered textarea-sm w-full font-mono md:col-span-3"></textarea>
+			</Field>
+		{/if}
 		<div class="md:col-span-3 flex justify-end gap-2">
 			{#if editing}<button type="button" class="btn btn-ghost btn-sm" onclick={reset}>{$t('customfields.cancel')}</button>{/if}
 			<button class="btn btn-primary btn-sm" disabled={saving}>{editing ? $t('customfields.saveButton') : $t('customfields.addButton')}</button>
@@ -134,7 +152,7 @@
 				{#each fields as f (f.id)}
 					<tr class="hover">
 						<td>{entityLabel(f.entity)}</td>
-						<td class="font-medium">{f.label}</td>
+						<td class="font-medium">{f.label}{#if f.computed} <span class="badge badge-ghost badge-sm" title={f.expression}>{$t('customfields.computedBadge')}</span>{/if}</td>
 						<td class="font-mono text-xs">{f.key}</td>
 						<td>{$t(/** @type {import('#lib/i18n.js').MessageKey} */ ('customfields.type.' + f.type))}{#if f.type === 'enum'} <span class="text-xs text-base-content/60">({f.options.join(', ')})</span>{/if}</td>
 						<td>{f.required ? $t('customfields.yes') : ''}</td>

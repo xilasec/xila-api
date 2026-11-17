@@ -5562,9 +5562,14 @@ type Criticality string
 
 // CustomField defines model for CustomField.
 type CustomField struct {
-	CreatedAt *time.Time          `json:"created_at,omitempty"`
-	Entity    CustomFieldEntity   `json:"entity"`
-	Id        *openapi_types.UUID `json:"id,omitempty"`
+	// Computed The value comes from `expression`, not a person's write; writing it directly is refused (400).
+	Computed  *bool             `json:"computed,omitempty"`
+	CreatedAt *time.Time        `json:"created_at,omitempty"`
+	Entity    CustomFieldEntity `json:"entity"`
+
+	// Expression A CEL expression over the entity's facts (`finding.*`/`project.*`, `project.*`, or `asset.*`/`project.*`), required when `computed` is true. A result that doesn't fit the field type, an evaluation error, or null leaves the field unset.
+	Expression *string             `json:"expression,omitempty"`
+	Id         *openapi_types.UUID `json:"id,omitempty"`
 
 	// Key Example: risk_owner
 	Key   string `json:"key"`
@@ -5576,7 +5581,7 @@ type CustomField struct {
 	// OrgId Only this organization's entities have the field; null = all.
 	OrgId *openapi_types.UUID `json:"org_id,omitempty"`
 
-	// Required Every edit of the entity must leave the field set.
+	// Required Every edit of the entity must leave the field set. Never true on a computed field.
 	Required  *bool           `json:"required,omitempty"`
 	Type      CustomFieldType `json:"type"`
 	UpdatedAt *time.Time      `json:"updated_at,omitempty"`
@@ -9043,11 +9048,13 @@ type ListCustomFieldsParamsEntity string
 // UpdateCustomFieldJSONBody defines parameters for UpdateCustomField.
 type UpdateCustomFieldJSONBody struct {
 	// ClearOrg Apply to every organization again.
-	ClearOrg *bool               `json:"clear_org,omitempty"`
-	Label    *string             `json:"label,omitempty"`
-	Options  *[]string           `json:"options,omitempty"`
-	OrgId    *openapi_types.UUID `json:"org_id,omitempty"`
-	Required *bool               `json:"required,omitempty"`
+	ClearOrg   *bool               `json:"clear_org,omitempty"`
+	Computed   *bool               `json:"computed,omitempty"`
+	Expression *string             `json:"expression,omitempty"`
+	Label      *string             `json:"label,omitempty"`
+	Options    *[]string           `json:"options,omitempty"`
+	OrgId      *openapi_types.UUID `json:"org_id,omitempty"`
+	Required   *bool               `json:"required,omitempty"`
 }
 
 // DryRunCustomParserJSONBody defines parameters for DryRunCustomParser.
@@ -12029,7 +12036,10 @@ type ClientInterface interface {
 
 	// CreateCustomFieldWithBody Define a custom field
 	//
-	// Instance admin. `key` is unique per entity and becomes `custom.<key>` in the API, CEL and filters.
+	// Instance admin. `key` is unique per entity and becomes `custom.<key>` in the
+	// API, CEL and filters. With `computed` true, `expression` (CEL over the
+	// entity's facts) replaces a person's write; every entity of this type is
+	// computed before this call returns.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -12038,7 +12048,10 @@ type ClientInterface interface {
 
 	// CreateCustomField Define a custom field
 	//
-	// Instance admin. `key` is unique per entity and becomes `custom.<key>` in the API, CEL and filters.
+	// Instance admin. `key` is unique per entity and becomes `custom.<key>` in the
+	// API, CEL and filters. With `computed` true, `expression` (CEL over the
+	// entity's facts) replaces a person's write; every entity of this type is
+	// computed before this call returns.
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -12059,9 +12072,13 @@ type ClientInterface interface {
 
 	// UpdateCustomFieldWithBody Edit a custom-field definition
 	//
-	// Instance admin. Label, options, required and organization scope are editable;
-	// entity, key and type are fixed. Removing an enum option leaves stored values as
-	// they are (the next edit of that entity must pick a current option).
+	// Instance admin. Label, options, required, organization scope, computed and
+	// expression are editable; entity, key and type are fixed. Removing an enum
+	// option leaves stored values as they are (the next edit of that entity must
+	// pick a current option). Turning a field computed (or changing its
+	// expression) recomputes every entity of that type before this call returns;
+	// turning it back off leaves its last computed value in place until a person
+	// edits it.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -12070,9 +12087,13 @@ type ClientInterface interface {
 
 	// UpdateCustomField Edit a custom-field definition
 	//
-	// Instance admin. Label, options, required and organization scope are editable;
-	// entity, key and type are fixed. Removing an enum option leaves stored values as
-	// they are (the next edit of that entity must pick a current option).
+	// Instance admin. Label, options, required, organization scope, computed and
+	// expression are editable; entity, key and type are fixed. Removing an enum
+	// option leaves stored values as they are (the next edit of that entity must
+	// pick a current option). Turning a field computed (or changing its
+	// expression) recomputes every entity of that type before this call returns;
+	// turning it back off leaves its last computed value in place until a person
+	// edits it.
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -18230,7 +18251,10 @@ func (c *Client) ListCustomFields(ctx context.Context, params *ListCustomFieldsP
 
 // CreateCustomFieldWithBody Define a custom field
 //
-// Instance admin. `key` is unique per entity and becomes `custom.<key>` in the API, CEL and filters.
+// Instance admin. `key` is unique per entity and becomes `custom.<key>` in the
+// API, CEL and filters. With `computed` true, `expression` (CEL over the
+// entity's facts) replaces a person's write; every entity of this type is
+// computed before this call returns.
 //
 // Takes any type of body and a specified content type.
 //
@@ -18249,7 +18273,10 @@ func (c *Client) CreateCustomFieldWithBody(ctx context.Context, contentType stri
 
 // CreateCustomField Define a custom field
 //
-// Instance admin. `key` is unique per entity and becomes `custom.<key>` in the API, CEL and filters.
+// Instance admin. `key` is unique per entity and becomes `custom.<key>` in the
+// API, CEL and filters. With `computed` true, `expression` (CEL over the
+// entity's facts) replaces a person's write; every entity of this type is
+// computed before this call returns.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -18300,9 +18327,13 @@ func (c *Client) GetCustomField(ctx context.Context, fieldID CustomFieldID, reqE
 
 // UpdateCustomFieldWithBody Edit a custom-field definition
 //
-// Instance admin. Label, options, required and organization scope are editable;
-// entity, key and type are fixed. Removing an enum option leaves stored values as
-// they are (the next edit of that entity must pick a current option).
+// Instance admin. Label, options, required, organization scope, computed and
+// expression are editable; entity, key and type are fixed. Removing an enum
+// option leaves stored values as they are (the next edit of that entity must
+// pick a current option). Turning a field computed (or changing its
+// expression) recomputes every entity of that type before this call returns;
+// turning it back off leaves its last computed value in place until a person
+// edits it.
 //
 // Takes any type of body and a specified content type.
 //
@@ -18321,9 +18352,13 @@ func (c *Client) UpdateCustomFieldWithBody(ctx context.Context, fieldID CustomFi
 
 // UpdateCustomField Edit a custom-field definition
 //
-// Instance admin. Label, options, required and organization scope are editable;
-// entity, key and type are fixed. Removing an enum option leaves stored values as
-// they are (the next edit of that entity must pick a current option).
+// Instance admin. Label, options, required, organization scope, computed and
+// expression are editable; entity, key and type are fixed. Removing an enum
+// option leaves stored values as they are (the next edit of that entity must
+// pick a current option). Turning a field computed (or changing its
+// expression) recomputes every entity of that type before this call returns;
+// turning it back off leaves its last computed value in place until a person
+// edits it.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -49980,7 +50015,10 @@ type ClientWithResponsesInterface interface {
 
 	// CreateCustomFieldWithBodyWithResponse Define a custom field
 	//
-	// Instance admin. `key` is unique per entity and becomes `custom.<key>` in the API, CEL and filters.
+	// Instance admin. `key` is unique per entity and becomes `custom.<key>` in the
+	// API, CEL and filters. With `computed` true, `expression` (CEL over the
+	// entity's facts) replaces a person's write; every entity of this type is
+	// computed before this call returns.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -49989,7 +50027,10 @@ type ClientWithResponsesInterface interface {
 
 	// CreateCustomFieldWithResponse Define a custom field
 	//
-	// Instance admin. `key` is unique per entity and becomes `custom.<key>` in the API, CEL and filters.
+	// Instance admin. `key` is unique per entity and becomes `custom.<key>` in the
+	// API, CEL and filters. With `computed` true, `expression` (CEL over the
+	// entity's facts) replaces a person's write; every entity of this type is
+	// computed before this call returns.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -50014,9 +50055,13 @@ type ClientWithResponsesInterface interface {
 
 	// UpdateCustomFieldWithBodyWithResponse Edit a custom-field definition
 	//
-	// Instance admin. Label, options, required and organization scope are editable;
-	// entity, key and type are fixed. Removing an enum option leaves stored values as
-	// they are (the next edit of that entity must pick a current option).
+	// Instance admin. Label, options, required, organization scope, computed and
+	// expression are editable; entity, key and type are fixed. Removing an enum
+	// option leaves stored values as they are (the next edit of that entity must
+	// pick a current option). Turning a field computed (or changing its
+	// expression) recomputes every entity of that type before this call returns;
+	// turning it back off leaves its last computed value in place until a person
+	// edits it.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -50025,9 +50070,13 @@ type ClientWithResponsesInterface interface {
 
 	// UpdateCustomFieldWithResponse Edit a custom-field definition
 	//
-	// Instance admin. Label, options, required and organization scope are editable;
-	// entity, key and type are fixed. Removing an enum option leaves stored values as
-	// they are (the next edit of that entity must pick a current option).
+	// Instance admin. Label, options, required, organization scope, computed and
+	// expression are editable; entity, key and type are fixed. Removing an enum
+	// option leaves stored values as they are (the next edit of that entity must
+	// pick a current option). Turning a field computed (or changing its
+	// expression) recomputes every entity of that type before this call returns;
+	// turning it back off leaves its last computed value in place until a person
+	// edits it.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -79075,7 +79124,10 @@ func (c *ClientWithResponses) ListCustomFieldsWithResponse(ctx context.Context, 
 
 // CreateCustomFieldWithBodyWithResponse Define a custom field
 //
-// Instance admin. `key` is unique per entity and becomes `custom.<key>` in the API, CEL and filters.
+// Instance admin. `key` is unique per entity and becomes `custom.<key>` in the
+// API, CEL and filters. With `computed` true, `expression` (CEL over the
+// entity's facts) replaces a person's write; every entity of this type is
+// computed before this call returns.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -79090,7 +79142,10 @@ func (c *ClientWithResponses) CreateCustomFieldWithBodyWithResponse(ctx context.
 
 // CreateCustomFieldWithResponse Define a custom field
 //
-// Instance admin. `key` is unique per entity and becomes `custom.<key>` in the API, CEL and filters.
+// Instance admin. `key` is unique per entity and becomes `custom.<key>` in the
+// API, CEL and filters. With `computed` true, `expression` (CEL over the
+// entity's facts) replaces a person's write; every entity of this type is
+// computed before this call returns.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -79133,9 +79188,13 @@ func (c *ClientWithResponses) GetCustomFieldWithResponse(ctx context.Context, fi
 
 // UpdateCustomFieldWithBodyWithResponse Edit a custom-field definition
 //
-// Instance admin. Label, options, required and organization scope are editable;
-// entity, key and type are fixed. Removing an enum option leaves stored values as
-// they are (the next edit of that entity must pick a current option).
+// Instance admin. Label, options, required, organization scope, computed and
+// expression are editable; entity, key and type are fixed. Removing an enum
+// option leaves stored values as they are (the next edit of that entity must
+// pick a current option). Turning a field computed (or changing its
+// expression) recomputes every entity of that type before this call returns;
+// turning it back off leaves its last computed value in place until a person
+// edits it.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -79150,9 +79209,13 @@ func (c *ClientWithResponses) UpdateCustomFieldWithBodyWithResponse(ctx context.
 
 // UpdateCustomFieldWithResponse Edit a custom-field definition
 //
-// Instance admin. Label, options, required and organization scope are editable;
-// entity, key and type are fixed. Removing an enum option leaves stored values as
-// they are (the next edit of that entity must pick a current option).
+// Instance admin. Label, options, required, organization scope, computed and
+// expression are editable; entity, key and type are fixed. Removing an enum
+// option leaves stored values as they are (the next edit of that entity must
+// pick a current option). Turning a field computed (or changing its
+// expression) recomputes every entity of that type before this call returns;
+// turning it back off leaves its last computed value in place until a person
+// edits it.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //

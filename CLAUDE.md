@@ -436,6 +436,27 @@ Rules are admin-managed (`/triage-rules` is in `authz` `adminOnly`). Keep `apply
 idempotent. It re-runs on every ingest, so skip findings already in the target
 state.
 
+**Computed custom fields**: `internal/computed` evaluates a custom field
+definition's CEL `expression` (`customfield.Definition.Computed`) and writes
+the result into the entity's `custom` column — the only writer: a person's
+`PATCH .../custom` and a triage rule's `set_custom_field` both refuse a
+computed key (`customfield.Service.Prepare`). It runs as a `scan.Applier`
+(`ApplyToScan`, right after the triage rules), as a full backfill of one
+entity type when a definition is created or its expression changes
+(`customfield.Handler.WithComputedChanged`, synchronous), and on the leader's
+`COMPUTED_FIELDS_INTERVAL` sweep (`RunSweep`). The finding document is
+`triage.FindingDoc`/`ProjectFacts` — exported so this package reuses it
+rather than building a second one; a new fact belongs in that builder, not
+copied here. The project (`internal/computed.projectDoc`) and asset
+(`assetDoc`) documents are this package's own, built once and reused for
+both the entity's own computed fields and, for an asset, its `project.*`
+section. `customfield.FilterComputed` drops every computed key from a
+document's `*.custom` before it is built, so a computed field can never read
+another's value (no evaluation order, no cycle). `expr.CompileValue`/
+`LoadValue` are `Compile`/`Load` without the boolean-result requirement;
+`customfield.Definition.Fit` is the lenient counterpart to `Normalize` — it
+never errors, just leaves the field unset when the result doesn't fit.
+
 CRA Article 14 cases: `internal/cra` (`cases.go`, `service.go`). "Actively
 exploited" has one definition, `exploitedSQL` (open/confirmed, default version,
 `duplicate_of IS NULL`, `kev OR exploit_maturity='weaponized'`, project
