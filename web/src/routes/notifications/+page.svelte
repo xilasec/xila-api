@@ -3,10 +3,11 @@
 	import { api, ApiError, errorMessage } from '#lib/api.js';
 	import { notify } from '#lib/stores.js';
 	import { fmtDate } from '#lib/format.js';
-	import { CHANNEL_TYPES, EVENT_TYPES, channelHint, channelPlaceholder, channelInputType, defaultRules, describeRules } from '#lib/channels.js';
+	import { CHANNEL_TYPES, EVENT_TYPES, channelHint, channelPlaceholder, channelInputType, defaultRules, defaultKafka, kafkaPayload, kafkaFromChannel, describeRules } from '#lib/channels.js';
 	import State from '#lib/components/State.svelte';
 	import Field from '#lib/components/Field.svelte';
 	import ChannelRules from '#lib/components/ChannelRules.svelte';
+	import KafkaChannelFields from '#lib/components/KafkaChannelFields.svelte';
 	import { t, labelOf, contentLocale } from '#lib/i18n.js';
 
 	let loading = $state(true);
@@ -20,17 +21,18 @@
 
 	/** @type {HTMLDialogElement} */
 	let dialog;
-	let form = $state({ name: '', type: 'slack', url: '', events: '*', project_id: '', secret: '', rules: defaultRules() });
+	let form = $state({ name: '', type: 'slack', url: '', events: '*', project_id: '', secret: '', rules: defaultRules(), kafka: defaultKafka() });
 
 	/** @type {HTMLDialogElement} */
 	let editDialog;
-	let editing = $state(/** @type {any} */ (null)); // { id, name, events, enabled, rules }
+	let editing = $state(/** @type {any} */ (null)); // { id, name, events, enabled, rules, kafka }
 
 	/** @param {any} ch */
 	function openEdit(ch) {
 		editing = {
 			id: ch.id, name: ch.name, events: ch.events.length === 1 ? ch.events[0] : '*', enabled: ch.enabled,
 			type: ch.type, has_secret: ch.has_secret, secret: '', clear_secret: false,
+			kafka: ch.type === 'kafka' ? kafkaFromChannel(ch) : defaultKafka(),
 			rules: { min_severity: ch.min_severity, filter: ch.filter ?? '', summary: ch.summary, summary_hour: ch.summary_hour, summary_weekday: ch.summary_weekday }
 		};
 		editDialog.showModal();
@@ -46,9 +48,13 @@
 				name: editing.name, enabled: editing.enabled,
 				events: editing.events === '*' ? ['*'] : [editing.events], ...editing.rules
 			};
+			if (editing.type === 'kafka') body.kafka = kafkaPayload(editing.kafka);
 			// Write-only: send it only to rotate (a value) or remove ("").
-			if (editing.clear_secret) body.signing_secret = '';
-			else if (editing.secret) body.signing_secret = editing.secret;
+			const secretField = editing.type === 'kafka' ? 'sasl_password' : 'signing_secret';
+			if (editing.clear_secret) body[secretField] = '';
+			else if (editing.type === 'kafka' ? editing.kafka.sasl_password : editing.secret) {
+				body[secretField] = editing.type === 'kafka' ? editing.kafka.sasl_password : editing.secret;
+			}
 			await api.updateChannel(editing.id, body);
 			editDialog.close();
 			notify($t('notif.updated'), 'success');
@@ -83,7 +89,7 @@
 	onMount(load);
 
 	function openCreate() {
-		form = { name: '', type: 'slack', url: '', events: '*', project_id: '', secret: '', rules: defaultRules() };
+		form = { name: '', type: 'slack', url: '', events: '*', project_id: '', secret: '', rules: defaultRules(), kafka: defaultKafka() };
 		dialog.showModal();
 	}
 
@@ -99,6 +105,7 @@
 				events: form.events === '*' ? ['*'] : [form.events],
 				project_id: form.project_id || null,
 				...(form.type === 'webhook' && form.secret ? { signing_secret: form.secret } : {}),
+				...(form.type === 'kafka' ? { kafka: kafkaPayload(form.kafka), sasl_password: form.kafka.sasl_password } : {}),
 				...form.rules
 			});
 			dialog.close();
@@ -245,13 +252,16 @@
 					{#each CHANNEL_TYPES as ct}<option value={ct.id}>{$t(ct.long)}</option>{/each}
 				</select>
 			</Field>
-			<Field label={form.type === 'email' ? $t('notif.recipients') : $t('notif.colUrl')} required hint={channelHint(form.type, $t)}>
+			<Field label={form.type === 'email' ? $t('notif.recipients') : form.type === 'kafka' ? $t('notif.kafkaTopic') : $t('notif.colUrl')} required hint={channelHint(form.type, $t)}>
 				<input bind:value={form.url} required type={channelInputType(form.type)} placeholder={channelPlaceholder(form.type)} class="input input-bordered w-full" />
 			</Field>
 			{#if form.type === 'webhook'}
 				<Field label={$t('notif.signingSecret')} hint={$t('notif.secretHint')}>
 					<input bind:value={form.secret} type="password" autocomplete="new-password" minlength="16" class="input input-bordered w-full font-mono" />
 				</Field>
+			{/if}
+			{#if form.type === 'kafka'}
+				<KafkaChannelFields bind:kafka={form.kafka} />
 			{/if}
 			<div class="grid grid-cols-2 gap-3">
 				<Field label={$t('notif.colEvents')}>
@@ -303,6 +313,9 @@
 							<span class="label-text">{$t('notif.removeSecret')}</span>
 						</label>
 					{/if}
+				{/if}
+				{#if editing.type === 'kafka'}
+					<KafkaChannelFields bind:kafka={editing.kafka} hasSecret={editing.has_secret} bind:clearSecret={editing.clear_secret} />
 				{/if}
 				<label class="label cursor-pointer justify-start gap-2">
 					<input type="checkbox" bind:checked={editing.enabled} class="checkbox checkbox-sm" />

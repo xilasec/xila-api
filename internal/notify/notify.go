@@ -1,9 +1,10 @@
 // Package notify delivers events to outbound channels: generic webhooks, Slack,
-// Microsoft Teams and Mattermost incoming webhooks, and email (SMTP).
+// Microsoft Teams and Mattermost incoming webhooks, email (SMTP) and Kafka topics.
 package notify
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -88,6 +89,12 @@ type Channel struct {
 	// URL is sealed in urlEnc, an email channel's address is the owner's.
 	OwnerUserID *string `json:"-"`
 	urlEnc      []byte
+	// Kafka carries kafka channel settings (type == TypeKafka, nil for every
+	// other type): brokers, TLS and SASL mechanism/username. The topic is the
+	// channel's URL. The SASL password is never returned — HasSecret says
+	// whether one is sealed, exactly like a generic webhook's signing secret.
+	Kafka     *KafkaConfig `json:"kafka,omitempty"`
+	configRaw []byte
 }
 
 // Delivery is an audit record of a single send attempt.
@@ -132,15 +139,47 @@ func NewRepository(db *pgxpool.Pool) *Repository {
 
 const channelColumns = `id, name, type, url, events, project_id, enabled, created_at,
 	COALESCE(min_severity, ''), summary, summary_hour, summary_weekday, last_summary_at, signing_secret, filter,
-	owner_user_id, url_enc`
+	owner_user_id, url_enc, config`
+
+// SetKafkaConfig stores cfg as the channel's config (brokers, TLS and SASL
+// settings; the topic stays in URL).
+func (c *Channel) SetKafkaConfig(cfg KafkaConfig) error {
+	b, err := json.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+	c.configRaw, c.Kafka = b, &cfg
+	return nil
+}
+
+// decodeKafka unmarshals the config column into Kafka for a kafka channel.
+func (c *Channel) decodeKafka(raw []byte) error {
+	if len(raw) == 0 {
+		return nil
+	}
+	var cfg KafkaConfig
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		return fmt.Errorf("decode kafka config: %w", err)
+	}
+	c.Kafka = &cfg
+	return nil
+}
 
 func scanChannel(row pgx.Row) (Channel, error) {
 	var c Channel
-	err := row.Scan(&c.ID, &c.Name, &c.Type, &c.URL, &c.Events, &c.ProjectID, &c.Enabled, &c.CreatedAt,
+	var cfgRaw []byte
+	if err := row.Scan(&c.ID, &c.Name, &c.Type, &c.URL, &c.Events, &c.ProjectID, &c.Enabled, &c.CreatedAt,
 		&c.MinSeverity, &c.Summary, &c.SummaryHour, &c.SummaryWeekday, &c.LastSummaryAt, &c.secretEnc, &c.Filter,
-		&c.OwnerUserID, &c.urlEnc)
+		&c.OwnerUserID, &c.urlEnc, &cfgRaw); err != nil {
+		return Channel{}, err
+	}
 	c.HasSecret = len(c.secretEnc) > 0
-	return c, err
+	if c.Type == TypeKafka {
+		if err := c.decodeKafka(cfgRaw); err != nil {
+			return Channel{}, err
+		}
+	}
+	return c, nil
 }
 
 // Create inserts a channel (with c.ID when set: a sealed signing secret is
@@ -149,9 +188,9 @@ func scanChannel(row pgx.Row) (Channel, error) {
 func (r *Repository) Create(ctx context.Context, c Channel) (Channel, error) {
 	const q = `INSERT INTO notification_channels
 		(id, name, type, url, events, project_id, enabled, min_severity, summary, summary_hour, summary_weekday,
-		 last_summary_at, signing_secret, filter)
+		 last_summary_at, signing_secret, filter, config)
 		VALUES (COALESCE(NULLIF($11, '')::uuid, gen_random_uuid()), $1, $2, $3, $4, $5, $6, NULLIF($7, ''), $8, $9, $10,
-		        CASE WHEN $8 <> 'none' THEN now() END, $12, $13)
+		        CASE WHEN $8 <> 'none' THEN now() END, $12, $13, COALESCE($14::jsonb, '{}'::jsonb))
 		RETURNING ` + channelColumns
 	events := c.Events
 	if len(events) == 0 {
@@ -161,7 +200,7 @@ func (r *Repository) Create(ctx context.Context, c Channel) (Channel, error) {
 		c.Summary = SummaryNone
 	}
 	out, err := scanChannel(r.db.QueryRow(ctx, q, c.Name, c.Type, c.URL, events, c.ProjectID, c.Enabled,
-		c.MinSeverity, c.Summary, c.SummaryHour, c.SummaryWeekday, c.ID, c.secretEnc, c.Filter))
+		c.MinSeverity, c.Summary, c.SummaryHour, c.SummaryWeekday, c.ID, c.secretEnc, c.Filter, c.configRaw))
 	if err != nil {
 		return Channel{}, fmt.Errorf("insert channel: %w", err)
 	}
@@ -173,6 +212,7 @@ func (r *Repository) Create(ctx context.Context, c Channel) (Channel, error) {
 func (r *Repository) Update(ctx context.Context, c Channel) (Channel, error) {
 	const q = `UPDATE notification_channels SET
 			name = $2, events = $3, enabled = $4, min_severity = NULLIF($5, ''), signing_secret = $9, filter = $10,
+			config = COALESCE($11::jsonb, config),
 			last_summary_at = CASE
 				WHEN $6 = 'none' THEN NULL
 				WHEN (summary, summary_hour, summary_weekday) IS DISTINCT FROM ($6, $7, $8) THEN now()
@@ -184,7 +224,7 @@ func (r *Repository) Update(ctx context.Context, c Channel) (Channel, error) {
 		events = []string{"*"}
 	}
 	out, err := scanChannel(r.db.QueryRow(ctx, q, c.ID, c.Name, events, c.Enabled, c.MinSeverity,
-		c.Summary, c.SummaryHour, c.SummaryWeekday, c.secretEnc, c.Filter))
+		c.Summary, c.SummaryHour, c.SummaryWeekday, c.secretEnc, c.Filter, c.configRaw))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Channel{}, ErrNotFound
 	}

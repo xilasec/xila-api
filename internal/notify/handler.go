@@ -62,6 +62,12 @@ type createRequest struct {
 	Enabled   *bool    `json:"enabled"`
 	// SigningSecret (generic webhooks only) signs every delivery. Write-only.
 	SigningSecret string `json:"signing_secret"`
+	// Kafka (type == "kafka" only): brokers, TLS and SASL mechanism/username.
+	// The topic is URL, like every other type's target.
+	Kafka *KafkaConfig `json:"kafka"`
+	// SASLPassword (kafka only, with kafka.sasl_mechanism set) is sealed like
+	// a webhook's signing secret. Write-only.
+	SASLPassword string `json:"sasl_password"`
 	channelSettings
 }
 
@@ -135,6 +141,17 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 			return fiber.NewError(fiber.StatusBadRequest, ErrSMTPNotConfigured.Error())
 		}
 	}
+	if body.Kafka != nil && body.Type != TypeKafka {
+		return fiber.NewError(fiber.StatusBadRequest, "kafka config is only for kafka channels")
+	}
+	if body.Type == TypeKafka {
+		if body.Kafka == nil {
+			return fiber.NewError(fiber.StatusBadRequest, "kafka config is required")
+		}
+		if err := ValidateKafkaConfig(*body.Kafka, body.SASLPassword, false); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	}
 	enabled := true
 	if body.Enabled != nil {
 		enabled = *body.Enabled
@@ -147,10 +164,21 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 	if err := body.channelSettings.apply(&ch); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
-	if body.SigningSecret != "" {
+	if body.Type == TypeKafka {
+		if err := ch.SetKafkaConfig(*body.Kafka); err != nil {
+			return err
+		}
+	}
+	switch {
+	case body.SigningSecret != "":
 		// The sealed secret is bound to the channel id, so pick it now.
 		ch.ID = uuid.NewString()
 		if err := h.setSecret(&ch, body.SigningSecret); err != nil {
+			return err
+		}
+	case body.Type == TypeKafka && body.SASLPassword != "":
+		ch.ID = uuid.NewString()
+		if err := h.sealKafkaPassword(&ch, body.SASLPassword); err != nil {
 			return err
 		}
 	}
@@ -167,6 +195,12 @@ type updateRequest struct {
 	Enabled *bool    `json:"enabled"`
 	// SigningSecret: absent keeps the secret, a value rotates it, "" removes it.
 	SigningSecret *string `json:"signing_secret"`
+	// Kafka (kafka channels only): replaces brokers/TLS/SASL settings
+	// wholesale when present; absent keeps the channel's current settings.
+	Kafka *KafkaConfig `json:"kafka"`
+	// SASLPassword: absent keeps the sealed password, a value rotates it, ""
+	// removes it.
+	SASLPassword *string `json:"sasl_password"`
 	channelSettings
 }
 
@@ -181,6 +215,21 @@ func (h *Handler) setSecret(ch *Channel, secret string) error {
 	sealed, err := h.svc.SealSecret(ch.ID, secret)
 	if errors.Is(err, secretbox.ErrNoKey) {
 		return fiber.NewError(fiber.StatusBadRequest, "signing secrets need INTEGRATION_SECRET_KEY")
+	}
+	if err != nil {
+		return err
+	}
+	ch.secretEnc, ch.HasSecret = sealed, true
+	return nil
+}
+
+// sealKafkaPassword seals password as a kafka channel's SASL credential
+// (ch.ID must be set), the same secretbox cipher a generic webhook's signing
+// secret uses.
+func (h *Handler) sealKafkaPassword(ch *Channel, password string) error {
+	sealed, err := h.svc.SealSecret(ch.ID, password)
+	if errors.Is(err, secretbox.ErrNoKey) {
+		return fiber.NewError(fiber.StatusBadRequest, "kafka SASL passwords need INTEGRATION_SECRET_KEY")
 	}
 	if err != nil {
 		return err
@@ -225,10 +274,44 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 	if err := body.channelSettings.apply(&ch); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
+	if body.Kafka != nil && ch.Type != TypeKafka {
+		return fiber.NewError(fiber.StatusBadRequest, "kafka config is only for kafka channels")
+	}
+	if body.SASLPassword != nil && ch.Type != TypeKafka {
+		return fiber.NewError(fiber.StatusBadRequest, "sasl_password is only for kafka channels")
+	}
+	if ch.Type == TypeKafka && (body.Kafka != nil || body.SASLPassword != nil) {
+		cfg := KafkaConfig{}
+		if ch.Kafka != nil {
+			cfg = *ch.Kafka
+		}
+		if body.Kafka != nil {
+			cfg = *body.Kafka
+		}
+		pw, hasSecretAfter := "", ch.HasSecret
+		if body.SASLPassword != nil {
+			pw, hasSecretAfter = *body.SASLPassword, *body.SASLPassword != ""
+		}
+		if err := ValidateKafkaConfig(cfg, pw, hasSecretAfter); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+		if body.Kafka != nil {
+			if err := ch.SetKafkaConfig(cfg); err != nil {
+				return err
+			}
+		}
+	}
 	if body.SigningSecret != nil {
 		if *body.SigningSecret == "" {
 			ch.secretEnc, ch.HasSecret = nil, false
 		} else if err := h.setSecret(&ch, *body.SigningSecret); err != nil {
+			return err
+		}
+	}
+	if body.SASLPassword != nil {
+		if *body.SASLPassword == "" {
+			ch.secretEnc, ch.HasSecret = nil, false
+		} else if err := h.sealKafkaPassword(&ch, *body.SASLPassword); err != nil {
 			return err
 		}
 	}

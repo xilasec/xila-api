@@ -244,6 +244,21 @@ func TestTriageRulesRequireApproval(t *testing.T) {
 	}
 }
 
+func TestSBOMStrictValidation(t *testing.T) {
+	t.Setenv("APP_ENV", "development")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.SBOMStrictValidation {
+		t.Error("strict CycloneDX schema validation must be off by default")
+	}
+	t.Setenv("SBOM_STRICT_VALIDATION", "true")
+	if cfg, _ = Load(); !cfg.SBOMStrictValidation {
+		t.Error("SBOM_STRICT_VALIDATION=true should enable it")
+	}
+}
+
 func TestAssessmentRequiresApproval(t *testing.T) {
 	t.Setenv("APP_ENV", "development")
 	cfg, err := Load()

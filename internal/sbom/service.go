@@ -63,17 +63,22 @@ type IngestRequest struct {
 	// most one; neither = the project's default version).
 	Branch  string
 	Release string
+	// Strict opts this upload into strict CycloneDX schema validation
+	// (?strict=true), in addition to the service-wide default
+	// (SBOM_STRICT_VALIDATION, see WithStrictValidation).
+	Strict bool
 }
 
 // Service parses uploaded SBOM documents and stores them as snapshots.
 type Service struct {
-	store     sbomStore
-	projects  projectChecker
-	evaluator ComponentEvaluator // optional
-	rescorer  ProjectRescorer    // optional
-	matcher   AdvisoryMatcher    // optional
-	packages  PackageRefresher   // optional
-	licenses  LicenseResolver    // optional: nil leaves license_resolved NULL for the backfill
+	store         sbomStore
+	projects      projectChecker
+	evaluator     ComponentEvaluator // optional
+	rescorer      ProjectRescorer    // optional
+	matcher       AdvisoryMatcher    // optional
+	packages      PackageRefresher   // optional
+	licenses      LicenseResolver    // optional: nil leaves license_resolved NULL for the backfill
+	strictDefault bool               // SBOM_STRICT_VALIDATION: every upload is strict, not only ?strict=true ones
 }
 
 // NewService wires the ingestion dependencies. evaluator and rescorer may be nil.
@@ -86,6 +91,13 @@ func NewService(store sbomStore, projects projectChecker, evaluator ComponentEva
 // or fail because of — it. The scheduled run catches anything this misses.
 func (s *Service) WithMatcher(m AdvisoryMatcher) *Service {
 	s.matcher = m
+	return s
+}
+
+// WithStrictValidation makes every upload strict (SBOM_STRICT_VALIDATION),
+// not only ones that opt in with ?strict=true.
+func (s *Service) WithStrictValidation(strict bool) *Service {
+	s.strictDefault = strict
 	return s
 }
 
@@ -113,6 +125,11 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest, raw io.Reader) 
 	doc, err := Parse(data)
 	if err != nil {
 		return Sbom{}, fmt.Errorf("parse sbom: %w", err)
+	}
+	if req.Strict || s.strictDefault {
+		if err := validateStrict(doc, data); err != nil {
+			return Sbom{}, err
+		}
 	}
 
 	exists, err := s.projects.Exists(ctx, req.ProjectID)

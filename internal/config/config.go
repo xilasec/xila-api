@@ -77,6 +77,10 @@ type Config struct {
 	// rules: created/edited rules stay pending (and never apply) until a
 	// different admin approves them.
 	TriageRulesRequireApproval bool
+	// SBOMStrictValidation (SBOM_STRICT_VALIDATION) makes every SBOM upload
+	// strict CycloneDX schema validation, not only ones that opt in with
+	// ?strict=true (M12 12.14).
+	SBOMStrictValidation bool
 	// AssessmentRequiresApproval turns on the four-eyes workflow for manual
 	// assessments: an analyst's status / severity change on a finding becomes a
 	// pending request until a different project owner (or instance admin)
@@ -863,6 +867,7 @@ func Load() (Config, error) {
 			FindingArchiveAfter: getdur("FINDING_ARCHIVE_AFTER", 0),
 		},
 		TriageRulesRequireApproval:     getbool("TRIAGE_RULES_REQUIRE_APPROVAL", false),
+		SBOMStrictValidation:           getbool("SBOM_STRICT_VALIDATION", false),
 		AssessmentRequiresApproval:     getbool("ASSESSMENT_REQUIRES_APPROVAL", false),
 		RiskAcceptanceRequiresApproval: getbool("RISK_ACCEPTANCE_REQUIRES_APPROVAL", prod),
 		RiskAcceptanceExpiryWarning:    getdur("RISK_ACCEPTANCE_EXPIRY_WARNING", 7*24*time.Hour),

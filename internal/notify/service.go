@@ -152,13 +152,31 @@ func (s *Service) SMTPConfigured() bool { return s.smtp.Configured() }
 // none, and always 0 for SMTP), and the final error.
 func (s *Service) deliver(ctx context.Context, ch Channel, e Event, deliveryID string, maxAttempts int) (int, int, error) {
 	var sendOnce func() (int, error)
-	if ch.Type == TypeEmail {
+	switch {
+	case ch.Type == TypeEmail:
 		msg, rcpts, err := s.emailMessage(ch, e)
 		if err != nil {
 			return 0, 0, err
 		}
 		sendOnce = func() (int, error) { return 0, s.sendMail(ctx, rcpts, msg) }
-	} else {
+	case ch.Type == TypeKafka:
+		if ch.Kafka == nil {
+			return 0, 0, fmt.Errorf("kafka channel %q has no config", ch.Name)
+		}
+		cfg := *ch.Kafka
+		var password string
+		if cfg.SASLMechanism != "" && ch.HasSecret {
+			var err error
+			// A password that can't be opened (key rotated away) fails the
+			// delivery rather than connecting unauthenticated.
+			if password, err = s.cipher.Open(ch.secretEnc, ch.ID); err != nil {
+				return 0, 0, fmt.Errorf("kafka SASL password: %w", err)
+			}
+		}
+		body := s.payload(ch, e)
+		key := kafkaKey(cfg.KeyTemplate, e)
+		sendOnce = func() (int, error) { return 0, s.sendKafka(ctx, ch, cfg, password, key, body) }
+	default:
 		body := s.payload(ch, e)
 		var secret string
 		if ch.Type == TypeWebhook && ch.HasSecret {

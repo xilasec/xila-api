@@ -831,8 +831,18 @@ Tier 2:
   on the server to projects you own, minus your own requests under four-eyes),
   your acceptances expiring within 30 days (`?owner=me&expires_within_days=`)
   and AI proposals you asked for or on your findings (new `GET /ai-proposals`).
-- ⬜ 12.13 Kafka notification publisher.
-- ⬜ 12.14 Strict CycloneDX schema validation on upload, with field paths in errors.
+- ✅ 12.13 Kafka notification publisher: a `kafka` channel type (brokers, TLS,
+  optional SASL PLAIN/SCRAM-SHA-256/SCRAM-SHA-512 with a sealed password,
+  optional message-key template) alongside webhook/Slack/Teams/Mattermost/
+  email, delivered through the same durable outbox (retries, backoff,
+  delivery log) and Test button, over `github.com/twmb/franz-go` dialed
+  through `internal/netguard`.
+- ✅ 12.14 Strict CycloneDX schema validation on upload: embedded official
+  CycloneDX JSON schemas (1.2 to 1.7, plus spdx/jsf/cryptography-defs), picked by
+  `specVersion` and checked with `santhosh-tekuri/jsonschema/v6`; opt-in per
+  upload (`?strict=true`) or instance-wide (`SBOM_STRICT_VALIDATION`), 400
+  with up to 50 field errors (JSON Pointer path + message) on failure. XML
+  CycloneDX is rejected with a clear message in every mode.
 - ✅ 12.15 Per-project priority weights: `projects.priority_weights` overrides any
   factor of the priority formula (`domain.Weights`), validated so discounts only
   discount, uplifts only raise, severities keep their order and an exploited

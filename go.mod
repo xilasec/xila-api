@@ -28,6 +28,9 @@ require (
 	github.com/mattermost/xml-roundtrip-validator v0.1.0
 	github.com/prometheus/client_golang v1.25.0
 	github.com/russellhaering/goxmldsig v1.6.1
+	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
+	github.com/twmb/franz-go v1.22.3
+	github.com/twmb/franz-go/pkg/kfake v0.0.0-20261116184642-b0611ae5ed76
 	github.com/valyala/fasthttp v1.78.0
 	go.opentelemetry.io/contrib/bridges/otelslog v0.21.0
 	go.opentelemetry.io/contrib/instrumentation/runtime v0.72.0
@@ -44,6 +47,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.47.0
 	golang.org/x/crypto v0.59.0
 	golang.org/x/oauth2 v0.38.0
+	golang.org/x/text v0.44.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -86,6 +90,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/molecule-man/go-brrr v1.3.1 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/pierrec/lz4/v4 v4.1.33 // indirect
 	github.com/prometheus/client_model v0.6.3 // indirect
 	github.com/prometheus/common v0.72.0 // indirect
 	github.com/prometheus/otlptranslator v1.0.0 // indirect
@@ -93,6 +98,7 @@ require (
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/ryszard/goskiplist v0.0.0-20150312221310-2dfbae5fcf46 // indirect
 	github.com/stretchr/testify v1.12.1 // indirect
+	github.com/twmb/franz-go/pkg/kmsg v1.15.1 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib v1.20.0 // indirect
@@ -104,7 +110,6 @@ require (
 	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/sync v0.25.0 // indirect
 	golang.org/x/sys v0.50.0 // indirect
-	golang.org/x/text v0.44.0 // indirect
 	golang.org/x/tools v0.52.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260928230214-8a89bd6388cc // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260928230214-8a89bd6388cc // indirect

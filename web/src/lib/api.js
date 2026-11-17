@@ -31,6 +31,9 @@ export class ApiError extends Error {
 		// Set when the server wants a fresh sign-in first (X-Reauth-Required):
 		// confirm the password with api.reauth and retry.
 		this.reauth = false;
+		// The parsed error body, when the server sent one beyond `error`
+		// (e.g. a strict SBOM upload's `fields: [{path, message}]`).
+		this.data = /** @type {any} */ (null);
 	}
 }
 
@@ -75,6 +78,7 @@ async function parse(res) {
 		const msg = (data && data.error) || res.statusText || 'request failed';
 		const err = new ApiError(res.status, msg);
 		err.reauth = res.headers.get('X-Reauth-Required') === 'true';
+		err.data = data;
 		throw err;
 	}
 	return data;
