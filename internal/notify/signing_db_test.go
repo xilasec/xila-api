@@ -24,7 +24,7 @@ func TestSignedWebhookDeliveries(t *testing.T) {
 	pool := pgtest.Pool(t)
 	ctx := context.Background()
 	repo := NewRepository(pool)
-	cipher, err := secretbox.New([]byte("0123456789abcdef0123456789abcdef"))
+	cipher, err := secretbox.NewKeyring([]byte("0123456789abcdef0123456789abcdef"), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +115,7 @@ func TestSignedWebhookNeverFallsBackToUnsigned(t *testing.T) {
 	pool := pgtest.Pool(t)
 	ctx := context.Background()
 	repo := NewRepository(pool)
-	cipher, _ := secretbox.New([]byte("0123456789abcdef0123456789abcdef"))
+	cipher, _ := secretbox.NewKeyring([]byte("0123456789abcdef0123456789abcdef"), nil)
 	var hits int
 	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { hits++ }))
 	defer srv.Close()

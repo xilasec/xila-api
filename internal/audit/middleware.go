@@ -36,7 +36,7 @@ type resourceProjects interface {
 type Recorder struct {
 	store     store
 	resources resourceProjects
-	secret    string // JWT secret: names the user an SSO login or MFA challenge is for
+	keys      *auth.Keys // names the user an SSO login or MFA challenge is for
 	failures  metric.Int64Counter
 	routes    func() []fiber.Route // the app's route table (Attach); nil = not attached
 }
@@ -83,14 +83,16 @@ func (r *Recorder) template(method string, segs []string) []string {
 	return best
 }
 
-// NewRecorder constructs a recorder. secret is the JWT signing secret.
-func NewRecorder(s store, resources resourceProjects, secret string) *Recorder {
+// NewRecorder constructs a recorder. keys verifies the JWT in an SSO
+// redirect's fragment or an MFA challenge token, to attribute the sign-in
+// entry to a user.
+func NewRecorder(s store, resources resourceProjects, keys *auth.Keys) *Recorder {
 	failures, err := otel.Meter("github.com/xilasec/xila-api/internal/audit").Int64Counter("xila.audit.write_failures",
 		metric.WithDescription("Audit log entries that could not be written"))
 	if err != nil {
 		slog.Error("audit: failure counter", "error", err)
 	}
-	return &Recorder{store: s, resources: resources, secret: secret, failures: failures}
+	return &Recorder{store: s, resources: resources, keys: keys, failures: failures}
 }
 
 type changesKey struct{}

@@ -628,9 +628,26 @@ notifier.Notify(...)`, but it no longer sends anything itself. Tests that need
 the send call `DispatchDue`; payload tests use `SendTo` (the synchronous Test
 button path).
 
-Secrets at rest: integration credentials (issue trackers, connectors) are
-encrypted with `internal/secretbox` (AES-GCM, key `INTEGRATION_SECRET_KEY`, the
-project id as AAD) and are write-only in the API (`has_token`). Reuse it.
+Secrets at rest: integration credentials (issue trackers, connectors), SSO
+provider secrets, the generated SAML SP key, personal/signed-webhook secrets,
+and two-factor secrets are encrypted with `internal/secretbox` (AES-GCM, key
+`INTEGRATION_SECRET_KEY`, an AAD specific to each row — project id, channel
+id, `"mfa:" + user id`, a fixed constant, or provider id + column) and are
+write-only in the API (`has_token`). Every seal/open goes through a
+`secretbox.Keyring` (`Seal` with the primary key; `Open` with the primary,
+then each `INTEGRATION_SECRET_KEY_PREVIOUS` key, so rotating the primary never
+makes a stored value unreadable). A new sealed column must be added to
+`secretbox.Registry` (table, PK column, sealed column, and the exact SQL
+expression reproducing its AAD) or the leader's `Rekey` pass and
+`TestSealedColumnsRegistered` won't know about it — the drift test only
+catches one that follows the `*_enc`/`sealed_*`/`*_sealed` naming convention;
+anything else needs adding to the registry by hand. `GET
+/admin/secrets/status` reports each column's primary/previous/unreadable
+counts. JWT signing has the same shape: `auth.Keys` signs with `JWT_SECRET`
+and verifies against it or any `JWT_PREVIOUS_SECRETS` entry by a `kid` header
+(a kid-less token predates key rings and is tried against every configured
+secret). Both rings expose `Update(...)` for a live secret-manager refresh to
+swap keys without a restart.
 
 Audit log: `internal/audit` records every mutating request on `secured`
 (middleware between auth and authz, so refusals are logged) and the public

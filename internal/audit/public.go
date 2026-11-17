@@ -144,7 +144,7 @@ func (r *Recorder) passwordResult(c *fiber.Ctx, e *Entry, email, mfaToken string
 	if mfaToken == "" {
 		return
 	}
-	if claims, err := auth.ParseToken(r.secret, mfaToken); err == nil && isUUID(claims.Subject) {
+	if claims, err := auth.ParseToken(r.keys, mfaToken); err == nil && isUUID(claims.Subject) {
 		e.ActorUserID = new(claims.Subject)
 		e.ResourceType, e.ResourceID = "users", claims.Subject
 		if e.Outcome == OutcomeSuccess {
@@ -160,7 +160,7 @@ func (r *Recorder) ssoResult(c *fiber.Ctx, e *Entry, provider string, changes ma
 	e.ResourceType, e.ResourceID = "sso_providers", provider
 	loc := string(c.Response().Header.Peek(fiber.HeaderLocation))
 	if token, ok := strings.CutPrefix(loc, "/#sso_token="); ok {
-		if claims, err := auth.ParseToken(r.secret, token); err == nil && isUUID(claims.Subject) {
+		if claims, err := auth.ParseToken(r.keys, token); err == nil && isUUID(claims.Subject) {
 			e.ActorKind, e.ActorUserID = ActorUser, new(claims.Subject)
 			return
 		}

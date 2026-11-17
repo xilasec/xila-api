@@ -16,6 +16,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/xilasec/xila-api/internal/access"
 	"github.com/xilasec/xila-api/internal/account"
 	"github.com/xilasec/xila-api/internal/aitriage"
@@ -273,7 +275,11 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	trackerCipher, err := secretbox.New(integrationKey)
+	integrationPrevious, err := cfg.IntegrationPreviousKeys()
+	if err != nil {
+		return err
+	}
+	trackerCipher, err := secretbox.NewKeyring(integrationKey, integrationPrevious)
 	if err != nil {
 		return err
 	}
@@ -375,6 +381,9 @@ func run() error {
 		WithLicenses(license.Resolve).WithStrictValidation(cfg.SBOMStrictValidation)
 	correlationSvc := correlation.NewService(findingRepo, sbomRepo)
 	authSvc := auth.NewService(userRepo, cfg.JWT, cfg.PasswordLoginEnabled)
+	// Shared with the auth middleware and the audit recorder, so rotating
+	// JWT_SECRET (Keys.Update) applies to every signer and verifier at once.
+	jwtKeys := authSvc.Keys()
 	authSvc.WithFeatures(features)
 	authSvc.EnableResetMail(notifySvc, cfg.PublicURL)
 	// TOTP two-factor: secrets sealed like integration tokens; code attempts
@@ -528,7 +537,7 @@ func run() error {
 		Retention:    retention.NewHandler(retentionSvc),
 		Archive:      archive.NewHandler(archive.NewRepository(db), findingRepo, cfg.Retention.ArchiveAge),
 		Audit:        audit.NewHandler(auditRepo),
-		AuditLog:     audit.NewRecorder(auditRepo, membershipRepo, cfg.JWT.Secret),
+		AuditLog:     audit.NewRecorder(auditRepo, membershipRepo, jwtKeys),
 		IngestHealth: ingesthealth.NewHandler(ingestHealth),
 		Triage:       triage.NewHandler(triageRepo, triageSvc, cfg.TriageRulesRequireApproval).WithCustomFields(customFieldRepo),
 		Gate:         gate.NewHandler(gateRepo, findingRepo, projectRepo),
@@ -556,6 +565,8 @@ func run() error {
 		License:    license.NewHandler(licenseGroups),
 		Policy:     policy.NewHandler(policyRepo, policySvc, findingRepo),
 		VulnPolicy: vulnpolicy.NewHandler(vulnPolicyRepo, vulnPolicySvc).WithCustomFields(customFieldRepo),
+		Secrets:    secretbox.NewHandler(db, trackerCipher),
+		JWTKeys:    jwtKeys,
 		Ready:      db.Ping,
 	}
 
@@ -676,6 +687,10 @@ func run() error {
 		job(func() { runMetricsSnapshots(ctx, metricsRepo, portfolioParts, cfg.MetricsSnapshotInterval) })
 		// Scheduled per-channel summaries (daily / weekly, set on each channel).
 		job(func() { notifySvc.RunSummaries(ctx, findingRepo) })
+		// Re-seal rows a previous INTEGRATION_SECRET_KEY still opens under the
+		// current primary: once at startup if a previous key is configured,
+		// and again whenever a rotation changes the primary (ring.Changed()).
+		job(func() { runSecretRekey(ctx, db, trackerCipher) })
 		wg.Wait()
 	})
 	// Async ingestion: a worker pool drains the durable scan-job queue so uploads
@@ -871,6 +886,40 @@ func runSLASweep(ctx context.Context, svc *sla.Service, interval time.Duration) 
 			if res.Breached > 0 || res.DueSoon > 0 {
 				slog.InfoContext(ctx, "sla sweep alerted", "breached", res.Breached, "due_soon", res.DueSoon)
 			}
+		}
+	}
+}
+
+// runSecretRekey re-seals, under the ring's current primary, every row still
+// sealed with a previous INTEGRATION_SECRET_KEY: once at startup if a
+// previous key is configured (a rotation already in progress when this
+// replica became leader), and again every time ring.Changed() fires — a live
+// refresh or an admin rotating the primary — until the context ends.
+func runSecretRekey(ctx context.Context, db *pgxpool.Pool, ring *secretbox.Keyring) {
+	rekey := func() {
+		start := time.Now()
+		statuses, err := secretbox.Rekey(ctx, db, ring)
+		observability.RecordJob(ctx, "secret_rekey", start, err)
+		if err != nil {
+			slog.WarnContext(ctx, "secret rekey failed", "error", err)
+			return
+		}
+		for _, st := range statuses {
+			if st.Previous > 0 || st.Unreadable > 0 {
+				slog.InfoContext(ctx, "secret rekey", "table", st.Table, "column", st.Column,
+					"total", st.Total, "primary", st.Primary, "previous", st.Previous, "unreadable", st.Unreadable)
+			}
+		}
+	}
+	if ring.HasPrevious() {
+		rekey()
+	}
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ring.Changed():
+			rekey()
 		}
 	}
 }

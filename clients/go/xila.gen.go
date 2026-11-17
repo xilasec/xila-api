@@ -11187,6 +11187,19 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 // The interface specification for the client above.
 type ClientInterface interface {
 
+	// GetAdminSecretsStatus Secret key-ring rotation status
+	//
+	// Instance admin. Per sealed column (issue-tracker and connector tokens, the
+	// SAML SP key, SSO provider secrets, personal and signed-webhook secrets, and
+	// two-factor secrets): how many rows the current `INTEGRATION_SECRET_KEY`
+	// ring opened with the primary key, how many still open only with a previous
+	// key (not yet rekeyed), and how many open with no configured key at all (a
+	// wrong key, or data this instance never sealed). `previous` reaching zero
+	// everywhere means `INTEGRATION_SECRET_KEY_PREVIOUS` can be dropped.
+	//
+	// Corresponds with GET /admin/secrets/status (the `GetAdminSecretsStatus` operationId).
+	GetAdminSecretsStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListAdvisories List private advisories
 	//
 	// Any signed-in user. Withdrawn advisories are hidden unless `withdrawn=true`.
@@ -16590,6 +16603,29 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /vulnmatch/sources (the `ListVulnmatchSources` operationId).
 	ListVulnmatchSources(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+// GetAdminSecretsStatus Secret key-ring rotation status
+//
+// Instance admin. Per sealed column (issue-tracker and connector tokens, the
+// SAML SP key, SSO provider secrets, personal and signed-webhook secrets, and
+// two-factor secrets): how many rows the current `INTEGRATION_SECRET_KEY`
+// ring opened with the primary key, how many still open only with a previous
+// key (not yet rekeyed), and how many open with no configured key at all (a
+// wrong key, or data this instance never sealed). `previous` reaching zero
+// everywhere means `INTEGRATION_SECRET_KEY_PREVIOUS` can be dropped.
+//
+// Corresponds with GET /admin/secrets/status (the `GetAdminSecretsStatus` operationId).
+func (c *Client) GetAdminSecretsStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAdminSecretsStatusRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 // ListAdvisories List private advisories
@@ -27654,6 +27690,33 @@ func (c *Client) ListVulnmatchSources(ctx context.Context, reqEditors ...Request
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+// NewGetAdminSecretsStatusRequest constructs an http.Request for the GetAdminSecretsStatus method
+func NewGetAdminSecretsStatusRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/admin/secrets/status")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
 }
 
 // NewListAdvisoriesRequest constructs an http.Request for the ListAdvisories method
@@ -49096,6 +49159,21 @@ func WithBaseURL(baseURL string) ClientOption {
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
 
+	// GetAdminSecretsStatusWithResponse Secret key-ring rotation status
+	//
+	// Instance admin. Per sealed column (issue-tracker and connector tokens, the
+	// SAML SP key, SSO provider secrets, personal and signed-webhook secrets, and
+	// two-factor secrets): how many rows the current `INTEGRATION_SECRET_KEY`
+	// ring opened with the primary key, how many still open only with a previous
+	// key (not yet rekeyed), and how many open with no configured key at all (a
+	// wrong key, or data this instance never sealed). `previous` reaching zero
+	// everywhere means `INTEGRATION_SECRET_KEY_PREVIOUS` can be dropped.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /admin/secrets/status (the `GetAdminSecretsStatus` operationId).
+	GetAdminSecretsStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetAdminSecretsStatusResponse, error)
+
 	// ListAdvisoriesWithResponse List private advisories
 	//
 	// Any signed-in user. Withdrawn advisories are hidden unless `withdrawn=true`.
@@ -55083,6 +55161,72 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /vulnmatch/sources (the `ListVulnmatchSources` operationId).
 	ListVulnmatchSourcesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListVulnmatchSourcesResponse, error)
+}
+
+type GetAdminSecretsStatusResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Columns *[]struct {
+			Column     *string `json:"column,omitempty"`
+			Previous   *int    `json:"previous,omitempty"`
+			Primary    *int    `json:"primary,omitempty"`
+			Table      *string `json:"table,omitempty"`
+			Total      *int    `json:"total,omitempty"`
+			Unreadable *int    `json:"unreadable,omitempty"`
+		} `json:"columns,omitempty"`
+	}
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetAdminSecretsStatusResponse) GetJSON200() *struct {
+	Columns *[]struct {
+		Column     *string `json:"column,omitempty"`
+		Previous   *int    `json:"previous,omitempty"`
+		Primary    *int    `json:"primary,omitempty"`
+		Table      *string `json:"table,omitempty"`
+		Total      *int    `json:"total,omitempty"`
+		Unreadable *int    `json:"unreadable,omitempty"`
+	} `json:"columns,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r GetAdminSecretsStatusResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r GetAdminSecretsStatusResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAdminSecretsStatusResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAdminSecretsStatusResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetAdminSecretsStatusResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
 }
 
 type ListAdvisoriesResponse struct {
@@ -77719,6 +77863,27 @@ func (r ListVulnmatchSourcesResponse) ContentType() string {
 	return ""
 }
 
+// GetAdminSecretsStatusWithResponse Secret key-ring rotation status
+//
+// Instance admin. Per sealed column (issue-tracker and connector tokens, the
+// SAML SP key, SSO provider secrets, personal and signed-webhook secrets, and
+// two-factor secrets): how many rows the current `INTEGRATION_SECRET_KEY`
+// ring opened with the primary key, how many still open only with a previous
+// key (not yet rekeyed), and how many open with no configured key at all (a
+// wrong key, or data this instance never sealed). `previous` reaching zero
+// everywhere means `INTEGRATION_SECRET_KEY_PREVIOUS` can be dropped.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /admin/secrets/status (the `GetAdminSecretsStatus` operationId).
+func (c *ClientWithResponses) GetAdminSecretsStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetAdminSecretsStatusResponse, error) {
+	rsp, err := c.GetAdminSecretsStatus(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAdminSecretsStatusResponse(rsp)
+}
+
 // ListAdvisoriesWithResponse List private advisories
 //
 // Any signed-in user. Withdrawn advisories are hidden unless `withdrawn=true`.
@@ -87101,6 +87266,48 @@ func (c *ClientWithResponses) ListVulnmatchSourcesWithResponse(ctx context.Conte
 		return nil, err
 	}
 	return ParseListVulnmatchSourcesResponse(rsp)
+}
+
+// ParseGetAdminSecretsStatusResponse parses an HTTP response from a GetAdminSecretsStatusWithResponse call
+func ParseGetAdminSecretsStatusResponse(rsp *http.Response) (*GetAdminSecretsStatusResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAdminSecretsStatusResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Columns *[]struct {
+				Column     *string `json:"column,omitempty"`
+				Previous   *int    `json:"previous,omitempty"`
+				Primary    *int    `json:"primary,omitempty"`
+				Table      *string `json:"table,omitempty"`
+				Total      *int    `json:"total,omitempty"`
+				Unreadable *int    `json:"unreadable,omitempty"`
+			} `json:"columns,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParseListAdvisoriesResponse parses an HTTP response from a ListAdvisoriesWithResponse call

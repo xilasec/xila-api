@@ -6174,6 +6174,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/secrets/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Secret key-ring rotation status
+         * @description Instance admin. Per sealed column (issue-tracker and connector tokens, the
+         *     SAML SP key, SSO provider secrets, personal and signed-webhook secrets, and
+         *     two-factor secrets): how many rows the current `INTEGRATION_SECRET_KEY`
+         *     ring opened with the primary key, how many still open only with a previous
+         *     key (not yet rekeyed), and how many open with no configured key at all (a
+         *     wrong key, or data this instance never sealed). `previous` reaching zero
+         *     everywhere means `INTEGRATION_SECRET_KEY_PREVIOUS` can be dropped.
+         */
+        get: operations["getAdminSecretsStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/audit-log": {
         parameters: {
             query?: never;
@@ -21453,6 +21479,36 @@ export interface operations {
                         archived_engagements?: number;
                         archived_scans?: number;
                         archived_findings?: number;
+                    };
+                };
+            };
+            403: components["responses"]["Error"];
+        };
+    };
+    getAdminSecretsStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        columns?: {
+                            table?: string;
+                            column?: string;
+                            total?: number;
+                            primary?: number;
+                            previous?: number;
+                            unreadable?: number;
+                        }[];
                     };
                 };
             };

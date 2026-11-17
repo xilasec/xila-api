@@ -18,7 +18,7 @@ import (
 // Replicas booting at once generate one shared SP key pair, sealed at rest.
 func TestKeyStoreSharedAcrossReplicas(t *testing.T) {
 	pool := pgtest.Pool(t)
-	cipher, err := secretbox.New([]byte("saml-test-integration-key-32byte"))
+	cipher, err := secretbox.NewKeyring([]byte("saml-test-integration-key-32byte"), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

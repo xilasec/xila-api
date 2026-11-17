@@ -70,6 +70,7 @@ import (
 	"github.com/xilasec/xila-api/internal/sbom"
 	"github.com/xilasec/xila-api/internal/scan"
 	"github.com/xilasec/xila-api/internal/scim"
+	"github.com/xilasec/xila-api/internal/secretbox"
 	"github.com/xilasec/xila-api/internal/serviceaccount"
 	"github.com/xilasec/xila-api/internal/sla"
 	"github.com/xilasec/xila-api/internal/sso"
@@ -152,6 +153,15 @@ type Handlers struct {
 
 	// Membership backs the RBAC authorization middleware.
 	Membership *membership.Repository
+
+	// JWTKeys signs and verifies session JWTs (and MFA challenge tokens);
+	// shared with AuditLog and auth.Service so a rotation (Keys.Update)
+	// applies to every signer and verifier at once.
+	JWTKeys *auth.Keys
+
+	// Secrets serves the INTEGRATION_SECRET_KEY ring's rotation status
+	// (GET /admin/secrets/status).
+	Secrets *secretbox.Handler
 
 	// TokenAuth, if set, lets the auth middleware accept API tokens (CI) in
 	// addition to JWTs. Nil means JWT-only.
@@ -293,7 +303,7 @@ func New(cfg config.Config, h Handlers) *Server {
 
 	// Everything else requires a valid access token (JWT or API token). Every
 	// mutation is audited — before authorization, so a refused one is too.
-	secured := v1.Group("", auth.Middleware(cfg.JWT.Secret, h.TokenAuth, h.Sessions),
+	secured := v1.Group("", auth.Middleware(h.JWTKeys, h.TokenAuth, h.Sessions),
 		h.AuditLog.Middleware(), h.Features.Middleware(), authz.Middleware(h.Membership))
 	h.Account.Register(secured)
 	h.Features.Register(secured)
@@ -359,6 +369,7 @@ func New(cfg config.Config, h Handlers) *Server {
 	}
 	h.FeedRules.Register(secured)
 	h.PSIRT.Register(secured)
+	h.Secrets.Register(secured)
 
 	return &Server{
 		app:  app,

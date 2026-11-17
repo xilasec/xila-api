@@ -69,13 +69,13 @@ type Applier interface {
 type Service struct {
 	store  Store
 	apply  Applier
-	cipher *secretbox.Cipher
+	cipher *secretbox.Keyring
 	hc     *http.Client
 }
 
-// NewService constructs a Service. cipher may be nil (no INTEGRATION_SECRET_KEY):
-// connectors can then not be configured or pulled.
-func NewService(store Store, apply Applier, cipher *secretbox.Cipher) *Service {
+// NewService constructs a Service. cipher may be unconfigured (no
+// INTEGRATION_SECRET_KEY): connectors can then not be configured or pulled.
+func NewService(store Store, apply Applier, cipher *secretbox.Keyring) *Service {
 	return &Service{store: store, apply: apply, cipher: cipher, hc: netguard.NewClient(2 * time.Minute)}
 }
 
@@ -208,7 +208,7 @@ func (s *Service) List(ctx context.Context, projectID string) ([]Connector, erro
 
 // Create adds a connector. A token is required.
 func (s *Service) Create(ctx context.Context, projectID string, in Input) (Connector, error) {
-	if s.cipher == nil {
+	if !s.cipher.Configured() {
 		return Connector{}, secretbox.ErrNoKey
 	}
 	c, err := in.Normalize(projectID)
@@ -235,7 +235,7 @@ func (s *Service) Create(ctx context.Context, projectID string, in Input) (Conne
 // otherwise anyone allowed to edit the URL could send the stored credential to
 // a host of their choosing.
 func (s *Service) Update(ctx context.Context, projectID, id string, in Input) (Connector, error) {
-	if s.cipher == nil {
+	if !s.cipher.Configured() {
 		return Connector{}, secretbox.ErrNoKey
 	}
 	cur, err := s.store.Get(ctx, projectID, id)
@@ -387,7 +387,7 @@ type RunResult struct {
 // connector another instance is pulling (or just pulled) is skipped.
 func (s *Service) PullDue(ctx context.Context, every time.Duration) (RunResult, error) {
 	var res RunResult
-	if s.cipher == nil {
+	if !s.cipher.Configured() {
 		return res, nil
 	}
 	due, err := s.store.ListDue(ctx, every)

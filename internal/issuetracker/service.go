@@ -73,16 +73,16 @@ type LinkSyncer interface {
 type Service struct {
 	store     Store
 	findings  Findings
-	cipher    *secretbox.Cipher
+	cipher    *secretbox.Keyring
 	publicURL string
 	hc        *http.Client
 	syncers   []LinkSyncer
 }
 
-// NewService constructs a Service. cipher may be nil (no INTEGRATION_SECRET_KEY):
-// trackers can then not be configured or used. publicURL, when set, is the UI
-// origin issues link back to.
-func NewService(store Store, findings Findings, cipher *secretbox.Cipher, publicURL string) *Service {
+// NewService constructs a Service. cipher may be unconfigured (no
+// INTEGRATION_SECRET_KEY): trackers can then not be configured or used.
+// publicURL, when set, is the UI origin issues link back to.
+func NewService(store Store, findings Findings, cipher *secretbox.Keyring, publicURL string) *Service {
 	return &Service{
 		store: store, findings: findings, cipher: cipher,
 		publicURL: strings.TrimRight(publicURL, "/"),
@@ -241,7 +241,7 @@ func (s *Service) Get(ctx context.Context, projectID string) (Tracker, error) {
 // Put creates or replaces the project's tracker. A token is required when
 // creating; on update an empty one keeps the stored token.
 func (s *Service) Put(ctx context.Context, projectID string, in Input) (Tracker, error) {
-	if s.cipher == nil {
+	if !s.cipher.Configured() {
 		return Tracker{}, secretbox.ErrNoKey
 	}
 	t, err := in.Normalize(projectID)
