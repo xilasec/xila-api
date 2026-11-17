@@ -610,9 +610,9 @@ func baseScope(path, method string) routeScope {
 		// User admin, service accounts + workload identity federation, SSO
 		// providers + group → role mappings, portfolio-wide
 		// enrichment, advisory feed rules, PSIRT advisory publishing, notification-channel management,
+		// triage-rule and vulnerability policy, the global gate and SLA defaults, the
 		// portfolio-wide issue sync, no-code parser definitions (including
 		// their dry-run preview) and the secret key-ring rekey status
-		// their dry-run preview) are instance-admin actions. (Per-project/org
 		// (GET /admin/secrets/status) are instance-admin actions. (Per-project/org
 		// gate, SLA and tracker routes live under /projects and /orgs and are
 		// role-gated there.)
