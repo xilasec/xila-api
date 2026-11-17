@@ -1,6 +1,10 @@
 package config
 
 import (
+	"encoding/json"
+	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"slices"
@@ -676,5 +680,137 @@ func TestReadPool(t *testing.T) {
 	t.Setenv("DB_READ_URL", "mysql://replica/xila")
 	if _, err := Load(); err == nil {
 		t.Error("a non-postgres DB_READ_URL was accepted")
+	}
+}
+
+// fakeVault is a minimal httptest Vault (KV v2) that answers one secret at
+// one path with a static token, used to prove secretref references resolve
+// through config.Load.
+func fakeVault(t *testing.T, fields map[string]any) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Vault-Token") != "test-token" {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"data": map[string]any{"data": fields},
+		})
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+// A reference in NAME resolves at Load time.
+func TestSecretReferenceInEnv(t *testing.T) {
+	srv := fakeVault(t, map[string]any{"jwt": "resolved-from-vault"})
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("VAULT_ADDR", srv.URL)
+	t.Setenv("VAULT_TOKEN", "test-token")
+	unset(t, "JWT_SECRET_FILE")
+	t.Setenv("JWT_SECRET", "vault://kv/data/xila#jwt")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.JWT.Secret != "resolved-from-vault" {
+		t.Errorf("JWT.Secret = %q, want the value resolved from Vault", cfg.JWT.Secret)
+	}
+}
+
+// A reference inside a NAME_FILE's content resolves too.
+func TestSecretReferenceInFile(t *testing.T) {
+	srv := fakeVault(t, map[string]any{"jwt": "resolved-from-vault-file"})
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("VAULT_ADDR", srv.URL)
+	t.Setenv("VAULT_TOKEN", "test-token")
+	unset(t, "JWT_SECRET")
+
+	path := filepath.Join(t.TempDir(), "jwt-ref")
+	if err := os.WriteFile(path, []byte("vault://kv/data/xila#jwt\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("JWT_SECRET_FILE", path)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.JWT.Secret != "resolved-from-vault-file" {
+		t.Errorf("JWT.Secret = %q, want the value resolved from the file's reference", cfg.JWT.Secret)
+	}
+}
+
+// A failed lookup fails Load, naming the setting and the reference's
+// scheme+path, never a value.
+func TestSecretReferenceFailedLookupFailsLoad(t *testing.T) {
+	t.Setenv("APP_ENV", "development")
+	unset(t, "VAULT_ADDR")
+	unset(t, "JWT_SECRET_FILE")
+	t.Setenv("JWT_SECRET", "vault://kv/data/xila#jwt")
+
+	_, err := Load()
+	if err == nil {
+		t.Fatal("expected Load to fail: VAULT_ADDR is not set")
+	}
+	if !strings.Contains(err.Error(), "JWT_SECRET") {
+		t.Errorf("error = %q, want it to name the setting", err.Error())
+	}
+	if !strings.Contains(err.Error(), "vault://kv/data/xila") {
+		t.Errorf("error = %q, want it to name the reference", err.Error())
+	}
+}
+
+// SECRETS_TIMEOUT bounds a single lookup: a backend that never answers fails
+// Load instead of hanging the whole startup.
+func TestSecretReferenceTimeout(t *testing.T) {
+	// A listener that accepts but never answers is reachable but hangs the
+	// read, exercising the per-lookup timeout rather than a connect error.
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { l.Close() })
+	go func() {
+		for {
+			c, err := l.Accept()
+			if err != nil {
+				return
+			}
+			// Never respond; hold the connection open.
+			_ = c
+		}
+	}()
+
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("VAULT_ADDR", "http://"+l.Addr().String())
+	t.Setenv("VAULT_TOKEN", "t")
+	t.Setenv("SECRETS_TIMEOUT", "100ms")
+	unset(t, "JWT_SECRET_FILE")
+	t.Setenv("JWT_SECRET", "vault://kv/data/xila#jwt")
+
+	start := time.Now()
+	if _, err := Load(); err == nil {
+		t.Fatal("expected Load to fail: the backend never answers")
+	}
+	if d := time.Since(start); d > 5*time.Second {
+		t.Errorf("Load took %v, want it bounded by SECRETS_TIMEOUT", d)
+	}
+}
+
+// A value without a known scheme is used literally, as today.
+func TestSecretLiteralValueUntouched(t *testing.T) {
+	t.Setenv("APP_ENV", "development")
+	unset(t, "JWT_SECRET_FILE")
+	t.Setenv("JWT_SECRET", "a-plain-literal-secret")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.JWT.Secret != "a-plain-literal-secret" {
+		t.Errorf("JWT.Secret = %q, want the literal value untouched", cfg.JWT.Secret)
 	}
 }

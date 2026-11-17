@@ -55,17 +55,19 @@ func RecordJob(ctx context.Context, job string, start time.Time, err error) {
 }
 
 // GuardMetrics requires `Authorization: Bearer <token>` on the scrape
-// endpoint when token is set (METRICS_TOKEN); empty token = open.
-func GuardMetrics(h http.Handler, token string) http.Handler {
-	if token == "" {
-		return h
-	}
-	want := []byte("Bearer " + token)
+// endpoint when token() is non-empty (METRICS_TOKEN); empty = open. token is
+// read fresh on every request (not just at startup), so a rotated
+// METRICS_TOKEN (M10 10.2) takes effect without a restart in either
+// direction — turned on, turned off, or changed.
+func GuardMetrics(h http.Handler, token func() string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), want) != 1 {
-			w.Header().Set("WWW-Authenticate", `Bearer realm="metrics"`)
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
+		if t := token(); t != "" {
+			want := []byte("Bearer " + t)
+			if subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), want) != 1 {
+				w.Header().Set("WWW-Authenticate", `Bearer realm="metrics"`)
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
 		}
 		h.ServeHTTP(w, r)
 	})

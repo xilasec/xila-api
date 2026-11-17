@@ -2,6 +2,7 @@
 package config
 
 import (
+	"context"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/xilasec/xila-api/internal/domain"
 	"github.com/xilasec/xila-api/internal/netguard"
+	"github.com/xilasec/xila-api/internal/secretref"
 )
 
 // Recognized deployment environments (APP_ENV).
@@ -136,6 +138,11 @@ type Config struct {
 	// LegacyLicenseDenylist records that the removed LICENSE_DENYLIST is still
 	// set, so Warnings can say it is ignored.
 	LegacyLicenseDenylist bool
+	// Secrets is the live store of rotatable secret settings (M10 10.2): any
+	// setting read through secretReader.get that came from a reference or a
+	// NAME_FILE. Always non-nil after a successful Load. Consumers should
+	// prefer Secrets.Getter(name) (a func() string) over holding the store.
+	Secrets *Secrets
 }
 
 // IsProduction reports whether the app runs in the production environment.
@@ -143,6 +150,19 @@ func (c Config) IsProduction() bool { return c.Env == EnvProduction }
 
 // IsDevelopment reports whether the app runs in the development environment.
 func (c Config) IsDevelopment() bool { return c.Env == EnvDevelopment }
+
+// SecretGetter returns a func() string for a secret setting: the live,
+// possibly-rotated value tracked in c.Secrets, or fallback when c was built
+// without going through Load (c.Secrets is nil — a test constructing Config
+// as a literal, for instance). fallback is normally the matching struct
+// field (e.g. cfg.Metrics.Token), which already holds whatever Load resolved
+// at startup even when it isn't tracked for refresh.
+func (c Config) SecretGetter(name, fallback string) func() string {
+	if c.Secrets == nil {
+		return func() string { return fallback }
+	}
+	return c.Secrets.Getter(name)
+}
 
 // Security holds hardening settings whose safe defaults follow the environment.
 type Security struct {
@@ -612,7 +632,7 @@ func Load() (Config, error) {
 	if err := loadDotEnv(); err != nil {
 		return Config{}, err
 	}
-	var sec secretReader
+	sec := secretReader{timeout: getdur("SECRETS_TIMEOUT", 30*time.Second)}
 	env := normalizeEnv(getenv("APP_ENV", EnvDevelopment))
 	prod := env == EnvProduction
 
@@ -895,6 +915,7 @@ func Load() (Config, error) {
 	if err := cfg.validate(); err != nil {
 		return Config{}, err
 	}
+	cfg.Secrets = newSecrets(sec.tracked, sec.timeout, getdur("SECRETS_REFRESH_INTERVAL", 5*time.Minute))
 	return cfg, nil
 }
 
@@ -1217,23 +1238,85 @@ func loadDotEnv() error {
 // Secrets Store CSI driver and External Secrets Operator all write to. One
 // trailing newline is trimmed. Setting both, or naming a file that can't be
 // read, is an error (kept in err) rather than a silent fallback.
-type secretReader struct{ err error }
+//
+// A value (from NAME or from the file) that is a secretref reference
+// (aws-sm://, gcp-sm://, vault://, azure-kv://) is resolved at load time,
+// with a per-lookup timeout; a failed lookup is a Load error naming the
+// setting and the reference's scheme+path, never a value. Every setting
+// that came from a reference or a NAME_FILE is tracked (see track) so
+// config.Secrets can re-read it later without a restart — a literal NAME
+// value can't change, so it isn't tracked.
+type secretReader struct {
+	err     error
+	timeout time.Duration
+	tracked []trackedSecret
+}
+
+// trackedSecret is one rotatable secret setting: its current value (as
+// loaded) and how to re-read it on a refresh tick.
+type trackedSecret struct {
+	name  string
+	value string
+	read  func(timeout time.Duration) (string, error)
+}
+
+func (r *secretReader) track(name, value string, read func(time.Duration) (string, error)) {
+	r.tracked = append(r.tracked, trackedSecret{name: name, value: value, read: read})
+}
 
 func (r *secretReader) get(key, fallback string) string {
 	path, fromFile := os.LookupEnv(key + "_FILE")
 	if !fromFile {
-		return getenv(key, fallback)
+		v, ok := os.LookupEnv(key)
+		if !ok {
+			return fallback
+		}
+		if !secretref.IsRef(v) {
+			r.track(key, v, nil) // seed Secrets.Get; a literal can't change, so no refresh func
+			return v
+		}
+		resolved, err := resolveSecretRef(v, r.timeout)
+		if err != nil {
+			r.fail(fmt.Errorf("%s: %w", key, err))
+			return fallback
+		}
+		r.track(key, resolved, func(timeout time.Duration) (string, error) { return resolveSecretRef(v, timeout) })
+		return resolved
 	}
 	if _, both := os.LookupEnv(key); both {
 		r.fail(fmt.Errorf("set %s or %s_FILE, not both", key, key))
 		return fallback
 	}
-	b, err := os.ReadFile(filepath.Clean(path))
+	resolved, err := readSecretFile(path, r.timeout)
 	if err != nil {
 		r.fail(fmt.Errorf("%s_FILE: %w", key, err))
 		return fallback
 	}
-	return strings.TrimSuffix(strings.TrimSuffix(string(b), "\n"), "\r")
+	r.track(key, resolved, func(timeout time.Duration) (string, error) { return readSecretFile(path, timeout) })
+	return resolved
+}
+
+// resolveSecretRef resolves a secretref reference with a bounded timeout.
+func resolveSecretRef(v string, timeout time.Duration) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	return secretref.Default.Resolve(ctx, v)
+}
+
+// readSecretFile reads a NAME_FILE's content, resolving it if the file
+// itself holds a reference rather than the final secret value (an operator
+// could point NAME_FILE at something External Secrets Operator rewrites to
+// a reference).
+func readSecretFile(path string, timeout time.Duration) (string, error) {
+	b, err := os.ReadFile(filepath.Clean(path))
+	if err != nil {
+		return "", err
+	}
+	v := strings.TrimSuffix(strings.TrimSuffix(string(b), "\n"), "\r")
+	if secretref.IsRef(v) {
+		return resolveSecretRef(v, timeout)
+	}
+	return v, nil
 }
 
 func (r *secretReader) fail(err error) {
