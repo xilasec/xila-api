@@ -33,26 +33,27 @@ const insecureDevSecret = "insecure-development-secret-change-me"
 
 // Config is the fully resolved application configuration.
 type Config struct {
-	Env      string
-	HTTP     HTTP
-	DB       DB
-	JWT      JWT
-	OIDC     OIDC
-	SAML     SAML
-	LDAP     LDAP
-	SSO      SSO
-	SMTP     SMTP
-	Otel     Otel
-	Metrics  Metrics
-	Security Security
-	Policy   Policy
-	Enrich   Enrich
-	Exploit  ExploitIntel
-	CRA      CRA
-	NVD      NVD
-	AI       AI
-	Notify   Notify
-	Ingest   Ingest
+	Env            string
+	HTTP           HTTP
+	DB             DB
+	JWT            JWT
+	OIDC           OIDC
+	SAML           SAML
+	LDAP           LDAP
+	SSO            SSO
+	SMTP           SMTP
+	Otel           Otel
+	Metrics        Metrics
+	Security       Security
+	Policy         Policy
+	ComputedFields ComputedFields
+	Enrich         Enrich
+	Exploit        ExploitIntel
+	CRA            CRA
+	NVD            NVD
+	AI             AI
+	Notify         Notify
+	Ingest         Ingest
 	// S3 is the object-storage connection used when Ingest.PayloadStore is
 	// "s3" (M11 11.8).
 	S3        S3
@@ -190,6 +191,15 @@ type Policy struct {
 	// policies (0 = off; uploads and policy edits still evaluate), catching
 	// KEV/EPSS, outdated and license-data changes.
 	EvalInterval time.Duration
+}
+
+// ComputedFields holds the computed-custom-field recompute schedule.
+type ComputedFields struct {
+	// Interval is how often every project, asset and finding's computed
+	// custom fields are recomputed (0 = off; ingest and a definition
+	// change still recompute), catching facts that change without a new
+	// scan (EPSS/KEV, status, exposure).
+	Interval time.Duration
 }
 
 // Enrich holds the exploit-intel enrichment schedule and its KEV catalogs.
@@ -693,6 +703,9 @@ func Load() (Config, error) {
 		},
 		Policy: Policy{
 			EvalInterval: getdur("POLICY_EVAL_INTERVAL", 6*time.Hour),
+		},
+		ComputedFields: ComputedFields{
+			Interval: getdur("COMPUTED_FIELDS_INTERVAL", 15*time.Minute),
 		},
 		Enrich: Enrich{
 			Enabled:    getbool("ENRICH_ENABLED", true),

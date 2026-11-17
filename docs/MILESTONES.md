@@ -824,6 +824,16 @@ Tier 2:
     refreshes it. API tokens can't mint tokens.
   - CryptoLyzer (checked against BSI TR-02102-2, plus its attack verdicts with
     CVEs) and drHEADer parsers.
+  - Computed custom fields: a definition may carry a CEL `expression` instead
+    of a person's write — read-only through the API (400 on a direct write),
+    recomputed from the entity's facts for findings (`finding.*`/`project.*`,
+    the same document triage rules evaluate), projects (`project.*`: name,
+    slug, tags, criticality, custom, open finding counts by severity) and
+    assets (`asset.*` plus `project.*`). Recomputed on every ingest (after the
+    triage rules), on save when a definition is created or its expression
+    changes, and every `COMPUTED_FIELDS_INTERVAL` (15m default). A computed
+    field never sees another's value (cycle-free by construction). Migration
+    000104.
 
 Deliberately not pursued: FedRAMP POA&M and OSCAL export (US federal niche),
 threat modeling, AI-generated fix pull requests, active cloud scanning (Xila

@@ -28,6 +28,7 @@ import (
 	"github.com/xilasec/xila-api/internal/auth"
 	"github.com/xilasec/xila-api/internal/badge"
 	"github.com/xilasec/xila-api/internal/compliance"
+	"github.com/xilasec/xila-api/internal/computed"
 	"github.com/xilasec/xila-api/internal/config"
 	"github.com/xilasec/xila-api/internal/connector"
 	"github.com/xilasec/xila-api/internal/correlation"
@@ -178,10 +179,12 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 	triageRepo := triage.NewRepository(pool)
 	gateRepo := gate.NewRepository(pool)
 	// Custom fields: definitions + validated values; triage rules read and
-	// set them, component policies read the project's.
+	// set them, component policies read the project's. Computed fields
+	// (internal/computed) recompute their own value from a CEL expression.
 	customFieldRepo := customfield.NewRepository(pool)
 	customFieldSvc := customfield.NewService(customFieldRepo, membershipRepo, findingRepo)
 	triageSvc := triage.NewService(triageRepo, findingRepo, findingRepo).WithCustomFields(customFieldSvc)
+	computedSvc := computed.NewService(customFieldRepo, findingRepo, triageRepo, projectRepo, assetRepo)
 	vexRepo := vex.NewRepository(pool)
 	vexSvc := vex.NewService(vexRepo, findingRepo, projectRepo)
 	orgRepo := org.NewRepository(pool)
@@ -229,7 +232,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 	)
 	connectorRepo := connector.NewRepository(pool)
 	ingestSvc := scan.NewService(scanRepo, findingRepo, projectRepo, parsers, notifySvc,
-		[]scan.Applier{correlation.NewReacher(findingRepo, findingRepo), exploitSvc, vexSvc, triageSvc, assetSvc,
+		[]scan.Applier{correlation.NewReacher(findingRepo, findingRepo), exploitSvc, vexSvc, triageSvc, computedSvc, assetSvc,
 			connector.NewRemoteTriage(connectorRepo, findingRepo).WithApproval(cfg.RiskAcceptanceRequiresApproval),
 			enrichment.NewNVD(findingRepo, nil)}, scanRepo).WithFollowUps(remediationSvc).WithSkipUnchanged(true)
 	// Advisory sources without network: the local OSV mirror + private advisories.
@@ -296,17 +299,18 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		Metrics:    metrics.NewHandler(metrics.NewRepository(pool)),
 		Report: report.NewHandler(report.NewService(portfolio.NewRepository(pool), findingRepo, complianceRepo,
 			projectRepo, report.NewRepository(pool)).WithEngagements(engagementRepo), reportTemplates),
-		Engagement:   engagement.NewHandler(engagementRepo, ingestSvc, findingRepo, findingTemplates),
-		Badge:        badge.NewHandler(badge.NewRepository(pool), portfolio.NewRepository(pool), gateRepo, findingRepo),
-		FixPlan:      fixplan.NewHandler(findingRepo),
-		Remediation:  remediation.NewHandler(remediationRepo, remediationSvc, membershipRepo),
-		RootCauses:   rootcause.NewHandler(rootcause.NewService(findingRepo, remediationRepo, remediationSvc, membershipRepo)),
-		Exploits:     exploitintel.NewHandler(exploitRepo, exploitSvc, findingRepo),
-		Evidence:     evidence.NewHandler(evidence.NewRepository(pool), projectRepo, complianceRepo, portfolio.NewRepository(pool), craRepo),
-		CRACases:     cra.NewCaseHandler(craSvc),
-		FindingTmpl:  findingtemplate.NewHandler(findingTemplates),
-		ReportTmpl:   report.NewTemplateHandler(reportTemplates),
-		CustomFields: customfield.NewHandler(customFieldRepo, customFieldSvc),
+		Engagement:  engagement.NewHandler(engagementRepo, ingestSvc, findingRepo, findingTemplates),
+		Badge:       badge.NewHandler(badge.NewRepository(pool), portfolio.NewRepository(pool), gateRepo, findingRepo),
+		FixPlan:     fixplan.NewHandler(findingRepo),
+		Remediation: remediation.NewHandler(remediationRepo, remediationSvc, membershipRepo),
+		RootCauses:  rootcause.NewHandler(rootcause.NewService(findingRepo, remediationRepo, remediationSvc, membershipRepo)),
+		Exploits:    exploitintel.NewHandler(exploitRepo, exploitSvc, findingRepo),
+		Evidence:    evidence.NewHandler(evidence.NewRepository(pool), projectRepo, complianceRepo, portfolio.NewRepository(pool), craRepo),
+		CRACases:    cra.NewCaseHandler(craSvc),
+		FindingTmpl: findingtemplate.NewHandler(findingTemplates),
+		ReportTmpl:  report.NewTemplateHandler(reportTemplates),
+		CustomFields: customfield.NewHandler(customFieldRepo, customFieldSvc).
+			WithComputedValidator(computedSvc).WithComputedChanged(computedSvc.OnDefinitionChanged),
 		Notify:       notify.NewHandler(notifyRepo, notifySvc),
 		Retention:    retention.NewHandler(retentionSvc),
 		Archive:      archive.NewHandler(archive.NewRepository(pool), findingRepo, cfg.Retention.ArchiveAge),

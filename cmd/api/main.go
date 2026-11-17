@@ -26,6 +26,7 @@ import (
 	"github.com/xilasec/xila-api/internal/auth"
 	"github.com/xilasec/xila-api/internal/badge"
 	"github.com/xilasec/xila-api/internal/compliance"
+	"github.com/xilasec/xila-api/internal/computed"
 	"github.com/xilasec/xila-api/internal/config"
 	"github.com/xilasec/xila-api/internal/connector"
 	"github.com/xilasec/xila-api/internal/correlation"
@@ -236,10 +237,12 @@ func run() error {
 	remediationSvc := remediation.NewService(remediationRepo, findingRepo, issueSvc, cfg.RemediationAutoCreate, cfg.PublicURL).WithFeatures(features)
 	issueSvc.AddLinkSyncer(remediationSvc)
 	// Custom fields: definitions + validated values; triage rules read and
-	// set them, component policies read the project's.
+	// set them, component policies read the project's. Computed fields
+	// (internal/computed) recompute their own value from a CEL expression.
 	customFieldRepo := customfield.NewRepository(db)
 	customFieldSvc := customfield.NewService(customFieldRepo, membershipRepo, findingRepo)
 	triageSvc := triage.NewService(triageRepo, findingRepo, findingRepo).WithCustomFields(customFieldSvc)
+	computedSvc := computed.NewService(customFieldRepo, findingRepo, triageRepo, projectRepo, assetRepo)
 
 	parsers := newParserRegistry()
 	// Post-ingest passes, in order: reachability first (it sets priority, which the
@@ -277,8 +280,11 @@ func run() error {
 	}
 	// Exposure after the triage rules: it infers asset exposure from the scan and
 	// recomputes this scan's priorities from every input (a rule's severity
-	// reset included) before dedup elects primaries.
-	appliers = append(appliers, vexSvc, triageSvc, assetSvc, connector.NewRemoteTriage(connectorRepo, findingRepo).WithApproval(cfg.RiskAcceptanceRequiresApproval))
+	// reset included) before dedup elects primaries. Computed fields right after
+	// the triage rules: a computed finding field reads the severity/status a
+	// rule just settled.
+	appliers = append(appliers, vexSvc, triageSvc, computedSvc, assetSvc,
+		connector.NewRemoteTriage(connectorRepo, findingRepo).WithApproval(cfg.RiskAcceptanceRequiresApproval))
 	// NVD CVSS: stamp cached vectors onto a scan's findings at ingest (no network;
 	// the enrichment schedule fetches). Before dedup, after nothing that reads it.
 	// One NVD client: CVSS enrichment and CPE matching share its rate limit.
@@ -443,17 +449,18 @@ func run() error {
 		Metrics:    metrics.NewHandler(metricsRepo),
 		Report: report.NewHandler(report.NewService(portfolioRepo, findingRepo, complianceRepo, projectRepo,
 			report.NewRepository(db)).WithEngagements(engagementRepo), reportTemplates),
-		Engagement:   engagement.NewHandler(engagementRepo, ingestSvc, findingRepo, findingTemplates),
-		Badge:        badge.NewHandler(badge.NewRepository(db), portfolioRepo, gateRepo, findingRepo).WithPublicURL(cfg.PublicURL),
-		FixPlan:      fixplan.NewHandler(findingRepo),
-		Remediation:  remediation.NewHandler(remediationRepo, remediationSvc, membershipRepo),
-		RootCauses:   rootcause.NewHandler(rootcause.NewService(findingRepo, remediationRepo, remediationSvc, membershipRepo)),
-		Exploits:     exploitintel.NewHandler(exploitRepo, exploitSvc, findingRepo),
-		Evidence:     evidence.NewHandler(evidence.NewRepository(db), projectRepo, complianceRepo, portfolioRepo, craRepo),
-		CRACases:     cra.NewCaseHandler(craSvc),
-		FindingTmpl:  findingtemplate.NewHandler(findingTemplates),
-		ReportTmpl:   report.NewTemplateHandler(reportTemplates),
-		CustomFields: customfield.NewHandler(customFieldRepo, customFieldSvc),
+		Engagement:  engagement.NewHandler(engagementRepo, ingestSvc, findingRepo, findingTemplates),
+		Badge:       badge.NewHandler(badge.NewRepository(db), portfolioRepo, gateRepo, findingRepo).WithPublicURL(cfg.PublicURL),
+		FixPlan:     fixplan.NewHandler(findingRepo),
+		Remediation: remediation.NewHandler(remediationRepo, remediationSvc, membershipRepo),
+		RootCauses:  rootcause.NewHandler(rootcause.NewService(findingRepo, remediationRepo, remediationSvc, membershipRepo)),
+		Exploits:    exploitintel.NewHandler(exploitRepo, exploitSvc, findingRepo),
+		Evidence:    evidence.NewHandler(evidence.NewRepository(db), projectRepo, complianceRepo, portfolioRepo, craRepo),
+		CRACases:    cra.NewCaseHandler(craSvc),
+		FindingTmpl: findingtemplate.NewHandler(findingTemplates),
+		ReportTmpl:  report.NewTemplateHandler(reportTemplates),
+		CustomFields: customfield.NewHandler(customFieldRepo, customFieldSvc).
+			WithComputedValidator(computedSvc).WithComputedChanged(computedSvc.OnDefinitionChanged),
 		Notify:       notify.NewHandler(notifyRepo, notifySvc),
 		Retention:    retention.NewHandler(retentionSvc),
 		Archive:      archive.NewHandler(archive.NewRepository(db), findingRepo, cfg.Retention.ArchiveAge),
@@ -530,6 +537,10 @@ func run() error {
 			runLicenseBackfill(ctx, sbomRepo)
 			runPolicyEval(ctx, policySvc, cfg.Policy.EvalInterval)
 		})
+		// Computed custom fields: EPSS/KEV, status and other facts a computed
+		// field reads change without a new scan, so a sweep keeps every project,
+		// asset and finding fresh within COMPUTED_FIELDS_INTERVAL (0 = off).
+		job(func() { runComputedFields(ctx, computedSvc, cfg.ComputedFields.Interval) })
 		// Periodically refresh EPSS/KEV and recompute priorities; then, with
 		// NVD_ENABLED, CVSS vectors from NVD (slow without a key: rate-limited).
 		if cfg.Enrich.Enabled {
@@ -902,6 +913,32 @@ func runPolicyEval(ctx context.Context, svc *policy.Service, interval time.Durat
 		observability.RecordJob(ctx, "policy_eval", start, err)
 		if err != nil && ctx.Err() == nil {
 			slog.WarnContext(ctx, "policy evaluation failed", "error", err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+// runComputedFields recomputes every project, asset and finding's computed
+// custom fields on COMPUTED_FIELDS_INTERVAL (0 = off; ingest and a
+// definition change still recompute).
+func runComputedFields(ctx context.Context, svc *computed.Service, interval time.Duration) {
+	if interval <= 0 {
+		return
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		start := time.Now()
+		n, err := svc.RunSweep(ctx)
+		observability.RecordJob(ctx, "computed_fields", start, err)
+		if err != nil && ctx.Err() == nil {
+			slog.WarnContext(ctx, "computed fields sweep failed", "error", err)
+		} else {
+			slog.InfoContext(ctx, "computed fields sweep complete", "changed", n)
 		}
 		select {
 		case <-ctx.Done():

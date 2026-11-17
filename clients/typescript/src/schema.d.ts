@@ -2069,7 +2069,10 @@ export interface paths {
         put?: never;
         /**
          * Define a custom field
-         * @description Instance admin. `key` is unique per entity and becomes `custom.<key>` in the API, CEL and filters.
+         * @description Instance admin. `key` is unique per entity and becomes `custom.<key>` in the
+         *     API, CEL and filters. With `computed` true, `expression` (CEL over the
+         *     entity's facts) replaces a person's write; every entity of this type is
+         *     computed before this call returns.
          */
         post: operations["createCustomField"];
         delete?: never;
@@ -2098,9 +2101,13 @@ export interface paths {
         head?: never;
         /**
          * Edit a custom-field definition
-         * @description Instance admin. Label, options, required and organization scope are editable;
-         *     entity, key and type are fixed. Removing an enum option leaves stored values as
-         *     they are (the next edit of that entity must pick a current option).
+         * @description Instance admin. Label, options, required, organization scope, computed and
+         *     expression are editable; entity, key and type are fixed. Removing an enum
+         *     option leaves stored values as they are (the next edit of that entity must
+         *     pick a current option). Turning a field computed (or changing its
+         *     expression) recomputes every entity of that type before this call returns;
+         *     turning it back off leaves its last computed value in place until a person
+         *     edits it.
          */
         patch: operations["updateCustomField"];
         trace?: never;
@@ -7094,13 +7101,17 @@ export interface components {
             type: "text" | "number" | "date" | "enum" | "user";
             /** @description The allowed values of an `enum` field (required for it */
             options?: string[];
-            /** @description Every edit of the entity must leave the field set. */
+            /** @description Every edit of the entity must leave the field set. Never true on a computed field. */
             required?: boolean;
             /**
              * Format: uuid
              * @description Only this organization's entities have the field; null = all.
              */
             org_id?: string | null;
+            /** @description The value comes from `expression`, not a person's write; writing it directly is refused (400). */
+            computed?: boolean;
+            /** @description A CEL expression over the entity's facts (`finding.*`/`project.*`, `project.*`, or `asset.*`/`project.*`), required when `computed` is true. A result that doesn't fit the field type, an evaluation error, or null leaves the field unset. */
+            expression?: string;
             /** Format: date-time */
             readonly created_at?: string;
             /** Format: date-time */
@@ -13412,6 +13423,8 @@ export interface operations {
                     org_id?: string;
                     /** @description Apply to every organization again. */
                     clear_org?: boolean;
+                    computed?: boolean;
+                    expression?: string;
                 };
             };
         };

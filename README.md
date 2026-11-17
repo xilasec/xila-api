@@ -537,7 +537,10 @@ If no name is given, the default version is used (`main` if none exists yet).
   rules read them in CEL (`finding.custom.<key>`, `project.custom.<key>`; component
   policies `project.custom.<key>`) and can set one with the `set_custom_field`
   action. Changes to a finding's fields are added to its history (`kind: custom_field`,
-  `field`), whether made by people or rules.
+  `field`), whether made by people or rules. A field can be **computed** instead
+  (`computed: true`, `expression`): its value comes from a [CEL](https://cel.dev)
+  expression over the entity's facts, not a write — `PATCH .../custom` refuses
+  one directly (`400`). See *Computed custom fields* below.
 - History: every status, severity and assignee change, with who made it and
   the reason they gave, plus comments and attachments. It is written by a
   database trigger, so automatic changes (auto-close, reopen on reappearance,
@@ -1547,6 +1550,52 @@ on save: a syntax error, a misspelled field, a non-boolean result, or an express
 expensive to run per component returns a 400 that explains the problem. The inputs are
 plain JSON-shaped documents, so an external engine (OPA) could later be given the
 same ones. There is one built-in language, not two.
+
+### Computed custom fields
+
+A custom field definition can carry a CEL `expression` instead of being set by
+a person (`computed: true` on `POST`/`PATCH /custom-fields`). Its value is
+derived from the entity's facts and read-only through the API: writing it
+with `PATCH /{projects|assets|findings}/{id}/custom` is refused (`400`), and a
+triage rule's `set_custom_field` skips it the same way. The result is stored
+in the entity's `custom` column like any other value, so `?cf.<key>=`,
+exports, history and everyone else's CEL expressions see it unchanged.
+
+Fact documents, by entity:
+
+- **Finding**: exactly what a triage rule evaluates — `finding.*` and
+  `project.*` (see *Triage rules* above) — one document builder, not a copy.
+- **Project**: `project.*` — `name`, `slug`, `tags`, `criticality`, `custom`,
+  and `open_findings` (open/confirmed counts by severity — one query, the
+  same the portfolio rollups already run).
+- **Asset**: `asset.*` (`name`, `type`, `identifier`, `exposure`, `custom`)
+  plus the same `project.*` a project's own computed field sees.
+
+A computed field never sees another computed field's value: every computed
+key is dropped from `*.custom` in the document its own expression evaluates
+against (so there is no evaluation order to get wrong, and no cycle is
+possible). Everyone *else* — triage rules, policies, filters, exports — still
+reads a computed field's stored value once it has one.
+
+The result must fit the field's type: `text` accepts a string, or a number /
+bool rendered as text; `number` a double or int; `enum` one of the options;
+`date` a `YYYY-MM-DD` or RFC 3339 string. A result that doesn't fit, an
+evaluation error, or CEL's null (an unknown fact) leaves the field unset —
+never a guess. `expression` is checked the same way a triage rule's is: dry-run
+on save against a document with every fact present, and a result type CEL can
+already prove will never fit the field (e.g. always a boolean for a `number`
+field) is refused there too.
+
+Values are kept fresh three ways: recomputed for a scan's findings on every
+ingest (right after the triage rules); a full recompute of every project,
+asset or finding of that entity when a computed definition is created or its
+expression changes (synchronous — the save's response already reflects it);
+and every `COMPUTED_FIELDS_INTERVAL` (15m default, `0` = off), so facts
+nothing re-ingests — EPSS/KEV, status, exposure, package metadata — still
+reach a computed field within one interval. That interval is therefore how
+stale those facts can be between scans; a KEV flag that just landed, for
+example, is reflected in a computed field within `COMPUTED_FIELDS_INTERVAL`
+even without a new upload.
 
 ### Reachability: why most of a dependency backlog doesn't matter
 

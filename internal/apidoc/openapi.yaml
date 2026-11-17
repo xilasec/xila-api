@@ -2810,7 +2810,11 @@ paths:
       operationId: createCustomField
       tags: [Custom fields]
       summary: Define a custom field
-      description: Instance admin. `key` is unique per entity and becomes `custom.<key>` in the API, CEL and filters.
+      description: |
+        Instance admin. `key` is unique per entity and becomes `custom.<key>` in the
+        API, CEL and filters. With `computed` true, `expression` (CEL over the
+        entity's facts) replaces a person's write; every entity of this type is
+        computed before this call returns.
       requestBody:
         required: true
         content:
@@ -2844,9 +2848,13 @@ paths:
       tags: [Custom fields]
       summary: Edit a custom-field definition
       description: |
-        Instance admin. Label, options, required and organization scope are editable;
-        entity, key and type are fixed. Removing an enum option leaves stored values as
-        they are (the next edit of that entity must pick a current option).
+        Instance admin. Label, options, required, organization scope, computed and
+        expression are editable; entity, key and type are fixed. Removing an enum
+        option leaves stored values as they are (the next edit of that entity must
+        pick a current option). Turning a field computed (or changing its
+        expression) recomputes every entity of that type before this call returns;
+        turning it back off leaves its last computed value in place until a person
+        edits it.
       parameters: [{ $ref: "#/components/parameters/CustomFieldID" }]
       requestBody:
         required: true
@@ -2860,6 +2868,8 @@ paths:
                 required: { type: boolean }
                 org_id: { type: string, format: uuid }
                 clear_org: { type: boolean, description: Apply to every organization again. }
+                computed: { type: boolean }
+                expression: { type: string }
       responses:
         "200":
           description: OK
@@ -9102,8 +9112,10 @@ components:
         label: { type: string, maxLength: 100 }
         type: { type: string, enum: [text, number, date, enum, user] }
         options: { type: array, items: { type: string }, description: The allowed values of an `enum` field (required for it, refused otherwise). }
-        required: { type: boolean, description: Every edit of the entity must leave the field set. }
+        required: { type: boolean, description: Every edit of the entity must leave the field set. Never true on a computed field. }
         org_id: { type: [string, "null"], format: uuid, description: Only this organization's entities have the field; null = all. }
+        computed: { type: boolean, description: "The value comes from `expression`, not a person's write; writing it directly is refused (400)." }
+        expression: { type: string, description: "A CEL expression over the entity's facts (`finding.*`/`project.*`, `project.*`, or `asset.*`/`project.*`), required when `computed` is true. A result that doesn't fit the field type, an evaluation error, or null leaves the field unset." }
         created_at: { type: string, format: date-time, readOnly: true }
         updated_at: { type: string, format: date-time, readOnly: true }
 

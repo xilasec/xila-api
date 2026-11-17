@@ -1,6 +1,7 @@
 package customfield
 
 import (
+	"context"
 	"errors"
 	"slices"
 
@@ -13,12 +14,39 @@ import (
 	"github.com/xilasec/xila-api/internal/httpx"
 )
 
+// ComputedValidator compiles a computed field's expression against the facts
+// its entity would see and rejects a result type that can't fit the field
+// (internal/computed implements this; nil skips the check, e.g. in tests that
+// don't exercise computed fields).
+type ComputedValidator interface {
+	Validate(ctx context.Context, d Definition) error
+}
+
 // Handler exposes definitions (read: anyone signed in; write: instance admin,
 // enforced by authz) and the per-entity value edits (editor on the entity's
 // project, enforced by authz through the path).
 type Handler struct {
 	repo *Repository
 	svc  *Service
+	// computed validates a computed definition's expression (WithComputedValidator).
+	computed ComputedValidator
+	// onComputedChanged backfills every entity of this type after a computed
+	// definition is created or its expression changes (WithComputedChanged).
+	onComputedChanged func(ctx context.Context, d Definition)
+}
+
+// WithComputedValidator sets the compile-time check for a computed field's
+// expression.
+func (h *Handler) WithComputedValidator(v ComputedValidator) *Handler {
+	h.computed = v
+	return h
+}
+
+// WithComputedChanged sets the hook run after a computed definition is
+// created, or an existing one's expression (or computed flag) changes.
+func (h *Handler) WithComputedChanged(fn func(ctx context.Context, d Definition)) *Handler {
+	h.onComputedChanged = fn
+	return h
 }
 
 // NewHandler constructs a Handler.
@@ -104,9 +132,17 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 	if err := d.Validate(); err != nil {
 		return mapErr(err)
 	}
+	if d.Computed && h.computed != nil {
+		if err := h.computed.Validate(c.UserContext(), d); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	}
 	out, err := h.repo.Create(c.UserContext(), d)
 	if err != nil {
 		return mapErr(err)
+	}
+	if out.Computed && h.onComputedChanged != nil {
+		h.onComputedChanged(c.UserContext(), out)
 	}
 	return c.Status(fiber.StatusCreated).JSON(out)
 }
@@ -120,6 +156,10 @@ type updateRequest struct {
 	OrgID    *string   `json:"org_id"`
 	// ClearOrg makes the field apply to every organization again.
 	ClearOrg bool `json:"clear_org"`
+	// Computed and Expression turn the field computed (or back into one a
+	// person sets) and change what it is computed from.
+	Computed   *bool   `json:"computed"`
+	Expression *string `json:"expression"`
 }
 
 // Update handles PATCH /custom-fields/{id}.
@@ -152,14 +192,28 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 	case body.OrgID != nil:
 		d.OrgID = body.OrgID
 	}
+	if body.Computed != nil {
+		d.Computed = *body.Computed
+	}
+	if body.Expression != nil {
+		d.Expression = *body.Expression
+	}
 	if err := d.Validate(); err != nil {
 		return mapErr(err)
+	}
+	if d.Computed && h.computed != nil {
+		if err := h.computed.Validate(c.UserContext(), d); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
 	}
 	out, err := h.repo.Update(c.UserContext(), d)
 	if err != nil {
 		return mapErr(err)
 	}
 	audit.SetChanges(c, before, out)
+	if out.Computed && (out.Expression != before.Expression || !before.Computed) && h.onComputedChanged != nil {
+		h.onComputedChanged(c.UserContext(), out)
+	}
 	return c.JSON(out)
 }
 

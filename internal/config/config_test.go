@@ -342,6 +342,9 @@ func TestLegacyLicenseDenylistWarns(t *testing.T) {
 	if cfg.Policy.EvalInterval != 6*time.Hour {
 		t.Errorf("POLICY_EVAL_INTERVAL default = %v, want 6h", cfg.Policy.EvalInterval)
 	}
+	if cfg.ComputedFields.Interval != 15*time.Minute {
+		t.Errorf("COMPUTED_FIELDS_INTERVAL default = %v, want 15m", cfg.ComputedFields.Interval)
+	}
 }
 
 func TestSSODefaults(t *testing.T) {
