@@ -794,7 +794,13 @@ and `internal/server/smoke_test.go` (missing smoke wiring causes a nil panic in 
 - UI build: `web/build` is gitignored and only a `-tags embedfrontend` build
   serves the UI. `make run`/`go run` serve the API only. After editing Svelte,
   run `pnpm build` in `web/` (or `make bundle` / `make up`) and hard-refresh
-  the browser (hashed assets cache). Nav pages live under `web/src/routes/`.
+  the browser (hashed assets cache). Pages live under `web/src/routes/`; the
+  navigation is data in `web/src/lib/nav.js` (sidebar sections, the Settings
+  hub, the command palette and switchable-feature gating all read it), so a
+  new page gets one entry there, never a hand-written link in the layout.
+  Daily work goes in `MAIN_NAV`; configuration goes in `SETTINGS_NAV` (it
+  then gets the Settings breadcrumb). A project-page tab goes into one of
+  the `SECTIONS` of `routes/projects/[id]/+page.svelte`.
 - The ingest queue has backpressure. `scan.QueueMonitor` samples `scan_jobs`
   on an interval (one query per tick, not per request) and feeds both the OTel
   gauges and the upload handler's `429` shed at `INGEST_MAX_QUEUE_DEPTH`. A failed

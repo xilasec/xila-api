@@ -7,6 +7,8 @@
 	import { api } from '#lib/api.js';
 	import CommandPalette from '#lib/components/CommandPalette.svelte';
 	import { locale, contentLocale, routeLocale, translate, LOCALES } from '#lib/i18n.js';
+	import Icon from '#lib/components/Icon.svelte';
+	import { MAIN_NAV, PAGE_FEATURE, visible, settingsItemFor, isCurrent } from '#lib/nav.js';
 
 	let { children } = $props();
 
@@ -76,126 +78,32 @@
 
 	// Pages that belong to a switchable feature: hidden from the menus while it
 	// is off, and replaced by a notice if opened directly.
-	/** @type {Record<string, string>} */
-	const pageFeature = { '/remediation': 'remediation', '/root-causes': 'remediation', '/cra': 'cra', '/custom-fields': 'custom_fields', '/psirt': 'psirt' };
 	let offFeature = $derived.by(() => {
-		const f = pageFeature[page.url.pathname];
+		const f = PAGE_FEATURE[page.url.pathname];
 		return f && !isOn($features, f) ? f : '';
 	});
 
-	/** @type {{ href: string, key: import('#lib/i18n.js').MessageKey }[]} */
-	const baseNav = [
-		{ href: '/', key: 'nav.projects' },
-		{ href: '/my-work', key: 'nav.myWork' },
-		{ href: '/findings', key: 'nav.findings' },
-		{ href: '/fix-plan', key: 'nav.fixPlan' },
-		{ href: '/remediation', key: 'nav.remediation' },
-		{ href: '/root-causes', key: 'nav.rootCauses' },
-		{ href: '/approvals', key: 'nav.approvals' },
-		{ href: '/components', key: 'nav.components' },
-		{ href: '/licenses', key: 'nav.licenses' },
-		{ href: '/policies', key: 'nav.policies' },
-		{ href: '/advisories', key: 'nav.advisories' },
-		{ href: '/notifications', key: 'nav.notifications' },
-		{ href: '/sla', key: 'nav.sla' },
-		{ href: '/cra', key: 'nav.cra' },
-		{ href: '/tokens', key: 'nav.apiKeys' },
-		{ href: '/docs', key: 'nav.apiDocs' }
-	];
-	// Instance admins get the triage-rule policy, user management and SSO pages:
-	// flat in the mobile menu, grouped under one "Admin" menu on wider screens
-	// so the bar fits.
-	/** @type {{ href: string, key: import('#lib/i18n.js').MessageKey }[]} */
-	const adminNav = [
-		{ href: '/triage-rules', key: 'nav.triageRules' },
-		{ href: '/vuln-policies', key: 'nav.vulnPolicies' },
-		{ href: '/custom-fields', key: 'nav.customFields' },
-		{ href: '/custom-parsers', key: 'nav.customParsers' },
-		{ href: '/psirt', key: 'nav.psirt' },
-		{ href: '/feed-rules', key: 'nav.feedRules' },
-		{ href: '/finding-templates', key: 'nav.findingTemplates' },
-		{ href: '/report-templates', key: 'nav.reportTemplates' },
-		{ href: '/users', key: 'nav.users' },
-		{ href: '/service-accounts', key: 'nav.serviceAccounts' },
-		{ href: '/groups', key: 'nav.groups' },
-		{ href: '/audit-log', key: 'nav.auditLog' },
-		{ href: '/permissions', key: 'nav.permissions' },
-		{ href: '/sso', key: 'nav.sso' },
-		{ href: '/features', key: 'nav.features' }
-	];
-	/** @param {{ href: string }} i */
-	const shown = (i) => !pageFeature[i.href] || isOn($features, pageFeature[i.href]);
-	let navItems = $derived(($me?.is_admin ? [...baseNav, ...adminNav] : baseNav).filter(shown));
-	let onAdminPage = $derived(adminNav.some((i) => page.url.pathname === i.href));
+	let who = $derived({ admin: !!$me?.is_admin, on: (/** @type {string} */ f) => isOn($features, f) });
+	let mainNav = $derived(visible(MAIN_NAV, who));
+	let settingsCrumb = $derived(page.url.pathname === '/settings' ? undefined : settingsItemFor(page.url.pathname));
+	let onSettings = $derived(page.url.pathname === '/settings' || !!settingsCrumb);
+
+	// The sidebar is a drawer below lg: close it whenever the page changes.
+	let drawerOpen = $state(false);
+	$effect(() => {
+		page.url.pathname;
+		drawerOpen = false;
+	});
+	let initial = $derived(($me?.email || '?').trim().charAt(0).toUpperCase());
 </script>
 
-<div class="min-h-screen bg-base-200">
-	{#if $token}
-		<div class="navbar bg-base-100/90 backdrop-blur shadow-sm sticky top-0 z-30">
-			<!-- min-w-0 lets the nav strip shrink instead of pushing search /
-			     theme / sign-out off-screen on narrow windows. -->
-			<div class="flex-1 items-center min-w-0">
-				<!-- Mobile menu -->
-				<div class="dropdown sm:hidden">
-					<button tabindex="0" class="btn btn-ghost btn-circle btn-sm" aria-label={ts('nav.menu')}>
-						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
-					</button>
-					<ul class="dropdown-content menu menu-sm mt-2 w-52 rounded-box bg-base-100 p-2 shadow-lg z-40">
-						{#each navItems as item}
-							<li><a href={item.href} class:active={page.url.pathname === item.href} onclick={(e) => e.currentTarget.blur()}>{ts(item.key)}</a></li>
-						{/each}
-						<li><a href="/account" class:active={page.url.pathname === '/account'} onclick={(e) => e.currentTarget.blur()}>{ts('nav.account')}</a></li>
-					</ul>
-				</div>
-				<a href="/" class="btn btn-ghost text-xl gap-2">
-					<span class="text-primary">◈</span> Xila
-				</a>
-				<nav class="hidden sm:flex ml-1 gap-0.5 min-w-0 flex-wrap">
-					{#each baseNav.filter(shown) as item}
-						<a
-							href={item.href}
-							class="btn btn-ghost btn-sm font-normal"
-							class:btn-active={page.url.pathname === item.href}>{ts(item.key)}</a
-						>
-					{/each}
-					{#if $me?.is_admin}
-						<div class="dropdown">
-							<button tabindex="0" class="btn btn-ghost btn-sm font-normal" class:btn-active={onAdminPage}>{ts('nav.admin')} ▾</button>
-							<ul class="dropdown-content menu menu-sm mt-1 w-44 rounded-box bg-base-100 p-2 shadow-lg z-40">
-								{#each adminNav.filter(shown) as item}
-									<li><a href={item.href} class:active={page.url.pathname === item.href} onclick={(e) => e.currentTarget.blur()}>{ts(item.key)}</a></li>
-								{/each}
-							</ul>
-						</div>
-					{/if}
-				</nav>
+{#snippet content()}
+	<main class="mx-auto w-full max-w-7xl flex-1 px-4 py-6 lg:px-8">
+		{#if settingsCrumb}
+			<div class="breadcrumbs mb-1 py-0 text-sm text-base-content/60">
+				<ul><li><a href="/settings">{ts('nav.settings')}</a></li><li>{ts(settingsCrumb.key)}</li></ul>
 			</div>
-			<div class="flex-none gap-1 items-center">
-				<a href="/account" class="btn btn-ghost btn-circle btn-sm xl:hidden" aria-label={ts('nav.account')} title={ts('nav.account')}>⚙</a>
-				<button class="btn btn-ghost btn-sm hidden gap-2 sm:inline-flex text-base-content/60" onclick={openCommand} aria-label={ts('nav.search')}>
-					<span>⌕</span><span class="hidden md:inline">{ts('nav.search')}</span>
-					<kbd class="kbd kbd-xs hidden md:inline">⌘K</kbd>
-				</button>
-				<button class="btn btn-ghost btn-circle btn-sm sm:hidden" onclick={openCommand} aria-label={ts('nav.search')}>⌕</button>
-				{#if $me}
-					<a href="/account" class="btn btn-ghost btn-sm font-normal hidden xl:inline-flex text-xs text-base-content/60" title={ts('nav.accountTitle')}>
-						{$me.email}
-						{#if $me.is_admin}<span class="badge badge-primary badge-xs ml-1">{ts('nav.adminBadge')}</span>{/if}
-					</a>
-				{/if}
-				<select class="select select-ghost select-xs w-auto" bind:value={$locale} aria-label={ts('nav.language')} title={ts('nav.language')}>
-					{#each LOCALES as l (l.id)}<option value={l.id}>{l.id.toUpperCase()}</option>{/each}
-				</select>
-				<button class="btn btn-ghost btn-circle btn-sm" onclick={toggleTheme} aria-label={ts('nav.toggleTheme')}>
-					{theme === 'winter' ? '🌙' : '☀️'}
-				</button>
-				<button class="btn btn-ghost btn-sm" onclick={logout}>{ts('nav.signOut')}</button>
-			</div>
-		</div>
-		<CommandPalette />
-	{/if}
-
-	<main class="mx-auto max-w-6xl px-4 py-6">
+		{/if}
 		<!-- A locale change remounts the page so dates and numbers re-format. -->
 		{#key pageLocale}
 			{#if offFeature}
@@ -211,11 +119,92 @@
 			{/if}
 		{/key}
 	</main>
-	<footer class="mx-auto max-w-6xl px-4 pb-6 text-xs text-base-content/50">
+	<footer class="mx-auto w-full max-w-7xl px-4 pb-6 lg:px-8 text-xs text-base-content/50">
 		Xila · <a class="link link-hover" href="https://www.gnu.org/licenses/agpl-3.0.html" rel="license noopener" target="_blank">AGPL-3.0</a>
 		· <a class="link link-hover" href={sourceURL} rel="noopener" target="_blank">{ts('nav.sourceCode')}</a>
 	</footer>
-</div>
+{/snippet}
+
+{#if $token}
+	<div class="drawer lg:drawer-open">
+		<input id="nav-drawer" type="checkbox" class="drawer-toggle" bind:checked={drawerOpen} />
+		<div class="drawer-content flex min-h-screen flex-col bg-base-200">
+			<header class="navbar sticky top-0 z-30 min-h-14 gap-1 border-b border-base-300 bg-base-100/90 px-3 backdrop-blur">
+				<label for="nav-drawer" class="btn btn-ghost btn-square btn-sm lg:hidden" aria-label={ts('nav.menu')}><Icon name="menu" class="h-5 w-5" /></label>
+				<a href="/" class="btn btn-ghost btn-sm gap-1.5 px-2 text-lg lg:hidden"><span class="text-primary">◈</span> Xila</a>
+				<div class="flex-1"></div>
+				<button class="btn btn-ghost btn-sm gap-2 text-base-content/60" onclick={openCommand} aria-label={ts('nav.search')}>
+					<Icon name="search" />
+					<span class="hidden md:inline">{ts('nav.search')}</span>
+					<kbd class="kbd kbd-xs hidden md:inline">⌘K</kbd>
+				</button>
+				{#if $me}
+					<div class="dropdown dropdown-end">
+						<button tabindex="0" class="btn btn-ghost btn-sm gap-2 px-1.5" aria-label={ts('nav.userMenu')}>
+							<span class="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-content">{initial}</span>
+							<span class="hidden max-w-48 truncate text-sm font-normal xl:inline">{$me.email}</span>
+						</button>
+						<ul class="dropdown-content menu z-40 mt-2 w-64 rounded-box border border-base-300 bg-base-100 p-2 shadow-lg">
+							<li class="menu-title flex-row items-center gap-2 normal-case">
+								<span class="truncate">{$me.email}</span>
+								{#if $me.is_admin}<span class="badge badge-primary badge-xs">{ts('nav.adminBadge')}</span>{/if}
+							</li>
+							<li><a href="/account" onclick={(e) => e.currentTarget.blur()}><Icon name="user" />{ts('nav.account')}</a></li>
+							<li><a href="/tokens" onclick={(e) => e.currentTarget.blur()}><Icon name="key" />{ts('nav.apiKeys')}</a></li>
+							<li><a href="/docs" onclick={(e) => e.currentTarget.blur()}><Icon name="doc" />{ts('nav.apiDocs')}</a></li>
+							<li class="mt-1 border-t border-base-300 pt-1">
+								<label class="flex items-center gap-2">
+									<Icon name="globe" />
+									<span class="flex-1">{ts('nav.language')}</span>
+									<select class="select select-ghost select-xs w-auto" bind:value={$locale} aria-label={ts('nav.language')}>
+										{#each LOCALES as l (l.id)}<option value={l.id}>{l.id.toUpperCase()}</option>{/each}
+									</select>
+								</label>
+							</li>
+							<li>
+								<button onclick={toggleTheme}>
+									<Icon name={theme === 'winter' ? 'moon' : 'sun'} />{ts(theme === 'winter' ? 'nav.themeDark' : 'nav.themeLight')}
+								</button>
+							</li>
+							<li class="mt-1 border-t border-base-300 pt-1"><button onclick={logout}><Icon name="logout" />{ts('nav.signOut')}</button></li>
+						</ul>
+					</div>
+				{/if}
+			</header>
+			{@render content()}
+		</div>
+		<div class="drawer-side z-40">
+			<label for="nav-drawer" class="drawer-overlay" aria-label={ts('nav.closeMenu')}></label>
+			<aside class="flex min-h-full w-60 flex-col border-r border-base-300 bg-base-100">
+				<a href="/" class="flex h-14 items-center gap-2 px-5 text-xl font-bold"><span class="text-primary">◈</span> Xila</a>
+				<nav class="flex-1 overflow-y-auto px-2 pb-4" aria-label={ts('nav.main')}>
+					{#each mainNav as section}
+						<ul class="menu menu-sm w-full gap-0.5 py-1">
+							{#if section.key}<li class="menu-title pt-3 text-xs uppercase tracking-wide">{ts(section.key)}</li>{/if}
+							{#each section.items as item (item.href)}
+								<li>
+									<a href={item.href} class:menu-active={isCurrent(item.href, page.url.pathname)} aria-current={isCurrent(item.href, page.url.pathname) ? 'page' : undefined}>
+										<Icon name={item.icon ?? 'list'} />{ts(item.key)}
+									</a>
+								</li>
+							{/each}
+						</ul>
+					{/each}
+				</nav>
+				<div class="border-t border-base-300 px-2 py-1">
+					<ul class="menu menu-sm w-full">
+						<li>
+							<a href="/settings" class:menu-active={onSettings} aria-current={onSettings ? 'page' : undefined}><Icon name="settings" />{ts('nav.settings')}</a>
+						</li>
+					</ul>
+				</div>
+			</aside>
+		</div>
+	</div>
+	<CommandPalette />
+{:else}
+	<div class="flex min-h-screen flex-col bg-base-200">{@render content()}</div>
+{/if}
 
 {#if $toast}
 	<div class="toast toast-end z-50">

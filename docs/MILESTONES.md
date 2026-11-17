@@ -899,11 +899,18 @@ Compared with DefectDojo Pro 3.5.200, SecObserve 1.65.0 and Dependency-Track
 
 Usability (reviewed in the browser):
 
-- ⬜ 13.0 Navigation and layout: 31 destinations sat in a two-row top bar
-  plus a 15-item Admin menu (one flat list on mobile), the project page had 22
-  tabs, and the findings list 12 filter controls on four rows. Grouped side
-  navigation, a Settings hub, a user menu, grouped project sections, a compact
-  filter bar, findings rows as real links, and a working mobile header.
+- ✅ 13.0 Navigation and layout. Before: 31 destinations in a two-row top bar
+  plus a 15-item Admin menu (one flat list of 31 on mobile), 20 project tabs
+  on two rows, 12 findings filters on four rows, and a findings table wider
+  than the page. Now a sidebar with grouped sections (a drawer below 1024px)
+  and a Settings hub for configuration, with breadcrumbs; account, language,
+  theme and sign-out in a user menu; the project page in 7 sections with a
+  tab row each (deep links unchanged); the findings filters in one row plus a
+  "Filters" panel that opens itself when a hidden filter is active; findings
+  rows that fit, with titles as links and triage in a per-row menu. Admin-only
+  pages (Notifications) no longer show for non-admins, the command palette
+  reaches every page, and daisyUI 4 class names that v5 dropped
+  (`tabs-bordered`, `tabs-boxed`, `label-text`, `form-control`) work again.
 
 Tier 1:
 

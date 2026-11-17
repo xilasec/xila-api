@@ -148,7 +148,7 @@
 						{$t('login.forgotIntro')}
 					</p>
 				{:else if config?.password_login_enabled}
-					<div role="tablist" class="tabs tabs-boxed mb-2">
+					<div role="tablist" class="tabs tabs-box mb-2">
 						<button
 							role="tab"
 							class="tab"

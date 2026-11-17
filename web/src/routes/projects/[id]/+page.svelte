@@ -1,4 +1,5 @@
 <script>
+	import Icon from '#lib/components/Icon.svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api, ApiError, errorMessage } from '#lib/api.js';
@@ -107,6 +108,31 @@
 	/** @type {Record<string, string>} */
 	const TAB_FEATURE = { remediation: 'remediation', engagements: 'engagements' };
 	const visibleTabs = $derived(TABS.filter((tb) => !TAB_FEATURE[tb] || isOn($features, TAB_FEATURE[tb])));
+	// The tabs, grouped into a few sections: the section row picks one, the
+	// row under it its tabs. A section remembers the tab last opened in it.
+	const SECTIONS = [
+		{ key: 'findings', tabs: ['findings', 'acceptances', 'vex'] },
+		{ key: 'fix', tabs: ['fix-plan', 'remediation', 'engagements'] },
+		{ key: 'inventory', tabs: ['sboms', 'components', 'assets', 'branches', 'scans'] },
+		{ key: 'trends', tabs: ['trends'] },
+		{ key: 'governance', tabs: ['policies', 'compliance', 'gate', 'sla'] },
+		{ key: 'integrations', tabs: ['issues', 'connectors', 'alerts'] },
+		{ key: 'access', tabs: ['members'] }
+	];
+	const visibleSections = $derived(
+		SECTIONS.map((sec) => ({ ...sec, tabs: sec.tabs.filter((tb) => visibleTabs.includes(tb)) })).filter((sec) => sec.tabs.length > 0)
+	);
+	let currentSection = $derived(visibleSections.find((sec) => sec.tabs.includes(tab)) ?? visibleSections[0]);
+	/** @type {Record<string, string>} */
+	let lastTabIn = {};
+	/** @param {{ key: string, tabs: string[] }} sec */
+	function openSection(sec) {
+		const next = lastTabIn[sec.key] && sec.tabs.includes(lastTabIn[sec.key]) ? lastTabIn[sec.key] : sec.tabs[0];
+		switchTab(next);
+	}
+	$effect(() => {
+		if (currentSection) lastTabIn[currentSection.key] = tab;
+	});
 	let manualDialog = $state();
 	const urlTab = page.url.searchParams.get('tab');
 	let tab = $state(urlTab && TABS.includes(urlTab) ? urlTab : 'findings');
@@ -937,7 +963,7 @@
 				{project.slug}{#if project.repo_url} · <a class="link" href={project.repo_url}>{project.repo_url}</a>{/if}
 			</p>
 		</div>
-		<div class="flex gap-2">
+		<div class="flex flex-wrap items-center gap-2">
 			{#if isOn($features, 'personal_notifications')}
 				<button class="btn btn-sm" class:btn-active={watching} onclick={toggleWatch} disabled={watchBusy}
 					title={watching ? $t('proj.watchingTitle') : $t('proj.watchTitle')}>
@@ -945,14 +971,19 @@
 				</button>
 			{/if}
 			<ReportMenu open={(opts) => api.openProjectReport(id, opts)} />
-			<button class="btn btn-sm btn-ghost" onclick={openEdit}>{$t('common.edit')}</button>
 			{#if !project.is_collection}
 				<button class="btn btn-sm btn-outline" onclick={() => { sbomFieldErrors = []; sbomDialog.showModal(); }}>{$t('proj.uploadSbom')}</button>
 				<button class="btn btn-sm btn-primary" onclick={openScan}>{$t('proj.uploadScan')}</button>
 			{/if}
-			{#if !project.archived_at}
-				<button class="btn btn-sm btn-ghost text-error" onclick={() => setArchived(true)} disabled={archiveBusy}>{$t('common.archive')}</button>
-			{/if}
+			<div class="dropdown dropdown-end">
+				<button tabindex="0" class="btn btn-sm btn-ghost btn-square" aria-label={$t('proj.more')} title={$t('proj.more')}><Icon name="more" class="h-5 w-5" /></button>
+				<ul class="dropdown-content menu z-20 mt-1 w-44 rounded-box border border-base-300 bg-base-100 p-2 shadow-lg">
+					<li><button onclick={(e) => { e.currentTarget.blur(); openEdit(); }}>{$t('common.edit')}</button></li>
+					{#if !project.archived_at}
+						<li><button class="text-error" onclick={(e) => { e.currentTarget.blur(); setArchived(true); }} disabled={archiveBusy}>{$t('common.archive')}</button></li>
+					{/if}
+				</ul>
+			</div>
 		</div>
 	</div>
 
@@ -1021,39 +1052,45 @@
 	{/if}
 
 	<!-- Tabs -->
-	<div role="tablist" class="tabs tabs-bordered mb-4">
-		{#each visibleTabs as tb}
-			<button
-				role="tab"
-				class="tab"
-				class:tab-active={tab === tb}
-				onclick={() => switchTab(tb)}>{$t(/** @type {import('#lib/i18n.js').MessageKey} */ (`proj.tab.${tb}`))}</button
-			>
+	<div role="tablist" aria-label={$t('proj.sections')} class="tabs tabs-border mb-2 flex-nowrap overflow-x-auto">
+		{#each visibleSections as sec (sec.key)}
+			<button role="tab" class="tab whitespace-nowrap" class:tab-active={currentSection?.key === sec.key} aria-selected={currentSection?.key === sec.key}
+				onclick={() => openSection(sec)}>{$t(/** @type {import('#lib/i18n.js').MessageKey} */ (`proj.section.${sec.key}`))}</button>
 		{/each}
 	</div>
+	{#if currentSection && currentSection.tabs.length > 1}
+		<div role="tablist" class="tabs tabs-box tabs-sm mb-4 w-fit max-w-full flex-nowrap overflow-x-auto">
+			{#each currentSection.tabs as tb (tb)}
+				<button role="tab" class="tab whitespace-nowrap" class:tab-active={tab === tb} aria-selected={tab === tb}
+					onclick={() => switchTab(tb)}>{$t(/** @type {import('#lib/i18n.js').MessageKey} */ (`proj.tab.${tb}`))}</button>
+			{/each}
+		</div>
+	{:else}
+		<div class="mb-4"></div>
+	{/if}
 
 	{#if tab === 'findings'}
 		<div class="flex flex-wrap items-center gap-2 mb-3">
-			<select bind:value={fFilters.severity} onchange={reloadFindings} class="select select-bordered select-sm">
+			<select bind:value={fFilters.severity} onchange={reloadFindings} class="select select-bordered select-sm w-auto">
 				<option value="">{$t('findings.allSeverities')}</option>
 				{#each SEVERITIES as s}<option value={s}>{$labelOf('severity', s)}</option>{/each}
 			</select>
-			<select bind:value={fFilters.status} onchange={reloadFindings} class="select select-bordered select-sm">
+			<select bind:value={fFilters.status} onchange={reloadFindings} class="select select-bordered select-sm w-auto">
 				<option value="">{$t('findings.allStatuses')}</option>
 				{#each STATUSES as s}<option value={s}>{$labelOf('status', s)}</option>{/each}
 			</select>
-			<select bind:value={fFilters.category} onchange={reloadFindings} class="select select-bordered select-sm">
+			<select bind:value={fFilters.category} onchange={reloadFindings} class="select select-bordered select-sm w-auto">
 				<option value="">{$t('findings.allCategories')}</option>
 				{#each CATEGORIES as c}<option value={c}>{$labelOf('category', c)}</option>{/each}
 			</select>
 			{#if versions.length > 1}
-				<select bind:value={fFilters.version} onchange={reloadFindings} class="select select-bordered select-sm" title={$t('proj.versionTitle')}>
+				<select bind:value={fFilters.version} onchange={reloadFindings} class="select select-bordered select-sm w-auto" title={$t('proj.versionTitle')}>
 					<option value="">{defaultVersion ? $t('proj.defaultSuffix', { name: defaultVersion.name }) : $t('proj.defaultBranch')}</option>
 					{#each versions.filter((v) => !v.is_default) as v (v.id)}<option value={v.id}>{v.kind === 'release' ? '🏷 ' : ''}{v.name}</option>{/each}
 					<option value="all">{$t('findings.allBranches')}</option>
 				</select>
 			{/if}
-			<select bind:value={fFilters.sla} onchange={reloadFindings} class="select select-bordered select-sm">
+			<select bind:value={fFilters.sla} onchange={reloadFindings} class="select select-bordered select-sm w-auto">
 				<option value="">{$t('findings.anySla')}</option>
 				{#each SLA_STATUSES as v}<option value={v}>{$labelOf('sla', v)}</option>{/each}
 			</select>

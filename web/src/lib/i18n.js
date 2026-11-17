@@ -34,6 +34,7 @@ export const LOCALES = [
 // of it is translated.
 export const TRANSLATED_ROUTES = new Set([
 	'/',
+	'/settings',
 	'/features',
 	'/login',
 	'/reset-password',
