@@ -107,7 +107,7 @@ type env struct {
 func setup(t *testing.T) env {
 	t.Helper()
 	pool := pgtest.Pool(t)
-	cipher, err := secretbox.New(bytes.Repeat([]byte{42}, 32))
+	cipher, err := secretbox.NewKeyring(bytes.Repeat([]byte{42}, 32), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

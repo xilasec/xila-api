@@ -96,6 +96,13 @@ type Config struct {
 	// configured. A malformed key fails boot; read the decoded bytes with
 	// IntegrationKey.
 	IntegrationSecretKey string
+	// IntegrationSecretKeyPrevious (INTEGRATION_SECRET_KEY_PREVIOUS) is a
+	// comma-separated list of previously-primary keys (same base64 32-byte
+	// shape), verify-only: a sealed value still opens with one of these while
+	// the background rekey pass re-seals it under the new primary. Decode with
+	// IntegrationPreviousKeys. Remove an entry once secretbox.Status reports 0
+	// rows still sealed with it.
+	IntegrationSecretKeyPrevious string
 	// PublicURL is the externally reachable UI origin (e.g. https://xila.example.com),
 	// used for links back to Xila in outbound content such as issue bodies.
 	// Empty omits the links.
@@ -489,7 +496,13 @@ func (d DB) DSN() string {
 // JWT holds token signing settings.
 type JWT struct {
 	Secret string
-	TTL    time.Duration
+	// Previous (JWT_PREVIOUS_SECRETS) verifies sessions signed before a
+	// rotation; never used to sign a new one. Comma-separated, oldest first.
+	// Lets JWT_SECRET change without ending every existing session: issue
+	// tokens with the new secret while old ones still verify, then drop the
+	// old secret from here once sessions signed with it have expired.
+	Previous []string
+	TTL      time.Duration
 	// ReauthWindow is how recently a session must have authenticated to
 	// create an API token (REAUTH_WINDOW; 0 turns the check off).
 	ReauthWindow time.Duration
@@ -662,6 +675,7 @@ func Load() (Config, error) {
 		},
 		JWT: JWT{
 			Secret:       sec.get("JWT_SECRET", ""),
+			Previous:     splitSecretList(sec.get("JWT_PREVIOUS_SECRETS", "")),
 			TTL:          getdur("JWT_TTL", 24*time.Hour),
 			ReauthWindow: getdur("REAUTH_WINDOW", 10*time.Minute),
 		},
@@ -867,6 +881,7 @@ func Load() (Config, error) {
 		RiskAcceptanceRequiresApproval: getbool("RISK_ACCEPTANCE_REQUIRES_APPROVAL", prod),
 		RiskAcceptanceExpiryWarning:    getdur("RISK_ACCEPTANCE_EXPIRY_WARNING", 7*24*time.Hour),
 		IntegrationSecretKey:           strings.TrimSpace(sec.get("INTEGRATION_SECRET_KEY", "")),
+		IntegrationSecretKeyPrevious:   strings.TrimSpace(sec.get("INTEGRATION_SECRET_KEY_PREVIOUS", "")),
 		PublicURL:                      strings.TrimRight(strings.TrimSpace(getenv("PUBLIC_URL", "")), "/"),
 		SourceURL:                      strings.TrimSpace(getenv("SOURCE_URL", DefaultSourceURL)),
 		IssueSyncInterval:              getdur("ISSUE_SYNC_INTERVAL", 15*time.Minute),
@@ -950,6 +965,9 @@ func (c Config) validate() error {
 			return errors.New("METRICS_ENABLED on the main port needs METRICS_TOKEN in production (or set METRICS_ADDR to serve /metrics on a separate, internal listener)")
 		}
 	}
+	if err := c.validateJWTKeys(); err != nil {
+		return err
+	}
 	if c.ServiceAccounts.KeyMaxDays < 1 {
 		return errors.New("SERVICE_ACCOUNT_KEY_MAX_DAYS must be ≥ 1")
 	}
@@ -968,6 +986,9 @@ func (c Config) validate() error {
 		return fmt.Errorf("invalid SMTP_TLS %q (want starttls, tls or none)", c.SMTP.TLS)
 	}
 	if _, err := c.IntegrationKey(); err != nil {
+		return err
+	}
+	if _, err := c.IntegrationPreviousKeys(); err != nil {
 		return err
 	}
 	if c.CRA.MemberState != "" && !domain.EUMemberState(c.CRA.MemberState) {
@@ -1079,6 +1100,26 @@ func (c Config) validateSAML() error {
 	return nil
 }
 
+// validateJWTKeys fails boot on a JWT_PREVIOUS_SECRETS ring that is
+// nonsensical (a repeated or current secret), or, in production, not strong
+// enough — the same rule JWT_SECRET itself is held to.
+func (c Config) validateJWTKeys() error {
+	seen := map[string]bool{c.JWT.Secret: true}
+	for _, p := range c.JWT.Previous {
+		if p == c.JWT.Secret {
+			return errors.New("JWT_PREVIOUS_SECRETS must not repeat JWT_SECRET")
+		}
+		if seen[p] {
+			return errors.New("JWT_PREVIOUS_SECRETS must not list the same secret twice")
+		}
+		seen[p] = true
+		if c.IsProduction() && (p == "" || p == insecureDevSecret) {
+			return errors.New("JWT_PREVIOUS_SECRETS entries must be strong, unique values in production")
+		}
+	}
+	return nil
+}
+
 // validateAI fails boot on an AI triage setup that cannot work.
 func (c Config) validateAI() error {
 	if !c.AI.Enabled {
@@ -1116,12 +1157,34 @@ func (c Config) IntegrationKey() ([]byte, error) {
 	if c.IntegrationSecretKey == "" {
 		return nil, nil
 	}
-	key, err := base64.StdEncoding.DecodeString(c.IntegrationSecretKey)
+	return decodeIntegrationKey("INTEGRATION_SECRET_KEY", c.IntegrationSecretKey)
+}
+
+// IntegrationPreviousKeys decodes INTEGRATION_SECRET_KEY_PREVIOUS: zero or
+// more previously-primary keys, oldest first, verify-only for the secretbox
+// key ring.
+func (c Config) IntegrationPreviousKeys() ([][]byte, error) {
+	raw := splitSecretList(c.IntegrationSecretKeyPrevious)
+	keys := make([][]byte, 0, len(raw))
+	for _, v := range raw {
+		key, err := decodeIntegrationKey("INTEGRATION_SECRET_KEY_PREVIOUS", v)
+		if err != nil {
+			return nil, err
+		}
+		keys = append(keys, key)
+	}
+	return keys, nil
+}
+
+// decodeIntegrationKey decodes one base64 32-byte AES-256 key (standard or
+// raw-URL, matching how openssl/Kubernetes secrets emit it).
+func decodeIntegrationKey(setting, v string) ([]byte, error) {
+	key, err := base64.StdEncoding.DecodeString(v)
 	if err != nil {
-		key, err = base64.RawURLEncoding.DecodeString(strings.TrimRight(c.IntegrationSecretKey, "="))
+		key, err = base64.RawURLEncoding.DecodeString(strings.TrimRight(v, "="))
 	}
 	if err != nil || len(key) != 32 {
-		return nil, errors.New("INTEGRATION_SECRET_KEY must be 32 random bytes, base64-encoded (openssl rand -base64 32)")
+		return nil, fmt.Errorf("%s must be 32 random bytes, base64-encoded (openssl rand -base64 32)", setting)
 	}
 	return key, nil
 }
@@ -1255,6 +1318,19 @@ func getlist(key string, fallback []string) []string {
 	if !ok {
 		return fallback
 	}
+	var out []string
+	for _, part := range strings.Split(v, ",") {
+		if p := strings.TrimSpace(part); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// splitSecretList splits a comma-separated secret setting already read via
+// sec.get (so NAME_FILE works), trimming blanks — the secret equivalent of
+// getlist, for JWT_PREVIOUS_SECRETS and INTEGRATION_SECRET_KEY_PREVIOUS.
+func splitSecretList(v string) []string {
 	var out []string
 	for _, part := range strings.Split(v, ",") {
 		if p := strings.TrimSpace(part); p != "" {

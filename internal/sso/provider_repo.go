@@ -18,19 +18,19 @@ import (
 // ciphertext copied to another row or column does not decrypt.
 type ProviderRepository struct {
 	db        *pgxpool.Pool
-	cipher    *secretbox.Cipher
+	cipher    *secretbox.Keyring
 	publicURL string
 }
 
 // NewProviderRepository constructs a ProviderRepository. publicURL
 // (PUBLIC_URL) is what the providers' redirect/ACS/metadata URLs are built
-// from; a nil cipher means providers can be listed but not stored.
-func NewProviderRepository(db *pgxpool.Pool, cipher *secretbox.Cipher, publicURL string) *ProviderRepository {
+// from; an unconfigured cipher means providers can be listed but not stored.
+func NewProviderRepository(db *pgxpool.Pool, cipher *secretbox.Keyring, publicURL string) *ProviderRepository {
 	return &ProviderRepository{db: db, cipher: cipher, publicURL: publicURL}
 }
 
 // CanSeal reports whether secrets can be stored (INTEGRATION_SECRET_KEY set).
-func (r *ProviderRepository) CanSeal() bool { return r.cipher != nil }
+func (r *ProviderRepository) CanSeal() bool { return r.cipher.Configured() }
 
 const providerColumns = `id, slug, kind, name, enabled, sort_order,
 	issuer, client_id, client_secret_enc, scopes, groups_claim, trust_unverified_email,

@@ -21,7 +21,7 @@ func TestPersonalNotifications(t *testing.T) {
 	pool := pgtest.Pool(t)
 	ctx := context.Background()
 	repo := NewRepository(pool)
-	cipher, err := secretbox.New([]byte("0123456789abcdef0123456789abcdef")) // gitleaks:allow -- test key
+	cipher, err := secretbox.NewKeyring([]byte("0123456789abcdef0123456789abcdef"), nil) // gitleaks:allow -- test key
 	if err != nil {
 		t.Fatal(err)
 	}

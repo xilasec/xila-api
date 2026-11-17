@@ -7931,6 +7931,40 @@ paths:
                   archived_findings: { type: integer }
         "403": { $ref: "#/components/responses/Error" }
 
+  /admin/secrets/status:
+    get:
+      operationId: getAdminSecretsStatus
+      tags: [Admin]
+      summary: Secret key-ring rotation status
+      description: |
+        Instance admin. Per sealed column (issue-tracker and connector tokens, the
+        SAML SP key, SSO provider secrets, personal and signed-webhook secrets, and
+        two-factor secrets): how many rows the current `INTEGRATION_SECRET_KEY`
+        ring opened with the primary key, how many still open only with a previous
+        key (not yet rekeyed), and how many open with no configured key at all (a
+        wrong key, or data this instance never sealed). `previous` reaching zero
+        everywhere means `INTEGRATION_SECRET_KEY_PREVIOUS` can be dropped.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  columns:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        table: { type: string }
+                        column: { type: string }
+                        total: { type: integer }
+                        primary: { type: integer }
+                        previous: { type: integer }
+                        unreadable: { type: integer }
+        "403": { $ref: "#/components/responses/Error" }
+
   /audit-log:
     get:
       operationId: getAuditLog

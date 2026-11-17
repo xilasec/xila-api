@@ -49,6 +49,7 @@ const minPasswordLen = 8
 type Service struct {
 	users         *user.Repository
 	jwt           config.JWT
+	keys          *Keys // signs/verifies JWTs; built from jwt.Secret/jwt.Previous
 	passwordLogin bool
 	mailer        Mailer
 	publicURL     string
@@ -96,8 +97,13 @@ func (s *Service) EnableResetMail(m Mailer, publicURL string) {
 // false closes registration (after the first user) and password sign-in for
 // everyone but the instance owner.
 func NewService(users *user.Repository, jwt config.JWT, passwordLogin bool) *Service {
-	return &Service{users: users, jwt: jwt, passwordLogin: passwordLogin}
+	return &Service{users: users, jwt: jwt, keys: NewKeys(jwt.Secret, jwt.Previous), passwordLogin: passwordLogin}
 }
+
+// Keys returns the service's JWT signing/verification ring, shared with the
+// auth middleware and the audit recorder so a rotation (Keys.Update) applies
+// to every signer and verifier at once.
+func (s *Service) Keys() *Keys { return s.keys }
 
 // PasswordLoginEnabled reports whether email + password sign-in is offered.
 func (s *Service) PasswordLoginEnabled() bool { return s.passwordLogin }
@@ -106,13 +112,13 @@ func (s *Service) PasswordLoginEnabled() bool { return s.passwordLogin }
 // auth_time is now). Used by SSO, which establishes identity out-of-band and
 // then issues our own access token, and by every local sign-in path.
 func (s *Service) TokenFor(u user.User) (string, error) {
-	return generateToken(s.jwt.Secret, u.ID, u.IsAdmin, u.TokenVersion, s.jwt.TTL, time.Now())
+	return generateToken(s.keys, u.ID, u.IsAdmin, u.TokenVersion, s.jwt.TTL, time.Now())
 }
 
 // reissue mints a new session for a user who did not just authenticate,
 // keeping the authentication time of the session it replaces.
 func (s *Service) reissue(u user.User, authTime time.Time) (string, error) {
-	return generateToken(s.jwt.Secret, u.ID, u.IsAdmin, u.TokenVersion, s.jwt.TTL, authTime)
+	return generateToken(s.keys, u.ID, u.IsAdmin, u.TokenVersion, s.jwt.TTL, authTime)
 }
 
 // ServiceAccountToken mints a short-lived session for a service account (the
@@ -123,7 +129,7 @@ func (s *Service) ServiceAccountToken(u user.User, projectID string, ttl time.Du
 	if !u.IsService() {
 		return "", fmt.Errorf("not a service account: %s", u.ID)
 	}
-	return signClaims(s.jwt.Secret, Claims{TokenVersion: u.TokenVersion, ServiceAccount: true, ProjectID: projectID}, u.ID, ttl)
+	return signClaims(s.keys, Claims{TokenVersion: u.TokenVersion, ServiceAccount: true, ProjectID: projectID}, u.ID, ttl)
 }
 
 // Register creates a new account with a bcrypt-hashed password.

@@ -15,8 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
-
 	"github.com/xilasec/xila-api/internal/user"
 )
 
@@ -62,9 +60,9 @@ type AttemptLimiter interface {
 }
 
 // EnableMFA turns on two-factor support. limiter may be nil (no attempt cap).
-// A sealer that can't seal — nil, or a typed nil such as the *secretbox.Cipher
-// built without INTEGRATION_SECRET_KEY, which is a non-nil interface — leaves
-// two-factor unavailable (ErrMFAUnavailable) instead of failing every setup.
+// A sealer that can't seal — nil, or an unconfigured *secretbox.Keyring (no
+// INTEGRATION_SECRET_KEY), which is a non-nil interface — leaves two-factor
+// unavailable (ErrMFAUnavailable) instead of failing every setup.
 func (s *Service) EnableMFA(sealer Sealer, limiter AttemptLimiter) {
 	if sealer != nil {
 		if _, err := sealer.Seal("probe", mfaAAD("probe")); err != nil {
@@ -267,14 +265,7 @@ func (s *Service) checkCode(ctx context.Context, userID, code string) error {
 // factor: short-lived, bound to the session version, and refused by the auth
 // middleware as a session (Purpose "mfa").
 func (s *Service) challenge(u user.User) error {
-	now := time.Now()
-	tok, err := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
-		TokenVersion: u.TokenVersion,
-		Purpose:      PurposeMFA,
-		RegisteredClaims: jwt.RegisteredClaims{
-			Subject: u.ID, IssuedAt: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(now.Add(MFATTL)),
-		},
-	}).SignedString([]byte(s.jwt.Secret))
+	tok, err := signClaims(s.keys, Claims{TokenVersion: u.TokenVersion, Purpose: PurposeMFA}, u.ID, MFATTL)
 	if err != nil {
 		return err
 	}
@@ -284,7 +275,7 @@ func (s *Service) challenge(u user.User) error {
 // VerifyMFA completes a sign-in: a valid challenge plus a TOTP or recovery
 // code yields the session token.
 func (s *Service) VerifyMFA(ctx context.Context, challenge, code string) (string, user.User, error) {
-	claims, err := ParseToken(s.jwt.Secret, challenge)
+	claims, err := ParseToken(s.keys, challenge)
 	if err != nil || claims.Purpose != PurposeMFA {
 		return "", user.User{}, ErrChallengeExpired
 	}

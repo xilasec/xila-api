@@ -172,6 +172,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 	tokenSvc := apitoken.NewService(tokenRepo)
 	userRepo := user.NewRepository(pool)
 	authSvc := auth.NewService(userRepo, cfg.JWT, cfg.PasswordLoginEnabled)
+	jwtKeys := authSvc.Keys()
 	authSvc.WithFeatures(features)
 	federationRepo := federation.NewRepository(pool)
 	federationSvc := federation.NewService(federationRepo, userRepo, authSvc, cfg.ServiceAccounts.TokenTTL)
@@ -187,11 +188,11 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 	vexSvc := vex.NewService(vexRepo, findingRepo, projectRepo)
 	orgRepo := org.NewRepository(pool)
 	slaRepo := sla.NewRepository(pool)
-	trackerCipher, err := secretbox.New([]byte("smoke-integration-key-32-bytes!!"))
-	authSvc.EnableMFA(trackerCipher, ratelimit.New(pool, ratelimit.Limits{}))
+	trackerCipher, err := secretbox.NewKeyring([]byte("smoke-integration-key-32-bytes!!"), nil)
 	if err != nil {
 		t.Fatalf("tracker cipher: %v", err)
 	}
+	authSvc.EnableMFA(trackerCipher, ratelimit.New(pool, ratelimit.Limits{}))
 	// SSO: declared here (not where main wires the rest of it, below) so
 	// account.NewHandler, which starts a SAML Single Logout on /me/logout,
 	// can take ssoSvc.
@@ -312,7 +313,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		Retention:    retention.NewHandler(retentionSvc),
 		Archive:      archive.NewHandler(archive.NewRepository(pool), findingRepo, cfg.Retention.ArchiveAge),
 		Audit:        audit.NewHandler(auditRepo),
-		AuditLog:     audit.NewRecorder(auditRepo, membershipRepo, cfg.JWT.Secret),
+		AuditLog:     audit.NewRecorder(auditRepo, membershipRepo, jwtKeys),
 		IngestHealth: ingesthealth.NewHandler(ingesthealth.NewRepository(pool)),
 		Triage:       triage.NewHandler(triageRepo, triageSvc, false).WithCustomFields(customFieldRepo),
 		Gate:         gate.NewHandler(gateRepo, findingRepo, projectRepo),
@@ -339,6 +340,8 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		PkgMeta:   pkgmeta.NewHandler(pkgmetaRepo, pkgmetaSvc),
 		License:   license.NewHandler(licenseGroups),
 		Policy:    policy.NewHandler(policyRepo, policySvc, findingRepo),
+		Secrets:   secretbox.NewHandler(pool, trackerCipher),
+		JWTKeys:   jwtKeys,
 	}
 	// SSO exactly as main wires it; protocol clients reach in-process IdPs over
 	// loopback, the SP key pair is the shared generated one. (ssoRepo/ssoSvc

@@ -40,10 +40,10 @@ type Service struct {
 	wake        chan struct{} // nudges this process's dispatcher after an enqueue
 	client      *http.Client
 	smtp        SMTPConfig
-	maxAttempts int               // SendTo's in-request retries
-	backoff     time.Duration     // SendTo's first retry wait
-	cipher      *secretbox.Cipher // webhook signing secrets (nil: none can be stored or used)
-	features    Features          // optional; nil = every feature on
+	maxAttempts int                // SendTo's in-request retries
+	backoff     time.Duration      // SendTo's first retry wait
+	cipher      *secretbox.Keyring // webhook signing secrets (unconfigured: none can be stored or used)
+	features    Features           // optional; nil = every feature on
 }
 
 // NewService wires the dispatcher against the repository. smtp may be the zero
@@ -66,9 +66,9 @@ func NewService(repo *Repository, smtp SMTPConfig) *Service {
 // SetDeliveryPolicy sets the outbox retry/retention policy (NOTIFY_*).
 func (s *Service) SetDeliveryPolicy(p DeliveryPolicy) { s.policy = p }
 
-// SetSecretCipher sets the cipher sealing webhook signing secrets
+// SetSecretCipher sets the ring sealing webhook signing secrets
 // (INTEGRATION_SECRET_KEY). Without one, channels can't carry a secret.
-func (s *Service) SetSecretCipher(c *secretbox.Cipher) { s.cipher = c }
+func (s *Service) SetSecretCipher(c *secretbox.Keyring) { s.cipher = c }
 
 // SealSecret encrypts a channel's signing secret, bound to its id.
 func (s *Service) SealSecret(channelID, secret string) ([]byte, error) {
