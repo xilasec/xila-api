@@ -304,7 +304,8 @@ func run() error {
 	policyRepo := policy.NewRepository(db)
 	policySvc := policy.NewService(policyRepo, sbomRepo, pkgmetaRepo, licenseGroups, ingestSvc, notifySvc).
 		WithCustomFields(customFieldRepo)
-	sbomSvc := sbom.NewService(sbomRepo, projectRepo, policySvc, reacher).WithLicenses(license.Resolve)
+	sbomSvc := sbom.NewService(sbomRepo, projectRepo, policySvc, reacher).
+		WithLicenses(license.Resolve).WithStrictValidation(cfg.SBOMStrictValidation)
 	correlationSvc := correlation.NewService(findingRepo, sbomRepo)
 	authSvc := auth.NewService(userRepo, cfg.JWT, cfg.PasswordLoginEnabled)
 	authSvc.WithFeatures(features)

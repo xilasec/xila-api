@@ -98,7 +98,7 @@ func (r *Repository) Claim(ctx context.Context, limit int, lease time.Duration) 
 			RETURNING o.id, o.delivery_id, o.channel_id, o.event, o.attempts)
 		SELECT claimed.id, claimed.delivery_id, claimed.event, claimed.attempts,
 		       c.id, c.name, c.type, c.url, c.events, c.project_id, c.enabled, c.created_at, c.signing_secret,
-		       c.owner_user_id, c.url_enc
+		       c.owner_user_id, c.url_enc, c.config
 		  FROM claimed JOIN notification_channels c ON c.id = claimed.channel_id
 		 ORDER BY claimed.id`, limit, lease.Seconds())
 	if err != nil {
@@ -108,14 +108,19 @@ func (r *Repository) Claim(ctx context.Context, limit int, lease time.Duration) 
 	var out []OutboxItem
 	for rows.Next() {
 		var it OutboxItem
-		var ev []byte
+		var ev, cfgRaw []byte
 		c := &it.Channel
 		if err := rows.Scan(&it.ID, &it.DeliveryID, &ev, &it.Attempts,
 			&c.ID, &c.Name, &c.Type, &c.URL, &c.Events, &c.ProjectID, &c.Enabled, &c.CreatedAt, &c.secretEnc,
-			&c.OwnerUserID, &c.urlEnc); err != nil {
+			&c.OwnerUserID, &c.urlEnc, &cfgRaw); err != nil {
 			return nil, fmt.Errorf("scan outbox row: %w", err)
 		}
 		c.HasSecret = len(c.secretEnc) > 0
+		if c.Type == TypeKafka {
+			if err := c.decodeKafka(cfgRaw); err != nil {
+				return nil, fmt.Errorf("scan outbox row %d: %w", it.ID, err)
+			}
+		}
 		if err := json.Unmarshal(ev, &it.Event); err != nil {
 			return nil, fmt.Errorf("decode outbox event %d: %w", it.ID, err)
 		}

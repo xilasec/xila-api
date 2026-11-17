@@ -44,7 +44,7 @@ internal/portfolio/      cross-project rollup (risk, categories, compliance avg)
 internal/export/         CSV + dependency-free XLSX writers for list exports
 internal/report/         printable HTML project / portfolio reports
 internal/metrics/        daily metric snapshots (project/team/org/portfolio) + trends
-internal/notify/         outbound notifications (webhook, Slack, Teams, Mattermost, email)
+internal/notify/         outbound notifications (webhook, Slack, Teams, Mattermost, email, Kafka)
 internal/correlation/    links findings to the SBOM components that introduced them
 internal/license/        SPDX license list + ScanCode categories, expression resolution, license groups
 internal/policy/         component policies (security / license / operational) -> violation findings
@@ -663,10 +663,19 @@ Channel types. A channel's `url` field is the target, validated per type:
 | `mattermost` | Mattermost incoming-webhook URL     | Slack-compatible `{"text": …, "username": "Xila"}` |
 | `teams`      | Teams incoming-webhook / Workflows URL | Office 365 connector MessageCard (`summary`, `title`, `text`, severity `themeColor`, event fields as `sections[].facts`). Accepted by legacy incoming-webhook connectors and by the Teams Workflows *"When a Teams webhook request is received"* trigger |
 | `email`      | comma-separated recipients, e.g. `alice@example.com, Bob <bob@example.com>` | multipart plain + HTML mail, subject = event title, via `SMTP_*` |
+| `kafka`      | topic name                          | the raw event JSON, produced with a record key (below) |
 
 Email channels need `SMTP_HOST` + `SMTP_FROM`; creating one without them returns
 `400 SMTP is not configured`. `POST /notifications/channels/{id}/test` delivers to
 that one channel synchronously (three quick tries) and returns the result.
+
+Kafka channels carry a `kafka` object: `brokers` (`host:port` list, dialed
+through the server's outbound `OUTBOUND_*` policy), `tls` + optional `tls_ca`
+PEM, an optional `sasl_mechanism` (`PLAIN`, `SCRAM-SHA-256` or
+`SCRAM-SHA-512`) with `sasl_username` and a write-only `sasl_password` (sealed
+with `INTEGRATION_SECRET_KEY`, like a webhook's `signing_secret`), and an
+optional `key_template` for the record key (`{project_id}`, `{finding_id}`,
+`{event_type}`, `{severity}`; empty defaults to the project id).
 
 Signed webhooks. Every generic `webhook` delivery carries `X-Xila-Delivery` (a
 UUID per outbox row, the same on every retry, so drop ones you've seen) and
@@ -1064,6 +1073,14 @@ Upload a CycloneDX or SPDX JSON BOM to `POST /projects/{id}/sboms`. The format i
 detected from the content. Each upload is stored as an immutable snapshot
 (`sboms`) with its full component list (`sbom_components`), so history is
 preserved rather than overwritten:
+
+Strict validation (`?strict=true`, or instance-wide `SBOM_STRICT_VALIDATION`)
+checks a CycloneDX upload against the official JSON schema for its own
+`specVersion` (1.2 through 1.7); a failure returns `400` with up to 50 field
+errors, each a JSON Pointer path and message, e.g.
+`{"path": "/components/3/purl", "message": "does not match pattern"}`. Off by
+default, so existing lenient uploads keep working. XML CycloneDX is always
+rejected (upload CycloneDX or SPDX JSON instead), in every mode.
 
 - History: `GET /projects/{id}/sboms` lists snapshots newest-first (filter
   by `?artifact=`), giving the timeline of a project or artifact's dependencies.
@@ -2566,6 +2583,7 @@ Azure Key Vault, Vault) hand secrets to the app. It applies to `JWT_SECRET`,
 | `INGEST_QUEUE_SAMPLE_INTERVAL`| `5s`                 | how often queue depth is measured             |
 | `INGEST_SKIP_UNCHANGED`       | `true`               | skip the pipeline when a report's content hash matches its target's previous completed scan (see "Skip unchanged scans"); a per-upload `force=true` always processes in full |
 | `INGEST_PAYLOAD_STORE`        | `postgres`           | where a queued job's raw upload lives until a worker processes it: `postgres` (`scan_jobs.payload`) or `s3` (any S3-compatible object storage; see "Payload storage") |
+| `SBOM_STRICT_VALIDATION`      | `false`              | validate every CycloneDX SBOM upload against the official JSON schema for its own `specVersion`, not only ones that opt in with `?strict=true` (see "SBOMs") |
 | `S3_ENDPOINT`                 | AWS's regional endpoint | override for a non-AWS S3-compatible service (MinIO, Ceph, R2, GCS interop); validated like every other configured destination (`internal/netguard`) |
 | `S3_REGION`                   | `us-east-1`          | bucket region |
 | `S3_BUCKET`                   | -                    | bucket for queued payloads; required when `INGEST_PAYLOAD_STORE=s3` |

@@ -729,6 +729,7 @@ func (e ChannelSummary) Valid() bool {
 // Defines values for ChannelType.
 const (
 	Email      ChannelType = "email"
+	Kafka      ChannelType = "kafka"
 	Mattermost ChannelType = "mattermost"
 	Slack      ChannelType = "slack"
 	Teams      ChannelType = "teams"
@@ -739,6 +740,8 @@ const (
 func (e ChannelType) Valid() bool {
 	switch e {
 	case Email:
+		return true
+	case Kafka:
 		return true
 	case Mattermost:
 		return true
@@ -1440,6 +1443,30 @@ func (e IssueTrackerInputKind) Valid() bool {
 	case IssueTrackerInputKindGitlab:
 		return true
 	case IssueTrackerInputKindJira:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for KafkaConfigSaslMechanism.
+const (
+	KafkaConfigSaslMechanismEmpty       KafkaConfigSaslMechanism = ""
+	KafkaConfigSaslMechanismPLAIN       KafkaConfigSaslMechanism = "PLAIN"
+	KafkaConfigSaslMechanismSCRAMSHA256 KafkaConfigSaslMechanism = "SCRAM-SHA-256"
+	KafkaConfigSaslMechanismSCRAMSHA512 KafkaConfigSaslMechanism = "SCRAM-SHA-512"
+)
+
+// Valid indicates whether the value is a known member of the KafkaConfigSaslMechanism enum.
+func (e KafkaConfigSaslMechanism) Valid() bool {
+	switch e {
+	case KafkaConfigSaslMechanismEmpty:
+		return true
+	case KafkaConfigSaslMechanismPLAIN:
+		return true
+	case KafkaConfigSaslMechanismSCRAMSHA256:
+		return true
+	case KafkaConfigSaslMechanismSCRAMSHA512:
 		return true
 	default:
 		return false
@@ -4927,9 +4954,12 @@ type Channel struct {
 	// fixed_version, file_path and tags. A fact nobody knows is null and never matches. Empty = none.
 	Filter *string `json:"filter,omitempty"`
 
-	// HasSecret The channel signs its deliveries.
+	// HasSecret The channel signs its deliveries
 	HasSecret *bool               `json:"has_secret,omitempty"`
 	Id        *openapi_types.UUID `json:"id,omitempty"`
+
+	// Kafka A `kafka` channel's broker and security settings. The topic is the channel's `url`.
+	Kafka *KafkaConfig `json:"kafka,omitempty"`
 
 	// LastSummaryAt The last slot a summary was sent for.
 	LastSummaryAt *time.Time `json:"last_summary_at,omitempty"`
@@ -4940,6 +4970,11 @@ type Channel struct {
 
 	// ProjectId Null = receives events from every project.
 	ProjectId *openapi_types.UUID `json:"project_id,omitempty"`
+
+	// SaslPassword `kafka` only, with `kafka.sasl_mechanism` set. Encrypted at rest
+	// (`INTEGRATION_SECRET_KEY` required) and never returned. On PATCH a
+	// value rotates it, `""` removes it, omitted keeps it.
+	SaslPassword *string `json:"sasl_password,omitempty"`
 
 	// SigningSecret `webhook` only. Signs every delivery: `X-Xila-Timestamp` (unix seconds) and
 	// `X-Xila-Signature: v1=<hex HMAC-SHA256(secret, timestamp + "." + body)>`;
@@ -4967,11 +5002,13 @@ type Channel struct {
 	// `{"text": …}` (Mattermost adds `"username": "Xila"`); `teams` posts an Office 365
 	// connector MessageCard (legacy incoming webhooks and the Teams Workflows
 	// "When a Teams webhook request is received" trigger); `email` sends a
-	// multipart (plain + HTML) mail via the configured SMTP server.
+	// multipart (plain + HTML) mail via the configured SMTP server; `kafka`
+	// produces the raw event JSON to a topic (`url`) over brokers from `kafka`.
 	Type *ChannelType `json:"type,omitempty"`
 
 	// Url For `webhook`, `slack`, `teams`, `mattermost`: the http(s) webhook URL.
 	// For `email`: a comma-separated recipient list, e.g. `alice@example.com, Bob <bob@example.com>`.
+	// For `kafka`: the topic name.
 	Url *string `json:"url,omitempty"`
 }
 
@@ -4994,7 +5031,8 @@ type ChannelSummary string
 // `{"text": …}` (Mattermost adds `"username": "Xila"`); `teams` posts an Office 365
 // connector MessageCard (legacy incoming webhooks and the Teams Workflows
 // "When a Teams webhook request is received" trigger); `email` sends a
-// multipart (plain + HTML) mail via the configured SMTP server.
+// multipart (plain + HTML) mail via the configured SMTP server; `kafka`
+// produces the raw event JSON to a topic (`url`) over brokers from `kafka`.
 type ChannelType string
 
 // Comment defines model for Comment.
@@ -5969,6 +6007,31 @@ type IssueTrackerInput struct {
 
 // IssueTrackerInputKind defines model for IssueTrackerInput.Kind.
 type IssueTrackerInputKind string
+
+// KafkaConfig A `kafka` channel's broker and security settings. The topic is the channel's `url`.
+type KafkaConfig struct {
+	// Brokers `host:port` addresses, dialed through the server's outbound (OUTBOUND_*) policy.
+	Brokers []string `json:"brokers"`
+
+	// KeyTemplate Record key template with `{project_id}`, `{finding_id}`, `{event_type}`
+	// and `{severity}` placeholders. Empty defaults to the project id (or no
+	// key for a global event), so a consumer can partition or compact by
+	// project without configuring anything.
+	KeyTemplate *string `json:"key_template,omitempty"`
+
+	// SaslMechanism Empty = no SASL.
+	SaslMechanism *KafkaConfigSaslMechanism `json:"sasl_mechanism,omitempty"`
+
+	// SaslUsername Required with a `sasl_mechanism`.
+	SaslUsername *string `json:"sasl_username,omitempty"`
+	Tls          *bool   `json:"tls,omitempty"`
+
+	// TlsCa Optional PEM CA certificate; empty uses the system trust store. Ignored unless `tls` is set.
+	TlsCa *string `json:"tls_ca,omitempty"`
+}
+
+// KafkaConfigSaslMechanism Empty = no SASL.
+type KafkaConfigSaslMechanism string
 
 // License defines model for License.
 type License struct {
@@ -7271,6 +7334,14 @@ type SbomDiffServicesChange string
 // SbomDiffServicesFields defines model for SbomDiff.Services.Fields.
 type SbomDiffServicesFields string
 
+// SbomFieldError One CycloneDX schema violation from a strict upload.
+type SbomFieldError struct {
+	Message *string `json:"message,omitempty"`
+
+	// Path JSON Pointer to the offending value, e.g. /components/3/purl
+	Path *string `json:"path,omitempty"`
+}
+
 // SbomGraph defines model for SbomGraph.
 type SbomGraph struct {
 	Edges *[]struct {
@@ -7899,6 +7970,12 @@ type RiskAcceptanceList struct {
 	// Example: {"count":1,"has_more":true,"limit":1,"offset":0}
 	Pagination      *Pagination       `json:"pagination,omitempty"`
 	RiskAcceptances *[]RiskAcceptance `json:"risk_acceptances,omitempty"`
+}
+
+// SbomStrictError defines model for SbomStrictError.
+type SbomStrictError struct {
+	Error  *string           `json:"error,omitempty"`
+	Fields *[]SbomFieldError `json:"fields,omitempty"`
 }
 
 // Watching defines model for Watching.
@@ -9413,6 +9490,9 @@ type CreateProjectSbomParams struct {
 
 	// Release Instead of a branch
 	Release *string `form:"release,omitempty" json:"release,omitempty"`
+
+	// Strict Reject a CycloneDX document that fails the official JSON schema for its specVersion.
+	Strict *bool `form:"strict,omitempty" json:"strict,omitempty"`
 }
 
 // ListProjectScansParams defines parameters for ListProjectScans.
@@ -12441,7 +12521,8 @@ type ClientInterface interface {
 	// Instance admin. A channel with a `project_id` receives that project's events;
 	// one without receives everything. `url` is validated per `type` (400 on an
 	// invalid URL or recipient); creating an `email` channel without SMTP configured
-	// returns 400 `SMTP is not configured`.
+	// returns 400 `SMTP is not configured`. A `kafka` channel requires `kafka.brokers`
+	// and, with `kafka.sasl_mechanism` set, `kafka.sasl_username` and `sasl_password`.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -12453,7 +12534,8 @@ type ClientInterface interface {
 	// Instance admin. A channel with a `project_id` receives that project's events;
 	// one without receives everything. `url` is validated per `type` (400 on an
 	// invalid URL or recipient); creating an `email` channel without SMTP configured
-	// returns 400 `SMTP is not configured`.
+	// returns 400 `SMTP is not configured`. A `kafka` channel requires `kafka.brokers`
+	// and, with `kafka.sasl_mechanism` set, `kafka.sasl_username` and `sasl_password`.
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -13681,6 +13763,13 @@ type ClientInterface interface {
 	// `dep_depth` and `dep_scope` on findings come from, and uploading a new SBOM
 	// re-scores the project's existing backlog against it.
 	//
+	// `strict=true` (or the instance-wide `SBOM_STRICT_VALIDATION` setting)
+	// validates a CycloneDX upload against the official JSON schema for its
+	// own `specVersion` (1.2 through 1.7) before storing it; a failure
+	// returns 400 with up to 50 field-level errors, each with a JSON
+	// Pointer path. XML CycloneDX is always rejected — upload CycloneDX or
+	// SPDX JSON instead.
+	//
 	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with POST /projects/{projectID}/sboms (the `CreateProjectSbom` operationId).
@@ -13695,6 +13784,13 @@ type ClientInterface interface {
 	// The dependency graph in the document matters: it's where `dep_direct`,
 	// `dep_depth` and `dep_scope` on findings come from, and uploading a new SBOM
 	// re-scores the project's existing backlog against it.
+	//
+	// `strict=true` (or the instance-wide `SBOM_STRICT_VALIDATION` setting)
+	// validates a CycloneDX upload against the official JSON schema for its
+	// own `specVersion` (1.2 through 1.7) before storing it; a failure
+	// returns 400 with up to 50 field-level errors, each with a JSON
+	// Pointer path. XML CycloneDX is always rejected — upload CycloneDX or
+	// SPDX JSON instead.
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -19428,7 +19524,8 @@ func (c *Client) ListNotificationChannels(ctx context.Context, reqEditors ...Req
 // Instance admin. A channel with a `project_id` receives that project's events;
 // one without receives everything. `url` is validated per `type` (400 on an
 // invalid URL or recipient); creating an `email` channel without SMTP configured
-// returns 400 `SMTP is not configured`.
+// returns 400 `SMTP is not configured`. A `kafka` channel requires `kafka.brokers`
+// and, with `kafka.sasl_mechanism` set, `kafka.sasl_username` and `sasl_password`.
 //
 // Takes any type of body and a specified content type.
 //
@@ -19450,7 +19547,8 @@ func (c *Client) CreateNotificationChannelWithBody(ctx context.Context, contentT
 // Instance admin. A channel with a `project_id` receives that project's events;
 // one without receives everything. `url` is validated per `type` (400 on an
 // invalid URL or recipient); creating an `email` channel without SMTP configured
-// returns 400 `SMTP is not configured`.
+// returns 400 `SMTP is not configured`. A `kafka` channel requires `kafka.brokers`
+// and, with `kafka.sasl_mechanism` set, `kafka.sasl_username` and `sasl_password`.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -21928,6 +22026,13 @@ func (c *Client) ListProjectSboms(ctx context.Context, projectID ProjectID, para
 // `dep_depth` and `dep_scope` on findings come from, and uploading a new SBOM
 // re-scores the project's existing backlog against it.
 //
+// `strict=true` (or the instance-wide `SBOM_STRICT_VALIDATION` setting)
+// validates a CycloneDX upload against the official JSON schema for its
+// own `specVersion` (1.2 through 1.7) before storing it; a failure
+// returns 400 with up to 50 field-level errors, each with a JSON
+// Pointer path. XML CycloneDX is always rejected — upload CycloneDX or
+// SPDX JSON instead.
+//
 // Takes any type of body and a specified content type.
 //
 // Corresponds with POST /projects/{projectID}/sboms (the `CreateProjectSbom` operationId).
@@ -21952,6 +22057,13 @@ func (c *Client) CreateProjectSbomWithBody(ctx context.Context, projectID Projec
 // The dependency graph in the document matters: it's where `dep_direct`,
 // `dep_depth` and `dep_scope` on findings come from, and uploading a new SBOM
 // re-scores the project's existing backlog against it.
+//
+// `strict=true` (or the instance-wide `SBOM_STRICT_VALIDATION` setting)
+// validates a CycloneDX upload against the official JSON schema for its
+// own `specVersion` (1.2 through 1.7) before storing it; a failure
+// returns 400 with up to 50 field-level errors, each with a JSON
+// Pointer path. XML CycloneDX is always rejected — upload CycloneDX or
+// SPDX JSON instead.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -38754,6 +38866,18 @@ func NewCreateProjectSbomRequestWithBody(server string, projectID ProjectID, par
 
 		}
 
+		if params.Strict != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "strict", *params.Strict, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
 		if encoded := queryValues.Encode(); encoded != "" {
 			rawQueryFragments = append(rawQueryFragments, encoded)
 		}
@@ -46429,7 +46553,8 @@ type ClientWithResponsesInterface interface {
 	// Instance admin. A channel with a `project_id` receives that project's events;
 	// one without receives everything. `url` is validated per `type` (400 on an
 	// invalid URL or recipient); creating an `email` channel without SMTP configured
-	// returns 400 `SMTP is not configured`.
+	// returns 400 `SMTP is not configured`. A `kafka` channel requires `kafka.brokers`
+	// and, with `kafka.sasl_mechanism` set, `kafka.sasl_username` and `sasl_password`.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -46441,7 +46566,8 @@ type ClientWithResponsesInterface interface {
 	// Instance admin. A channel with a `project_id` receives that project's events;
 	// one without receives everything. `url` is validated per `type` (400 on an
 	// invalid URL or recipient); creating an `email` channel without SMTP configured
-	// returns 400 `SMTP is not configured`.
+	// returns 400 `SMTP is not configured`. A `kafka` channel requires `kafka.brokers`
+	// and, with `kafka.sasl_mechanism` set, `kafka.sasl_username` and `sasl_password`.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -47801,6 +47927,13 @@ type ClientWithResponsesInterface interface {
 	// `dep_depth` and `dep_scope` on findings come from, and uploading a new SBOM
 	// re-scores the project's existing backlog against it.
 	//
+	// `strict=true` (or the instance-wide `SBOM_STRICT_VALIDATION` setting)
+	// validates a CycloneDX upload against the official JSON schema for its
+	// own `specVersion` (1.2 through 1.7) before storing it; a failure
+	// returns 400 with up to 50 field-level errors, each with a JSON
+	// Pointer path. XML CycloneDX is always rejected — upload CycloneDX or
+	// SPDX JSON instead.
+	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /projects/{projectID}/sboms (the `CreateProjectSbom` operationId).
@@ -47815,6 +47948,13 @@ type ClientWithResponsesInterface interface {
 	// The dependency graph in the document matters: it's where `dep_direct`,
 	// `dep_depth` and `dep_scope` on findings come from, and uploading a new SBOM
 	// re-scores the project's existing backlog against it.
+	//
+	// `strict=true` (or the instance-wide `SBOM_STRICT_VALIDATION` setting)
+	// validates a CycloneDX upload against the official JSON schema for its
+	// own `specVersion` (1.2 through 1.7) before storing it; a failure
+	// returns 400 with up to 50 field-level errors, each with a JSON
+	// Pointer path. XML CycloneDX is always rejected — upload CycloneDX or
+	// SPDX JSON instead.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -63192,6 +63332,8 @@ type CreateProjectSbomResponse struct {
 	HTTPResponse *http.Response
 	// JSON201 the response for an HTTP 201 `application/json` response
 	JSON201 *Sbom
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *SbomStrictError
 	// JSON409 the response for an HTTP 409 `application/json` response
 	JSON409 *Error
 	// JSON422 the response for an HTTP 422 `application/json` response
@@ -63201,6 +63343,11 @@ type CreateProjectSbomResponse struct {
 // GetJSON201 returns the response for an HTTP 201 `application/json` response
 func (r CreateProjectSbomResponse) GetJSON201() *Sbom {
 	return r.JSON201
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r CreateProjectSbomResponse) GetJSON400() *SbomStrictError {
+	return r.JSON400
 }
 
 // GetJSON409 returns the response for an HTTP 409 `application/json` response
@@ -73153,7 +73300,8 @@ func (c *ClientWithResponses) ListNotificationChannelsWithResponse(ctx context.C
 // Instance admin. A channel with a `project_id` receives that project's events;
 // one without receives everything. `url` is validated per `type` (400 on an
 // invalid URL or recipient); creating an `email` channel without SMTP configured
-// returns 400 `SMTP is not configured`.
+// returns 400 `SMTP is not configured`. A `kafka` channel requires `kafka.brokers`
+// and, with `kafka.sasl_mechanism` set, `kafka.sasl_username` and `sasl_password`.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -73171,7 +73319,8 @@ func (c *ClientWithResponses) CreateNotificationChannelWithBodyWithResponse(ctx 
 // Instance admin. A channel with a `project_id` receives that project's events;
 // one without receives everything. `url` is validated per `type` (400 on an
 // invalid URL or recipient); creating an `email` channel without SMTP configured
-// returns 400 `SMTP is not configured`.
+// returns 400 `SMTP is not configured`. A `kafka` channel requires `kafka.brokers`
+// and, with `kafka.sasl_mechanism` set, `kafka.sasl_username` and `sasl_password`.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -75281,6 +75430,13 @@ func (c *ClientWithResponses) ListProjectSbomsWithResponse(ctx context.Context, 
 // `dep_depth` and `dep_scope` on findings come from, and uploading a new SBOM
 // re-scores the project's existing backlog against it.
 //
+// `strict=true` (or the instance-wide `SBOM_STRICT_VALIDATION` setting)
+// validates a CycloneDX upload against the official JSON schema for its
+// own `specVersion` (1.2 through 1.7) before storing it; a failure
+// returns 400 with up to 50 field-level errors, each with a JSON
+// Pointer path. XML CycloneDX is always rejected — upload CycloneDX or
+// SPDX JSON instead.
+//
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /projects/{projectID}/sboms (the `CreateProjectSbom` operationId).
@@ -75301,6 +75457,13 @@ func (c *ClientWithResponses) CreateProjectSbomWithBodyWithResponse(ctx context.
 // The dependency graph in the document matters: it's where `dep_direct`,
 // `dep_depth` and `dep_scope` on findings come from, and uploading a new SBOM
 // re-scores the project's existing backlog against it.
+//
+// `strict=true` (or the instance-wide `SBOM_STRICT_VALIDATION` setting)
+// validates a CycloneDX upload against the official JSON schema for its
+// own `specVersion` (1.2 through 1.7) before storing it; a failure
+// returns 400 with up to 50 field-level errors, each with a JSON
+// Pointer path. XML CycloneDX is always rejected — upload CycloneDX or
+// SPDX JSON instead.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -87252,6 +87415,13 @@ func ParseCreateProjectSbomResponse(rsp *http.Response) (*CreateProjectSbomRespo
 			return nil, err
 		}
 		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest SbomStrictError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
 		var dest Error

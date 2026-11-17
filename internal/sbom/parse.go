@@ -12,6 +12,9 @@ import (
 // Detection is by content, so callers don't have to declare the format on
 // upload.
 func Parse(raw []byte) (Document, error) {
+	if looksLikeXML(raw) {
+		return Document{}, fmt.Errorf("XML SBOMs are not supported (including XML CycloneDX): upload CycloneDX or SPDX JSON instead")
+	}
 	var probe struct {
 		BomFormat   string `json:"bomFormat"`
 		SpecVersion string `json:"specVersion"`
@@ -33,4 +36,13 @@ func Parse(raw []byte) (Document, error) {
 	default:
 		return Document{}, fmt.Errorf("unrecognized SBOM format (need CycloneDX, SPDX, Syft or ScanCode.io JSON)")
 	}
+}
+
+// looksLikeXML reports whether raw's first non-whitespace bytes start an XML
+// document (an XML declaration or an opening tag), so an XML CycloneDX
+// upload — not supported by any parser here — gets a clear message instead
+// of a generic JSON decode error.
+func looksLikeXML(raw []byte) bool {
+	trimmed := bytes.TrimLeft(raw, " \t\r\n")
+	return bytes.HasPrefix(trimmed, []byte("<?xml")) || bytes.HasPrefix(trimmed, []byte("<bom"))
 }

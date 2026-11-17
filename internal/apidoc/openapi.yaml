@@ -4692,12 +4692,20 @@ paths:
         The dependency graph in the document matters: it's where `dep_direct`,
         `dep_depth` and `dep_scope` on findings come from, and uploading a new SBOM
         re-scores the project's existing backlog against it.
+
+        `strict=true` (or the instance-wide `SBOM_STRICT_VALIDATION` setting)
+        validates a CycloneDX upload against the official JSON schema for its
+        own `specVersion` (1.2 through 1.7) before storing it; a failure
+        returns 400 with up to 50 field-level errors, each with a JSON
+        Pointer path. XML CycloneDX is always rejected — upload CycloneDX or
+        SPDX JSON instead.
       parameters:
         - { $ref: "#/components/parameters/ProjectID" }
         - { name: artifact, in: query, description: Overrides the SBOM's own subject name., schema: { type: string } }
         - { name: version, in: query, description: The artifact's own version (not the project branch)., schema: { type: string } }
         - { name: branch, in: query, description: The project branch this SBOM describes. Omit for the default version., schema: { type: string } }
         - { name: release, in: query, description: Instead of a branch, the release it describes. Not both., schema: { type: string } }
+        - { name: strict, in: query, description: Reject a CycloneDX document that fails the official JSON schema for its specVersion., schema: { type: boolean, default: false } }
       requestBody:
         required: true
         content:
@@ -4709,6 +4717,7 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Sbom" }
+        "400": { $ref: "#/components/responses/SbomStrictError" }
         "409":
           description: The project is a collection, which holds no SBOMs of its own
           $ref: "#/components/responses/Error"
@@ -8008,7 +8017,8 @@ paths:
         Instance admin. A channel with a `project_id` receives that project's events;
         one without receives everything. `url` is validated per `type` (400 on an
         invalid URL or recipient); creating an `email` channel without SMTP configured
-        returns 400 `SMTP is not configured`.
+        returns 400 `SMTP is not configured`. A `kafka` channel requires `kafka.brokers`
+        and, with `kafka.sasl_mechanism` set, `kafka.sasl_username` and `sasl_password`.
       requestBody:
         required: true
         content:
@@ -8565,6 +8575,18 @@ components:
             type: object
             properties:
               error: { type: string }
+    SbomStrictError:
+      description: |
+        A strict (`?strict=true` or SBOM_STRICT_VALIDATION) CycloneDX upload
+        failed its own specVersion's official JSON schema. Up to 50 field
+        errors, each with a JSON Pointer path (e.g. `/components/3/purl`).
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error: { type: string }
+              fields: { type: array, items: { $ref: "#/components/schemas/SbomFieldError" } }
     Export:
       description: |
         The download (`Content-Disposition: attachment`). CSV cells that a
@@ -10079,6 +10101,13 @@ components:
         created_at: { type: string, format: date-time }
         root_ref: { type: string, description: "The dependency graph's root node (CycloneDX metadata.component bom-ref / SPDX described package)." }
 
+    SbomFieldError:
+      type: object
+      description: One CycloneDX schema violation from a strict upload.
+      properties:
+        path: { type: string, description: "JSON Pointer to the offending value, e.g. /components/3/purl" }
+        message: { type: string }
+
     MLFacts:
       type: object
       description: |
@@ -11089,7 +11118,7 @@ components:
         name: { type: string }
         type:
           type: string
-          enum: [webhook, slack, teams, mattermost, email]
+          enum: [webhook, slack, teams, mattermost, email, kafka]
           description: |
             `webhook` POSTs the raw event JSON with `X-Xila-Delivery` (a delivery id, the
             same across retries) and `X-Xila-Timestamp`, plus `X-Xila-Signature` when it
@@ -11097,12 +11126,14 @@ components:
             `{"text": …}` (Mattermost adds `"username": "Xila"`); `teams` posts an Office 365
             connector MessageCard (legacy incoming webhooks and the Teams Workflows
             "When a Teams webhook request is received" trigger); `email` sends a
-            multipart (plain + HTML) mail via the configured SMTP server.
+            multipart (plain + HTML) mail via the configured SMTP server; `kafka`
+            produces the raw event JSON to a topic (`url`) over brokers from `kafka`.
         url:
           type: string
           description: |
             For `webhook`, `slack`, `teams`, `mattermost`: the http(s) webhook URL.
             For `email`: a comma-separated recipient list, e.g. `alice@example.com, Bob <bob@example.com>`.
+            For `kafka`: the topic name.
         project_id: { type: [string, "null"], format: uuid, description: Null = receives events from every project. }
         events:
           type: array
@@ -11149,7 +11180,33 @@ components:
             verify within 5 minutes (see the README). Encrypted at rest
             (`INTEGRATION_SECRET_KEY` required) and never returned. On PATCH a value
             rotates it, `""` removes it, omitted keeps it.
-        has_secret: { type: boolean, readOnly: true, description: The channel signs its deliveries. }
+        has_secret: { type: boolean, readOnly: true, description: The channel signs its deliveries, or (`kafka`) has a sealed SASL password. }
+        kafka: { $ref: "#/components/schemas/KafkaConfig" }
+        sasl_password:
+          type: string
+          writeOnly: true
+          description: |
+            `kafka` only, with `kafka.sasl_mechanism` set. Encrypted at rest
+            (`INTEGRATION_SECRET_KEY` required) and never returned. On PATCH a
+            value rotates it, `""` removes it, omitted keeps it.
+
+    KafkaConfig:
+      type: object
+      description: A `kafka` channel's broker and security settings. The topic is the channel's `url`.
+      required: [brokers]
+      properties:
+        brokers: { type: array, items: { type: string }, description: "`host:port` addresses, dialed through the server's outbound (OUTBOUND_*) policy." }
+        key_template:
+          type: string
+          description: |
+            Record key template with `{project_id}`, `{finding_id}`, `{event_type}`
+            and `{severity}` placeholders. Empty defaults to the project id (or no
+            key for a global event), so a consumer can partition or compact by
+            project without configuring anything.
+        tls: { type: boolean, default: false }
+        tls_ca: { type: string, description: Optional PEM CA certificate; empty uses the system trust store. Ignored unless `tls` is set. }
+        sasl_mechanism: { type: string, enum: ["", PLAIN, SCRAM-SHA-256, SCRAM-SHA-512], description: Empty = no SASL. }
+        sasl_username: { type: string, description: Required with a `sasl_mechanism`. }
 
     IngestionAnomaly:
       type: object

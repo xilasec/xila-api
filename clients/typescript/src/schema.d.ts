@@ -3515,6 +3515,13 @@ export interface paths {
          *     The dependency graph in the document matters: it's where `dep_direct`,
          *     `dep_depth` and `dep_scope` on findings come from, and uploading a new SBOM
          *     re-scores the project's existing backlog against it.
+         *
+         *     `strict=true` (or the instance-wide `SBOM_STRICT_VALIDATION` setting)
+         *     validates a CycloneDX upload against the official JSON schema for its
+         *     own `specVersion` (1.2 through 1.7) before storing it; a failure
+         *     returns 400 with up to 50 field-level errors, each with a JSON
+         *     Pointer path. XML CycloneDX is always rejected — upload CycloneDX or
+         *     SPDX JSON instead.
          */
         post: operations["createProjectSbom"];
         delete?: never;
@@ -6142,7 +6149,8 @@ export interface paths {
          * @description Instance admin. A channel with a `project_id` receives that project's events;
          *     one without receives everything. `url` is validated per `type` (400 on an
          *     invalid URL or recipient); creating an `email` channel without SMTP configured
-         *     returns 400 `SMTP is not configured`.
+         *     returns 400 `SMTP is not configured`. A `kafka` channel requires `kafka.brokers`
+         *     and, with `kafka.sasl_mechanism` set, `kafka.sasl_username` and `sasl_password`.
          */
         post: operations["createNotificationChannel"];
         delete?: never;
@@ -8355,6 +8363,12 @@ export interface components {
             /** @description The dependency graph's root node (CycloneDX metadata.component bom-ref / SPDX described package). */
             root_ref?: string;
         };
+        /** @description One CycloneDX schema violation from a strict upload. */
+        SbomFieldError: {
+            /** @description JSON Pointer to the offending value, e.g. /components/3/purl */
+            path?: string;
+            message?: string;
+        };
         /**
          * @description Model-card essentials of an AI component, from the CycloneDX ML-BOM
          *     (`supplier`, `manufacturer`, `publisher`, `pedigree.ancestors`,
@@ -9461,13 +9475,15 @@ export interface components {
              *     `{"text": …}` (Mattermost adds `"username": "Xila"`); `teams` posts an Office 365
              *     connector MessageCard (legacy incoming webhooks and the Teams Workflows
              *     "When a Teams webhook request is received" trigger); `email` sends a
-             *     multipart (plain + HTML) mail via the configured SMTP server.
+             *     multipart (plain + HTML) mail via the configured SMTP server; `kafka`
+             *     produces the raw event JSON to a topic (`url`) over brokers from `kafka`.
              * @enum {string}
              */
-            type?: "webhook" | "slack" | "teams" | "mattermost" | "email";
+            type?: "webhook" | "slack" | "teams" | "mattermost" | "email" | "kafka";
             /**
              * @description For `webhook`, `slack`, `teams`, `mattermost`: the http(s) webhook URL.
              *     For `email`: a comma-separated recipient list, e.g. `alice@example.com, Bob <bob@example.com>`.
+             *     For `kafka`: the topic name.
              */
             url?: string;
             /**
@@ -9527,8 +9543,38 @@ export interface components {
              *     rotates it, `""` removes it, omitted keeps it.
              */
             signing_secret?: string;
-            /** @description The channel signs its deliveries. */
+            /** @description The channel signs its deliveries */
             readonly has_secret?: boolean;
+            kafka?: components["schemas"]["KafkaConfig"];
+            /**
+             * @description `kafka` only, with `kafka.sasl_mechanism` set. Encrypted at rest
+             *     (`INTEGRATION_SECRET_KEY` required) and never returned. On PATCH a
+             *     value rotates it, `""` removes it, omitted keeps it.
+             */
+            sasl_password?: string;
+        };
+        /** @description A `kafka` channel's broker and security settings. The topic is the channel's `url`. */
+        KafkaConfig: {
+            /** @description `host:port` addresses, dialed through the server's outbound (OUTBOUND_*) policy. */
+            brokers: string[];
+            /**
+             * @description Record key template with `{project_id}`, `{finding_id}`, `{event_type}`
+             *     and `{severity}` placeholders. Empty defaults to the project id (or no
+             *     key for a global event), so a consumer can partition or compact by
+             *     project without configuring anything.
+             */
+            key_template?: string;
+            /** @default false */
+            tls: boolean;
+            /** @description Optional PEM CA certificate; empty uses the system trust store. Ignored unless `tls` is set. */
+            tls_ca?: string;
+            /**
+             * @description Empty = no SASL.
+             * @enum {string}
+             */
+            sasl_mechanism?: "" | "PLAIN" | "SCRAM-SHA-256" | "SCRAM-SHA-512";
+            /** @description Required with a `sasl_mechanism`. */
+            sasl_username?: string;
         };
         IngestionAnomaly: {
             /** @enum {string} */
@@ -9611,6 +9657,22 @@ export interface components {
             content: {
                 "application/json": {
                     error?: string;
+                };
+            };
+        };
+        /**
+         * @description A strict (`?strict=true` or SBOM_STRICT_VALIDATION) CycloneDX upload
+         *     failed its own specVersion's official JSON schema. Up to 50 field
+         *     errors, each with a JSON Pointer path (e.g. `/components/3/purl`).
+         */
+        SbomStrictError: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": {
+                    error?: string;
+                    fields?: components["schemas"]["SbomFieldError"][];
                 };
             };
         };
@@ -15725,6 +15787,8 @@ export interface operations {
                 branch?: string;
                 /** @description Instead of a branch */
                 release?: string;
+                /** @description Reject a CycloneDX document that fails the official JSON schema for its specVersion. */
+                strict?: boolean;
             };
             header?: never;
             path: {
@@ -15747,6 +15811,7 @@ export interface operations {
                     "application/json": components["schemas"]["Sbom"];
                 };
             };
+            400: components["responses"]["SbomStrictError"];
             /** @description The project is a collection, which holds no SBOMs of its own */
             409: components["responses"]["Error"];
             422: components["responses"]["Error"];

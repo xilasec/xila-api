@@ -172,7 +172,7 @@
 	const POLICY_TONE = { fail: 'badge-error', warn: 'badge-warning', info: 'badge-info' };
 	let compliance = $state(/** @type {any[]} */ ([]));
 	let alertChannels = $state(/** @type {any[]} */ ([]));
-	let alertForm = $state({ name: '', type: 'slack', url: '', events: '*', min_severity: '', filter: '', summary: 'none' });
+	let alertForm = $state({ name: '', type: 'slack', url: '', events: '*', min_severity: '', filter: '', summary: 'none', kafka_brokers: '' });
 	let alertTesting = $state('');
 	let slaPolicy = $state(/** @type {any} */ (null));
 	async function loadSla() {
@@ -435,7 +435,8 @@
 	let sbomDialog;
 	let saving = $state(false);
 	let scanForm = $state({ preset: 'trivy', scanner: '', format: '', branch: '', commit: '', asset_id: '', raw: '' });
-	let sbomForm = $state({ artifact: '', version: '', raw: '' });
+	let sbomForm = $state({ artifact: '', version: '', raw: '', strict: false });
+	let sbomFieldErrors = $state(/** @type {{path: string, message: string}[]} */ ([]));
 
 	const selectedPreset = $derived(SCAN_PRESETS.find((p) => p.id === scanForm.preset));
 
@@ -754,9 +755,12 @@
 				project_id: id,
 				min_severity: alertForm.min_severity,
 				filter: alertForm.filter,
-				summary: alertForm.summary
+				summary: alertForm.summary,
+				...(alertForm.type === 'kafka'
+					? { kafka: { brokers: alertForm.kafka_brokers.split(',').map((b) => b.trim()).filter(Boolean) } }
+					: {})
 			});
-			alertForm = { name: '', type: 'slack', url: '', events: '*', min_severity: '', filter: '', summary: 'none' };
+			alertForm = { name: '', type: 'slack', url: '', events: '*', min_severity: '', filter: '', summary: 'none', kafka_brokers: '' };
 			notify($t('proj.alertAdded'), 'success');
 			alertChannels = await api.listChannels(id);
 		} catch (err) {
@@ -829,16 +833,18 @@
 	async function submitSbom(e) {
 		e.preventDefault();
 		saving = true;
+		sbomFieldErrors = [];
 		try {
-			const { artifact, version, raw } = sbomForm;
-			await api.uploadSbom(id, raw, { artifact, version });
+			const { artifact, version, raw, strict } = sbomForm;
+			await api.uploadSbom(id, raw, { artifact, version, strict });
 			sbomDialog.close();
-			sbomForm = { artifact: '', version: '', raw: '' };
+			sbomForm = { artifact: '', version: '', raw: '', strict: false };
 			notify($t('proj.sbomUploaded'), 'success');
 			loaded.sboms = false;
 			loaded.components = false;
 			await Promise.all([switchTab('sboms'), loadHeader(), loadFindings()]);
 		} catch (err) {
+			if (err instanceof ApiError && Array.isArray(err.data?.fields)) sbomFieldErrors = err.data.fields;
 			notify(errorMessage(err));
 		} finally {
 			saving = false;
@@ -910,7 +916,7 @@
 			<ReportMenu open={(opts) => api.openProjectReport(id, opts)} />
 			<button class="btn btn-sm btn-ghost" onclick={openEdit}>{$t('common.edit')}</button>
 			{#if !project.is_collection}
-				<button class="btn btn-sm btn-outline" onclick={() => sbomDialog.showModal()}>{$t('proj.uploadSbom')}</button>
+				<button class="btn btn-sm btn-outline" onclick={() => { sbomFieldErrors = []; sbomDialog.showModal(); }}>{$t('proj.uploadSbom')}</button>
 				<button class="btn btn-sm btn-primary" onclick={openScan}>{$t('proj.uploadScan')}</button>
 			{/if}
 			{#if !project.archived_at}
@@ -1668,6 +1674,10 @@
 				{#each CHANNEL_TYPES as ct}<option value={ct.id}>{ct.id === 'email' ? $t('channel.email') : ct.label}</option>{/each}
 			</select>
 			<input bind:value={alertForm.url} required type={channelInputType(alertForm.type)} placeholder={channelPlaceholder(alertForm.type)} title={channelHint(alertForm.type, $t)} class="input input-bordered input-sm flex-1 min-w-48" />
+			{#if alertForm.type === 'kafka'}
+				<input bind:value={alertForm.kafka_brokers} required placeholder="broker-1:9092,broker-2:9092"
+					title={$t('notif.kafkaBrokersHint')} class="input input-bordered input-sm font-mono flex-1 min-w-48" />
+			{/if}
 			<select bind:value={alertForm.events} class="select select-bordered select-sm">
 				{#each EVENT_TYPES.filter((e) => e.id !== 'exception.expired') as e}<option value={e.id}>{$t(e.key)}</option>{/each}
 			</select>
@@ -1835,6 +1845,19 @@
 				<textarea bind:value={sbomForm.raw} required placeholder={$t('proj.sbomPh')}
 					class="textarea textarea-bordered font-mono text-xs h-40 w-full"></textarea>
 			</Field>
+			<label class="label cursor-pointer justify-start gap-2">
+				<input type="checkbox" bind:checked={sbomForm.strict} class="checkbox checkbox-sm" />
+				<span class="label-text">{$t('proj.sbomStrict')}</span>
+			</label>
+			<p class="text-xs text-base-content/50 -mt-2">{$t('proj.sbomStrictHint')}</p>
+			{#if sbomFieldErrors.length > 0}
+				<div class="alert alert-error text-xs py-2 flex-col items-start gap-1">
+					<span class="font-semibold">{$t('proj.sbomStrictErrors')}</span>
+					{#each sbomFieldErrors as f}
+						<div class="font-mono"><span class="opacity-70">{f.path}:</span> {f.message}</div>
+					{/each}
+				</div>
+			{/if}
 			<div class="modal-action">
 				<button type="button" class="btn btn-ghost" onclick={() => sbomDialog.close()}>{$t('common.cancel')}</button>
 				<button class="btn btn-primary" disabled={saving}>
