@@ -892,3 +892,63 @@ Deliberately not pursued: FedRAMP POA&M and OSCAL export (US federal niche),
 threat modeling, AI-generated fix pull requests, active cloud scanning (Xila
 ingests scanner output and doesn't scan), pushing findings to other platforms.
 
+## M13: Parity review 4 and a usability pass (November 2026)
+
+Compared with DefectDojo Pro 3.5.200, SecObserve 1.65.0 and Dependency-Track
+5.2.1. Every gap was checked against the code; load testing is out of scope.
+
+Usability (reviewed in the browser):
+
+- ⬜ 13.0 Navigation and layout: 31 destinations sat in a two-row top bar
+  plus a 15-item Admin menu (one flat list on mobile), the project page had 22
+  tabs, and the findings list 12 filter controls on four rows. Grouped side
+  navigation, a Settings hub, a user menu, grouped project sections, a compact
+  filter bar, findings rows as real links, and a working mobile header.
+
+Tier 1:
+
+- ⬜ 13.1 Carry triage across branches and to new versions (SecObserve, DT).
+- ⬜ 13.2 Structured analysis on manual triage and rules: a VEX justification
+  and vendor response, kept in history and exported (SecObserve, DT).
+- ⬜ 13.3 SBOMs from CI: `xila upload --sbom`, a processing status CI can
+  wait on before the gate, and creating a project by name on upload (DT).
+- ⬜ 13.4 Exploit-aware SLA: a KEV due date or an exploit response window
+  shortens the deadline (DefectDojo Pro).
+- ⬜ 13.5 Triage rules that assign, tag, comment and notify, on schedules and
+  finding events as well as ingest (DefectDojo Pro).
+- ⬜ 13.6 CycloneDX XML SBOMs (DT).
+- ⬜ 13.7 More notification events, and a stored gate state that alerts when
+  it flips, with a "fails gate" filter (all three).
+
+Tier 2:
+
+- ⬜ 13.8 In-app notification inbox and @mentions (DefectDojo Pro, SecObserve).
+- ⬜ 13.9 Assessment approval per project with designated approvers, and bulk
+  approval (SecObserve).
+- ⬜ 13.10 Project owners manage their own triage rules and vulnerability
+  policies and may opt out of global ones (SecObserve).
+- ⬜ 13.11 Internal components and authenticated private registries (DT).
+- ⬜ 13.12 Manual concluded-license override that survives re-uploads
+  (SecObserve).
+- ⬜ 13.13 Offline matching for distro packages: dpkg, rpm, apk (DT).
+- ⬜ 13.14 Stored, versioned VEX documents (SecObserve).
+- ⬜ 13.15 Mark as duplicate and merge findings by hand; risk per asset
+  (DefectDojo Pro).
+- ⬜ 13.16 Idle timeout with a session-expiry warning; a personal-data filter
+  for MCP results (DefectDojo Pro).
+- ⬜ 13.17 Scheduled report delivery; expected scans per project (DefectDojo Pro).
+- ⬜ 13.18 Issue-tracker comments, ticket templates and webhook receivers
+  (DefectDojo Pro).
+- ⬜ 13.19 Connectors: AWS Security Hub, Microsoft Defender, Qualys, Trivy
+  Operator (DefectDojo Pro, SecObserve).
+- ⬜ 13.20 Dependency-graph functions and scope facts in component-policy CEL
+  (DT).
+
+Left for later (small or low value): finding date-range and assessed filters,
+a column chooser, default risk-acceptance expiry, compressed uploads,
+component search by hash or CPE, policy inheritance to child projects, tag
+management, a site banner, notification templates, per-project branch
+housekeeping, an org-level gate, saved views, View As User, custom
+dashboards, cloud IAM database login, project export, contextual VEX
+ratings, CEL violation messages, an instance time zone.
+
