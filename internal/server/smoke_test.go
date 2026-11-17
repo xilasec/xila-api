@@ -382,7 +382,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 			t.Fatal(err)
 		}
 		t.Cleanup(func() { _ = tel.Shutdown(context.Background()) })
-		handlers.PromMetrics = observability.GuardMetrics(tel.Metrics, cfg.Metrics.Token)
+		handlers.PromMetrics = observability.GuardMetrics(tel.Metrics, cfg.SecretGetter("METRICS_TOKEN", cfg.Metrics.Token))
 	}
 	return New(cfg, handlers).App()
 }

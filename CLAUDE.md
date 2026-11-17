@@ -604,6 +604,24 @@ words (response body, dial error) are shown to instance admins only: keep
 them in a `RemoteError` detail and store only the public message (e.g. connector
 `last_error`).
 
+Secrets backends (M10 10.1): a secret setting (any `sec.get(...)` call in
+`internal/config`) may hold a reference instead of a literal value —
+`aws-sm://`, `gcp-sm://`, `vault://`, `azure-kv://` — resolved by
+`internal/secretref` at load time, with a per-lookup timeout
+(`SECRETS_TIMEOUT`). These are operator infrastructure (like `DB_HOST`),
+resolved before the outbound policy exists (`config.Load` runs first), so
+backend calls deliberately do NOT go through `internal/netguard`. A failed
+lookup is a `config.Load` error naming the setting and the reference's
+scheme+path, never a value. Rotation (M10 10.2): any setting that came from
+a reference or a `NAME_FILE` is re-read on `SECRETS_REFRESH_INTERVAL` by
+`config.Secrets` (every node, not only the leader); a failed refresh keeps
+the last good value. Consumers must read the current value at use time —
+prefer a `func() string` getter (`cfg.Secrets.Getter(name)`) over holding
+the whole store. `JWT_SECRET` and `INTEGRATION_SECRET_KEY` need a key ring
+before rotation is safe (ending sessions / making stored secrets
+unreadable); `config.Secrets` tracks and refreshes them too, but nothing
+consumes the change yet.
+
 Accounts and sessions: JWTs carry `tv` (the user's `token_version`).
 `auth.Middleware` rejects stale or deactivated sessions via `user.SessionValid` on
 every request. Anything that should end a user's sessions bumps the version

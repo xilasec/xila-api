@@ -654,7 +654,7 @@ Today secrets come from the environment, a `.env` file, or `NAME_FILE` (mounted
 files from Docker/Kubernetes secrets, Vault Agent, the Secrets Store CSI driver
 or External Secrets Operator).
 
-- ⬜ 10.1 Native secrets managers: let any secret setting be a reference that Xila
+- ✅ 10.1 Native secrets managers: let any secret setting be a reference that Xila
   resolves at startup, for example `aws-sm://name#key`, `gcp-sm://projects/p/secrets/s`,
   `vault://kv/data/xila#jwt` and `azure-kv://vault/secret`. Each backend uses its
   platform's credential chain (IAM role / IRSA, workload identity, Vault

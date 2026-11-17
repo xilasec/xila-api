@@ -2610,9 +2610,60 @@ Azure Key Vault, Vault) hand secrets to the app. It applies to `JWT_SECRET`,
 `NVD_API_KEY`, `VULNCHECK_API_TOKEN`, `VULNMATCH_GITHUB_TOKEN` and
 `VULNMATCH_VULNERABLECODE_API_KEY`.
 
+**Native secrets manager references.** A secret setting's value (NAME or
+NAME_FILE content) can be a reference instead of a literal, resolved once at
+startup:
+
+- `aws-sm://<name-or-ARN>[#json-key]` (optional `?version_stage=` / `?region=`)
+  — AWS Secrets Manager, via the official SDK's default credential chain (env,
+  IRSA, ECS/EC2 instance roles). `AWS_ENDPOINT_URL_SECRETS_MANAGER` points it
+  at a non-AWS endpoint (LocalStack, tests).
+- `gcp-sm://projects/<p>/secrets/<s>[/versions/<v>][#json-key]` (version
+  defaults to `latest`) — GCP Secret Manager's REST API, with a token from
+  Application Default Credentials (workload identity, the metadata server, or
+  `GOOGLE_APPLICATION_CREDENTIALS`).
+- `vault://<path>[#key]`, e.g. `vault://kv/data/xila#jwt` — HashiCorp/OpenBao
+  Vault's HTTP API (KV v1 and v2). `#key` selects a field; required unless the
+  secret has exactly one. Auth: `VAULT_TOKEN`(`_FILE`), or `VAULT_AUTH=kubernetes`
+  (`VAULT_K8S_ROLE`, `VAULT_K8S_MOUNT` default `kubernetes`) or
+  `VAULT_AUTH=approle` (`VAULT_ROLE_ID`, `VAULT_SECRET_ID`(`_FILE`),
+  `VAULT_APPROLE_MOUNT` default `approle`). `VAULT_ADDR` is required;
+  `VAULT_NAMESPACE` and `VAULT_CACERT` (a PEM file) are optional. The login
+  token is reused and refreshed automatically on a `403`.
+- `azure-kv://<vault-name-or-host>/<secret>[/<version>]` — Azure Key Vault's
+  REST API, with a token from `DefaultAzureCredential` (managed identity,
+  workload identity, env).
+
+A failed lookup is a startup error naming the setting and the reference's
+scheme and path, never the secret's value. A value with no recognized scheme
+is used literally, exactly as today. These backends are resolved before
+`internal/netguard`'s outbound policy exists (they are operator
+infrastructure, like `DB_HOST`), so their calls do not go through it.
+`SECRETS_TIMEOUT` (default `30s`) bounds each lookup.
+
+**Rotation.** Any secret setting that came from a reference or a `NAME_FILE`
+is re-read every `SECRETS_REFRESH_INTERVAL` (default `5m`, `0` disables it) —
+by every node, not only the leader. A failed refresh keeps the last good
+value and logs a warning without the value; a changed value is logged by
+setting name only. Live (no restart needed): `DB_PASSWORD` (new pool
+connections; existing ones keep working), `METRICS_TOKEN`, `SMTP_PASSWORD`,
+`LDAP_BIND_PASSWORD`, `OIDC_CLIENT_SECRET`, `NVD_API_KEY`,
+`VULNCHECK_API_TOKEN`, `VULNMATCH_GITHUB_TOKEN`,
+`VULNMATCH_VULNERABLECODE_API_KEY`, `AI_API_KEY`, `S3_ACCESS_KEY_ID` /
+`S3_SECRET_ACCESS_KEY` are tracked and refreshed by the store, but most of
+these consumers still read the value captured at startup — only
+`DB_PASSWORD` and `METRICS_TOKEN` are wired to read the live value as of this
+release; the rest still need a restart to pick up a rotated value despite
+being tracked. `DB_READ_URL` is out of scope (it carries its own credentials,
+possibly a different host). `JWT_SECRET` and `INTEGRATION_SECRET_KEY` need a
+key ring before they can rotate safely; the store tracks and refreshes them
+too, for when that lands.
+
 | Variable                      | Default              | Notes                                   |
 | ----------------------------- | -------------------- | --------------------------------------- |
 | `APP_ENV`                     | `development`        | `development`, `production`, or `test` (aliases like `prod` accepted); drives hardening defaults and startup validation |
+| `SECRETS_TIMEOUT`             | `30s`                | per-lookup timeout for a secret reference (`aws-sm://`, `gcp-sm://`, `vault://`, `azure-kv://`) |
+| `SECRETS_REFRESH_INTERVAL`    | `5m`                 | how often a secret that came from a reference or `NAME_FILE` is re-read (`0` disables it) |
 | `HTTP_HOST` / `HTTP_PORT`     | `0.0.0.0` / `8080`   |                                         |
 | `DB_*`                        | `xila`               | host, port, user, password, name, sslmode |
 | `DB_MAX_CONNS` / `DB_MIN_CONNS` | `20` / `2`         | pool sizing                             |

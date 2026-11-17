@@ -149,6 +149,12 @@ func run() error {
 		slog.Warn("production hardening", "advice", warn)
 	}
 
+	// Rotatable secrets (M10 10.2): every node re-reads any secret setting
+	// that came from a reference or a NAME_FILE on SECRETS_REFRESH_INTERVAL
+	// (0 = off) — not only the leader, since each node holds its own DB
+	// connections, SMTP client, HTTP clients, etc.
+	go cfg.Secrets.Run(rootCtx)
+
 	// Database.
 	db, err := database.Connect(rootCtx, cfg.DB.DSN(), database.PoolConfig{
 		MaxConns:          cfg.DB.MaxConns,
@@ -157,6 +163,7 @@ func run() error {
 		MaxConnIdleTime:   cfg.DB.MaxConnIdleTime,
 		HealthCheckPeriod: cfg.DB.HealthCheckPeriod,
 		StatementTimeout:  cfg.DB.StatementTimeout,
+		PasswordGetter:    cfg.SecretGetter("DB_PASSWORD", cfg.DB.Password),
 		// Wait out a database that is still starting (fresh install, both
 		// restarted together) rather than crash-looping.
 		StartupWait: time.Minute,
@@ -188,6 +195,10 @@ func run() error {
 			HealthCheckPeriod: cfg.DB.HealthCheckPeriod,
 			StatementTimeout:  timeout,
 			StartupWait:       time.Minute,
+			// DB_READ_URL carries its own credentials (possibly a different
+			// host/user entirely) and is out of scope for rotation; only the
+			// primary's password applies here when there is no separate URL.
+			PasswordGetter: readPasswordGetter(cfg),
 		})
 		if err != nil {
 			return fmt.Errorf("reporting database: %w", err)
@@ -207,6 +218,7 @@ func run() error {
 		HealthCheckPeriod: cfg.DB.HealthCheckPeriod,
 		StatementTimeout:  cfg.DB.JobStatementTimeout,
 		StartupWait:       time.Minute,
+		PasswordGetter:    cfg.SecretGetter("DB_PASSWORD", cfg.DB.Password),
 	})
 	if err != nil {
 		return fmt.Errorf("job database pool: %w", err)
@@ -720,7 +732,7 @@ func run() error {
 	// or its own listener on METRICS_ADDR (keep that one cluster-internal).
 	var metricsSrv *http.Server
 	if telemetry.Metrics != nil {
-		guarded := observability.GuardMetrics(telemetry.Metrics, cfg.Metrics.Token)
+		guarded := observability.GuardMetrics(telemetry.Metrics, cfg.SecretGetter("METRICS_TOKEN", cfg.Metrics.Token))
 		if cfg.Metrics.Addr == "" {
 			handlers.PromMetrics = guarded
 		} else {
@@ -1020,6 +1032,17 @@ func corsMode(origins []string) string {
 		return "same-origin"
 	}
 	return strings.Join(origins, ",")
+}
+
+// readPasswordGetter is the DB_PASSWORD getter for the reporting read pool:
+// nil when DB_READ_URL points reporting reads at a separate connection
+// string (its own credentials, rotation out of scope), the primary's
+// rotating password otherwise.
+func readPasswordGetter(cfg config.Config) func() string {
+	if cfg.DB.ReadURL != "" {
+		return nil
+	}
+	return cfg.SecretGetter("DB_PASSWORD", cfg.DB.Password)
 }
 
 // runPolicyEval evaluates every project against the component policies once
