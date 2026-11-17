@@ -80,6 +80,8 @@ tags:
     description: The things findings are attached to (repos, images, cloud resources).
   - name: Custom fields
     description: Admin-defined typed fields on projects, assets and findings.
+  - name: Custom parsers
+    description: No-code parsers — map any CSV, JSON or XML report's fields onto findings without writing a Go parser.
   - name: Compliance
     description: Framework posture derived from findings.
   - name: Portfolio
@@ -3373,6 +3375,129 @@ paths:
       summary: Delete a custom-field definition
       description: Instance admin. Removes the field's value from every entity (recorded in finding history).
       parameters: [{ $ref: "#/components/parameters/CustomFieldID" }]
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /custom-parsers:
+    get:
+      operationId: listCustomParsers
+      tags: [Custom parsers]
+      summary: List no-code parser definitions
+      description: Instance admin.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  custom_parsers: { type: array, items: { $ref: "#/components/schemas/CustomParser" } }
+    post:
+      operationId: createCustomParser
+      tags: [Custom parsers]
+      summary: Define a no-code parser
+      description: |
+        Instance admin. `name` becomes the scanner identifier for uploads
+        (`?scanner=<name>`); it must be a lowercase slug and must not collide with a
+        built-in parser's name. `fields.title` is required; every other field is
+        optional. See `CustomParser` for the mapping shape.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CustomParser" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CustomParser" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /custom-parsers/dry-run:
+    post:
+      operationId: dryRunCustomParser
+      tags: [Custom parsers]
+      summary: Preview a definition against a pasted sample
+      description: |
+        Instance admin. Body is a definition (saved or not) plus `sample`, the raw
+        report text. Parses `sample` and returns the findings it would create, with
+        per-record errors; writes nothing.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - { $ref: "#/components/schemas/CustomParser" }
+                - type: object
+                  required: [sample]
+                  properties:
+                    sample: { type: string, description: The raw report text (CSV, JSON or XML, matching `format`). }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  findings: { type: array, items: { $ref: "#/components/schemas/ParsedFinding" } }
+                  record_errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        index: { type: integer, description: 0-based position of the record that failed to map. }
+                        error: { type: string }
+        "400": { $ref: "#/components/responses/Error" }
+
+  /custom-parsers/{parserID}:
+    get:
+      operationId: getCustomParser
+      tags: [Custom parsers]
+      summary: Read a no-code parser definition
+      parameters: [{ $ref: "#/components/parameters/CustomParserID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CustomParser" }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      operationId: updateCustomParser
+      tags: [Custom parsers]
+      summary: Replace a no-code parser's mapping
+      description: |
+        Instance admin. A full replacement, same id, so findings it already created
+        keep referencing this scanner name. Picked up by the next upload on every
+        node (re-read by `updated_at`), no restart needed.
+      parameters: [{ $ref: "#/components/parameters/CustomParserID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CustomParser" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CustomParser" }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deleteCustomParser
+      tags: [Custom parsers]
+      summary: Delete a no-code parser definition
+      description: Instance admin. Its findings keep this scanner name as history; new uploads with this name are refused.
+      parameters: [{ $ref: "#/components/parameters/CustomParserID" }]
       responses:
         "204": { description: Deleted }
         "404": { $ref: "#/components/responses/Error" }
@@ -8959,6 +9084,7 @@ components:
     ScanID: { name: scanID, in: path, required: true, schema: { type: string, format: uuid } }
     FindingID: { name: findingID, in: path, required: true, schema: { type: string, format: uuid } }
     CustomFieldID: { name: fieldID, in: path, required: true, schema: { type: string, format: uuid } }
+    CustomParserID: { name: parserID, in: path, required: true, schema: { type: string, format: uuid } }
     IfMatch: { name: If-Match, in: header, description: 'The finding''s updated_at as last read (quoted RFC 3339); a stale value answers 412.', schema: { type: string } }
     RiskAcceptanceID: { name: acceptanceID, in: path, required: true, schema: { type: string, format: uuid } }
     SbomID: { name: sbomID, in: path, required: true, schema: { type: string, format: uuid } }
@@ -9715,6 +9841,85 @@ components:
       type: object
       description: Custom-field values by key — text, a number, a `YYYY-MM-DD` date, an enum option or a user id. Unset fields are absent.
       additionalProperties: { type: [string, number, "null"] }
+
+    CustomParserFieldMap:
+      type: object
+      description: |
+        One ParsedFinding field's mapping. Resolution order: `template` (its
+        `{path}` placeholders are other paths/columns in the same record), else
+        `path` (falling back to `value` if absent or empty), else the static
+        `value` alone. `value_map` is only valid on the `severity` field: maps
+        the raw mapped text (e.g. a tool's numeric or custom severity code) to
+        critical/high/medium/low/info; unmapped text falls back to the same
+        normalization every built-in parser uses.
+      properties:
+        path:
+          type: string
+          description: |
+            A record path/column: a CSV header, a dotted JSON path
+            ("vulnerability.id", "aliases.0"), or an XML element/attribute path
+            relative to the record element ("name", "@severity").
+        template:
+          type: string
+          description: 'A "{path} in {path2}" template over other paths/columns in the same record, e.g. "{rule} in {component}".'
+        value:
+          type: string
+          description: A static value, used when no path/template is set or the path is absent/empty.
+        value_map:
+          type: object
+          additionalProperties: { type: string }
+          description: 'severity only: raw mapped text -> critical/high/medium/low/info, e.g. {"4": "critical", "Sev3": "medium"}.'
+
+    CustomParser:
+      type: object
+      required: [name, category, format, fields]
+      description: |
+        A no-code parser (M12 12.4): maps the fields of a CSV, JSON or XML
+        report onto findings without a Go parser. `name` is the scanner
+        identifier used in uploads (`?scanner=<name>`); it must be a lowercase
+        slug and must not collide with a built-in parser's name.
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        name: { type: string, pattern: "^[a-z][a-z0-9-]{1,63}$", examples: [acme-scanner] }
+        category: { $ref: "#/components/schemas/Category" }
+        format: { type: string, enum: [csv, json, xml] }
+        record_selector:
+          type: string
+          description: |
+            Where the repeated records live. json: a dotted path to the array
+            ("results", "runs.0.results"), or "$" for a top-level array. xml: a
+            "/"-separated element path from the document root ("report/item").
+            csv: unused — the header row already defines each record's fields.
+        fields:
+          type: object
+          description: |
+            ParsedFinding field -> mapping. Keys: title (required), severity,
+            rule_id, description, cve, cwe, file_path, line, package,
+            package_version, fixed_version, url, cvss.
+          additionalProperties: { $ref: "#/components/schemas/CustomParserFieldMap" }
+        created_by: { type: [string, "null"], format: uuid, readOnly: true }
+        created_at: { type: string, format: date-time, readOnly: true }
+        updated_at: { type: string, format: date-time, readOnly: true }
+
+    ParsedFinding:
+      type: object
+      description: One finding a parser (built-in or no-code) would create. Returned only by the custom-parser dry-run preview.
+      properties:
+        category: { $ref: "#/components/schemas/Category" }
+        rule_id: { type: string }
+        title: { type: string }
+        description: { type: string }
+        severity: { $ref: "#/components/schemas/Severity" }
+        cwe: { type: [integer, "null"] }
+        cve: { type: array, items: { type: string } }
+        file_path: { type: string }
+        line: { type: [integer, "null"] }
+        package: { type: string }
+        package_version: { type: string }
+        fixed_version: { type: string }
+        purl: { type: string }
+        url: { type: string }
+        cvss: { type: [number, "null"] }
 
     ProjectVersion:
       type: object

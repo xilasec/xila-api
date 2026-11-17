@@ -33,6 +33,7 @@ import (
 	"github.com/xilasec/xila-api/internal/correlation"
 	"github.com/xilasec/xila-api/internal/cra"
 	"github.com/xilasec/xila-api/internal/customfield"
+	"github.com/xilasec/xila-api/internal/customparser"
 	"github.com/xilasec/xila-api/internal/engagement"
 	"github.com/xilasec/xila-api/internal/enrichment"
 	"github.com/xilasec/xila-api/internal/evidence"
@@ -229,10 +230,15 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		scanner.NewNancy(), scanner.NewCloudSploit(), scanner.NewArachni(), scanner.NewSpotBugs(), scanner.NewFortify(), scanner.NewSteampipe(),
 	)
 	connectorRepo := connector.NewRepository(pool)
+	// No-code parsers (M12 12.4): admin-defined CSV/JSON/XML mappings the
+	// upload path falls back to when ?scanner= names no built-in parser.
+	customParserRepo := customparser.NewRepository(pool)
+	customParserSvc := customparser.NewService(customParserRepo, parsers)
 	ingestSvc := scan.NewService(scanRepo, findingRepo, projectRepo, parsers, notifySvc,
 		[]scan.Applier{correlation.NewReacher(findingRepo, findingRepo), exploitSvc, vexSvc, triageSvc, assetSvc,
 			connector.NewRemoteTriage(connectorRepo, findingRepo).WithApproval(cfg.RiskAcceptanceRequiresApproval),
-			enrichment.NewNVD(findingRepo, nil)}, scanRepo).WithFollowUps(remediationSvc).WithSkipUnchanged(true).WithHostAssets(assetRepo)
+			enrichment.NewNVD(findingRepo, nil)}, scanRepo).WithFollowUps(remediationSvc).WithSkipUnchanged(true).WithHostAssets(assetRepo).
+		WithCustomParsers(customParserSvc)
 	// Advisory sources without network: the local OSV mirror + private advisories.
 	osvMirrorRepo := vulnmatch.NewOSVRepository(pool)
 	advisoryRepo := vulnmatch.NewAdvisoryRepository(pool, "")
@@ -308,6 +314,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		FindingTmpl:  findingtemplate.NewHandler(findingTemplates),
 		ReportTmpl:   report.NewTemplateHandler(reportTemplates),
 		CustomFields: customfield.NewHandler(customFieldRepo, customFieldSvc),
+		CustomParser: customparser.NewHandler(customParserSvc),
 		Notify:       notify.NewHandler(notifyRepo, notifySvc),
 		Retention:    retention.NewHandler(retentionSvc),
 		Archive:      archive.NewHandler(archive.NewRepository(pool), findingRepo, cfg.Retention.ArchiveAge),
@@ -1135,5 +1142,142 @@ func TestSmokeIssueTracker(t *testing.T) {
 	}
 	if resp, _ := req(t, app, http.MethodGet, issuePath, token, ""); resp.StatusCode != http.StatusNotFound {
 		t.Errorf("link after tracker delete = %d, want 404", resp.StatusCode)
+	}
+}
+
+// TestSmokeCustomParser exercises the no-code parser management + upload
+// path end to end (M12 12.4): an instance admin defines a CSV mapping, a
+// dry-run previews it against a pasted sample, a name colliding with a
+// built-in scanner is refused, a non-admin is refused management, an upload
+// through ?scanner=<custom> creates findings with the mapped fields, and
+// re-uploading the identical report keeps the same fingerprints (no
+// duplicates).
+func TestSmokeCustomParser(t *testing.T) {
+	app := newTestApp(t)
+
+	// First user bootstraps as the instance admin.
+	adminCreds := `{"email":"admin@xila.io","password":"supersecret"}`
+	req(t, app, http.MethodPost, "/api/v1/auth/register", "", adminCreds)
+	_, loginBody := req(t, app, http.MethodPost, "/api/v1/auth/login", "", adminCreds)
+	adminToken, _ := loginBody["token"].(string)
+	if adminToken == "" {
+		t.Fatal("admin login returned no token")
+	}
+
+	// A second account is a regular (non-admin) user.
+	userCreds := `{"email":"analyst@xila.io","password":"supersecret"}`
+	req(t, app, http.MethodPost, "/api/v1/auth/register", "", userCreds)
+	_, userLogin := req(t, app, http.MethodPost, "/api/v1/auth/login", "", userCreds)
+	userToken, _ := userLogin["token"].(string)
+	if userToken == "" {
+		t.Fatal("analyst login returned no token")
+	}
+
+	def := `{"name":"acme-scanner","category":"sca","format":"csv",
+		"fields":{"title":{"path":"Name"},"severity":{"path":"Sev","value_map":{"4":"critical"}},"cve":{"path":"Notes"}}}`
+	sample := "Name,Sev,Notes\nOutdated libfoo,4,see CVE-2021-44228\n"
+
+	// Management is instance-admin only.
+	if resp, _ := req(t, app, http.MethodPost, "/api/v1/custom-parsers", userToken, def); resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("non-admin create = %d, want 403", resp.StatusCode)
+	}
+
+	// A name colliding with a built-in parser is refused.
+	collide := `{"name":"trivy","category":"sca","format":"csv","fields":{"title":{"path":"Name"}}}`
+	if resp, _ := req(t, app, http.MethodPost, "/api/v1/custom-parsers", adminToken, collide); resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("collide with built-in = %d, want 400", resp.StatusCode)
+	}
+
+	// Dry-run previews the mapping against a pasted sample without persisting.
+	dryRunBody := `{"name":"acme-scanner","category":"sca","format":"csv",
+		"fields":{"title":{"path":"Name"},"severity":{"path":"Sev","value_map":{"4":"critical"}},"cve":{"path":"Notes"}},
+		"sample":"Name,Sev,Notes\nOutdated libfoo,4,see CVE-2021-44228\n"}`
+	resp, dryRun := req(t, app, http.MethodPost, "/api/v1/custom-parsers/dry-run", adminToken, dryRunBody)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("dry-run = %d", resp.StatusCode)
+	}
+	dryFindings, _ := dryRun["findings"].([]any)
+	if len(dryFindings) != 1 {
+		t.Fatalf("dry-run findings = %d, want 1: %v", len(dryFindings), dryRun)
+	}
+	first, _ := dryFindings[0].(map[string]any)
+	if first["title"] != "Outdated libfoo" || first["severity"] != "critical" {
+		t.Errorf("dry-run finding = %v, want title/severity mapped", first)
+	}
+	if _, listNoParsers := req(t, app, http.MethodGet, "/api/v1/custom-parsers", adminToken, ""); listNoParsers["custom_parsers"] == nil {
+		t.Fatal("list custom parsers returned no body")
+	}
+
+	// Create the parser for real.
+	resp, created := req(t, app, http.MethodPost, "/api/v1/custom-parsers", adminToken, def)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("create custom parser = %d: %v", resp.StatusCode, created)
+	}
+	parserID, _ := created["id"].(string)
+	if parserID == "" {
+		t.Fatal("create custom parser returned no id")
+	}
+
+	// A second attempt at the same name is refused (unique constraint).
+	if resp, _ := req(t, app, http.MethodPost, "/api/v1/custom-parsers", adminToken, def); resp.StatusCode != http.StatusConflict {
+		t.Fatalf("duplicate name = %d, want 409", resp.StatusCode)
+	}
+
+	// Set up a project to upload against.
+	_, orgBody := req(t, app, http.MethodPost, "/api/v1/orgs", adminToken, `{"slug":"acme","name":"Acme"}`)
+	orgID, _ := orgBody["id"].(string)
+	_, teamBody := req(t, app, http.MethodPost, "/api/v1/orgs/"+orgID+"/teams", adminToken, `{"slug":"platform","name":"Platform"}`)
+	teamID, _ := teamBody["id"].(string)
+	_, projBody := req(t, app, http.MethodPost, "/api/v1/teams/"+teamID+"/projects", adminToken, `{"slug":"web","name":"Web"}`)
+	projectID, _ := projBody["id"].(string)
+	if projectID == "" {
+		t.Fatal("project creation returned no id")
+	}
+
+	// Upload through the custom parser's scanner name.
+	scanPath := "/api/v1/projects/" + projectID + "/scans?scanner=acme-scanner"
+	resp, scanBody := req(t, app, http.MethodPost, scanPath, adminToken, sample)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("custom parser upload = %d: %v", resp.StatusCode, scanBody)
+	}
+	if scanBody["status"] != "completed" {
+		t.Errorf("scan status = %v, want completed", scanBody["status"])
+	}
+
+	_, listBody := req(t, app, http.MethodGet, "/api/v1/projects/"+projectID+"/findings", adminToken, "")
+	findings, _ := listBody["findings"].([]any)
+	if len(findings) != 1 {
+		t.Fatalf("findings = %d, want 1", len(findings))
+	}
+	f, _ := findings[0].(map[string]any)
+	if f["title"] != "Outdated libfoo" || f["severity"] != "critical" {
+		t.Errorf("finding = %v, want mapped title/severity", f)
+	}
+	if cves, _ := f["cve"].([]any); len(cves) != 1 || cves[0] != "CVE-2021-44228" {
+		t.Errorf("finding cve = %v, want [CVE-2021-44228]", f["cve"])
+	}
+
+	// Re-uploading the identical report keeps the same fingerprint: no
+	// duplicate finding.
+	req(t, app, http.MethodPost, scanPath, adminToken, sample)
+	_, listAgain := req(t, app, http.MethodGet, "/api/v1/projects/"+projectID+"/findings", adminToken, "")
+	findingsAgain, _ := listAgain["findings"].([]any)
+	if len(findingsAgain) != 1 {
+		t.Errorf("after re-upload got %d findings, want 1 (deduplicated)", len(findingsAgain))
+	}
+
+	// Deleting the definition keeps its findings (they stay under the
+	// "acme-scanner" scanner name as history), but the upload path no longer
+	// accepts it.
+	if resp, _ := req(t, app, http.MethodDelete, "/api/v1/custom-parsers/"+parserID, adminToken, ""); resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("delete custom parser = %d", resp.StatusCode)
+	}
+	_, listAfterDelete := req(t, app, http.MethodGet, "/api/v1/projects/"+projectID+"/findings", adminToken, "")
+	findingsAfterDelete, _ := listAfterDelete["findings"].([]any)
+	if len(findingsAfterDelete) != 1 {
+		t.Errorf("after deleting the parser, findings = %d, want 1 (history kept)", len(findingsAfterDelete))
+	}
+	if resp, _ := req(t, app, http.MethodPost, scanPath, adminToken, sample); resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("upload after deleting the parser = %d, want 400 (unknown scanner)", resp.StatusCode)
 	}
 }

@@ -581,6 +581,17 @@ export const api = {
 	setCustomValues: (kind, id, values) =>
 		request('PATCH', `/${kind}/${id}/custom`, { body: values }).then((d) => d.custom ?? {}),
 
+	// --- custom parsers (no-code: map a CSV/JSON/XML report's fields to findings; admin) ---
+	listCustomParsers: () => request('GET', '/custom-parsers').then((d) => d.custom_parsers ?? []),
+	/** @param {object} def */
+	createCustomParser: (def) => request('POST', '/custom-parsers', { body: def }),
+	/** @param {string} id @param {object} def */
+	updateCustomParser: (id, def) => request('PUT', `/custom-parsers/${id}`, { body: def }),
+	/** @param {string} id */
+	deleteCustomParser: (id) => request('DELETE', `/custom-parsers/${id}`),
+	/** @param {object} def @param {string} sample */
+	dryRunCustomParser: (def, sample) => request('POST', '/custom-parsers/dry-run', { body: { ...def, sample } }),
+
 	// --- finding templates (read: everyone; write: admin) ---
 	listFindingTemplates: () => request('GET', '/finding-templates').then((d) => d.templates ?? []),
 	/** @param {object} data */

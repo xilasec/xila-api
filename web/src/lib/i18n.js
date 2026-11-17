@@ -46,6 +46,7 @@ export const TRANSLATED_ROUTES = new Set([
 	'/sso',
 	'/triage-rules',
 	'/custom-fields',
+	'/custom-parsers',
 	'/feed-rules',
 	'/psirt',
 	'/finding-templates',

@@ -2067,6 +2067,12 @@ Adding a tool takes one file. See [docs/PARSERS.md](docs/PARSERS.md). It is a
 good first contribution, and everything downstream (dedup, triage,
 priority, compliance, gates) works on the normalized model without extra work.
 
+No tool worth integrating but no Go file wanted? An instance admin can map a
+CSV, JSON or XML report onto findings from the **Custom Parsers** admin page
+(or `POST /custom-parsers`), with a dry-run preview against a pasted sample.
+Upload with `?scanner=<name>` like any built-in tool once saved. See
+"No-code parsers" in `docs/PARSERS.md`.
+
 ```bash
 semgrep --sarif -o semgrep.sarif .
 curl -X POST "$API/projects/$PROJECT/scans?scanner=semgrep&format=sarif" \

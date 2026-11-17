@@ -130,6 +130,11 @@ type Service struct {
 	// WithSkipUnchanged and runPipeline). Off by default: callers that want it
 	// opt in explicitly.
 	skipUnchanged bool
+	// customParsers resolves a scanner name to an admin-defined no-code parser
+	// (internal/customparser.Service) when the static registry has no built-in
+	// match (see WithCustomParsers and resolveParser). Optional: nil skips the
+	// fallback entirely.
+	customParsers customParserResolver
 }
 
 // Applier is a post-ingest pass over the findings a scan just reported: auto-
@@ -185,6 +190,20 @@ func (s *Service) WithPayloadStore(store PayloadStore) *Service {
 	return s
 }
 
+// customParserResolver resolves a scanner name to an admin-defined no-code
+// parser (customparser.Service satisfies it structurally).
+type customParserResolver interface {
+	Resolve(ctx context.Context, name string) (scanner.Parser, bool, error)
+}
+
+// WithCustomParsers lets uploads for a name the static registry doesn't know
+// fall back to an admin-defined no-code parser (M12 12.4). Optional: nil (the
+// default) means ?scanner=<name> must always match a built-in parser.
+func (s *Service) WithCustomParsers(r customParserResolver) *Service {
+	s.customParsers = r
+	return s
+}
+
 // WithSkipUnchanged enables the skip-unchanged short-circuit (see
 // runPipeline): a report whose content hash matches its target's previous
 // completed scan records the repeat cheaply instead of re-running the whole
@@ -192,6 +211,19 @@ func (s *Service) WithPayloadStore(store PayloadStore) *Service {
 func (s *Service) WithSkipUnchanged(enabled bool) *Service {
 	s.skipUnchanged = enabled
 	return s
+}
+
+// resolveParser looks up key in the static registry, falling back to an
+// admin-defined no-code parser (WithCustomParsers) when configured and the
+// registry has no match.
+func (s *Service) resolveParser(ctx context.Context, key string) (scanner.Parser, bool, error) {
+	if p, ok := s.parsers.Get(key); ok {
+		return p, true, nil
+	}
+	if s.customParsers == nil {
+		return nil, false, nil
+	}
+	return s.customParsers.Resolve(ctx, key)
 }
 
 // Ingest synchronously parses + processes a scan and returns the finalized scan.
@@ -271,7 +303,10 @@ func (s *Service) ProcessJob(ctx context.Context, job Job) (err error) {
 
 // createScan validates the scanner + project and inserts the scan row.
 func (s *Service) createScan(ctx context.Context, req IngestRequest) (Scan, error) {
-	parser, ok := s.parsers.Get(req.parserKey())
+	parser, ok, err := s.resolveParser(ctx, req.parserKey())
+	if err != nil {
+		return Scan{}, err
+	}
 	if !ok {
 		return Scan{}, fmt.Errorf("%w: %q", ErrUnknownScanner, req.parserKey())
 	}
@@ -318,10 +353,13 @@ func (s *Service) createScan(ctx context.Context, req IngestRequest) (Scan, erro
 // live findings are carried onto it (see findingWriter.CarryForward) so they
 // look seen by this scan without counting as newly introduced by it.
 func (s *Service) runPipeline(ctx context.Context, sc Scan, raw io.Reader, format string, closeMissing, trySkip bool) (Scan, error) {
-	parser, ok := s.parsers.Get(IngestRequest{Scanner: sc.Scanner, Format: format}.parserKey())
-	if !ok {
+	parser, ok, perr := s.resolveParser(ctx, IngestRequest{Scanner: sc.Scanner, Format: format}.parserKey())
+	if perr == nil && !ok {
+		perr = fmt.Errorf("%w: %q", ErrUnknownScanner, sc.Scanner)
+	}
+	if perr != nil {
 		_, _ = s.scans.Finalize(ctx, sc.ID, domain.ScanFailed, nil, "unknown scanner", "")
-		return Scan{}, fmt.Errorf("%w: %q", ErrUnknownScanner, sc.Scanner)
+		return Scan{}, perr
 	}
 
 	parsed, err := parser.Parse(raw)

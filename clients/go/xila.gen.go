@@ -990,6 +990,27 @@ func (e CustomFieldType) Valid() bool {
 	}
 }
 
+// Defines values for CustomParserFormat.
+const (
+	CustomParserFormatCsv  CustomParserFormat = "csv"
+	CustomParserFormatJson CustomParserFormat = "json"
+	CustomParserFormatXml  CustomParserFormat = "xml"
+)
+
+// Valid indicates whether the value is a known member of the CustomParserFormat enum.
+func (e CustomParserFormat) Valid() bool {
+	switch e {
+	case CustomParserFormatCsv:
+		return true
+	case CustomParserFormatJson:
+		return true
+	case CustomParserFormatXml:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CustomRoleBaseRole.
 const (
 	CustomRoleBaseRoleEditor   CustomRoleBaseRole = "editor"
@@ -3432,6 +3453,27 @@ func (e ListCustomFieldsParamsEntity) Valid() bool {
 	}
 }
 
+// Defines values for DryRunCustomParserJSONBodyFormat.
+const (
+	DryRunCustomParserJSONBodyFormatCsv  DryRunCustomParserJSONBodyFormat = "csv"
+	DryRunCustomParserJSONBodyFormatJson DryRunCustomParserJSONBodyFormat = "json"
+	DryRunCustomParserJSONBodyFormatXml  DryRunCustomParserJSONBodyFormat = "xml"
+)
+
+// Valid indicates whether the value is a known member of the DryRunCustomParserJSONBodyFormat enum.
+func (e DryRunCustomParserJSONBodyFormat) Valid() bool {
+	switch e {
+	case DryRunCustomParserJSONBodyFormatCsv:
+		return true
+	case DryRunCustomParserJSONBodyFormatJson:
+		return true
+	case DryRunCustomParserJSONBodyFormatXml:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListEnrichKevCatalogs200JSONResponseBodyCatalogsSource.
 const (
 	ListEnrichKevCatalogs200JSONResponseBodyCatalogsSourceCisa      ListEnrichKevCatalogs200JSONResponseBodyCatalogsSource = "cisa"
@@ -5389,6 +5431,60 @@ type CustomFieldEntity string
 // CustomFieldType defines model for CustomField.Type.
 type CustomFieldType string
 
+// CustomParser A no-code parser (M12 12.4): maps the fields of a CSV, JSON or XML
+// report onto findings without a Go parser. `name` is the scanner
+// identifier used in uploads (`?scanner=<name>`); it must be a lowercase
+// slug and must not collide with a built-in parser's name.
+type CustomParser struct {
+	// Category `cloud` is CSPM, `kubernetes` is KSPM.
+	Category  Category            `json:"category"`
+	CreatedAt *time.Time          `json:"created_at,omitempty"`
+	CreatedBy *openapi_types.UUID `json:"created_by,omitempty"`
+
+	// Fields ParsedFinding field -> mapping. Keys: title (required), severity,
+	// rule_id, description, cve, cwe, file_path, line, package,
+	// package_version, fixed_version, url, cvss.
+	Fields map[string]CustomParserFieldMap `json:"fields"`
+	Format CustomParserFormat              `json:"format"`
+	Id     *openapi_types.UUID             `json:"id,omitempty"`
+
+	// Name Example: acme-scanner
+	Name string `json:"name"`
+
+	// RecordSelector Where the repeated records live. json: a dotted path to the array
+	// ("results", "runs.0.results"), or "$" for a top-level array. xml: a
+	// "/"-separated element path from the document root ("report/item").
+	// csv: unused — the header row already defines each record's fields.
+	RecordSelector *string    `json:"record_selector,omitempty"`
+	UpdatedAt      *time.Time `json:"updated_at,omitempty"`
+}
+
+// CustomParserFormat defines model for CustomParser.Format.
+type CustomParserFormat string
+
+// CustomParserFieldMap One ParsedFinding field's mapping. Resolution order: `template` (its
+// `{path}` placeholders are other paths/columns in the same record), else
+// `path` (falling back to `value` if absent or empty), else the static
+// `value` alone. `value_map` is only valid on the `severity` field: maps
+// the raw mapped text (e.g. a tool's numeric or custom severity code) to
+// critical/high/medium/low/info; unmapped text falls back to the same
+// normalization every built-in parser uses.
+type CustomParserFieldMap struct {
+	// Path A record path/column: a CSV header, a dotted JSON path
+	// ("vulnerability.id", "aliases.0"), or an XML element/attribute path
+	// relative to the record element ("name", "@severity").
+	Path *string `json:"path,omitempty"`
+
+	// Template A "{path} in {path2}" template over other paths/columns in the same record, e.g. "{rule} in {component}".
+	Template *string `json:"template,omitempty"`
+
+	// Value A static value, used when no path/template is set or the path is absent/empty.
+	Value *string `json:"value,omitempty"`
+
+	// ValueMap severity only: raw mapped text -> critical/high/medium/low/info, e.g. {"4": "critical", "Sev3": "medium"}.
+	ValueMap *map[string]string `json:"value_map,omitempty"`
+}
+
 // CustomRole defines model for CustomRole.
 type CustomRole struct {
 	BaseRole           *CustomRoleBaseRole `json:"base_role,omitempty"`
@@ -6528,6 +6624,26 @@ type Pagination struct {
 	HasMore *bool `json:"has_more,omitempty"`
 	Limit   *int  `json:"limit,omitempty"`
 	Offset  *int  `json:"offset,omitempty"`
+}
+
+// ParsedFinding One finding a parser (built-in or no-code) would create. Returned only by the custom-parser dry-run preview.
+type ParsedFinding struct {
+	// Category `cloud` is CSPM, `kubernetes` is KSPM.
+	Category       *Category `json:"category,omitempty"`
+	Cve            *[]string `json:"cve,omitempty"`
+	Cvss           *float32  `json:"cvss,omitempty"`
+	Cwe            *int      `json:"cwe,omitempty"`
+	Description    *string   `json:"description,omitempty"`
+	FilePath       *string   `json:"file_path,omitempty"`
+	FixedVersion   *string   `json:"fixed_version,omitempty"`
+	Line           *int      `json:"line,omitempty"`
+	Package        *string   `json:"package,omitempty"`
+	PackageVersion *string   `json:"package_version,omitempty"`
+	Purl           *string   `json:"purl,omitempty"`
+	RuleId         *string   `json:"rule_id,omitempty"`
+	Severity       *Severity `json:"severity,omitempty"`
+	Title          *string   `json:"title,omitempty"`
+	Url            *string   `json:"url,omitempty"`
 }
 
 // PersonalPrefs defines model for PersonalPrefs.
@@ -7955,6 +8071,9 @@ type CustomFieldFilter = string
 // CustomFieldID defines model for CustomFieldID.
 type CustomFieldID = openapi_types.UUID
 
+// CustomParserID defines model for CustomParserID.
+type CustomParserID = openapi_types.UUID
+
 // EngagementFilter defines model for EngagementFilter.
 type EngagementFilter = openapi_types.UUID
 
@@ -8630,6 +8749,37 @@ type UpdateCustomFieldJSONBody struct {
 	OrgId    *openapi_types.UUID `json:"org_id,omitempty"`
 	Required *bool               `json:"required,omitempty"`
 }
+
+// DryRunCustomParserJSONBody defines parameters for DryRunCustomParser.
+type DryRunCustomParserJSONBody struct {
+	// Category `cloud` is CSPM, `kubernetes` is KSPM.
+	Category  Category            `json:"category"`
+	CreatedAt *time.Time          `json:"created_at,omitempty"`
+	CreatedBy *openapi_types.UUID `json:"created_by,omitempty"`
+
+	// Fields ParsedFinding field -> mapping. Keys: title (required), severity,
+	// rule_id, description, cve, cwe, file_path, line, package,
+	// package_version, fixed_version, url, cvss.
+	Fields map[string]CustomParserFieldMap  `json:"fields"`
+	Format DryRunCustomParserJSONBodyFormat `json:"format"`
+	Id     *openapi_types.UUID              `json:"id,omitempty"`
+
+	// Name Example: acme-scanner
+	Name string `json:"name"`
+
+	// RecordSelector Where the repeated records live. json: a dotted path to the array
+	// ("results", "runs.0.results"), or "$" for a top-level array. xml: a
+	// "/"-separated element path from the document root ("report/item").
+	// csv: unused — the header row already defines each record's fields.
+	RecordSelector *string `json:"record_selector,omitempty"`
+
+	// Sample The raw report text (CSV
+	Sample    string     `json:"sample"`
+	UpdatedAt *time.Time `json:"updated_at,omitempty"`
+}
+
+// DryRunCustomParserJSONBodyFormat defines parameters for DryRunCustomParser.
+type DryRunCustomParserJSONBodyFormat string
 
 // DeleteEngagementParams defines parameters for DeleteEngagement.
 type DeleteEngagementParams struct {
@@ -10221,6 +10371,15 @@ type CreateCustomFieldJSONRequestBody = CustomField
 // UpdateCustomFieldJSONRequestBody defines body for UpdateCustomField for application/json ContentType.
 type UpdateCustomFieldJSONRequestBody UpdateCustomFieldJSONBody
 
+// CreateCustomParserJSONRequestBody defines body for CreateCustomParser for application/json ContentType.
+type CreateCustomParserJSONRequestBody = CustomParser
+
+// DryRunCustomParserJSONRequestBody defines body for DryRunCustomParser for application/json ContentType.
+type DryRunCustomParserJSONRequestBody DryRunCustomParserJSONBody
+
+// UpdateCustomParserJSONRequestBody defines body for UpdateCustomParser for application/json ContentType.
+type UpdateCustomParserJSONRequestBody = CustomParser
+
 // UpdateEngagementJSONRequestBody defines body for UpdateEngagement for application/json ContentType.
 type UpdateEngagementJSONRequestBody = Engagement
 
@@ -11573,6 +11732,93 @@ type ClientInterface interface {
 	//
 	// Corresponds with PATCH /custom-fields/{fieldID} (the `UpdateCustomField` operationId).
 	UpdateCustomField(ctx context.Context, fieldID CustomFieldID, body UpdateCustomFieldJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListCustomParsers List no-code parser definitions
+	//
+	// Instance admin.
+	//
+	// Corresponds with GET /custom-parsers (the `ListCustomParsers` operationId).
+	ListCustomParsers(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateCustomParserWithBody Define a no-code parser
+	//
+	// Instance admin. `name` becomes the scanner identifier for uploads
+	// (`?scanner=<name>`); it must be a lowercase slug and must not collide with a
+	// built-in parser's name. `fields.title` is required; every other field is
+	// optional. See `CustomParser` for the mapping shape.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /custom-parsers (the `CreateCustomParser` operationId).
+	CreateCustomParserWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateCustomParser Define a no-code parser
+	//
+	// Instance admin. `name` becomes the scanner identifier for uploads
+	// (`?scanner=<name>`); it must be a lowercase slug and must not collide with a
+	// built-in parser's name. `fields.title` is required; every other field is
+	// optional. See `CustomParser` for the mapping shape.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /custom-parsers (the `CreateCustomParser` operationId).
+	CreateCustomParser(ctx context.Context, body CreateCustomParserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DryRunCustomParserWithBody Preview a definition against a pasted sample
+	//
+	// Instance admin. Body is a definition (saved or not) plus `sample`, the raw
+	// report text. Parses `sample` and returns the findings it would create, with
+	// per-record errors; writes nothing.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /custom-parsers/dry-run (the `DryRunCustomParser` operationId).
+	DryRunCustomParserWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DryRunCustomParser Preview a definition against a pasted sample
+	//
+	// Instance admin. Body is a definition (saved or not) plus `sample`, the raw
+	// report text. Parses `sample` and returns the findings it would create, with
+	// per-record errors; writes nothing.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /custom-parsers/dry-run (the `DryRunCustomParser` operationId).
+	DryRunCustomParser(ctx context.Context, body DryRunCustomParserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteCustomParser Delete a no-code parser definition
+	//
+	// Instance admin. Its findings keep this scanner name as history; new uploads with this name are refused.
+	//
+	// Corresponds with DELETE /custom-parsers/{parserID} (the `DeleteCustomParser` operationId).
+	DeleteCustomParser(ctx context.Context, parserID CustomParserID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetCustomParser Read a no-code parser definition
+	//
+	// Corresponds with GET /custom-parsers/{parserID} (the `GetCustomParser` operationId).
+	GetCustomParser(ctx context.Context, parserID CustomParserID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateCustomParserWithBody Replace a no-code parser's mapping
+	//
+	// Instance admin. A full replacement, same id, so findings it already created
+	// keep referencing this scanner name. Picked up by the next upload on every
+	// node (re-read by `updated_at`), no restart needed.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /custom-parsers/{parserID} (the `UpdateCustomParser` operationId).
+	UpdateCustomParserWithBody(ctx context.Context, parserID CustomParserID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateCustomParser Replace a no-code parser's mapping
+	//
+	// Instance admin. A full replacement, same id, so findings it already created
+	// keep referencing this scanner name. Picked up by the next upload on every
+	// node (re-read by `updated_at`), no restart needed.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /custom-parsers/{parserID} (the `UpdateCustomParser` operationId).
+	UpdateCustomParser(ctx context.Context, parserID CustomParserID, body UpdateCustomParserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteEngagement Archive an engagement (or purge it)
 	//
@@ -17592,6 +17838,183 @@ func (c *Client) UpdateCustomFieldWithBody(ctx context.Context, fieldID CustomFi
 // Corresponds with PATCH /custom-fields/{fieldID} (the `UpdateCustomField` operationId).
 func (c *Client) UpdateCustomField(ctx context.Context, fieldID CustomFieldID, body UpdateCustomFieldJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateCustomFieldRequest(c.Server, fieldID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListCustomParsers List no-code parser definitions
+//
+// Instance admin.
+//
+// Corresponds with GET /custom-parsers (the `ListCustomParsers` operationId).
+func (c *Client) ListCustomParsers(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListCustomParsersRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateCustomParserWithBody Define a no-code parser
+//
+// Instance admin. `name` becomes the scanner identifier for uploads
+// (`?scanner=<name>`); it must be a lowercase slug and must not collide with a
+// built-in parser's name. `fields.title` is required; every other field is
+// optional. See `CustomParser` for the mapping shape.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /custom-parsers (the `CreateCustomParser` operationId).
+func (c *Client) CreateCustomParserWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateCustomParserRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateCustomParser Define a no-code parser
+//
+// Instance admin. `name` becomes the scanner identifier for uploads
+// (`?scanner=<name>`); it must be a lowercase slug and must not collide with a
+// built-in parser's name. `fields.title` is required; every other field is
+// optional. See `CustomParser` for the mapping shape.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /custom-parsers (the `CreateCustomParser` operationId).
+func (c *Client) CreateCustomParser(ctx context.Context, body CreateCustomParserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateCustomParserRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DryRunCustomParserWithBody Preview a definition against a pasted sample
+//
+// Instance admin. Body is a definition (saved or not) plus `sample`, the raw
+// report text. Parses `sample` and returns the findings it would create, with
+// per-record errors; writes nothing.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /custom-parsers/dry-run (the `DryRunCustomParser` operationId).
+func (c *Client) DryRunCustomParserWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDryRunCustomParserRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DryRunCustomParser Preview a definition against a pasted sample
+//
+// Instance admin. Body is a definition (saved or not) plus `sample`, the raw
+// report text. Parses `sample` and returns the findings it would create, with
+// per-record errors; writes nothing.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /custom-parsers/dry-run (the `DryRunCustomParser` operationId).
+func (c *Client) DryRunCustomParser(ctx context.Context, body DryRunCustomParserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDryRunCustomParserRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteCustomParser Delete a no-code parser definition
+//
+// Instance admin. Its findings keep this scanner name as history; new uploads with this name are refused.
+//
+// Corresponds with DELETE /custom-parsers/{parserID} (the `DeleteCustomParser` operationId).
+func (c *Client) DeleteCustomParser(ctx context.Context, parserID CustomParserID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteCustomParserRequest(c.Server, parserID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetCustomParser Read a no-code parser definition
+//
+// Corresponds with GET /custom-parsers/{parserID} (the `GetCustomParser` operationId).
+func (c *Client) GetCustomParser(ctx context.Context, parserID CustomParserID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetCustomParserRequest(c.Server, parserID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateCustomParserWithBody Replace a no-code parser's mapping
+//
+// Instance admin. A full replacement, same id, so findings it already created
+// keep referencing this scanner name. Picked up by the next upload on every
+// node (re-read by `updated_at`), no restart needed.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /custom-parsers/{parserID} (the `UpdateCustomParser` operationId).
+func (c *Client) UpdateCustomParserWithBody(ctx context.Context, parserID CustomParserID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateCustomParserRequestWithBody(c.Server, parserID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateCustomParser Replace a no-code parser's mapping
+//
+// Instance admin. A full replacement, same id, so findings it already created
+// keep referencing this scanner name. Picked up by the next upload on every
+// node (re-read by `updated_at`), no restart needed.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /custom-parsers/{parserID} (the `UpdateCustomParser` operationId).
+func (c *Client) UpdateCustomParser(ctx context.Context, parserID CustomParserID, body UpdateCustomParserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateCustomParserRequest(c.Server, parserID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -29935,6 +30358,228 @@ func NewUpdateCustomFieldRequestWithBody(server string, fieldID CustomFieldID, c
 	}
 
 	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListCustomParsersRequest constructs an http.Request for the ListCustomParsers method
+func NewListCustomParsersRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/custom-parsers")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateCustomParserRequest calls the generic CreateCustomParser builder with application/json body
+func NewCreateCustomParserRequest(server string, body CreateCustomParserJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateCustomParserRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateCustomParserRequestWithBody constructs an http.Request for the CreateCustomParser method, with any body, and a specified content type
+func NewCreateCustomParserRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/custom-parsers")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDryRunCustomParserRequest calls the generic DryRunCustomParser builder with application/json body
+func NewDryRunCustomParserRequest(server string, body DryRunCustomParserJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewDryRunCustomParserRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewDryRunCustomParserRequestWithBody constructs an http.Request for the DryRunCustomParser method, with any body, and a specified content type
+func NewDryRunCustomParserRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/custom-parsers/dry-run")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteCustomParserRequest constructs an http.Request for the DeleteCustomParser method
+func NewDeleteCustomParserRequest(server string, parserID CustomParserID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "parserID", parserID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/custom-parsers/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetCustomParserRequest constructs an http.Request for the GetCustomParser method
+func NewGetCustomParserRequest(server string, parserID CustomParserID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "parserID", parserID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/custom-parsers/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateCustomParserRequest calls the generic UpdateCustomParser builder with application/json body
+func NewUpdateCustomParserRequest(server string, parserID CustomParserID, body UpdateCustomParserJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateCustomParserRequestWithBody(server, parserID, "application/json", bodyReader)
+}
+
+// NewUpdateCustomParserRequestWithBody constructs an http.Request for the UpdateCustomParser method, with any body, and a specified content type
+func NewUpdateCustomParserRequestWithBody(server string, parserID CustomParserID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "parserID", parserID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/custom-parsers/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -48114,6 +48759,99 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with PATCH /custom-fields/{fieldID} (the `UpdateCustomField` operationId).
 	UpdateCustomFieldWithResponse(ctx context.Context, fieldID CustomFieldID, body UpdateCustomFieldJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateCustomFieldResponse, error)
 
+	// ListCustomParsersWithResponse List no-code parser definitions
+	//
+	// Instance admin.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /custom-parsers (the `ListCustomParsers` operationId).
+	ListCustomParsersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListCustomParsersResponse, error)
+
+	// CreateCustomParserWithBodyWithResponse Define a no-code parser
+	//
+	// Instance admin. `name` becomes the scanner identifier for uploads
+	// (`?scanner=<name>`); it must be a lowercase slug and must not collide with a
+	// built-in parser's name. `fields.title` is required; every other field is
+	// optional. See `CustomParser` for the mapping shape.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /custom-parsers (the `CreateCustomParser` operationId).
+	CreateCustomParserWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateCustomParserResponse, error)
+
+	// CreateCustomParserWithResponse Define a no-code parser
+	//
+	// Instance admin. `name` becomes the scanner identifier for uploads
+	// (`?scanner=<name>`); it must be a lowercase slug and must not collide with a
+	// built-in parser's name. `fields.title` is required; every other field is
+	// optional. See `CustomParser` for the mapping shape.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /custom-parsers (the `CreateCustomParser` operationId).
+	CreateCustomParserWithResponse(ctx context.Context, body CreateCustomParserJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateCustomParserResponse, error)
+
+	// DryRunCustomParserWithBodyWithResponse Preview a definition against a pasted sample
+	//
+	// Instance admin. Body is a definition (saved or not) plus `sample`, the raw
+	// report text. Parses `sample` and returns the findings it would create, with
+	// per-record errors; writes nothing.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /custom-parsers/dry-run (the `DryRunCustomParser` operationId).
+	DryRunCustomParserWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DryRunCustomParserResponse, error)
+
+	// DryRunCustomParserWithResponse Preview a definition against a pasted sample
+	//
+	// Instance admin. Body is a definition (saved or not) plus `sample`, the raw
+	// report text. Parses `sample` and returns the findings it would create, with
+	// per-record errors; writes nothing.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /custom-parsers/dry-run (the `DryRunCustomParser` operationId).
+	DryRunCustomParserWithResponse(ctx context.Context, body DryRunCustomParserJSONRequestBody, reqEditors ...RequestEditorFn) (*DryRunCustomParserResponse, error)
+
+	// DeleteCustomParserWithResponse Delete a no-code parser definition
+	//
+	// Instance admin. Its findings keep this scanner name as history; new uploads with this name are refused.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /custom-parsers/{parserID} (the `DeleteCustomParser` operationId).
+	DeleteCustomParserWithResponse(ctx context.Context, parserID CustomParserID, reqEditors ...RequestEditorFn) (*DeleteCustomParserResponse, error)
+
+	// GetCustomParserWithResponse Read a no-code parser definition
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /custom-parsers/{parserID} (the `GetCustomParser` operationId).
+	GetCustomParserWithResponse(ctx context.Context, parserID CustomParserID, reqEditors ...RequestEditorFn) (*GetCustomParserResponse, error)
+
+	// UpdateCustomParserWithBodyWithResponse Replace a no-code parser's mapping
+	//
+	// Instance admin. A full replacement, same id, so findings it already created
+	// keep referencing this scanner name. Picked up by the next upload on every
+	// node (re-read by `updated_at`), no restart needed.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /custom-parsers/{parserID} (the `UpdateCustomParser` operationId).
+	UpdateCustomParserWithBodyWithResponse(ctx context.Context, parserID CustomParserID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateCustomParserResponse, error)
+
+	// UpdateCustomParserWithResponse Replace a no-code parser's mapping
+	//
+	// Instance admin. A full replacement, same id, so findings it already created
+	// keep referencing this scanner name. Picked up by the next upload on every
+	// node (re-read by `updated_at`), no restart needed.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /custom-parsers/{parserID} (the `UpdateCustomParser` operationId).
+	UpdateCustomParserWithResponse(ctx context.Context, parserID CustomParserID, body UpdateCustomParserJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateCustomParserResponse, error)
+
 	// DeleteEngagementWithResponse Archive an engagement (or purge it)
 	//
 	// Its scans and findings stay with the project.
@@ -56296,6 +57034,328 @@ func (r UpdateCustomFieldResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r UpdateCustomFieldResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListCustomParsersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		CustomParsers *[]CustomParser `json:"custom_parsers,omitempty"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListCustomParsersResponse) GetJSON200() *struct {
+	CustomParsers *[]CustomParser `json:"custom_parsers,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ListCustomParsersResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListCustomParsersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListCustomParsersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListCustomParsersResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateCustomParserResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *CustomParser
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateCustomParserResponse) GetJSON201() *CustomParser {
+	return r.JSON201
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r CreateCustomParserResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r CreateCustomParserResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r CreateCustomParserResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateCustomParserResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateCustomParserResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateCustomParserResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateCustomParserResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DryRunCustomParserResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Findings     *[]ParsedFinding `json:"findings,omitempty"`
+		RecordErrors *[]struct {
+			Error *string `json:"error,omitempty"`
+
+			// Index 0-based position of the record that failed to map.
+			Index *int `json:"index,omitempty"`
+		} `json:"record_errors,omitempty"`
+	}
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DryRunCustomParserResponse) GetJSON200() *struct {
+	Findings     *[]ParsedFinding `json:"findings,omitempty"`
+	RecordErrors *[]struct {
+		Error *string `json:"error,omitempty"`
+
+		// Index 0-based position of the record that failed to map.
+		Index *int `json:"index,omitempty"`
+	} `json:"record_errors,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r DryRunCustomParserResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetBody returns the raw response body bytes
+func (r DryRunCustomParserResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DryRunCustomParserResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DryRunCustomParserResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DryRunCustomParserResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteCustomParserResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r DeleteCustomParserResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteCustomParserResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteCustomParserResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteCustomParserResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteCustomParserResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetCustomParserResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *CustomParser
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetCustomParserResponse) GetJSON200() *CustomParser {
+	return r.JSON200
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r GetCustomParserResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetCustomParserResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetCustomParserResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetCustomParserResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetCustomParserResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateCustomParserResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *CustomParser
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateCustomParserResponse) GetJSON200() *CustomParser {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r UpdateCustomParserResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r UpdateCustomParserResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r UpdateCustomParserResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateCustomParserResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateCustomParserResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateCustomParserResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateCustomParserResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -76183,6 +77243,153 @@ func (c *ClientWithResponses) UpdateCustomFieldWithResponse(ctx context.Context,
 	return ParseUpdateCustomFieldResponse(rsp)
 }
 
+// ListCustomParsersWithResponse List no-code parser definitions
+//
+// Instance admin.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /custom-parsers (the `ListCustomParsers` operationId).
+func (c *ClientWithResponses) ListCustomParsersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListCustomParsersResponse, error) {
+	rsp, err := c.ListCustomParsers(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListCustomParsersResponse(rsp)
+}
+
+// CreateCustomParserWithBodyWithResponse Define a no-code parser
+//
+// Instance admin. `name` becomes the scanner identifier for uploads
+// (`?scanner=<name>`); it must be a lowercase slug and must not collide with a
+// built-in parser's name. `fields.title` is required; every other field is
+// optional. See `CustomParser` for the mapping shape.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /custom-parsers (the `CreateCustomParser` operationId).
+func (c *ClientWithResponses) CreateCustomParserWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateCustomParserResponse, error) {
+	rsp, err := c.CreateCustomParserWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateCustomParserResponse(rsp)
+}
+
+// CreateCustomParserWithResponse Define a no-code parser
+//
+// Instance admin. `name` becomes the scanner identifier for uploads
+// (`?scanner=<name>`); it must be a lowercase slug and must not collide with a
+// built-in parser's name. `fields.title` is required; every other field is
+// optional. See `CustomParser` for the mapping shape.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /custom-parsers (the `CreateCustomParser` operationId).
+func (c *ClientWithResponses) CreateCustomParserWithResponse(ctx context.Context, body CreateCustomParserJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateCustomParserResponse, error) {
+	rsp, err := c.CreateCustomParser(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateCustomParserResponse(rsp)
+}
+
+// DryRunCustomParserWithBodyWithResponse Preview a definition against a pasted sample
+//
+// Instance admin. Body is a definition (saved or not) plus `sample`, the raw
+// report text. Parses `sample` and returns the findings it would create, with
+// per-record errors; writes nothing.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /custom-parsers/dry-run (the `DryRunCustomParser` operationId).
+func (c *ClientWithResponses) DryRunCustomParserWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DryRunCustomParserResponse, error) {
+	rsp, err := c.DryRunCustomParserWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDryRunCustomParserResponse(rsp)
+}
+
+// DryRunCustomParserWithResponse Preview a definition against a pasted sample
+//
+// Instance admin. Body is a definition (saved or not) plus `sample`, the raw
+// report text. Parses `sample` and returns the findings it would create, with
+// per-record errors; writes nothing.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /custom-parsers/dry-run (the `DryRunCustomParser` operationId).
+func (c *ClientWithResponses) DryRunCustomParserWithResponse(ctx context.Context, body DryRunCustomParserJSONRequestBody, reqEditors ...RequestEditorFn) (*DryRunCustomParserResponse, error) {
+	rsp, err := c.DryRunCustomParser(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDryRunCustomParserResponse(rsp)
+}
+
+// DeleteCustomParserWithResponse Delete a no-code parser definition
+//
+// Instance admin. Its findings keep this scanner name as history; new uploads with this name are refused.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /custom-parsers/{parserID} (the `DeleteCustomParser` operationId).
+func (c *ClientWithResponses) DeleteCustomParserWithResponse(ctx context.Context, parserID CustomParserID, reqEditors ...RequestEditorFn) (*DeleteCustomParserResponse, error) {
+	rsp, err := c.DeleteCustomParser(ctx, parserID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteCustomParserResponse(rsp)
+}
+
+// GetCustomParserWithResponse Read a no-code parser definition
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /custom-parsers/{parserID} (the `GetCustomParser` operationId).
+func (c *ClientWithResponses) GetCustomParserWithResponse(ctx context.Context, parserID CustomParserID, reqEditors ...RequestEditorFn) (*GetCustomParserResponse, error) {
+	rsp, err := c.GetCustomParser(ctx, parserID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetCustomParserResponse(rsp)
+}
+
+// UpdateCustomParserWithBodyWithResponse Replace a no-code parser's mapping
+//
+// Instance admin. A full replacement, same id, so findings it already created
+// keep referencing this scanner name. Picked up by the next upload on every
+// node (re-read by `updated_at`), no restart needed.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /custom-parsers/{parserID} (the `UpdateCustomParser` operationId).
+func (c *ClientWithResponses) UpdateCustomParserWithBodyWithResponse(ctx context.Context, parserID CustomParserID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateCustomParserResponse, error) {
+	rsp, err := c.UpdateCustomParserWithBody(ctx, parserID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateCustomParserResponse(rsp)
+}
+
+// UpdateCustomParserWithResponse Replace a no-code parser's mapping
+//
+// Instance admin. A full replacement, same id, so findings it already created
+// keep referencing this scanner name. Picked up by the next upload on every
+// node (re-read by `updated_at`), no restart needed.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /custom-parsers/{parserID} (the `UpdateCustomParser` operationId).
+func (c *ClientWithResponses) UpdateCustomParserWithResponse(ctx context.Context, parserID CustomParserID, body UpdateCustomParserJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateCustomParserResponse, error) {
+	rsp, err := c.UpdateCustomParser(ctx, parserID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateCustomParserResponse(rsp)
+}
+
 // DeleteEngagementWithResponse Archive an engagement (or purge it)
 //
 // Its scans and findings stay with the project.
@@ -86011,6 +87218,231 @@ func ParseUpdateCustomFieldResponse(rsp *http.Response) (*UpdateCustomFieldRespo
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListCustomParsersResponse parses an HTTP response from a ListCustomParsersWithResponse call
+func ParseListCustomParsersResponse(rsp *http.Response) (*ListCustomParsersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListCustomParsersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			CustomParsers *[]CustomParser `json:"custom_parsers,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateCustomParserResponse parses an HTTP response from a CreateCustomParserWithResponse call
+func ParseCreateCustomParserResponse(rsp *http.Response) (*CreateCustomParserResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateCustomParserResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest CustomParser
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDryRunCustomParserResponse parses an HTTP response from a DryRunCustomParserWithResponse call
+func ParseDryRunCustomParserResponse(rsp *http.Response) (*DryRunCustomParserResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DryRunCustomParserResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Findings     *[]ParsedFinding `json:"findings,omitempty"`
+			RecordErrors *[]struct {
+				Error *string `json:"error,omitempty"`
+
+				// Index 0-based position of the record that failed to map.
+				Index *int `json:"index,omitempty"`
+			} `json:"record_errors,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteCustomParserResponse parses an HTTP response from a DeleteCustomParserWithResponse call
+func ParseDeleteCustomParserResponse(rsp *http.Response) (*DeleteCustomParserResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteCustomParserResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetCustomParserResponse parses an HTTP response from a GetCustomParserWithResponse call
+func ParseGetCustomParserResponse(rsp *http.Response) (*GetCustomParserResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetCustomParserResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CustomParser
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateCustomParserResponse parses an HTTP response from a UpdateCustomParserWithResponse call
+func ParseUpdateCustomParserResponse(rsp *http.Response) (*UpdateCustomParserResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateCustomParserResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CustomParser
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	}
 
