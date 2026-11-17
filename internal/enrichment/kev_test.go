@@ -12,6 +12,7 @@ import (
 
 	"github.com/xilasec/xila-api/internal/domain"
 	"github.com/xilasec/xila-api/internal/finding"
+	"github.com/xilasec/xila-api/internal/secretref"
 )
 
 func open(t *testing.T, name string) *os.File {
@@ -122,7 +123,7 @@ func TestKEVCatalogPaging(t *testing.T) {
 		t.Errorf("euvd ids = %v, want both pages' 4 items × 3 ids", ids)
 	}
 
-	cats, err := KEVCatalogs([]string{"vulncheck"}, map[string]string{"vulncheck": srv.URL + "/vc"}, "tok", srv.Client())
+	cats, err := KEVCatalogs([]string{"vulncheck"}, map[string]string{"vulncheck": srv.URL + "/vc"}, secretref.Static("tok"), srv.Client())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,10 +138,10 @@ func TestKEVCatalogPaging(t *testing.T) {
 		t.Errorf("vulncheck ransomware = %v, want only CVE-2024-4577 (across pages)", list.Ransomware)
 	}
 
-	if _, err := KEVCatalogs([]string{"vulncheck"}, nil, "", srv.Client()); err == nil {
+	if _, err := KEVCatalogs([]string{"vulncheck"}, nil, nil, srv.Client()); err == nil {
 		t.Error("vulncheck without a token must be a configuration error")
 	}
-	if _, err := KEVCatalogs([]string{"cisa", "nvd"}, nil, "", srv.Client()); err == nil {
+	if _, err := KEVCatalogs([]string{"cisa", "nvd"}, nil, nil, srv.Client()); err == nil {
 		t.Error("an unknown catalog must be a configuration error")
 	}
 }

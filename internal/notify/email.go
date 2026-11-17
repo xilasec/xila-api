@@ -161,6 +161,9 @@ func (s *Service) emailMessage(ch Channel, e Event) ([]byte, []string, error) {
 // sendMail performs one SMTP transaction (STARTTLS, implicit TLS or plain).
 func (s *Service) sendMail(ctx context.Context, rcpts []string, msg []byte) error {
 	cfg := s.smtp
+	if s.smtpPass != nil {
+		cfg.Password = s.smtpPass.Get()
+	}
 	port := cfg.Port
 	if port == 0 {
 		port = 587

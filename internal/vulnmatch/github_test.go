@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/xilasec/xila-api/internal/domain"
+	"github.com/xilasec/xila-api/internal/secretref"
 )
 
 // testdata/github_advisories_lodash.json is a real response of
@@ -67,7 +68,7 @@ func TestGitHubSourceQueriesAndMatchesRanges(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	g := NewGitHubSource(srv.URL, "tok")
+	g := NewGitHubSource(srv.URL, secretref.Static("tok"))
 	purls := []string{"pkg:npm/lodash@4.17.20", "pkg:npm/lodash@4.18.0", "pkg:npm/lodash-amd@3.0.0",
 		"pkg:npm/%40babel/core@7.0.0", "pkg:generic/openssl@3.0.0"}
 	got, err := g.Query(context.Background(), purls)
@@ -154,7 +155,7 @@ func TestGitHubSourceRespectsRateLimits(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	g := NewGitHubSource(srv.URL, "")
+	g := NewGitHubSource(srv.URL, nil)
 	g.now = func() time.Time { return now }
 	var slept []time.Duration
 	g.sleep = func(_ context.Context, d time.Duration) error { slept = append(slept, d); return nil }
@@ -171,7 +172,7 @@ func TestGitHubSourceRespectsRateLimits(t *testing.T) {
 	// A reset further away than a run should wait fails the source (the other
 	// sources' results still apply, without auto-close).
 	calls.Store(0)
-	g2 := NewGitHubSource(srv.URL, "")
+	g2 := NewGitHubSource(srv.URL, nil)
 	g2.now = func() time.Time { return now }
 	g2.sleep = func(context.Context, time.Duration) error { return nil }
 	g2.resumeAt = now.Add(time.Hour)

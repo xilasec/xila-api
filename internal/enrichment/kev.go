@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/xilasec/xila-api/internal/domain"
+	"github.com/xilasec/xila-api/internal/secretref"
 )
 
 // Default catalog URLs (each overridable: a mirror, a proxy).
@@ -49,7 +50,7 @@ type KEVList struct {
 // KEVCatalogs builds the configured catalogs. urls overrides a catalog's URL
 // by name; vulncheck needs vulnCheckToken. client must be the guarded
 // outbound client (internal/netguard).
-func KEVCatalogs(names []string, urls map[string]string, vulnCheckToken string, client *http.Client) ([]KEVCatalog, error) {
+func KEVCatalogs(names []string, urls map[string]string, vulnCheckToken secretref.Value, client *http.Client) ([]KEVCatalog, error) {
 	var out []KEVCatalog
 	seen := map[string]bool{}
 	for _, n := range names {
@@ -65,7 +66,7 @@ func KEVCatalogs(names []string, urls map[string]string, vulnCheckToken string, 
 		case domain.KEVENISA:
 			out = append(out, &euvdCatalog{url: cmp.Or(u, DefaultENISAKEVURL), pageSize: euvdPage, client: client})
 		case domain.KEVVulnCheck:
-			if vulnCheckToken == "" {
+			if vulnCheckToken.Get() == "" {
 				return nil, fmt.Errorf("kev source %q needs VULNCHECK_API_TOKEN", n)
 			}
 			out = append(out, &vulnCheckCatalog{url: cmp.Or(u, DefaultVulnCheckKEVURL), token: vulnCheckToken, client: client})
@@ -303,7 +304,7 @@ func (c *euvdCatalog) Fetch(ctx context.Context) (KEVList, error) {
 
 type vulnCheckCatalog struct {
 	url    string
-	token  string
+	token  secretref.Value
 	client *http.Client
 }
 
@@ -329,7 +330,7 @@ func (c *vulnCheckCatalog) Fetch(ctx context.Context) (KEVList, error) {
 		}
 		base.RawQuery = q.Encode()
 		var p VulnCheckPage
-		if err := get(ctx, c.client, base.String(), c.token, func(r io.Reader) (err error) {
+		if err := get(ctx, c.client, base.String(), c.token.Get(), func(r io.Reader) (err error) {
 			p, err = ParseVulnCheckKEVPage(r)
 			return err
 		}); err != nil {

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/xilasec/xila-api/internal/netguard"
+	"github.com/xilasec/xila-api/internal/secretref"
 )
 
 // DefaultVulnerableCodeURL is AboutCode's public VulnerableCode instance.
@@ -35,13 +36,13 @@ const vcBatchSize = 100
 // reported it, and a run where only some of them answered never renames it.
 type VulnerableCodeSource struct {
 	base   string
-	apiKey string
+	apiKey secretref.Value
 	hc     *http.Client
 }
 
 // NewVulnerableCodeSource constructs the client. An empty baseURL uses the
 // public instance; apiKey is optional (sent as "Authorization: Token …").
-func NewVulnerableCodeSource(baseURL, apiKey string) *VulnerableCodeSource {
+func NewVulnerableCodeSource(baseURL string, apiKey secretref.Value) *VulnerableCodeSource {
 	if baseURL == "" {
 		baseURL = DefaultVulnerableCodeURL
 	}
@@ -211,8 +212,8 @@ func (s *VulnerableCodeSource) bulkSearch(ctx context.Context, purls []string) (
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-	if s.apiKey != "" {
-		req.Header.Set("Authorization", "Token "+s.apiKey)
+	if key := s.apiKey.Get(); key != "" {
+		req.Header.Set("Authorization", "Token "+key)
 	}
 	resp, err := s.hc.Do(req)
 	if err != nil {

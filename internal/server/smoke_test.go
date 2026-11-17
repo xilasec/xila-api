@@ -278,7 +278,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 	// AI triage as main wires it; tests point AI_BASE_URL at a fake model server.
 	var aiProvider aitriage.Provider
 	if cfg.AI.Enabled {
-		if aiProvider, err = aitriage.NewProvider(cfg.AI); err != nil {
+		if aiProvider, err = aitriage.NewProvider(cfg.AI, nil); err != nil {
 			t.Fatalf("AI provider: %v", err)
 		}
 	}

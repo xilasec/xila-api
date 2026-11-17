@@ -40,6 +40,11 @@ func NewKeyring(primary []byte, previous [][]byte) (*Keyring, error) {
 	if err := k.Update(primary, previous); err != nil {
 		return nil, err
 	}
+	// Setting the first primary is not a rotation: don't wake the rekey pass.
+	select {
+	case <-k.changed:
+	default:
+	}
 	return k, nil
 }
 

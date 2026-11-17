@@ -10,6 +10,7 @@ import (
 	"github.com/johannesboyne/gofakes3/backend/s3mem"
 
 	"github.com/xilasec/xila-api/internal/objectstore"
+	"github.com/xilasec/xila-api/internal/secretref"
 )
 
 // fakeS3 starts an in-process S3-compatible server with bucket created.
@@ -33,8 +34,8 @@ func client(t *testing.T, endpoint, bucket, prefix string) *objectstore.Client {
 		Region:          "us-east-1",
 		Bucket:          bucket,
 		Prefix:          prefix,
-		AccessKeyID:     "test",
-		SecretAccessKey: "test",
+		AccessKeyID:     secretref.Static("test"),
+		SecretAccessKey: secretref.Static("test"),
 		ForcePathStyle:  true,
 	})
 	if err != nil {
@@ -105,7 +106,7 @@ func TestNewFailsOnMissingBucket(t *testing.T) {
 	endpoint := fakeS3(t, "exists")
 	if _, err := objectstore.New(context.Background(), objectstore.Config{
 		Endpoint: endpoint, Region: "us-east-1", Bucket: "does-not-exist",
-		AccessKeyID: "test", SecretAccessKey: "test", ForcePathStyle: true,
+		AccessKeyID: secretref.Static("test"), SecretAccessKey: secretref.Static("test"), ForcePathStyle: true,
 	}); err == nil {
 		t.Error("New with a nonexistent bucket should fail fast (HeadBucket)")
 	}

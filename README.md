@@ -571,7 +571,7 @@ If no name is given, the default version is used (`main` if none exists yet).
   action. Changes to a finding's fields are added to its history (`kind: custom_field`,
   `field`), whether made by people or rules. A field can be **computed** instead
   (`computed: true`, `expression`): its value comes from a [CEL](https://cel.dev)
-  expression over the entity's facts, not a write — `PATCH .../custom` refuses
+  expression over the entity's facts, not a write, `PATCH .../custom` refuses
   one directly (`400`). See *Computed custom fields* below.
 - History: every status, severity and assignee change, with who made it and
   the reason they gave, plus comments and attachments. It is written by a
@@ -1629,16 +1629,16 @@ Dependency-Track 5-style policies over a component + vulnerability pair (a
 package finding), managed under Vulnerability Policies in the UI or
 `/api/v1/vuln-policies` (instance admin). Each policy is a CEL `condition`
 (see *Expressions (CEL)* above; same `component`/`vulnerability`/`project`
-facts a vulnerability policy's own schema exposes — `component.name/version/
+facts a vulnerability policy's own schema exposes, `component.name/version/
 purl/group/license/scope/direct`, `vulnerability.id/aliases/severity/cvss/
-epss/kev/cwes/published` (`published` is always unknown — findings carry no
+epss/kev/cwes/published` (`published` is always unknown, findings carry no
 disclosure date), `project.name/tags/criticality/custom`), plus:
 
-- An `analysis` (optional): `state` — `not_affected`/`false_positive` both set
+- An `analysis` (optional): `state`: `not_affected`/`false_positive` both set
   the finding `false_positive` (Dependency-Track keeps them as distinct
   justifications of the same outcome, like VEX's `not_affected`/`fixed`),
   `exploitable` sets `confirmed`, `in_triage` sets no status (useful for a
-  rating-only policy, or to flag a pair for review) — plus `justification` and
+  rating-only policy, or to flag a pair for review), plus `justification` and
   `details` recorded on the finding.
 - A `rating` (optional): a `severity` override (`cvss_vector`/`cvss_score` are
   detail only; a scanner- or NVD-sourced CVSS is never overwritten). A policy
@@ -1649,13 +1649,13 @@ disclosure date), `project.name/tags/criticality/custom`), plus:
 - `scope`: `global`, `projects` (an explicit list) or `tag` (projects carrying
   it).
 - `mode`: `apply` mutates findings; `log` never does (and never blocks an
-  `apply` policy underneath it) — use it to see what a policy *would* do
+  `apply` policy underneath it), use it to see what a policy *would* do
   before turning it on, same idea as the triage-rule approval workflow's
   preview.
 
 A policy's effect is reversible: when it stops matching, is disabled, deleted,
 or falls outside its validity window, the next evaluation reverts exactly what
-it set — the finding goes back to what it was before, the same way an expired
+it set, the finding goes back to what it was before, the same way an expired
 triage exception reopens one. It never overturns a person's later call: the
 guard compares the finding's *current* state against what the engine itself
 last recorded, not against "is it still open", so once something else moved
@@ -1672,9 +1672,9 @@ rather than fighting it.
   on its own (ignoring priority against other live policies), capped at 200
   with a `total`.
 - GitOps bundle: `GET /vuln-policies/bundle?format=yaml|json` exports the
-  whole set (no database ids — an import always assigns fresh ones);
+  whole set (no database ids, an import always assigns fresh ones);
   `PUT /vuln-policies/bundle` (`?dry_run=true` to validate without writing)
-  replaces it atomically — every policy is validated before anything is
+  replaces it atomically, every policy is validated before anything is
   written. `VULN_POLICY_BUNDLE_URL`, if set, is fetched (through netguard) and
   imported on `VULN_POLICY_BUNDLE_INTERVAL` (1h default); a failed fetch keeps
   the current set.
@@ -1691,10 +1691,10 @@ exports, history and everyone else's CEL expressions see it unchanged.
 
 Fact documents, by entity:
 
-- **Finding**: exactly what a triage rule evaluates — `finding.*` and
-  `project.*` (see *Triage rules* above) — one document builder, not a copy.
-- **Project**: `project.*` — `name`, `slug`, `tags`, `criticality`, `custom`,
-  and `open_findings` (open/confirmed counts by severity — one query, the
+- **Finding**: exactly what a triage rule evaluates, `finding.*` and
+  `project.*` (see *Triage rules* above), one document builder, not a copy.
+- **Project**: `project.*`: `name`, `slug`, `tags`, `criticality`, `custom`,
+  and `open_findings` (open/confirmed counts by severity, one query, the
   same the portfolio rollups already run).
 - **Asset**: `asset.*` (`name`, `type`, `identifier`, `exposure`, `custom`)
   plus the same `project.*` a project's own computed field sees.
@@ -1702,13 +1702,13 @@ Fact documents, by entity:
 A computed field never sees another computed field's value: every computed
 key is dropped from `*.custom` in the document its own expression evaluates
 against (so there is no evaluation order to get wrong, and no cycle is
-possible). Everyone *else* — triage rules, policies, filters, exports — still
+possible). Everyone *else*, triage rules, policies, filters, exports, still
 reads a computed field's stored value once it has one.
 
 The result must fit the field's type: `text` accepts a string, or a number /
 bool rendered as text; `number` a double or int; `enum` one of the options;
 `date` a `YYYY-MM-DD` or RFC 3339 string. A result that doesn't fit, an
-evaluation error, or CEL's null (an unknown fact) leaves the field unset —
+evaluation error, or CEL's null (an unknown fact) leaves the field unset,
 never a guess. `expression` is checked the same way a triage rule's is: dry-run
 on save against a document with every fact present, and a result type CEL can
 already prove will never fit the field (e.g. always a boolean for a `number`
@@ -1717,9 +1717,9 @@ field) is refused there too.
 Values are kept fresh three ways: recomputed for a scan's findings on every
 ingest (right after the triage rules); a full recompute of every project,
 asset or finding of that entity when a computed definition is created or its
-expression changes (synchronous — the save's response already reflects it);
+expression changes (synchronous, the save's response already reflects it);
 and every `COMPUTED_FIELDS_INTERVAL` (15m default, `0` = off), so facts
-nothing re-ingests — EPSS/KEV, status, exposure, package metadata — still
+nothing re-ingests, EPSS/KEV, status, exposure, package metadata, still
 reach a computed field within one interval. That interval is therefore how
 stale those facts can be between scans; a KEV flag that just landed, for
 example, is reflected in a computed field within `COMPUTED_FIELDS_INTERVAL`
@@ -2614,15 +2614,15 @@ Azure Key Vault, Vault) hand secrets to the app. It applies to `JWT_SECRET`,
 NAME_FILE content) can be a reference instead of a literal, resolved once at
 startup:
 
-- `aws-sm://<name-or-ARN>[#json-key]` (optional `?version_stage=` / `?region=`)
-  — AWS Secrets Manager, via the official SDK's default credential chain (env,
+- `aws-sm://<name-or-ARN>[#json-key]` (optional `?version_stage=` / `?region=`):
+  AWS Secrets Manager, via the official SDK's default credential chain (env,
   IRSA, ECS/EC2 instance roles). `AWS_ENDPOINT_URL_SECRETS_MANAGER` points it
   at a non-AWS endpoint (LocalStack, tests).
 - `gcp-sm://projects/<p>/secrets/<s>[/versions/<v>][#json-key]` (version
-  defaults to `latest`) — GCP Secret Manager's REST API, with a token from
+  defaults to `latest`): GCP Secret Manager's REST API, with a token from
   Application Default Credentials (workload identity, the metadata server, or
   `GOOGLE_APPLICATION_CREDENTIALS`).
-- `vault://<path>[#key]`, e.g. `vault://kv/data/xila#jwt` — HashiCorp/OpenBao
+- `vault://<path>[#key]`, e.g. `vault://kv/data/xila#jwt`: HashiCorp/OpenBao
   Vault's HTTP API (KV v1 and v2). `#key` selects a field; required unless the
   secret has exactly one. Auth: `VAULT_TOKEN`(`_FILE`), or `VAULT_AUTH=kubernetes`
   (`VAULT_K8S_ROLE`, `VAULT_K8S_MOUNT` default `kubernetes`) or
@@ -2630,7 +2630,7 @@ startup:
   `VAULT_APPROLE_MOUNT` default `approle`). `VAULT_ADDR` is required;
   `VAULT_NAMESPACE` and `VAULT_CACERT` (a PEM file) are optional. The login
   token is reused and refreshed automatically on a `403`.
-- `azure-kv://<vault-name-or-host>/<secret>[/<version>]` — Azure Key Vault's
+- `azure-kv://<vault-name-or-host>/<secret>[/<version>]`: Azure Key Vault's
   REST API, with a token from `DefaultAzureCredential` (managed identity,
   workload identity, env).
 
@@ -2642,22 +2642,37 @@ infrastructure, like `DB_HOST`), so their calls do not go through it.
 `SECRETS_TIMEOUT` (default `30s`) bounds each lookup.
 
 **Rotation.** Any secret setting that came from a reference or a `NAME_FILE`
-is re-read every `SECRETS_REFRESH_INTERVAL` (default `5m`, `0` disables it) —
-by every node, not only the leader. A failed refresh keeps the last good
-value and logs a warning without the value; a changed value is logged by
-setting name only. Live (no restart needed): `DB_PASSWORD` (new pool
-connections; existing ones keep working), `METRICS_TOKEN`, `SMTP_PASSWORD`,
+is re-read every `SECRETS_REFRESH_INTERVAL` (default `5m`, `0` disables it) by
+every node, not only the leader. A failed refresh keeps the last good value and
+logs a warning without the value; a changed value is logged by setting name
+only. Every rotated value applies without a restart: `DB_PASSWORD` to new pool
+connections (existing ones keep working), `METRICS_TOKEN`, `SMTP_PASSWORD`,
 `LDAP_BIND_PASSWORD`, `OIDC_CLIENT_SECRET`, `NVD_API_KEY`,
 `VULNCHECK_API_TOKEN`, `VULNMATCH_GITHUB_TOKEN`,
-`VULNMATCH_VULNERABLECODE_API_KEY`, `AI_API_KEY`, `S3_ACCESS_KEY_ID` /
-`S3_SECRET_ACCESS_KEY` are tracked and refreshed by the store, but most of
-these consumers still read the value captured at startup — only
-`DB_PASSWORD` and `METRICS_TOKEN` are wired to read the live value as of this
-release; the rest still need a restart to pick up a rotated value despite
-being tracked. `DB_READ_URL` is out of scope (it carries its own credentials,
-possibly a different host). `JWT_SECRET` and `INTEGRATION_SECRET_KEY` need a
-key ring before they can rotate safely; the store tracks and refreshes them
-too, for when that lands.
+`VULNMATCH_VULNERABLECODE_API_KEY` and `AI_API_KEY` at their next use, and
+`S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` within a minute. A literal
+environment value can't change, so it needs a restart. `DB_READ_URL` is not
+refreshed (it carries its own credentials, possibly for another host).
+
+`JWT_SECRET` and `INTEGRATION_SECRET_KEY` rotate through key rings, so the
+change ends no session and leaves every stored secret readable:
+
+1. Put the old value into the `_PREVIOUS` list (`JWT_PREVIOUS_SECRETS`,
+   `INTEGRATION_SECRET_KEY_PREVIOUS`, comma-separated) and the new one in place
+   of the current value. Update the previous list first when both come from
+   files or a secrets manager, so no refresh sees the new key without the old.
+2. New tokens are signed with the new secret and carry a `kid`; tokens signed
+   with a previous secret still verify. Values sealed with a previous
+   integration key still open, and the leader re-seals them under the new key
+   in the background. `GET /api/v1/admin/secrets/status` (instance admins)
+   shows per sealed column how many rows are under the current key, a previous
+   key, or none.
+3. Remove the old JWT secret once `JWT_TTL` has passed, and the old integration
+   key once the status shows no row under a previous key.
+
+A rotated value that fails the boot checks (an integration key that isn't 32
+base64 bytes, a previous JWT secret repeating the current one) is refused with
+a warning, and the running keys stay.
 
 | Variable                      | Default              | Notes                                   |
 | ----------------------------- | -------------------- | --------------------------------------- |

@@ -12,6 +12,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/xilasec/xila-api/internal/secretref"
 )
 
 // testdata/nvd_cves.json is a real NVD CVE API 2.0 response
@@ -39,7 +41,7 @@ func TestNVDClientFetchesAndPrefersV31Primary(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := NewNVDClient(srv.URL, "k")
+	c := NewNVDClient(srv.URL, secretref.Static("k"))
 	got, err := c.Fetch(context.Background(), []string{"CVE-2021-44228", "CVE-2023-0001", "CVE-2024-7871", "CVE-2099-0001"})
 	if err != nil {
 		t.Fatalf("Fetch: %v", err)
@@ -104,7 +106,7 @@ func TestNVDClientBatchesAndRetriesThrottle(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := NewNVDClient(srv.URL, "")
+	c := NewNVDClient(srv.URL, nil)
 	var slept []time.Duration
 	c.limit.sleep = func(_ context.Context, d time.Duration) error { slept = append(slept, d); return nil }
 	cves := make([]string, 150)
@@ -149,7 +151,7 @@ func TestRateLimiterRollingWindow(t *testing.T) {
 	if !slices.Equal(slept, []time.Duration{15 * time.Second}) {
 		t.Errorf("waits = %v, want [15s]", slept)
 	}
-	if NewNVDClient("", "key").limit.n != nvdRequestsKey || NewNVDClient("", "").limit.n != nvdRequestsNoKey {
+	if NewNVDClient("", secretref.Static("key")).limit.n != nvdRequestsKey || NewNVDClient("", nil).limit.n != nvdRequestsNoKey {
 		t.Error("an API key raises the limit from 5 to 50 per window")
 	}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -157,5 +159,29 @@ func TestRateLimiterRollingWindow(t *testing.T) {
 	l.sleep = sleepCtx
 	if err := l.wait(ctx); err == nil {
 		t.Error("a cancelled context must stop the wait")
+	}
+}
+
+// The API key is read per request: a rotated NVD_API_KEY is sent from the
+// next request on, without rebuilding the client.
+func TestNVDClientReadsRotatedKey(t *testing.T) {
+	body := nvdFixture(t)
+	var got []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = append(got, r.Header.Get("apiKey"))
+		w.Write(body)
+	}))
+	defer srv.Close()
+
+	key := "old"
+	c := NewNVDClient(srv.URL, func() string { return key })
+	for _, k := range []string{"old", "new"} {
+		key = k
+		if _, err := c.Fetch(context.Background(), []string{"CVE-2021-44228"}); err != nil {
+			t.Fatalf("Fetch: %v", err)
+		}
+	}
+	if len(got) != 2 || got[0] != "old" || got[1] != "new" {
+		t.Errorf("apiKey headers = %v, want [old new]", got)
 	}
 }

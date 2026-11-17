@@ -15,6 +15,7 @@ import (
 
 	"github.com/xilasec/xila-api/internal/finding"
 	"github.com/xilasec/xila-api/internal/netguard"
+	"github.com/xilasec/xila-api/internal/secretref"
 )
 
 // DefaultNVDURL is the NVD CVE API 2.0
@@ -90,19 +91,21 @@ func sleepCtx(ctx context.Context, d time.Duration) error {
 // ids per request (`cveIds`) and staying inside NVD's rate limit.
 type NVDClient struct {
 	base  string
-	key   string
+	key   secretref.Value
 	hc    *http.Client
 	limit *rateLimiter
 }
 
 // NewNVDClient constructs the client. apiKey (optional) raises the rate limit
-// from 5 to 50 requests per 30 seconds.
-func NewNVDClient(baseURL, apiKey string) *NVDClient {
+// from 5 to 50 requests per 30 seconds; it is read per request, so a rotated
+// key applies at once (the rate limit is chosen by whether a key is set at
+// startup).
+func NewNVDClient(baseURL string, apiKey secretref.Value) *NVDClient {
 	if baseURL == "" {
 		baseURL = DefaultNVDURL
 	}
 	n := nvdRequestsNoKey
-	if apiKey != "" {
+	if apiKey.Get() != "" {
 		n = nvdRequestsKey
 	}
 	return &NVDClient{
@@ -234,8 +237,8 @@ func (c *NVDClient) page(ctx context.Context, query string, startIndex int) (nvd
 		if err != nil {
 			return nvdResponse{}, err
 		}
-		if c.key != "" {
-			req.Header.Set("apiKey", c.key)
+		if key := c.key.Get(); key != "" {
+			req.Header.Set("apiKey", key)
 		}
 		res, err := c.hc.Do(req)
 		if err != nil {

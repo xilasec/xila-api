@@ -191,7 +191,7 @@ Not every tool is worth a Go file. An instance admin can map a CSV, JSON or
 XML report onto findings from the UI (**Custom Parsers**, admin-only) or
 `POST /custom-parsers`: a scanner name (a lowercase slug that must not collide
 with a built-in parser's name), a category, the format, a record selector
-(where the repeated records live — json: a dotted path to the array, or `$`
+(where the repeated records live, json: a dotted path to the array, or `$`
 for a top-level array; xml: an element path; csv: unused, the header row
 already defines each record), and a mapping per `ParsedFinding` field. Each
 mapping is a record path/column, a static value, a `"{path} in {path2}"`
@@ -200,12 +200,12 @@ the tool's raw text to our vocabulary (e.g. `{"4": "critical"}`), falling back
 to `normalizeSeverity` otherwise. `POST /custom-parsers/dry-run` previews a
 (saved or draft) definition against a pasted sample without storing anything.
 
-Once saved, upload with `?scanner=<name>` like any built-in tool — the
+Once saved, upload with `?scanner=<name>` like any built-in tool, the
 ingest path falls back to the no-code definition when the static registry has
 no match, so dedup, triage, priority, gates and alerts all work unchanged. The
 resolved parser is cached and re-read by the definition's `updated_at`, so an
 edit on one node takes effect on every replica's very next upload, not after
-a restart. Deleting a definition keeps its findings — they stay under that
+a restart. Deleting a definition keeps its findings, they stay under that
 scanner name as history, like removing support for a built-in parser would.
 
 This is the same compiler + mapping engine as a built-in parser

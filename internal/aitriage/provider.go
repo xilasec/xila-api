@@ -12,6 +12,7 @@ import (
 
 	"github.com/xilasec/xila-api/internal/config"
 	"github.com/xilasec/xila-api/internal/netguard"
+	"github.com/xilasec/xila-api/internal/secretref"
 )
 
 // Prompt is exactly what is sent to the model.
@@ -46,18 +47,22 @@ func (e RemoteError) Error() string {
 func (e RemoteError) Public() string { return e.msg }
 
 // NewProvider builds the configured provider; outbound calls go through
-// netguard.
-func NewProvider(c config.AI) (Provider, error) {
+// netguard. apiKey is read per request (a rotated AI_API_KEY applies at
+// once); nil uses c.APIKey.
+func NewProvider(c config.AI, apiKey secretref.Value) (Provider, error) {
+	if apiKey == nil {
+		apiKey = secretref.Static(c.APIKey)
+	}
 	client := netguard.NewClient(c.Timeout)
 	switch c.Provider {
 	case config.AIProviderOpenAI:
-		return &OpenAI{BaseURL: c.BaseURL, ModelName: c.Model, APIKey: c.APIKey, Client: client}, nil
+		return &OpenAI{BaseURL: c.BaseURL, ModelName: c.Model, APIKey: apiKey, Client: client}, nil
 	case config.AIProviderAnthropic:
 		base := c.BaseURL
 		if base == "" {
 			base = "https://api.anthropic.com"
 		}
-		return &Anthropic{BaseURL: base, ModelName: c.Model, APIKey: c.APIKey, Client: client}, nil
+		return &Anthropic{BaseURL: base, ModelName: c.Model, APIKey: apiKey, Client: client}, nil
 	}
 	return nil, fmt.Errorf("unknown AI provider %q", c.Provider)
 }
@@ -106,8 +111,9 @@ func snippet(b []byte) string {
 // {BaseURL}/chat/completions), which most hosted and self-hosted model
 // servers implement. APIKey is optional (a local server may need none).
 type OpenAI struct {
-	BaseURL, ModelName, APIKey string
-	Client                     *http.Client
+	BaseURL, ModelName string
+	APIKey             secretref.Value
+	Client             *http.Client
 }
 
 // Name implements Provider.
@@ -119,8 +125,8 @@ func (o *OpenAI) Model() string { return o.ModelName }
 // Complete implements Provider.
 func (o *OpenAI) Complete(ctx context.Context, p Prompt) (string, error) {
 	headers := map[string]string{}
-	if o.APIKey != "" {
-		headers["Authorization"] = "Bearer " + o.APIKey
+	if key := o.APIKey.Get(); key != "" {
+		headers["Authorization"] = "Bearer " + key
 	}
 	body := map[string]any{
 		"model": o.ModelName,
@@ -149,8 +155,9 @@ func (o *OpenAI) Complete(ctx context.Context, p Prompt) (string, error) {
 
 // Anthropic speaks the Anthropic Messages API (POST {BaseURL}/v1/messages).
 type Anthropic struct {
-	BaseURL, ModelName, APIKey string
-	Client                     *http.Client
+	BaseURL, ModelName string
+	APIKey             secretref.Value
+	Client             *http.Client
 }
 
 // anthropicVersion is the Messages API version header.
@@ -177,7 +184,7 @@ func (a *Anthropic) Complete(ctx context.Context, p Prompt) (string, error) {
 			Text string `json:"text"`
 		} `json:"content"`
 	}
-	headers := map[string]string{"x-api-key": a.APIKey, "anthropic-version": anthropicVersion}
+	headers := map[string]string{"x-api-key": a.APIKey.Get(), "anthropic-version": anthropicVersion}
 	if err := post(ctx, a.Client, a.BaseURL+"/v1/messages", headers, body, &out); err != nil {
 		return "", err
 	}

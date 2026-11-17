@@ -19,11 +19,11 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 
 	"github.com/xilasec/xila-api/internal/netguard"
+	"github.com/xilasec/xila-api/internal/secretref"
 )
 
 // ErrNotFound is returned by Get when the key has no object: a payload
@@ -43,8 +43,8 @@ type Config struct {
 	// AccessKeyID / SecretAccessKey are static credentials. Both empty uses
 	// the standard AWS credential chain instead (env vars, shared config,
 	// EC2/ECS instance credentials, EKS IRSA via AssumeRoleWithWebIdentity).
-	AccessKeyID     string
-	SecretAccessKey string
+	AccessKeyID     secretref.Value
+	SecretAccessKey secretref.Value
 	// ForcePathStyle addresses buckets as /bucket/key instead of
 	// bucket.host/key — required by most non-AWS S3-compatible services.
 	ForcePathStyle bool
@@ -57,6 +57,10 @@ type Client struct {
 	prefix string
 }
 
+// staticCredsTTL is how long the SDK caches static credentials before it
+// reads them again (and so how long a rotation takes to apply).
+const staticCredsTTL = time.Minute
+
 // New builds a Client and verifies the bucket is reachable (HeadBucket), so a
 // wrong bucket name or missing credentials fails at startup, not on the first
 // upload.
@@ -65,9 +69,17 @@ func New(ctx context.Context, cfg Config) (*Client, error) {
 		awsconfig.WithRegion(cfg.Region),
 		awsconfig.WithHTTPClient(netguard.NewClient(60 * time.Second)),
 	}
-	if cfg.AccessKeyID != "" || cfg.SecretAccessKey != "" {
-		loadOpts = append(loadOpts, awsconfig.WithCredentialsProvider(
-			credentials.NewStaticCredentialsProvider(cfg.AccessKeyID, cfg.SecretAccessKey, "")))
+	if cfg.AccessKeyID.Get() != "" || cfg.SecretAccessKey.Get() != "" {
+		// Read per credential refresh rather than once: the SDK caches
+		// credentials until Expires, so a rotated S3_ACCESS_KEY_ID /
+		// S3_SECRET_ACCESS_KEY is picked up within staticCredsTTL.
+		loadOpts = append(loadOpts, awsconfig.WithCredentialsProvider(aws.CredentialsProviderFunc(
+			func(context.Context) (aws.Credentials, error) {
+				return aws.Credentials{
+					AccessKeyID: cfg.AccessKeyID.Get(), SecretAccessKey: cfg.SecretAccessKey.Get(),
+					Source: "xila-static", CanExpire: true, Expires: time.Now().Add(staticCredsTTL),
+				}, nil
+			})))
 	}
 	awsCfg, err := awsconfig.LoadDefaultConfig(ctx, loadOpts...)
 	if err != nil {

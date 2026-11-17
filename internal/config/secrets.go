@@ -2,7 +2,9 @@ package config
 
 import (
 	"context"
+	"errors"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 )
@@ -131,4 +133,33 @@ func (s *Secrets) refreshAll(ctx context.Context) {
 			}
 		}
 	}
+}
+
+// Refreshed returns c with its rotatable secret fields (JWT_SECRET,
+// JWT_PREVIOUS_SECRETS, INTEGRATION_SECRET_KEY, INTEGRATION_SECRET_KEY_PREVIOUS,
+// OIDC_CLIENT_SECRET) replaced by the store's current values, checked by the
+// same rules boot applies. A refresh hook applies the result only when err is
+// nil, so a bad rotated value is refused and the running keys stay.
+func (c Config) Refreshed() (Config, error) {
+	if c.Secrets == nil {
+		return c, nil
+	}
+	c.JWT.Secret = c.Secrets.Get("JWT_SECRET")
+	c.JWT.Previous = splitSecretList(c.Secrets.Get("JWT_PREVIOUS_SECRETS"))
+	c.IntegrationSecretKey = strings.TrimSpace(c.Secrets.Get("INTEGRATION_SECRET_KEY"))
+	c.IntegrationSecretKeyPrevious = c.Secrets.Get("INTEGRATION_SECRET_KEY_PREVIOUS")
+	c.OIDC.ClientSecret = c.Secrets.Get("OIDC_CLIENT_SECRET")
+	if c.JWT.Secret == "" || (c.IsProduction() && c.JWT.Secret == insecureDevSecret) {
+		return c, errors.New("JWT_SECRET must be set to a strong, unique value")
+	}
+	if err := c.validateJWTKeys(); err != nil {
+		return c, err
+	}
+	if _, err := c.IntegrationKey(); err != nil {
+		return c, err
+	}
+	if _, err := c.IntegrationPreviousKeys(); err != nil {
+		return c, err
+	}
+	return c, nil
 }

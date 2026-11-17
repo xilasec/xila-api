@@ -69,8 +69,10 @@ type ProviderStore interface {
 // admin page and left off the login page; it never affects the others.
 type Registry struct {
 	store     ProviderStore
-	env       []Provider
 	protocols map[string]Protocol
+
+	envMu sync.RWMutex
+	env   []Provider
 
 	mu    sync.Mutex
 	cache map[string]*entry // by provider id
@@ -95,6 +97,27 @@ var ErrUnavailable = errors.New("sso provider unavailable")
 // store, with a Protocol per kind.
 func NewRegistry(store ProviderStore, env []Provider, protocols map[string]Protocol) *Registry {
 	return &Registry{store: store, env: env, protocols: protocols, cache: map[string]*entry{}}
+}
+
+// UpdateEnv replaces the environment providers (a rotated OIDC_CLIENT_SECRET)
+// and drops their cached clients, so the next login builds one with the new
+// values. Database providers are untouched.
+func (r *Registry) UpdateEnv(env []Provider) {
+	r.envMu.Lock()
+	r.env = env
+	r.envMu.Unlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, p := range env {
+		delete(r.cache, p.ID)
+	}
+}
+
+// envProviders returns the current environment providers.
+func (r *Registry) envProviders() []Provider {
+	r.envMu.RLock()
+	defer r.envMu.RUnlock()
+	return r.env
 }
 
 // entry is one build of one provider version.
@@ -226,7 +249,7 @@ func (r *Registry) Resolve(ctx context.Context, kind, slug string) (Resolved, er
 }
 
 func (r *Registry) bySlug(ctx context.Context, slug string) (Provider, error) {
-	for _, p := range r.env {
+	for _, p := range r.envProviders() {
 		if p.Slug == slug {
 			return p, nil
 		}
@@ -240,7 +263,7 @@ func (r *Registry) bySlug(ctx context.Context, slug string) (Provider, error) {
 // Get returns a provider by id: an environment one by its kind, a database
 // one by uuid.
 func (r *Registry) Get(ctx context.Context, id string) (Provider, error) {
-	for _, p := range r.env {
+	for _, p := range r.envProviders() {
 		if p.ID == id {
 			return p, nil
 		}
@@ -249,14 +272,14 @@ func (r *Registry) Get(ctx context.Context, id string) (Provider, error) {
 }
 
 // Environment returns the environment providers.
-func (r *Registry) Environment() []Provider { return r.env }
+func (r *Registry) Environment() []Provider { return r.envProviders() }
 
 // All returns every provider, environment and database, in login-page order:
 // sort order, environment first, then name. If the database cannot be read,
 // the environment providers are still returned, with the error.
 func (r *Registry) All(ctx context.Context) ([]Provider, error) {
 	stored, err := r.store.List(ctx)
-	all := append(slices.Clone(r.env), stored...)
+	all := append(slices.Clone(r.envProviders()), stored...)
 	slices.SortStableFunc(all, func(a, b Provider) int {
 		return cmp.Or(cmp.Compare(a.SortOrder, b.SortOrder), cmp.Compare(b.Source, a.Source), cmp.Compare(a.Name, b.Name))
 	})

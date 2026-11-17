@@ -196,11 +196,11 @@ the highest-priority match, ties oldest-first), a validity window, a
 global/project/tag scope and an apply/log-only mode. It runs as a
 `scan.Applier` **after VEX** (an authoritative VEX verdict must still win) and
 **before the generic triage rules** (so a rule can condition on what a policy
-already set) — keep that order if the applier slice changes. Every effect is
+already set), keep that order if the applier slice changes. Every effect is
 tracked (`vuln_policy_matches`: what was applied, and what it was before), so
 a later evaluation (`ApplyToProject`/`EvaluateAll`, on `VULN_POLICY_EVAL_INTERVAL`
 and after every policy write) can revert exactly what it set when the policy
-stops matching, is disabled or deleted, or falls outside its validity window —
+stops matching, is disabled or deleted, or falls outside its validity window,
 the same way an expired triage exception reopens a finding. The overturn guard
 compares the finding's *current* state against what the engine itself last
 recorded, never against "is it still open": once something else (a person, a
@@ -438,14 +438,14 @@ state.
 
 **Computed custom fields**: `internal/computed` evaluates a custom field
 definition's CEL `expression` (`customfield.Definition.Computed`) and writes
-the result into the entity's `custom` column — the only writer: a person's
+the result into the entity's `custom` column, the only writer: a person's
 `PATCH .../custom` and a triage rule's `set_custom_field` both refuse a
 computed key (`customfield.Service.Prepare`). It runs as a `scan.Applier`
 (`ApplyToScan`, right after the triage rules), as a full backfill of one
 entity type when a definition is created or its expression changes
 (`customfield.Handler.WithComputedChanged`, synchronous), and on the leader's
 `COMPUTED_FIELDS_INTERVAL` sweep (`RunSweep`). The finding document is
-`triage.FindingDoc`/`ProjectFacts` — exported so this package reuses it
+`triage.FindingDoc`/`ProjectFacts`: exported so this package reuses it
 rather than building a second one; a new fact belongs in that builder, not
 copied here. The project (`internal/computed.projectDoc`) and asset
 (`assetDoc`) documents are this package's own, built once and reused for
@@ -454,7 +454,7 @@ section. `customfield.FilterComputed` drops every computed key from a
 document's `*.custom` before it is built, so a computed field can never read
 another's value (no evaluation order, no cycle). `expr.CompileValue`/
 `LoadValue` are `Compile`/`Load` without the boolean-result requirement;
-`customfield.Definition.Fit` is the lenient counterpart to `Normalize` — it
+`customfield.Definition.Fit` is the lenient counterpart to `Normalize`: it
 never errors, just leaves the field unset when the result doesn't fit.
 
 CRA Article 14 cases: `internal/cra` (`cases.go`, `service.go`). "Actively
@@ -605,8 +605,8 @@ them in a `RemoteError` detail and store only the public message (e.g. connector
 `last_error`).
 
 Secrets backends (M10 10.1): a secret setting (any `sec.get(...)` call in
-`internal/config`) may hold a reference instead of a literal value —
-`aws-sm://`, `gcp-sm://`, `vault://`, `azure-kv://` — resolved by
+`internal/config`) may hold a reference instead of a literal value:
+`aws-sm://`, `gcp-sm://`, `vault://`, `azure-kv://`, resolved by
 `internal/secretref` at load time, with a per-lookup timeout
 (`SECRETS_TIMEOUT`). These are operator infrastructure (like `DB_HOST`),
 resolved before the outbound policy exists (`config.Load` runs first), so
@@ -615,12 +615,12 @@ lookup is a `config.Load` error naming the setting and the reference's
 scheme+path, never a value. Rotation (M10 10.2): any setting that came from
 a reference or a `NAME_FILE` is re-read on `SECRETS_REFRESH_INTERVAL` by
 `config.Secrets` (every node, not only the leader); a failed refresh keeps
-the last good value. Consumers must read the current value at use time —
-prefer a `func() string` getter (`cfg.Secrets.Getter(name)`) over holding
-the whole store. `JWT_SECRET` and `INTEGRATION_SECRET_KEY` need a key ring
-before rotation is safe (ending sessions / making stored secrets
-unreadable); `config.Secrets` tracks and refreshes them too, but nothing
-consumes the change yet.
+the last good value. Consumers read the current value at use time: hold a
+`secretref.Value` (`cfg.SecretGetter(name, fallback)`), never the string
+captured at startup, so a new secret consumer rotates for free. The key
+rings (`auth.Keys`, `secretbox.Keyring`) and the environment SSO provider are
+updated by `wireKeyRotation` (`cmd/api/rotation.go`) through
+`Config.Refreshed`, which re-runs boot's checks and refuses a bad value.
 
 Accounts and sessions: JWTs carry `tv` (the user's `token_version`).
 `auth.Middleware` rejects stale or deactivated sessions via `user.SessionValid` on
@@ -649,7 +649,7 @@ button path).
 Secrets at rest: integration credentials (issue trackers, connectors), SSO
 provider secrets, the generated SAML SP key, personal/signed-webhook secrets,
 and two-factor secrets are encrypted with `internal/secretbox` (AES-GCM, key
-`INTEGRATION_SECRET_KEY`, an AAD specific to each row — project id, channel
+`INTEGRATION_SECRET_KEY`, an AAD specific to each row, project id, channel
 id, `"mfa:" + user id`, a fixed constant, or provider id + column) and are
 write-only in the API (`has_token`). Every seal/open goes through a
 `secretbox.Keyring` (`Seal` with the primary key; `Open` with the primary,
@@ -657,7 +657,7 @@ then each `INTEGRATION_SECRET_KEY_PREVIOUS` key, so rotating the primary never
 makes a stored value unreadable). A new sealed column must be added to
 `secretbox.Registry` (table, PK column, sealed column, and the exact SQL
 expression reproducing its AAD) or the leader's `Rekey` pass and
-`TestSealedColumnsRegistered` won't know about it — the drift test only
+`TestSealedColumnsRegistered` won't know about it, the drift test only
 catches one that follows the `*_enc`/`sealed_*`/`*_sealed` naming convention;
 anything else needs adding to the registry by hand. `GET
 /admin/secrets/status` reports each column's primary/previous/unreadable
@@ -809,8 +809,8 @@ and `internal/server/smoke_test.go` (missing smoke wiring causes a nil panic in 
 - Queued payloads can live outside Postgres (`INGEST_PAYLOAD_STORE=s3`, M11
   11.8, `internal/objectstore`): `scan.Service.Enqueue` uploads to the object
   store and leaves only `scan_jobs.payload_ref`; `ProcessJob` fetches it and
-  deletes it on success. A job that exhausts its retries keeps its object —
-  deliberately, so it stays inspectable — until `LOG_RETENTION` purges the
+  deletes it on success. A job that exhausts its retries keeps its object,
+  deliberately, so it stays inspectable, until `LOG_RETENTION` purges the
   parked row and the object together (`retention.pruneFailedJobs`). Anything
   that reads `scan_jobs.payload` directly must handle it being `NULL` when
   `payload_ref` is set (the migration's xor `CHECK`).

@@ -64,7 +64,7 @@ func TestNVDCPESourceAgainstRealResponse(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	src := vulnmatch.NewNVDCPESource(enrichment.NewNVDClient(srv.URL, ""))
+	src := vulnmatch.NewNVDCPESource(enrichment.NewNVDClient(srv.URL, nil))
 	const cpe22 = "cpe:/a:apache:log4j:2.14.1" // as some SBOMs carry it
 	got, err := src.QueryCPE(context.Background(), []string{cpe22, "cpe:2.3:a:apache:log4j:*:*:*:*:*:*:*:*"})
 	if err != nil {

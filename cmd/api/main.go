@@ -237,8 +237,8 @@ func run() error {
 			Region:          cfg.S3.Region,
 			Bucket:          cfg.S3.Bucket,
 			Prefix:          cfg.S3.Prefix,
-			AccessKeyID:     cfg.S3.AccessKeyID,
-			SecretAccessKey: cfg.S3.SecretAccessKey,
+			AccessKeyID:     cfg.SecretGetter("S3_ACCESS_KEY_ID", cfg.S3.AccessKeyID),
+			SecretAccessKey: cfg.SecretGetter("S3_SECRET_ACCESS_KEY", cfg.S3.SecretAccessKey),
 			ForcePathStyle:  cfg.S3.ForcePathStyle,
 		})
 		if err != nil {
@@ -271,7 +271,8 @@ func run() error {
 	portfolioParts := portfolio.NewRepository(jobDB)
 	notifyRepo := notify.NewRepository(db)
 	features := feature.NewStore(db, feature.Unavailable(cfg)...)
-	notifySvc := notify.NewService(notifyRepo, notify.SMTPConfig(cfg.SMTP)).WithFeatures(features)
+	notifySvc := notify.NewService(notifyRepo, notify.SMTPConfig(cfg.SMTP)).WithFeatures(features).
+		WithSMTPPassword(cfg.SecretGetter("SMTP_PASSWORD", cfg.SMTP.Password))
 	notifySvc.SetDeliveryPolicy(notify.DeliveryPolicy{
 		MaxAttempts: cfg.Notify.MaxAttempts, RetryBase: cfg.Notify.RetryBase,
 		RetryMax: cfg.Notify.RetryMax, Retention: cfg.Notify.Retention,
@@ -365,7 +366,7 @@ func run() error {
 	// NVD CVSS: stamp cached vectors onto a scan's findings at ingest (no network;
 	// the enrichment schedule fetches). Before dedup, after nothing that reads it.
 	// One NVD client: CVSS enrichment and CPE matching share its rate limit.
-	nvdClient := enrichment.NewNVDClient(cfg.NVD.URL, cfg.NVD.APIKey)
+	nvdClient := enrichment.NewNVDClient(cfg.NVD.URL, cfg.SecretGetter("NVD_API_KEY", cfg.NVD.APIKey))
 	nvdSvc := enrichment.NewNVD(findingRepo, nvdClient)
 	if cfg.NVD.Enabled {
 		appliers = append(appliers, nvdSvc)
@@ -414,7 +415,7 @@ func run() error {
 		if err != nil {
 			return err
 		}
-		authSvc.EnableDirectory(dir)
+		authSvc.EnableDirectory(dir.WithBindPassword(cfg.SecretGetter("LDAP_BIND_PASSWORD", cfg.LDAP.BindPassword)))
 	}
 
 	tokenRepo := apitoken.NewRepository(db)
@@ -428,9 +429,9 @@ func run() error {
 	advisoryRepo := vulnmatch.NewAdvisoryRepository(db, cfg.PublicURL)
 	jvnRepo := vulnmatch.NewJVNRepository(db)
 	vulnSources, err := vulnmatch.NewSources(cfg.VulnMatch.Sources, vulnmatch.SourceDeps{
-		OSVURL: cfg.VulnMatch.OSVURL, GitHubURL: cfg.VulnMatch.GitHubURL, GitHubToken: cfg.VulnMatch.GitHubToken,
+		OSVURL: cfg.VulnMatch.OSVURL, GitHubURL: cfg.VulnMatch.GitHubURL, GitHubToken: cfg.SecretGetter("VULNMATCH_GITHUB_TOKEN", cfg.VulnMatch.GitHubToken),
 		Mirror: osvMirrorRepo, Private: advisoryRepo, NVD: nvdClient,
-		VulnerableCodeURL: cfg.VulnMatch.VulnerableCodeURL, VulnerableCodeAPIKey: cfg.VulnMatch.VulnerableCodeAPIKey,
+		VulnerableCodeURL: cfg.VulnMatch.VulnerableCodeURL, VulnerableCodeAPIKey: cfg.SecretGetter("VULNMATCH_VULNERABLECODE_API_KEY", cfg.VulnMatch.VulnerableCodeAPIKey),
 		JVN: jvnRepo,
 	})
 	if err != nil {
@@ -486,7 +487,7 @@ func run() error {
 		sbomSvc.WithPackageMeta(policySvc.AfterRefresh(pkgmetaSvc))
 	}
 
-	kevCatalogs, err := enrichment.KEVCatalogs(cfg.Enrich.KEVSources, cfg.Enrich.KEVURLs, cfg.Enrich.VulnCheckToken,
+	kevCatalogs, err := enrichment.KEVCatalogs(cfg.Enrich.KEVSources, cfg.Enrich.KEVURLs, cfg.SecretGetter("VULNCHECK_API_TOKEN", cfg.Enrich.VulnCheckToken),
 		netguard.NewClient(5*time.Minute))
 	if err != nil {
 		return fmt.Errorf("KEV_SOURCES: %w", err)
@@ -500,7 +501,7 @@ func run() error {
 	// Opt-in AI triage (AI_TRIAGE_ENABLED): nil provider = off (routes 404).
 	var aiProvider aitriage.Provider
 	if cfg.AI.Enabled {
-		if aiProvider, err = aitriage.NewProvider(cfg.AI); err != nil {
+		if aiProvider, err = aitriage.NewProvider(cfg.AI, cfg.SecretGetter("AI_API_KEY", cfg.AI.APIKey)); err != nil {
 			return err
 		}
 		slog.InfoContext(rootCtx, "AI triage enabled", "provider", cfg.AI.Provider, "model", cfg.AI.Model)
@@ -593,6 +594,7 @@ func run() error {
 		sso.ProviderOIDC: oidc.Protocol{},
 		sso.ProviderSAML: saml.Protocol{Keys: saml.NewKeyStore(db, trackerCipher)},
 	})
+	wireKeyRotation(cfg, jwtKeys, trackerCipher, ssoRegistry)
 	// SAML Single Logout: a login is recorded (NameID/SessionIndex) until the
 	// JWT's own TTL, so a later /me/logout can find the IdP to sign out of,
 	// and an IdP-initiated LogoutRequest can find the session to end here.

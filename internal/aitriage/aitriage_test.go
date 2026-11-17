@@ -131,7 +131,7 @@ func TestProviders(t *testing.T) {
 	defer srv.Close()
 	prompt := Prompt{System: "sys", User: "usr"}
 
-	oa, _ := NewProvider(config.AI{Provider: config.AIProviderOpenAI, BaseURL: srv.URL + "/v1", Model: "m1", APIKey: "k1", Timeout: 5e9})
+	oa, _ := NewProvider(config.AI{Provider: config.AIProviderOpenAI, BaseURL: srv.URL + "/v1", Model: "m1", APIKey: "k1", Timeout: 5e9}, nil)
 	out, err := oa.Complete(context.Background(), prompt)
 	if err != nil || out != `{"a":1}` || got.path != "/v1/chat/completions" || got.auth != "Bearer k1" || got.body["model"] != "m1" {
 		t.Fatalf("openai: %q %v %+v", out, err, got)
@@ -140,14 +140,14 @@ func TestProviders(t *testing.T) {
 		t.Errorf("openai messages = %v", msgs)
 	}
 
-	an, _ := NewProvider(config.AI{Provider: config.AIProviderAnthropic, BaseURL: srv.URL, Model: "m2", APIKey: "k2", Timeout: 5e9})
+	an, _ := NewProvider(config.AI{Provider: config.AIProviderAnthropic, BaseURL: srv.URL, Model: "m2", APIKey: "k2", Timeout: 5e9}, nil)
 	out, err = an.Complete(context.Background(), prompt)
 	if err != nil || out != `{"b":2}` || got.path != "/v1/messages" || got.apiKey != "k2" || got.version != anthropicVersion ||
 		got.body["system"] != "sys" || got.auth != "" {
 		t.Fatalf("anthropic: %q %v %+v", out, err, got)
 	}
 
-	bad, _ := NewProvider(config.AI{Provider: config.AIProviderOpenAI, BaseURL: srv.URL + "/nope", Model: "m", Timeout: 5e9})
+	bad, _ := NewProvider(config.AI{Provider: config.AIProviderOpenAI, BaseURL: srv.URL + "/nope", Model: "m", Timeout: 5e9}, nil)
 	_, err = bad.Complete(context.Background(), prompt)
 	var re RemoteError
 	if !errors.As(err, &re) || strings.Contains(re.Public(), "sk-internal-detail") || !strings.Contains(err.Error(), "sk-internal-detail") {

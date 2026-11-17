@@ -16,6 +16,7 @@ import (
 
 	"github.com/xilasec/xila-api/internal/netguard"
 	"github.com/xilasec/xila-api/internal/secretbox"
+	"github.com/xilasec/xila-api/internal/secretref"
 )
 
 // channelLister is the slice of the repository the dispatcher needs.
@@ -40,6 +41,7 @@ type Service struct {
 	wake        chan struct{} // nudges this process's dispatcher after an enqueue
 	client      *http.Client
 	smtp        SMTPConfig
+	smtpPass    secretref.Value    // the live SMTP_PASSWORD; nil = smtp.Password
 	maxAttempts int                // SendTo's in-request retries
 	backoff     time.Duration      // SendTo's first retry wait
 	cipher      *secretbox.Keyring // webhook signing secrets (unconfigured: none can be stored or used)
@@ -61,6 +63,13 @@ func NewService(repo *Repository, smtp SMTPConfig) *Service {
 		maxAttempts: 3,
 		backoff:     time.Second,
 	}
+}
+
+// WithSMTPPassword reads the SMTP password per message instead of the
+// startup value, so a rotated SMTP_PASSWORD applies to the next email.
+func (s *Service) WithSMTPPassword(v secretref.Value) *Service {
+	s.smtpPass = v
+	return s
 }
 
 // SetDeliveryPolicy sets the outbox retry/retention policy (NOTIFY_*).

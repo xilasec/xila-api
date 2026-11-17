@@ -654,16 +654,20 @@ Today secrets come from the environment, a `.env` file, or `NAME_FILE` (mounted
 files from Docker/Kubernetes secrets, Vault Agent, the Secrets Store CSI driver
 or External Secrets Operator).
 
-- ✅ 10.1 Native secrets managers: let any secret setting be a reference that Xila
-  resolves at startup, for example `aws-sm://name#key`, `gcp-sm://projects/p/secrets/s`,
-  `vault://kv/data/xila#jwt` and `azure-kv://vault/secret`. Each backend uses its
-  platform's credential chain (IAM role / IRSA, workload identity, Vault
-  Kubernetes or AppRole auth, managed identity). Decide per backend whether to use
-  the official SDK or plain HTTP (the GCP client pulls in gRPC), test against
-  emulators or `httptest` fakes, and keep a failed lookup a startup error.
-- ⬜ 10.2 Rotation: re-read rotatable secrets (database password, API tokens)
-  without a restart; `JWT_SECRET` and `INTEGRATION_SECRET_KEY` need a key ring
-  first, since rotating them today ends sessions or makes stored secrets unreadable.
+- ✅ 10.1 Native secrets managers: any secret setting may be a reference resolved
+  at startup: `aws-sm://` (SDK, default credential chain incl. IRSA),
+  `gcp-sm://` (REST with Application Default Credentials, no gRPC client),
+  `vault://` (token, Kubernetes or AppRole auth; KV v1 and v2) and
+  `azure-kv://` (azidentity: managed or workload identity). A failed lookup
+  fails startup without printing the value. Tested against `httptest` fakes.
+- ✅ 10.2 Rotation: every secret setting from a reference or a `NAME_FILE` is
+  re-read on `SECRETS_REFRESH_INTERVAL` by every node and read at use time
+  (`secretref.Value`), so a rotated database password, SMTP/LDAP/OIDC/API
+  credential or S3 key applies without a restart. `JWT_SECRET` and
+  `INTEGRATION_SECRET_KEY` rotate through key rings (`JWT_PREVIOUS_SECRETS`,
+  `INTEGRATION_SECRET_KEY_PREVIOUS`): tokens carry a `kid`, old sessions keep
+  working, the leader re-seals every stored secret under the new key, and
+  `GET /admin/secrets/status` says when the old key can go.
 
 ## M11: Ingest at scale (1,000 to 1,000,000 repositories at once)
 
@@ -725,7 +729,7 @@ For 1,000,000 (bursts of a billion findings):
   `scan_jobs` keeps only a `payload_ref` key (`payload` is nullable, with an
   xor `CHECK`); `scan.Service.Enqueue` uploads it, `ProcessJob` fetches and
   deletes it on success, and a job parked `failed` keeps its object until
-  `LOG_RETENTION` purges the row (and the object with it) — inspectable in
+  `LOG_RETENTION` purges the row (and the object with it), inspectable in
   the meantime. Static credentials or the standard AWS credential chain
   (env/EC2/ECS/EKS IRSA); the bucket is `HeadBucket`-checked at startup, so a
   bad bucket or missing credentials fails boot. Skip-unchanged and the queue
