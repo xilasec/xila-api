@@ -100,6 +100,8 @@ tags:
     description: DefectDojo-style engagements (time-boxed work whose scans are its tests), manual findings and finding templates.
   - name: Policies
     description: Component policies over security, license and operational facts; violations become findings.
+  - name: Vulnerability policies
+    description: CEL rules over a component + vulnerability pair that set an analysis or rating override atomically, with priority, a validity window and GitOps bundles.
   - name: Notifications
     description: Webhook/Slack channels and the delivery log.
   - name: Admin
@@ -8327,6 +8329,205 @@ paths:
                 properties:
                   policies: { type: array, items: { $ref: "#/components/schemas/Policy" } }
 
+
+  /vuln-policies:
+    get:
+      operationId: listVulnPolicies
+      tags: [Vulnerability policies]
+      summary: List vulnerability policies
+      description: Instance admin. Highest `priority` first; the highest-priority matching policy wins when several match the same pair.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  policies: { type: array, items: { $ref: "#/components/schemas/VulnPolicy" } }
+    post:
+      operationId: createVulnPolicy
+      tags: [Vulnerability policies]
+      summary: Create a vulnerability policy
+      description: |
+        A CEL condition over a component + vulnerability pair (package findings) that
+        sets an analysis and/or a rating override atomically when it matches. Takes
+        effect immediately: matching findings in scope are claimed in the background.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VulnPolicy" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VulnPolicy" }
+        "400": { $ref: "#/components/responses/Error" }
+
+  /vuln-policies/{policyID}:
+    get:
+      operationId: getVulnPolicy
+      tags: [Vulnerability policies]
+      summary: Read a vulnerability policy
+      parameters: [{ $ref: "#/components/parameters/PolicyID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VulnPolicy" }
+        "404": { $ref: "#/components/responses/Error" }
+    patch:
+      operationId: updateVulnPolicy
+      tags: [Vulnerability policies]
+      summary: Update a vulnerability policy
+      description: Full replacement. Re-evaluates in the background — a condition or priority change may immediately claim or release findings.
+      parameters: [{ $ref: "#/components/parameters/PolicyID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VulnPolicy" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VulnPolicy" }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deleteVulnPolicy
+      tags: [Vulnerability policies]
+      summary: Delete a vulnerability policy
+      description: Findings it was holding revert to what they were before it ever matched, on the evaluation that follows.
+      parameters: [{ $ref: "#/components/parameters/PolicyID" }]
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /vuln-policies/preview:
+    post:
+      operationId: previewVulnPolicies
+      tags: [Vulnerability policies]
+      summary: Dry-run an unsaved policy
+      description: |
+        Body is a policy exactly as for create; nothing is stored or changed. Returns
+        the findings the policy **would** act on and how — evaluated on its own
+        (ignoring priority against other live policies), so you can see its effect
+        before saving it.
+      parameters:
+        - name: project_id
+          in: query
+          schema: { type: string, format: uuid }
+          description: Narrow the preview to one project; omit to cover every project the policy's scope reaches.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VulnPolicy" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VulnPolicyPreview" }
+        "400": { $ref: "#/components/responses/Error" }
+
+  /vuln-policies/{policyID}/preview:
+    post:
+      operationId: previewVulnPolicy
+      tags: [Vulnerability policies]
+      summary: Dry-run a stored policy
+      description: As `POST /vuln-policies/preview`, for a stored policy — whatever its enabled state.
+      parameters:
+        - { $ref: "#/components/parameters/PolicyID" }
+        - name: project_id
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VulnPolicyPreview" }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /vuln-policies/evaluate:
+    post:
+      operationId: evaluateVulnPolicies
+      tags: [Vulnerability policies]
+      summary: Re-evaluate the backlog now
+      description: |
+        Ingest and every policy edit already evaluate immediately; this is for
+        catching a validity window's expiry without waiting for
+        `VULN_POLICY_EVAL_INTERVAL`.
+      parameters:
+        - name: project_id
+          in: query
+          schema: { type: string, format: uuid }
+          description: Omit to evaluate every project.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { applied: { type: integer, description: Findings changed. } }
+
+  /vuln-policies/bundle:
+    get:
+      operationId: exportVulnPolicyBundle
+      tags: [Vulnerability policies]
+      summary: Export every policy as a GitOps bundle
+      description: The whole policy set, without database ids, so it can live in git and be reapplied verbatim with `PUT`.
+      parameters:
+        - name: format
+          in: query
+          schema: { type: string, enum: [yaml, json], default: yaml }
+      responses:
+        "200":
+          description: The bundle, as an attachment.
+          content:
+            application/yaml:
+              schema: { $ref: "#/components/schemas/VulnPolicyBundle" }
+            application/json:
+              schema: { $ref: "#/components/schemas/VulnPolicyBundle" }
+    put:
+      operationId: importVulnPolicyBundle
+      tags: [Vulnerability policies]
+      summary: Replace the whole policy set from a bundle
+      description: |
+        Every policy in the body is validated (unique names, compilable condition)
+        before anything is written; on success the whole stored set is atomically
+        replaced (fresh ids) and re-evaluated. A policy the old set had applying that
+        the new set drops is reverted like any other removed policy.
+      parameters:
+        - name: dry_run
+          in: query
+          schema: { type: boolean, default: false }
+          description: Validate and report the resulting set without writing it.
+      requestBody:
+        required: true
+        content:
+          application/yaml:
+            schema: { $ref: "#/components/schemas/VulnPolicyBundle" }
+          application/json:
+            schema: { $ref: "#/components/schemas/VulnPolicyBundle" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  policies: { type: array, items: { $ref: "#/components/schemas/VulnPolicy" } }
+                  dry_run: { type: boolean }
+        "400": { $ref: "#/components/responses/Error" }
 components:
   securitySchemes:
     bearerAuth:
@@ -11081,6 +11282,97 @@ components:
                     operator: { type: string }
                     value: { description: The condition's normalized value. }
                     fact: { type: string, description: What the component had, e.g. `license GPL-3.0-only`. }
+
+
+    VulnPolicy:
+      type: object
+      required: [name, condition, scope, mode]
+      description: |
+        A CEL condition over `component` (`name`, `version`, `purl`, `group`, `license`,
+        `scope`, `direct`), `vulnerability` (`id`, `aliases`, `severity`, `cvss`, `epss`,
+        `kev`, `cwes`, `published` — always unknown, findings carry no disclosure date)
+        and `project` (`name`, `tags`, `criticality`, `custom.<key>`), e.g.
+        `vulnerability.kev == true && component.scope == "dev"`. Unknown facts are null
+        and never match; syntax errors, misspelled fields and non-boolean results are
+        rejected when saving.
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        name: { type: string }
+        description: { type: string }
+        enabled: { type: boolean, default: true }
+        condition: { type: string }
+        priority:
+          type: integer
+          default: 0
+          description: The highest-priority policy whose condition matches a pair wins when several do. Ties break oldest-first.
+        analysis:
+          type: [object, "null"]
+          description: The verdict to record; omit (null) for a rating-only policy.
+          properties:
+            state:
+              type: string
+              enum: [not_affected, false_positive, exploitable, in_triage]
+              description: |
+                `not_affected` and `false_positive` both set the finding `false_positive`
+                (Dependency-Track distinguishes them as justifications of the same
+                outcome); `exploitable` sets `confirmed`; `in_triage` sets no status (use
+                it to flag a pair for review without moving it).
+            justification: { type: string }
+            details: { type: string }
+        rating:
+          type: [object, "null"]
+          description: A severity override to apply; omit (null) for an analysis-only policy.
+          properties:
+            severity: { $ref: "#/components/schemas/Severity" }
+            cvss_vector: { type: string, description: "Detail only (display/bundle); never overwrites a scanner- or NVD-sourced CVSS." }
+            cvss_score: { type: [number, "null"] }
+        valid_from: { type: [string, "null"], format: date-time, description: Null = unbounded. }
+        valid_until: { type: [string, "null"], format: date-time, description: Null = unbounded. Outside the window the policy doesn't apply, and its earlier effect reverts on the next evaluation. }
+        scope:
+          type: string
+          enum: [global, projects, tag]
+          default: global
+        project_ids:
+          type: array
+          items: { type: string, format: uuid }
+          description: Required (non-empty) when `scope` is `projects`.
+        tag: { type: string, description: Required when `scope` is `tag`. }
+        mode:
+          type: string
+          enum: [apply, log]
+          default: apply
+          description: "`log`: the condition is still evaluated (see preview) but never mutates a finding and never wins election over an `apply` policy."
+        created_by: { type: [string, "null"], format: uuid, readOnly: true }
+        created_at: { type: string, format: date-time, readOnly: true }
+        updated_at: { type: string, format: date-time, readOnly: true }
+
+    VulnPolicyPreview:
+      type: object
+      properties:
+        total: { type: integer, description: Every pair the policy would act on (the list is capped at 200). }
+        findings:
+          type: array
+          maxItems: 200
+          items:
+            type: object
+            properties:
+              finding_id: { type: string, format: uuid }
+              project_id: { type: string, format: uuid }
+              title: { type: string }
+              package_name: { type: string }
+              package_version: { type: string }
+              purl: { type: string }
+              vulnerability_id: { type: string }
+              current_status: { $ref: "#/components/schemas/FindingStatus" }
+              set_status: { $ref: "#/components/schemas/FindingStatus" }
+              current_severity: { $ref: "#/components/schemas/Severity" }
+              set_severity: { $ref: "#/components/schemas/Severity" }
+
+    VulnPolicyBundle:
+      type: object
+      description: The GitOps-portable policy set — every policy, without database ids (an import always assigns fresh ones).
+      properties:
+        policies: { type: array, items: { $ref: "#/components/schemas/VulnPolicy" } }
 
     Channel:
       type: object

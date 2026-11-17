@@ -6388,6 +6388,149 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/vuln-policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List vulnerability policies
+         * @description Instance admin. Highest `priority` first; the highest-priority matching policy wins when several match the same pair.
+         */
+        get: operations["listVulnPolicies"];
+        put?: never;
+        /**
+         * Create a vulnerability policy
+         * @description A CEL condition over a component + vulnerability pair (package findings) that
+         *     sets an analysis and/or a rating override atomically when it matches. Takes
+         *     effect immediately: matching findings in scope are claimed in the background.
+         */
+        post: operations["createVulnPolicy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vuln-policies/{policyID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read a vulnerability policy */
+        get: operations["getVulnPolicy"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a vulnerability policy
+         * @description Findings it was holding revert to what they were before it ever matched, on the evaluation that follows.
+         */
+        delete: operations["deleteVulnPolicy"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a vulnerability policy
+         * @description Full replacement. Re-evaluates in the background — a condition or priority change may immediately claim or release findings.
+         */
+        patch: operations["updateVulnPolicy"];
+        trace?: never;
+    };
+    "/vuln-policies/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dry-run an unsaved policy
+         * @description Body is a policy exactly as for create; nothing is stored or changed. Returns
+         *     the findings the policy **would** act on and how — evaluated on its own
+         *     (ignoring priority against other live policies), so you can see its effect
+         *     before saving it.
+         */
+        post: operations["previewVulnPolicies"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vuln-policies/{policyID}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dry-run a stored policy
+         * @description As `POST /vuln-policies/preview`, for a stored policy — whatever its enabled state.
+         */
+        post: operations["previewVulnPolicy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vuln-policies/evaluate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Re-evaluate the backlog now
+         * @description Ingest and every policy edit already evaluate immediately; this is for
+         *     catching a validity window's expiry without waiting for
+         *     `VULN_POLICY_EVAL_INTERVAL`.
+         */
+        post: operations["evaluateVulnPolicies"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vuln-policies/bundle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export every policy as a GitOps bundle
+         * @description The whole policy set, without database ids, so it can live in git and be reapplied verbatim with `PUT`.
+         */
+        get: operations["exportVulnPolicyBundle"];
+        /**
+         * Replace the whole policy set from a bundle
+         * @description Every policy in the body is validated (unique names, compilable condition)
+         *     before anything is written; on success the whole stored set is atomically
+         *     replaced (fresh ids) and re-evaluated. A policy the old set had applying that
+         *     the new set drops is reverted like any other removed policy.
+         */
+        put: operations["importVulnPolicyBundle"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -9449,6 +9592,103 @@ export interface components {
                     fact?: string;
                 }[];
             }[];
+        };
+        /**
+         * @description A CEL condition over `component` (`name`, `version`, `purl`, `group`, `license`,
+         *     `scope`, `direct`), `vulnerability` (`id`, `aliases`, `severity`, `cvss`, `epss`,
+         *     `kev`, `cwes`, `published` — always unknown, findings carry no disclosure date)
+         *     and `project` (`name`, `tags`, `criticality`, `custom.<key>`), e.g.
+         *     `vulnerability.kev == true && component.scope == "dev"`. Unknown facts are null
+         *     and never match; syntax errors, misspelled fields and non-boolean results are
+         *     rejected when saving.
+         */
+        VulnPolicy: {
+            /** Format: uuid */
+            readonly id?: string;
+            name: string;
+            description?: string;
+            /** @default true */
+            enabled: boolean;
+            condition: string;
+            /**
+             * @description The highest-priority policy whose condition matches a pair wins when several do. Ties break oldest-first.
+             * @default 0
+             */
+            priority: number;
+            /** @description The verdict to record; omit (null) for a rating-only policy. */
+            analysis?: {
+                /**
+                 * @description `not_affected` and `false_positive` both set the finding `false_positive`
+                 *     (Dependency-Track distinguishes them as justifications of the same
+                 *     outcome); `exploitable` sets `confirmed`; `in_triage` sets no status (use
+                 *     it to flag a pair for review without moving it).
+                 * @enum {string}
+                 */
+                state?: "not_affected" | "false_positive" | "exploitable" | "in_triage";
+                justification?: string;
+                details?: string;
+            } | null;
+            /** @description A severity override to apply; omit (null) for an analysis-only policy. */
+            rating?: {
+                severity?: components["schemas"]["Severity"];
+                /** @description Detail only (display/bundle); never overwrites a scanner- or NVD-sourced CVSS. */
+                cvss_vector?: string;
+                cvss_score?: number | null;
+            } | null;
+            /**
+             * Format: date-time
+             * @description Null = unbounded.
+             */
+            valid_from?: string | null;
+            /**
+             * Format: date-time
+             * @description Null = unbounded. Outside the window the policy doesn't apply
+             */
+            valid_until?: string | null;
+            /**
+             * @default global
+             * @enum {string}
+             */
+            scope: "global" | "projects" | "tag";
+            /** @description Required (non-empty) when `scope` is `projects`. */
+            project_ids?: string[];
+            /** @description Required when `scope` is `tag`. */
+            tag?: string;
+            /**
+             * @description `log`: the condition is still evaluated (see preview) but never mutates a finding and never wins election over an `apply` policy.
+             * @default apply
+             * @enum {string}
+             */
+            mode: "apply" | "log";
+            /** Format: uuid */
+            readonly created_by?: string | null;
+            /** Format: date-time */
+            readonly created_at?: string;
+            /** Format: date-time */
+            readonly updated_at?: string;
+        };
+        VulnPolicyPreview: {
+            /** @description Every pair the policy would act on (the list is capped at 200). */
+            total?: number;
+            findings?: {
+                /** Format: uuid */
+                finding_id?: string;
+                /** Format: uuid */
+                project_id?: string;
+                title?: string;
+                package_name?: string;
+                package_version?: string;
+                purl?: string;
+                vulnerability_id?: string;
+                current_status?: components["schemas"]["FindingStatus"];
+                set_status?: components["schemas"]["FindingStatus"];
+                current_severity?: components["schemas"]["Severity"];
+                set_severity?: components["schemas"]["Severity"];
+            }[];
+        };
+        /** @description The GitOps-portable policy set — every policy, without database ids (an import always assigns fresh ones). */
+        VulnPolicyBundle: {
+            policies?: components["schemas"]["VulnPolicy"][];
         };
         Channel: {
             /** Format: uuid */
@@ -20550,6 +20790,259 @@ export interface operations {
                     };
                 };
             };
+        };
+    };
+    listVulnPolicies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        policies?: components["schemas"]["VulnPolicy"][];
+                    };
+                };
+            };
+        };
+    };
+    createVulnPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VulnPolicy"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VulnPolicy"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    getVulnPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                policyID: components["parameters"]["PolicyID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VulnPolicy"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    deleteVulnPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                policyID: components["parameters"]["PolicyID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    updateVulnPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                policyID: components["parameters"]["PolicyID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VulnPolicy"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VulnPolicy"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    previewVulnPolicies: {
+        parameters: {
+            query?: {
+                /** @description Narrow the preview to one project; omit to cover every project the policy's scope reaches. */
+                project_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VulnPolicy"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VulnPolicyPreview"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    previewVulnPolicy: {
+        parameters: {
+            query?: {
+                project_id?: string;
+            };
+            header?: never;
+            path: {
+                policyID: components["parameters"]["PolicyID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VulnPolicyPreview"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    evaluateVulnPolicies: {
+        parameters: {
+            query?: {
+                /** @description Omit to evaluate every project. */
+                project_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Findings changed. */
+                        applied?: number;
+                    };
+                };
+            };
+        };
+    };
+    exportVulnPolicyBundle: {
+        parameters: {
+            query?: {
+                format?: "yaml" | "json";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The bundle, as an attachment. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/yaml": components["schemas"]["VulnPolicyBundle"];
+                    "application/json": components["schemas"]["VulnPolicyBundle"];
+                };
+            };
+        };
+    };
+    importVulnPolicyBundle: {
+        parameters: {
+            query?: {
+                /** @description Validate and report the resulting set without writing it. */
+                dry_run?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/yaml": components["schemas"]["VulnPolicyBundle"];
+                "application/json": components["schemas"]["VulnPolicyBundle"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        policies?: components["schemas"]["VulnPolicy"][];
+                        dry_run?: boolean;
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
         };
     };
 }

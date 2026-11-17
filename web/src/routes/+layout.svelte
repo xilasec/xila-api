@@ -108,6 +108,7 @@
 	/** @type {{ href: string, key: import('#lib/i18n.js').MessageKey }[]} */
 	const adminNav = [
 		{ href: '/triage-rules', key: 'nav.triageRules' },
+		{ href: '/vuln-policies', key: 'nav.vulnPolicies' },
 		{ href: '/custom-fields', key: 'nav.customFields' },
 		{ href: '/psirt', key: 'nav.psirt' },
 		{ href: '/feed-rules', key: 'nav.feedRules' },

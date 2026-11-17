@@ -776,9 +776,15 @@ Tier 1:
   the `remediation` feature switch.
 - ⬜ 12.4 No-code parser (DefectDojo Pro "Universal Parser"): map fields of any
   CSV, JSON or XML report to findings from the UI.
-- ⬜ 12.5 Vulnerability policies (Dependency-Track 5): CEL rules on a component and
-  vulnerability pair that set an analysis or rating atomically at ingest, with a
-  validity window, priority, and GitOps policy bundles.
+- ✅ 12.5 Vulnerability policies (Dependency-Track 5): CEL rules on a component and
+  vulnerability pair (`internal/vulnpolicy`) that set an analysis state
+  (`not_affected`/`false_positive`/`exploitable`/`in_triage`) and/or a severity
+  rating atomically, with priority (highest wins), a validity window (expiry
+  reverts exactly what the policy set, never a person's later call), a
+  global/project/tag scope, and an apply/log-only mode. Runs as a `scan.Applier`
+  after VEX and before the generic triage rules, and on
+  `VULN_POLICY_EVAL_INTERVAL`. GitOps bundle (`GET`/`PUT /vuln-policies/bundle`,
+  dry-run) plus an optional synced `VULN_POLICY_BUNDLE_URL`. Migration 000103.
 - ✅ 12.6 More pull connectors: Snyk (`snyk-api`, REST issues), GitHub (code
   scanning and Dependabot alerts, per repository or org, GHES too), GitLab
   (GraphQL vulnerabilities), Wiz (OAuth client credentials, GraphQL

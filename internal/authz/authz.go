@@ -472,11 +472,11 @@ func parseScope(path, method string) routeScope {
 			return routeScope{globalList: true}
 		}
 		return routeScope{adminOnly: true}
-	case "users", "permissions", "service-accounts", "federation", "enrich", "vulnmatch", "feed-rules", "psirt", "notifications", "triage-rules", "gate", "ingest", "sla", "issue-trackers", "sso", "retention", "audit-log", "exploit-intel":
+	case "users", "permissions", "service-accounts", "federation", "enrich", "vulnmatch", "feed-rules", "psirt", "notifications", "triage-rules", "vuln-policies", "gate", "ingest", "sla", "issue-trackers", "sso", "retention", "audit-log", "exploit-intel":
 		// User admin, service accounts + workload identity federation, SSO
 		// providers + group → role mappings, portfolio-wide
 		// enrichment, advisory feed rules, PSIRT advisory publishing, notification-channel management,
-		// triage-rule policy, the global gate and SLA defaults, and the
+		// triage-rule and vulnerability policy, the global gate and SLA defaults, and the
 		// portfolio-wide issue sync are instance-admin actions. (Per-project/org
 		// gate, SLA and tracker routes live under /projects and /orgs and are
 		// role-gated there.)

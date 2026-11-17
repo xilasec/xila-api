@@ -187,6 +187,30 @@ before the triage rules in the applier list, because a VEX verdict is
 authoritative and must win over a generic rule. **Unknown statuses are dropped, not
 guessed: a misread verdict silently suppresses a real finding.**
 
+Vulnerability policies (Dependency-Track 5 parity): `internal/vulnpolicy` is
+admin-managed CEL rules over a component + vulnerability pair (a package
+finding) that set an analysis state (`not_affected`/`false_positive` →
+`false_positive`, `exploitable` → `confirmed`, `in_triage` → no status) and/or
+a severity rating atomically when they match, with a priority (`Elect` picks
+the highest-priority match, ties oldest-first), a validity window, a
+global/project/tag scope and an apply/log-only mode. It runs as a
+`scan.Applier` **after VEX** (an authoritative VEX verdict must still win) and
+**before the generic triage rules** (so a rule can condition on what a policy
+already set) — keep that order if the applier slice changes. Every effect is
+tracked (`vuln_policy_matches`: what was applied, and what it was before), so
+a later evaluation (`ApplyToProject`/`EvaluateAll`, on `VULN_POLICY_EVAL_INTERVAL`
+and after every policy write) can revert exactly what it set when the policy
+stops matching, is disabled or deleted, or falls outside its validity window —
+the same way an expired triage exception reopens a finding. The overturn guard
+compares the finding's *current* state against what the engine itself last
+recorded, never against "is it still open": once something else (a person, a
+different mechanism) moves a finding away from that recorded state, the policy
+abandons its claim rather than fighting it. GitOps bundle: `GET`/`PUT
+/vuln-policies/bundle` (YAML or JSON, `?dry_run=true` validates without
+writing) replaces the whole set atomically; `VULN_POLICY_BUNDLE_URL`
+optionally syncs one on an interval through netguard, and a failed fetch keeps
+the current set.
+
 Add an SBOM format: write a parser in `internal/sbom/` that returns a `Document`
 (components with `BomRef`, plus `RootRef` + `Edges` for the dependency graph),
 and wire it into `sbom.Parse` (content sniffing). See `spdx.go`.
@@ -833,6 +857,7 @@ internal/vulnmatch                     advisory matcher (OSV online/local mirror
                                        SBOM inventory → findings (scanner "osv"), new CVEs appear, upgraded deps auto-close
 internal/pkgmeta                       registry metadata (npm/PyPI/Maven/Go/Cargo/NuGet/Gems/Composer) → outdated
 internal/policy                        component policy engine (security / license / operational) → "policy" findings
+internal/vulnpolicy                    vulnerability policies (component + vulnerability pair CEL rules) → analysis/rating, GitOps bundles
 internal/{compliance,portfolio}        framework posture, cross-project rollup
 internal/metrics                       daily metric snapshots (90-day backfill) + trends API
 internal/{export,report}               CSV/XLSX export of any list filter; printable HTML project/portfolio reports

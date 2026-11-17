@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"go.yaml.in/yaml/v3"
+
 	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
@@ -2486,22 +2488,85 @@ func (e VexStatementSource) Valid() bool {
 
 // Defines values for VexStatementStatus.
 const (
-	Affected           VexStatementStatus = "affected"
-	Fixed              VexStatementStatus = "fixed"
-	NotAffected        VexStatementStatus = "not_affected"
-	UnderInvestigation VexStatementStatus = "under_investigation"
+	VexStatementStatusAffected           VexStatementStatus = "affected"
+	VexStatementStatusFixed              VexStatementStatus = "fixed"
+	VexStatementStatusNotAffected        VexStatementStatus = "not_affected"
+	VexStatementStatusUnderInvestigation VexStatementStatus = "under_investigation"
 )
 
 // Valid indicates whether the value is a known member of the VexStatementStatus enum.
 func (e VexStatementStatus) Valid() bool {
 	switch e {
-	case Affected:
+	case VexStatementStatusAffected:
 		return true
-	case Fixed:
+	case VexStatementStatusFixed:
 		return true
-	case NotAffected:
+	case VexStatementStatusNotAffected:
 		return true
-	case UnderInvestigation:
+	case VexStatementStatusUnderInvestigation:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VulnPolicyAnalysisState.
+const (
+	VulnPolicyAnalysisStateExploitable   VulnPolicyAnalysisState = "exploitable"
+	VulnPolicyAnalysisStateFalsePositive VulnPolicyAnalysisState = "false_positive"
+	VulnPolicyAnalysisStateInTriage      VulnPolicyAnalysisState = "in_triage"
+	VulnPolicyAnalysisStateNotAffected   VulnPolicyAnalysisState = "not_affected"
+)
+
+// Valid indicates whether the value is a known member of the VulnPolicyAnalysisState enum.
+func (e VulnPolicyAnalysisState) Valid() bool {
+	switch e {
+	case VulnPolicyAnalysisStateExploitable:
+		return true
+	case VulnPolicyAnalysisStateFalsePositive:
+		return true
+	case VulnPolicyAnalysisStateInTriage:
+		return true
+	case VulnPolicyAnalysisStateNotAffected:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VulnPolicyMode.
+const (
+	Apply VulnPolicyMode = "apply"
+	Log   VulnPolicyMode = "log"
+)
+
+// Valid indicates whether the value is a known member of the VulnPolicyMode enum.
+func (e VulnPolicyMode) Valid() bool {
+	switch e {
+	case Apply:
+		return true
+	case Log:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VulnPolicyScope.
+const (
+	VulnPolicyScopeGlobal   VulnPolicyScope = "global"
+	VulnPolicyScopeProjects VulnPolicyScope = "projects"
+	VulnPolicyScopeTag      VulnPolicyScope = "tag"
+)
+
+// Valid indicates whether the value is a known member of the VulnPolicyScope enum.
+func (e VulnPolicyScope) Valid() bool {
+	switch e {
+	case VulnPolicyScopeGlobal:
+		return true
+	case VulnPolicyScopeProjects:
+		return true
+	case VulnPolicyScopeTag:
 		return true
 	default:
 		return false
@@ -4368,6 +4433,24 @@ func (e CreateTeamMemberJSONBodyRole) Valid() bool {
 	case CreateTeamMemberJSONBodyRoleUploader:
 		return true
 	case CreateTeamMemberJSONBodyRoleViewer:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ExportVulnPolicyBundleParamsFormat.
+const (
+	Json ExportVulnPolicyBundleParamsFormat = "json"
+	Yaml ExportVulnPolicyBundleParamsFormat = "yaml"
+)
+
+// Valid indicates whether the value is a known member of the ExportVulnPolicyBundleParamsFormat enum.
+func (e ExportVulnPolicyBundleParamsFormat) Valid() bool {
+	switch e {
+	case Json:
+		return true
+	case Yaml:
 		return true
 	default:
 		return false
@@ -7652,6 +7735,106 @@ type VexStatementSource string
 // VexStatementStatus defines model for VexStatement.Status.
 type VexStatementStatus string
 
+// VulnPolicy A CEL condition over `component` (`name`, `version`, `purl`, `group`, `license`,
+// `scope`, `direct`), `vulnerability` (`id`, `aliases`, `severity`, `cvss`, `epss`,
+// `kev`, `cwes`, `published` — always unknown, findings carry no disclosure date)
+// and `project` (`name`, `tags`, `criticality`, `custom.<key>`), e.g.
+// `vulnerability.kev == true && component.scope == "dev"`. Unknown facts are null
+// and never match; syntax errors, misspelled fields and non-boolean results are
+// rejected when saving.
+type VulnPolicy struct {
+	// Analysis The verdict to record; omit (null) for a rating-only policy.
+	Analysis *struct {
+		Details       *string `json:"details,omitempty"`
+		Justification *string `json:"justification,omitempty"`
+
+		// State `not_affected` and `false_positive` both set the finding `false_positive`
+		// (Dependency-Track distinguishes them as justifications of the same
+		// outcome); `exploitable` sets `confirmed`; `in_triage` sets no status (use
+		// it to flag a pair for review without moving it).
+		State *VulnPolicyAnalysisState `json:"state,omitempty"`
+	} `json:"analysis,omitempty"`
+	Condition   string              `json:"condition"`
+	CreatedAt   *time.Time          `json:"created_at,omitempty"`
+	CreatedBy   *openapi_types.UUID `json:"created_by,omitempty"`
+	Description *string             `json:"description,omitempty"`
+	Enabled     *bool               `json:"enabled,omitempty"`
+	Id          *openapi_types.UUID `json:"id,omitempty"`
+
+	// Mode `log`: the condition is still evaluated (see preview) but never mutates a finding and never wins election over an `apply` policy.
+	Mode VulnPolicyMode `json:"mode"`
+	Name string         `json:"name"`
+
+	// Priority The highest-priority policy whose condition matches a pair wins when several do. Ties break oldest-first.
+	Priority *int `json:"priority,omitempty"`
+
+	// ProjectIds Required (non-empty) when `scope` is `projects`.
+	ProjectIds *[]openapi_types.UUID `json:"project_ids,omitempty"`
+
+	// Rating A severity override to apply; omit (null) for an analysis-only policy.
+	Rating *struct {
+		CvssScore *float32 `json:"cvss_score,omitempty"`
+
+		// CvssVector Detail only (display/bundle); never overwrites a scanner- or NVD-sourced CVSS.
+		CvssVector *string   `json:"cvss_vector,omitempty"`
+		Severity   *Severity `json:"severity,omitempty"`
+	} `json:"rating,omitempty"`
+	Scope VulnPolicyScope `json:"scope"`
+
+	// Tag Required when `scope` is `tag`.
+	Tag       *string    `json:"tag,omitempty"`
+	UpdatedAt *time.Time `json:"updated_at,omitempty"`
+
+	// ValidFrom Null = unbounded.
+	ValidFrom *time.Time `json:"valid_from,omitempty"`
+
+	// ValidUntil Null = unbounded. Outside the window the policy doesn't apply
+	ValidUntil *time.Time `json:"valid_until,omitempty"`
+}
+
+// VulnPolicyAnalysisState `not_affected` and `false_positive` both set the finding `false_positive`
+// (Dependency-Track distinguishes them as justifications of the same
+// outcome); `exploitable` sets `confirmed`; `in_triage` sets no status (use
+// it to flag a pair for review without moving it).
+type VulnPolicyAnalysisState string
+
+// VulnPolicyMode `log`: the condition is still evaluated (see preview) but never mutates a finding and never wins election over an `apply` policy.
+type VulnPolicyMode string
+
+// VulnPolicyScope defines model for VulnPolicy.Scope.
+type VulnPolicyScope string
+
+// VulnPolicyBundle The GitOps-portable policy set — every policy, without database ids (an import always assigns fresh ones).
+type VulnPolicyBundle struct {
+	Policies *[]VulnPolicy `json:"policies,omitempty"`
+}
+
+// VulnPolicyPreview defines model for VulnPolicyPreview.
+type VulnPolicyPreview struct {
+	Findings *[]struct {
+		CurrentSeverity *Severity `json:"current_severity,omitempty"`
+
+		// CurrentStatus `remediated` is set by the system when a scanner stops reporting a finding —
+		// don't set it by hand. The triage states are sticky: they survive re-scans.
+		CurrentStatus  *FindingStatus      `json:"current_status,omitempty"`
+		FindingId      *openapi_types.UUID `json:"finding_id,omitempty"`
+		PackageName    *string             `json:"package_name,omitempty"`
+		PackageVersion *string             `json:"package_version,omitempty"`
+		ProjectId      *openapi_types.UUID `json:"project_id,omitempty"`
+		Purl           *string             `json:"purl,omitempty"`
+		SetSeverity    *Severity           `json:"set_severity,omitempty"`
+
+		// SetStatus `remediated` is set by the system when a scanner stops reporting a finding —
+		// don't set it by hand. The triage states are sticky: they survive re-scans.
+		SetStatus       *FindingStatus `json:"set_status,omitempty"`
+		Title           *string        `json:"title,omitempty"`
+		VulnerabilityId *string        `json:"vulnerability_id,omitempty"`
+	} `json:"findings,omitempty"`
+
+	// Total Every pair the policy would act on (the list is capped at 200).
+	Total *int `json:"total,omitempty"`
+}
+
 // AccountID defines model for AccountID.
 type AccountID = openapi_types.UUID
 
@@ -9805,6 +9988,37 @@ type UpdateUserJSONBody struct {
 	IsAdmin *bool `json:"is_admin,omitempty"`
 }
 
+// ExportVulnPolicyBundleParams defines parameters for ExportVulnPolicyBundle.
+type ExportVulnPolicyBundleParams struct {
+	Format *ExportVulnPolicyBundleParamsFormat `form:"format,omitempty" json:"format,omitempty"`
+}
+
+// ExportVulnPolicyBundleParamsFormat defines parameters for ExportVulnPolicyBundle.
+type ExportVulnPolicyBundleParamsFormat string
+
+// ImportVulnPolicyBundleParams defines parameters for ImportVulnPolicyBundle.
+type ImportVulnPolicyBundleParams struct {
+	// DryRun Validate and report the resulting set without writing it.
+	DryRun *bool `form:"dry_run,omitempty" json:"dry_run,omitempty"`
+}
+
+// EvaluateVulnPoliciesParams defines parameters for EvaluateVulnPolicies.
+type EvaluateVulnPoliciesParams struct {
+	// ProjectId Omit to evaluate every project.
+	ProjectId *openapi_types.UUID `form:"project_id,omitempty" json:"project_id,omitempty"`
+}
+
+// PreviewVulnPoliciesParams defines parameters for PreviewVulnPolicies.
+type PreviewVulnPoliciesParams struct {
+	// ProjectId Narrow the preview to one project; omit to cover every project the policy's scope reaches.
+	ProjectId *openapi_types.UUID `form:"project_id,omitempty" json:"project_id,omitempty"`
+}
+
+// PreviewVulnPolicyParams defines parameters for PreviewVulnPolicy.
+type PreviewVulnPolicyParams struct {
+	ProjectId *openapi_types.UUID `form:"project_id,omitempty" json:"project_id,omitempty"`
+}
+
 // ImportOsvMirrorMultipartBody defines parameters for ImportOsvMirror.
 type ImportOsvMirrorMultipartBody struct {
 	File openapi_types.File `json:"file"`
@@ -10163,6 +10377,18 @@ type CreateUserJSONRequestBody CreateUserJSONBody
 
 // UpdateUserJSONRequestBody defines body for UpdateUser for application/json ContentType.
 type UpdateUserJSONRequestBody UpdateUserJSONBody
+
+// CreateVulnPolicyJSONRequestBody defines body for CreateVulnPolicy for application/json ContentType.
+type CreateVulnPolicyJSONRequestBody = VulnPolicy
+
+// ImportVulnPolicyBundleJSONRequestBody defines body for ImportVulnPolicyBundle for application/json ContentType.
+type ImportVulnPolicyBundleJSONRequestBody = VulnPolicyBundle
+
+// PreviewVulnPoliciesJSONRequestBody defines body for PreviewVulnPolicies for application/json ContentType.
+type PreviewVulnPoliciesJSONRequestBody = VulnPolicy
+
+// UpdateVulnPolicyJSONRequestBody defines body for UpdateVulnPolicy for application/json ContentType.
+type UpdateVulnPolicyJSONRequestBody = VulnPolicy
 
 // ImportOsvMirrorMultipartRequestBody defines body for ImportOsvMirror for multipart/form-data ContentType.
 type ImportOsvMirrorMultipartRequestBody ImportOsvMirrorMultipartBody
@@ -15058,6 +15284,136 @@ type ClientInterface interface {
 	//
 	// Corresponds with DELETE /vex/{vexID} (the `DeleteVexStatement` operationId).
 	DeleteVexStatement(ctx context.Context, vexID VexID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListVulnPolicies List vulnerability policies
+	//
+	// Instance admin. Highest `priority` first; the highest-priority matching policy wins when several match the same pair.
+	//
+	// Corresponds with GET /vuln-policies (the `ListVulnPolicies` operationId).
+	ListVulnPolicies(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateVulnPolicyWithBody Create a vulnerability policy
+	//
+	// A CEL condition over a component + vulnerability pair (package findings) that
+	// sets an analysis and/or a rating override atomically when it matches. Takes
+	// effect immediately: matching findings in scope are claimed in the background.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /vuln-policies (the `CreateVulnPolicy` operationId).
+	CreateVulnPolicyWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateVulnPolicy Create a vulnerability policy
+	//
+	// A CEL condition over a component + vulnerability pair (package findings) that
+	// sets an analysis and/or a rating override atomically when it matches. Takes
+	// effect immediately: matching findings in scope are claimed in the background.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /vuln-policies (the `CreateVulnPolicy` operationId).
+	CreateVulnPolicy(ctx context.Context, body CreateVulnPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ExportVulnPolicyBundle Export every policy as a GitOps bundle
+	//
+	// The whole policy set, without database ids, so it can live in git and be reapplied verbatim with `PUT`.
+	//
+	// Corresponds with GET /vuln-policies/bundle (the `ExportVulnPolicyBundle` operationId).
+	ExportVulnPolicyBundle(ctx context.Context, params *ExportVulnPolicyBundleParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ImportVulnPolicyBundleWithBody Replace the whole policy set from a bundle
+	//
+	// Every policy in the body is validated (unique names, compilable condition)
+	// before anything is written; on success the whole stored set is atomically
+	// replaced (fresh ids) and re-evaluated. A policy the old set had applying that
+	// the new set drops is reverted like any other removed policy.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /vuln-policies/bundle (the `ImportVulnPolicyBundle` operationId).
+	ImportVulnPolicyBundleWithBody(ctx context.Context, params *ImportVulnPolicyBundleParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ImportVulnPolicyBundle Replace the whole policy set from a bundle
+	//
+	// Every policy in the body is validated (unique names, compilable condition)
+	// before anything is written; on success the whole stored set is atomically
+	// replaced (fresh ids) and re-evaluated. A policy the old set had applying that
+	// the new set drops is reverted like any other removed policy.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /vuln-policies/bundle (the `ImportVulnPolicyBundle` operationId).
+	ImportVulnPolicyBundle(ctx context.Context, params *ImportVulnPolicyBundleParams, body ImportVulnPolicyBundleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EvaluateVulnPolicies Re-evaluate the backlog now
+	//
+	// Ingest and every policy edit already evaluate immediately; this is for
+	// catching a validity window's expiry without waiting for
+	// `VULN_POLICY_EVAL_INTERVAL`.
+	//
+	// Corresponds with POST /vuln-policies/evaluate (the `EvaluateVulnPolicies` operationId).
+	EvaluateVulnPolicies(ctx context.Context, params *EvaluateVulnPoliciesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PreviewVulnPoliciesWithBody Dry-run an unsaved policy
+	//
+	// Body is a policy exactly as for create; nothing is stored or changed. Returns
+	// the findings the policy **would** act on and how — evaluated on its own
+	// (ignoring priority against other live policies), so you can see its effect
+	// before saving it.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /vuln-policies/preview (the `PreviewVulnPolicies` operationId).
+	PreviewVulnPoliciesWithBody(ctx context.Context, params *PreviewVulnPoliciesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PreviewVulnPolicies Dry-run an unsaved policy
+	//
+	// Body is a policy exactly as for create; nothing is stored or changed. Returns
+	// the findings the policy **would** act on and how — evaluated on its own
+	// (ignoring priority against other live policies), so you can see its effect
+	// before saving it.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /vuln-policies/preview (the `PreviewVulnPolicies` operationId).
+	PreviewVulnPolicies(ctx context.Context, params *PreviewVulnPoliciesParams, body PreviewVulnPoliciesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteVulnPolicy Delete a vulnerability policy
+	//
+	// Findings it was holding revert to what they were before it ever matched, on the evaluation that follows.
+	//
+	// Corresponds with DELETE /vuln-policies/{policyID} (the `DeleteVulnPolicy` operationId).
+	DeleteVulnPolicy(ctx context.Context, policyID PolicyID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetVulnPolicy Read a vulnerability policy
+	//
+	// Corresponds with GET /vuln-policies/{policyID} (the `GetVulnPolicy` operationId).
+	GetVulnPolicy(ctx context.Context, policyID PolicyID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateVulnPolicyWithBody Update a vulnerability policy
+	//
+	// Full replacement. Re-evaluates in the background — a condition or priority change may immediately claim or release findings.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /vuln-policies/{policyID} (the `UpdateVulnPolicy` operationId).
+	UpdateVulnPolicyWithBody(ctx context.Context, policyID PolicyID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateVulnPolicy Update a vulnerability policy
+	//
+	// Full replacement. Re-evaluates in the background — a condition or priority change may immediately claim or release findings.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PATCH /vuln-policies/{policyID} (the `UpdateVulnPolicy` operationId).
+	UpdateVulnPolicy(ctx context.Context, policyID PolicyID, body UpdateVulnPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PreviewVulnPolicy Dry-run a stored policy
+	//
+	// As `POST /vuln-policies/preview`, for a stored policy — whatever its enabled state.
+	//
+	// Corresponds with POST /vuln-policies/{policyID}/preview (the `PreviewVulnPolicy` operationId).
+	PreviewVulnPolicy(ctx context.Context, policyID PolicyID, params *PreviewVulnPolicyParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListVulnerabilitySboms Which releases ever shipped this vulnerability
 	//
@@ -24746,6 +25102,276 @@ func (c *Client) TransferOwnership(ctx context.Context, userID UserID, reqEditor
 // Corresponds with DELETE /vex/{vexID} (the `DeleteVexStatement` operationId).
 func (c *Client) DeleteVexStatement(ctx context.Context, vexID VexID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteVexStatementRequest(c.Server, vexID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListVulnPolicies List vulnerability policies
+//
+// Instance admin. Highest `priority` first; the highest-priority matching policy wins when several match the same pair.
+//
+// Corresponds with GET /vuln-policies (the `ListVulnPolicies` operationId).
+func (c *Client) ListVulnPolicies(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListVulnPoliciesRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateVulnPolicyWithBody Create a vulnerability policy
+//
+// A CEL condition over a component + vulnerability pair (package findings) that
+// sets an analysis and/or a rating override atomically when it matches. Takes
+// effect immediately: matching findings in scope are claimed in the background.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /vuln-policies (the `CreateVulnPolicy` operationId).
+func (c *Client) CreateVulnPolicyWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateVulnPolicyRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateVulnPolicy Create a vulnerability policy
+//
+// A CEL condition over a component + vulnerability pair (package findings) that
+// sets an analysis and/or a rating override atomically when it matches. Takes
+// effect immediately: matching findings in scope are claimed in the background.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /vuln-policies (the `CreateVulnPolicy` operationId).
+func (c *Client) CreateVulnPolicy(ctx context.Context, body CreateVulnPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateVulnPolicyRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ExportVulnPolicyBundle Export every policy as a GitOps bundle
+//
+// The whole policy set, without database ids, so it can live in git and be reapplied verbatim with `PUT`.
+//
+// Corresponds with GET /vuln-policies/bundle (the `ExportVulnPolicyBundle` operationId).
+func (c *Client) ExportVulnPolicyBundle(ctx context.Context, params *ExportVulnPolicyBundleParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewExportVulnPolicyBundleRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ImportVulnPolicyBundleWithBody Replace the whole policy set from a bundle
+//
+// Every policy in the body is validated (unique names, compilable condition)
+// before anything is written; on success the whole stored set is atomically
+// replaced (fresh ids) and re-evaluated. A policy the old set had applying that
+// the new set drops is reverted like any other removed policy.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /vuln-policies/bundle (the `ImportVulnPolicyBundle` operationId).
+func (c *Client) ImportVulnPolicyBundleWithBody(ctx context.Context, params *ImportVulnPolicyBundleParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewImportVulnPolicyBundleRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ImportVulnPolicyBundle Replace the whole policy set from a bundle
+//
+// Every policy in the body is validated (unique names, compilable condition)
+// before anything is written; on success the whole stored set is atomically
+// replaced (fresh ids) and re-evaluated. A policy the old set had applying that
+// the new set drops is reverted like any other removed policy.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /vuln-policies/bundle (the `ImportVulnPolicyBundle` operationId).
+func (c *Client) ImportVulnPolicyBundle(ctx context.Context, params *ImportVulnPolicyBundleParams, body ImportVulnPolicyBundleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewImportVulnPolicyBundleRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// EvaluateVulnPolicies Re-evaluate the backlog now
+//
+// Ingest and every policy edit already evaluate immediately; this is for
+// catching a validity window's expiry without waiting for
+// `VULN_POLICY_EVAL_INTERVAL`.
+//
+// Corresponds with POST /vuln-policies/evaluate (the `EvaluateVulnPolicies` operationId).
+func (c *Client) EvaluateVulnPolicies(ctx context.Context, params *EvaluateVulnPoliciesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEvaluateVulnPoliciesRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PreviewVulnPoliciesWithBody Dry-run an unsaved policy
+//
+// Body is a policy exactly as for create; nothing is stored or changed. Returns
+// the findings the policy **would** act on and how — evaluated on its own
+// (ignoring priority against other live policies), so you can see its effect
+// before saving it.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /vuln-policies/preview (the `PreviewVulnPolicies` operationId).
+func (c *Client) PreviewVulnPoliciesWithBody(ctx context.Context, params *PreviewVulnPoliciesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewVulnPoliciesRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PreviewVulnPolicies Dry-run an unsaved policy
+//
+// Body is a policy exactly as for create; nothing is stored or changed. Returns
+// the findings the policy **would** act on and how — evaluated on its own
+// (ignoring priority against other live policies), so you can see its effect
+// before saving it.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /vuln-policies/preview (the `PreviewVulnPolicies` operationId).
+func (c *Client) PreviewVulnPolicies(ctx context.Context, params *PreviewVulnPoliciesParams, body PreviewVulnPoliciesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewVulnPoliciesRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteVulnPolicy Delete a vulnerability policy
+//
+// Findings it was holding revert to what they were before it ever matched, on the evaluation that follows.
+//
+// Corresponds with DELETE /vuln-policies/{policyID} (the `DeleteVulnPolicy` operationId).
+func (c *Client) DeleteVulnPolicy(ctx context.Context, policyID PolicyID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteVulnPolicyRequest(c.Server, policyID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetVulnPolicy Read a vulnerability policy
+//
+// Corresponds with GET /vuln-policies/{policyID} (the `GetVulnPolicy` operationId).
+func (c *Client) GetVulnPolicy(ctx context.Context, policyID PolicyID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetVulnPolicyRequest(c.Server, policyID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateVulnPolicyWithBody Update a vulnerability policy
+//
+// Full replacement. Re-evaluates in the background — a condition or priority change may immediately claim or release findings.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /vuln-policies/{policyID} (the `UpdateVulnPolicy` operationId).
+func (c *Client) UpdateVulnPolicyWithBody(ctx context.Context, policyID PolicyID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateVulnPolicyRequestWithBody(c.Server, policyID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateVulnPolicy Update a vulnerability policy
+//
+// Full replacement. Re-evaluates in the background — a condition or priority change may immediately claim or release findings.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PATCH /vuln-policies/{policyID} (the `UpdateVulnPolicy` operationId).
+func (c *Client) UpdateVulnPolicy(ctx context.Context, policyID PolicyID, body UpdateVulnPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateVulnPolicyRequest(c.Server, policyID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PreviewVulnPolicy Dry-run a stored policy
+//
+// As `POST /vuln-policies/preview`, for a stored policy — whatever its enabled state.
+//
+// Corresponds with POST /vuln-policies/{policyID}/preview (the `PreviewVulnPolicy` operationId).
+func (c *Client) PreviewVulnPolicy(ctx context.Context, policyID PolicyID, params *PreviewVulnPolicyParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewVulnPolicyRequest(c.Server, policyID, params)
 	if err != nil {
 		return nil, err
 	}
@@ -43868,6 +44494,491 @@ func NewDeleteVexStatementRequest(server string, vexID VexID) (*http.Request, er
 	return req, nil
 }
 
+// NewListVulnPoliciesRequest constructs an http.Request for the ListVulnPolicies method
+func NewListVulnPoliciesRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/vuln-policies")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateVulnPolicyRequest calls the generic CreateVulnPolicy builder with application/json body
+func NewCreateVulnPolicyRequest(server string, body CreateVulnPolicyJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateVulnPolicyRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateVulnPolicyRequestWithBody constructs an http.Request for the CreateVulnPolicy method, with any body, and a specified content type
+func NewCreateVulnPolicyRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/vuln-policies")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewExportVulnPolicyBundleRequest constructs an http.Request for the ExportVulnPolicyBundle method
+func NewExportVulnPolicyBundleRequest(server string, params *ExportVulnPolicyBundleParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/vuln-policies/bundle")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Format != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "format", *params.Format, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewImportVulnPolicyBundleRequest calls the generic ImportVulnPolicyBundle builder with application/json body
+func NewImportVulnPolicyBundleRequest(server string, params *ImportVulnPolicyBundleParams, body ImportVulnPolicyBundleJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewImportVulnPolicyBundleRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewImportVulnPolicyBundleRequestWithBody constructs an http.Request for the ImportVulnPolicyBundle method, with any body, and a specified content type
+func NewImportVulnPolicyBundleRequestWithBody(server string, params *ImportVulnPolicyBundleParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/vuln-policies/bundle")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.DryRun != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "dry_run", *params.DryRun, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewEvaluateVulnPoliciesRequest constructs an http.Request for the EvaluateVulnPolicies method
+func NewEvaluateVulnPoliciesRequest(server string, params *EvaluateVulnPoliciesParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/vuln-policies/evaluate")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.ProjectId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", *params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPreviewVulnPoliciesRequest calls the generic PreviewVulnPolicies builder with application/json body
+func NewPreviewVulnPoliciesRequest(server string, params *PreviewVulnPoliciesParams, body PreviewVulnPoliciesJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPreviewVulnPoliciesRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewPreviewVulnPoliciesRequestWithBody constructs an http.Request for the PreviewVulnPolicies method, with any body, and a specified content type
+func NewPreviewVulnPoliciesRequestWithBody(server string, params *PreviewVulnPoliciesParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/vuln-policies/preview")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.ProjectId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", *params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteVulnPolicyRequest constructs an http.Request for the DeleteVulnPolicy method
+func NewDeleteVulnPolicyRequest(server string, policyID PolicyID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "policyID", policyID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/vuln-policies/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetVulnPolicyRequest constructs an http.Request for the GetVulnPolicy method
+func NewGetVulnPolicyRequest(server string, policyID PolicyID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "policyID", policyID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/vuln-policies/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateVulnPolicyRequest calls the generic UpdateVulnPolicy builder with application/json body
+func NewUpdateVulnPolicyRequest(server string, policyID PolicyID, body UpdateVulnPolicyJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateVulnPolicyRequestWithBody(server, policyID, "application/json", bodyReader)
+}
+
+// NewUpdateVulnPolicyRequestWithBody constructs an http.Request for the UpdateVulnPolicy method, with any body, and a specified content type
+func NewUpdateVulnPolicyRequestWithBody(server string, policyID PolicyID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "policyID", policyID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/vuln-policies/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPreviewVulnPolicyRequest constructs an http.Request for the PreviewVulnPolicy method
+func NewPreviewVulnPolicyRequest(server string, policyID PolicyID, params *PreviewVulnPolicyParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "policyID", policyID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/vuln-policies/%s/preview", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.ProjectId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", *params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListVulnerabilitySbomsRequest constructs an http.Request for the ListVulnerabilitySboms method
 func NewListVulnerabilitySbomsRequest(server string, vulnID string) (*http.Request, error) {
 	var err error
@@ -49348,6 +50459,148 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with DELETE /vex/{vexID} (the `DeleteVexStatement` operationId).
 	DeleteVexStatementWithResponse(ctx context.Context, vexID VexID, reqEditors ...RequestEditorFn) (*DeleteVexStatementResponse, error)
+
+	// ListVulnPoliciesWithResponse List vulnerability policies
+	//
+	// Instance admin. Highest `priority` first; the highest-priority matching policy wins when several match the same pair.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /vuln-policies (the `ListVulnPolicies` operationId).
+	ListVulnPoliciesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListVulnPoliciesResponse, error)
+
+	// CreateVulnPolicyWithBodyWithResponse Create a vulnerability policy
+	//
+	// A CEL condition over a component + vulnerability pair (package findings) that
+	// sets an analysis and/or a rating override atomically when it matches. Takes
+	// effect immediately: matching findings in scope are claimed in the background.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /vuln-policies (the `CreateVulnPolicy` operationId).
+	CreateVulnPolicyWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateVulnPolicyResponse, error)
+
+	// CreateVulnPolicyWithResponse Create a vulnerability policy
+	//
+	// A CEL condition over a component + vulnerability pair (package findings) that
+	// sets an analysis and/or a rating override atomically when it matches. Takes
+	// effect immediately: matching findings in scope are claimed in the background.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /vuln-policies (the `CreateVulnPolicy` operationId).
+	CreateVulnPolicyWithResponse(ctx context.Context, body CreateVulnPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateVulnPolicyResponse, error)
+
+	// ExportVulnPolicyBundleWithResponse Export every policy as a GitOps bundle
+	//
+	// The whole policy set, without database ids, so it can live in git and be reapplied verbatim with `PUT`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /vuln-policies/bundle (the `ExportVulnPolicyBundle` operationId).
+	ExportVulnPolicyBundleWithResponse(ctx context.Context, params *ExportVulnPolicyBundleParams, reqEditors ...RequestEditorFn) (*ExportVulnPolicyBundleResponse, error)
+
+	// ImportVulnPolicyBundleWithBodyWithResponse Replace the whole policy set from a bundle
+	//
+	// Every policy in the body is validated (unique names, compilable condition)
+	// before anything is written; on success the whole stored set is atomically
+	// replaced (fresh ids) and re-evaluated. A policy the old set had applying that
+	// the new set drops is reverted like any other removed policy.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /vuln-policies/bundle (the `ImportVulnPolicyBundle` operationId).
+	ImportVulnPolicyBundleWithBodyWithResponse(ctx context.Context, params *ImportVulnPolicyBundleParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ImportVulnPolicyBundleResponse, error)
+
+	// ImportVulnPolicyBundleWithResponse Replace the whole policy set from a bundle
+	//
+	// Every policy in the body is validated (unique names, compilable condition)
+	// before anything is written; on success the whole stored set is atomically
+	// replaced (fresh ids) and re-evaluated. A policy the old set had applying that
+	// the new set drops is reverted like any other removed policy.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /vuln-policies/bundle (the `ImportVulnPolicyBundle` operationId).
+	ImportVulnPolicyBundleWithResponse(ctx context.Context, params *ImportVulnPolicyBundleParams, body ImportVulnPolicyBundleJSONRequestBody, reqEditors ...RequestEditorFn) (*ImportVulnPolicyBundleResponse, error)
+
+	// EvaluateVulnPoliciesWithResponse Re-evaluate the backlog now
+	//
+	// Ingest and every policy edit already evaluate immediately; this is for
+	// catching a validity window's expiry without waiting for
+	// `VULN_POLICY_EVAL_INTERVAL`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /vuln-policies/evaluate (the `EvaluateVulnPolicies` operationId).
+	EvaluateVulnPoliciesWithResponse(ctx context.Context, params *EvaluateVulnPoliciesParams, reqEditors ...RequestEditorFn) (*EvaluateVulnPoliciesResponse, error)
+
+	// PreviewVulnPoliciesWithBodyWithResponse Dry-run an unsaved policy
+	//
+	// Body is a policy exactly as for create; nothing is stored or changed. Returns
+	// the findings the policy **would** act on and how — evaluated on its own
+	// (ignoring priority against other live policies), so you can see its effect
+	// before saving it.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /vuln-policies/preview (the `PreviewVulnPolicies` operationId).
+	PreviewVulnPoliciesWithBodyWithResponse(ctx context.Context, params *PreviewVulnPoliciesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewVulnPoliciesResponse, error)
+
+	// PreviewVulnPoliciesWithResponse Dry-run an unsaved policy
+	//
+	// Body is a policy exactly as for create; nothing is stored or changed. Returns
+	// the findings the policy **would** act on and how — evaluated on its own
+	// (ignoring priority against other live policies), so you can see its effect
+	// before saving it.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /vuln-policies/preview (the `PreviewVulnPolicies` operationId).
+	PreviewVulnPoliciesWithResponse(ctx context.Context, params *PreviewVulnPoliciesParams, body PreviewVulnPoliciesJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewVulnPoliciesResponse, error)
+
+	// DeleteVulnPolicyWithResponse Delete a vulnerability policy
+	//
+	// Findings it was holding revert to what they were before it ever matched, on the evaluation that follows.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /vuln-policies/{policyID} (the `DeleteVulnPolicy` operationId).
+	DeleteVulnPolicyWithResponse(ctx context.Context, policyID PolicyID, reqEditors ...RequestEditorFn) (*DeleteVulnPolicyResponse, error)
+
+	// GetVulnPolicyWithResponse Read a vulnerability policy
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /vuln-policies/{policyID} (the `GetVulnPolicy` operationId).
+	GetVulnPolicyWithResponse(ctx context.Context, policyID PolicyID, reqEditors ...RequestEditorFn) (*GetVulnPolicyResponse, error)
+
+	// UpdateVulnPolicyWithBodyWithResponse Update a vulnerability policy
+	//
+	// Full replacement. Re-evaluates in the background — a condition or priority change may immediately claim or release findings.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /vuln-policies/{policyID} (the `UpdateVulnPolicy` operationId).
+	UpdateVulnPolicyWithBodyWithResponse(ctx context.Context, policyID PolicyID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateVulnPolicyResponse, error)
+
+	// UpdateVulnPolicyWithResponse Update a vulnerability policy
+	//
+	// Full replacement. Re-evaluates in the background — a condition or priority change may immediately claim or release findings.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /vuln-policies/{policyID} (the `UpdateVulnPolicy` operationId).
+	UpdateVulnPolicyWithResponse(ctx context.Context, policyID PolicyID, body UpdateVulnPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateVulnPolicyResponse, error)
+
+	// PreviewVulnPolicyWithResponse Dry-run a stored policy
+	//
+	// As `POST /vuln-policies/preview`, for a stored policy — whatever its enabled state.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /vuln-policies/{policyID}/preview (the `PreviewVulnPolicy` operationId).
+	PreviewVulnPolicyWithResponse(ctx context.Context, policyID PolicyID, params *PreviewVulnPolicyParams, reqEditors ...RequestEditorFn) (*PreviewVulnPolicyResponse, error)
 
 	// ListVulnerabilitySbomsWithResponse Which releases ever shipped this vulnerability
 	//
@@ -69186,6 +70439,488 @@ func (r DeleteVexStatementResponse) ContentType() string {
 	return ""
 }
 
+type ListVulnPoliciesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Policies *[]VulnPolicy `json:"policies,omitempty"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListVulnPoliciesResponse) GetJSON200() *struct {
+	Policies *[]VulnPolicy `json:"policies,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ListVulnPoliciesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListVulnPoliciesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListVulnPoliciesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListVulnPoliciesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateVulnPolicyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *VulnPolicy
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateVulnPolicyResponse) GetJSON201() *VulnPolicy {
+	return r.JSON201
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r CreateVulnPolicyResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateVulnPolicyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateVulnPolicyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateVulnPolicyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateVulnPolicyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ExportVulnPolicyBundleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *VulnPolicyBundle
+	// YAML200 the response for an HTTP 200 `application/yaml` response
+	YAML200 *VulnPolicyBundle
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ExportVulnPolicyBundleResponse) GetJSON200() *VulnPolicyBundle {
+	return r.JSON200
+}
+
+// GetYAML200 returns the response for an HTTP 200 `application/yaml` response
+func (r ExportVulnPolicyBundleResponse) GetYAML200() *VulnPolicyBundle {
+	return r.YAML200
+}
+
+// GetBody returns the raw response body bytes
+func (r ExportVulnPolicyBundleResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ExportVulnPolicyBundleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ExportVulnPolicyBundleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ExportVulnPolicyBundleResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ImportVulnPolicyBundleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		DryRun   *bool         `json:"dry_run,omitempty"`
+		Policies *[]VulnPolicy `json:"policies,omitempty"`
+	}
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ImportVulnPolicyBundleResponse) GetJSON200() *struct {
+	DryRun   *bool         `json:"dry_run,omitempty"`
+	Policies *[]VulnPolicy `json:"policies,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r ImportVulnPolicyBundleResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetBody returns the raw response body bytes
+func (r ImportVulnPolicyBundleResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ImportVulnPolicyBundleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ImportVulnPolicyBundleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ImportVulnPolicyBundleResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type EvaluateVulnPoliciesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Applied Findings changed.
+		Applied *int `json:"applied,omitempty"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r EvaluateVulnPoliciesResponse) GetJSON200() *struct {
+	// Applied Findings changed.
+	Applied *int `json:"applied,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r EvaluateVulnPoliciesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r EvaluateVulnPoliciesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r EvaluateVulnPoliciesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r EvaluateVulnPoliciesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PreviewVulnPoliciesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *VulnPolicyPreview
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PreviewVulnPoliciesResponse) GetJSON200() *VulnPolicyPreview {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r PreviewVulnPoliciesResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetBody returns the raw response body bytes
+func (r PreviewVulnPoliciesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PreviewVulnPoliciesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PreviewVulnPoliciesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PreviewVulnPoliciesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteVulnPolicyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r DeleteVulnPolicyResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteVulnPolicyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteVulnPolicyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteVulnPolicyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteVulnPolicyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetVulnPolicyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *VulnPolicy
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetVulnPolicyResponse) GetJSON200() *VulnPolicy {
+	return r.JSON200
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r GetVulnPolicyResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetVulnPolicyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetVulnPolicyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetVulnPolicyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetVulnPolicyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateVulnPolicyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *VulnPolicy
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateVulnPolicyResponse) GetJSON200() *VulnPolicy {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r UpdateVulnPolicyResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r UpdateVulnPolicyResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateVulnPolicyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateVulnPolicyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateVulnPolicyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateVulnPolicyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PreviewVulnPolicyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *VulnPolicyPreview
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PreviewVulnPolicyResponse) GetJSON200() *VulnPolicyPreview {
+	return r.JSON200
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r PreviewVulnPolicyResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r PreviewVulnPolicyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PreviewVulnPolicyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PreviewVulnPolicyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PreviewVulnPolicyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListVulnerabilitySbomsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -77697,6 +79432,232 @@ func (c *ClientWithResponses) DeleteVexStatementWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseDeleteVexStatementResponse(rsp)
+}
+
+// ListVulnPoliciesWithResponse List vulnerability policies
+//
+// Instance admin. Highest `priority` first; the highest-priority matching policy wins when several match the same pair.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /vuln-policies (the `ListVulnPolicies` operationId).
+func (c *ClientWithResponses) ListVulnPoliciesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListVulnPoliciesResponse, error) {
+	rsp, err := c.ListVulnPolicies(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListVulnPoliciesResponse(rsp)
+}
+
+// CreateVulnPolicyWithBodyWithResponse Create a vulnerability policy
+//
+// A CEL condition over a component + vulnerability pair (package findings) that
+// sets an analysis and/or a rating override atomically when it matches. Takes
+// effect immediately: matching findings in scope are claimed in the background.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /vuln-policies (the `CreateVulnPolicy` operationId).
+func (c *ClientWithResponses) CreateVulnPolicyWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateVulnPolicyResponse, error) {
+	rsp, err := c.CreateVulnPolicyWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateVulnPolicyResponse(rsp)
+}
+
+// CreateVulnPolicyWithResponse Create a vulnerability policy
+//
+// A CEL condition over a component + vulnerability pair (package findings) that
+// sets an analysis and/or a rating override atomically when it matches. Takes
+// effect immediately: matching findings in scope are claimed in the background.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /vuln-policies (the `CreateVulnPolicy` operationId).
+func (c *ClientWithResponses) CreateVulnPolicyWithResponse(ctx context.Context, body CreateVulnPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateVulnPolicyResponse, error) {
+	rsp, err := c.CreateVulnPolicy(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateVulnPolicyResponse(rsp)
+}
+
+// ExportVulnPolicyBundleWithResponse Export every policy as a GitOps bundle
+//
+// The whole policy set, without database ids, so it can live in git and be reapplied verbatim with `PUT`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /vuln-policies/bundle (the `ExportVulnPolicyBundle` operationId).
+func (c *ClientWithResponses) ExportVulnPolicyBundleWithResponse(ctx context.Context, params *ExportVulnPolicyBundleParams, reqEditors ...RequestEditorFn) (*ExportVulnPolicyBundleResponse, error) {
+	rsp, err := c.ExportVulnPolicyBundle(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseExportVulnPolicyBundleResponse(rsp)
+}
+
+// ImportVulnPolicyBundleWithBodyWithResponse Replace the whole policy set from a bundle
+//
+// Every policy in the body is validated (unique names, compilable condition)
+// before anything is written; on success the whole stored set is atomically
+// replaced (fresh ids) and re-evaluated. A policy the old set had applying that
+// the new set drops is reverted like any other removed policy.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /vuln-policies/bundle (the `ImportVulnPolicyBundle` operationId).
+func (c *ClientWithResponses) ImportVulnPolicyBundleWithBodyWithResponse(ctx context.Context, params *ImportVulnPolicyBundleParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ImportVulnPolicyBundleResponse, error) {
+	rsp, err := c.ImportVulnPolicyBundleWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseImportVulnPolicyBundleResponse(rsp)
+}
+
+// ImportVulnPolicyBundleWithResponse Replace the whole policy set from a bundle
+//
+// Every policy in the body is validated (unique names, compilable condition)
+// before anything is written; on success the whole stored set is atomically
+// replaced (fresh ids) and re-evaluated. A policy the old set had applying that
+// the new set drops is reverted like any other removed policy.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /vuln-policies/bundle (the `ImportVulnPolicyBundle` operationId).
+func (c *ClientWithResponses) ImportVulnPolicyBundleWithResponse(ctx context.Context, params *ImportVulnPolicyBundleParams, body ImportVulnPolicyBundleJSONRequestBody, reqEditors ...RequestEditorFn) (*ImportVulnPolicyBundleResponse, error) {
+	rsp, err := c.ImportVulnPolicyBundle(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseImportVulnPolicyBundleResponse(rsp)
+}
+
+// EvaluateVulnPoliciesWithResponse Re-evaluate the backlog now
+//
+// Ingest and every policy edit already evaluate immediately; this is for
+// catching a validity window's expiry without waiting for
+// `VULN_POLICY_EVAL_INTERVAL`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /vuln-policies/evaluate (the `EvaluateVulnPolicies` operationId).
+func (c *ClientWithResponses) EvaluateVulnPoliciesWithResponse(ctx context.Context, params *EvaluateVulnPoliciesParams, reqEditors ...RequestEditorFn) (*EvaluateVulnPoliciesResponse, error) {
+	rsp, err := c.EvaluateVulnPolicies(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEvaluateVulnPoliciesResponse(rsp)
+}
+
+// PreviewVulnPoliciesWithBodyWithResponse Dry-run an unsaved policy
+//
+// Body is a policy exactly as for create; nothing is stored or changed. Returns
+// the findings the policy **would** act on and how — evaluated on its own
+// (ignoring priority against other live policies), so you can see its effect
+// before saving it.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /vuln-policies/preview (the `PreviewVulnPolicies` operationId).
+func (c *ClientWithResponses) PreviewVulnPoliciesWithBodyWithResponse(ctx context.Context, params *PreviewVulnPoliciesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewVulnPoliciesResponse, error) {
+	rsp, err := c.PreviewVulnPoliciesWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreviewVulnPoliciesResponse(rsp)
+}
+
+// PreviewVulnPoliciesWithResponse Dry-run an unsaved policy
+//
+// Body is a policy exactly as for create; nothing is stored or changed. Returns
+// the findings the policy **would** act on and how — evaluated on its own
+// (ignoring priority against other live policies), so you can see its effect
+// before saving it.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /vuln-policies/preview (the `PreviewVulnPolicies` operationId).
+func (c *ClientWithResponses) PreviewVulnPoliciesWithResponse(ctx context.Context, params *PreviewVulnPoliciesParams, body PreviewVulnPoliciesJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewVulnPoliciesResponse, error) {
+	rsp, err := c.PreviewVulnPolicies(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreviewVulnPoliciesResponse(rsp)
+}
+
+// DeleteVulnPolicyWithResponse Delete a vulnerability policy
+//
+// Findings it was holding revert to what they were before it ever matched, on the evaluation that follows.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /vuln-policies/{policyID} (the `DeleteVulnPolicy` operationId).
+func (c *ClientWithResponses) DeleteVulnPolicyWithResponse(ctx context.Context, policyID PolicyID, reqEditors ...RequestEditorFn) (*DeleteVulnPolicyResponse, error) {
+	rsp, err := c.DeleteVulnPolicy(ctx, policyID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteVulnPolicyResponse(rsp)
+}
+
+// GetVulnPolicyWithResponse Read a vulnerability policy
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /vuln-policies/{policyID} (the `GetVulnPolicy` operationId).
+func (c *ClientWithResponses) GetVulnPolicyWithResponse(ctx context.Context, policyID PolicyID, reqEditors ...RequestEditorFn) (*GetVulnPolicyResponse, error) {
+	rsp, err := c.GetVulnPolicy(ctx, policyID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetVulnPolicyResponse(rsp)
+}
+
+// UpdateVulnPolicyWithBodyWithResponse Update a vulnerability policy
+//
+// Full replacement. Re-evaluates in the background — a condition or priority change may immediately claim or release findings.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /vuln-policies/{policyID} (the `UpdateVulnPolicy` operationId).
+func (c *ClientWithResponses) UpdateVulnPolicyWithBodyWithResponse(ctx context.Context, policyID PolicyID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateVulnPolicyResponse, error) {
+	rsp, err := c.UpdateVulnPolicyWithBody(ctx, policyID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateVulnPolicyResponse(rsp)
+}
+
+// UpdateVulnPolicyWithResponse Update a vulnerability policy
+//
+// Full replacement. Re-evaluates in the background — a condition or priority change may immediately claim or release findings.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /vuln-policies/{policyID} (the `UpdateVulnPolicy` operationId).
+func (c *ClientWithResponses) UpdateVulnPolicyWithResponse(ctx context.Context, policyID PolicyID, body UpdateVulnPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateVulnPolicyResponse, error) {
+	rsp, err := c.UpdateVulnPolicy(ctx, policyID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateVulnPolicyResponse(rsp)
+}
+
+// PreviewVulnPolicyWithResponse Dry-run a stored policy
+//
+// As `POST /vuln-policies/preview`, for a stored policy — whatever its enabled state.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /vuln-policies/{policyID}/preview (the `PreviewVulnPolicy` operationId).
+func (c *ClientWithResponses) PreviewVulnPolicyWithResponse(ctx context.Context, policyID PolicyID, params *PreviewVulnPolicyParams, reqEditors ...RequestEditorFn) (*PreviewVulnPolicyResponse, error) {
+	rsp, err := c.PreviewVulnPolicy(ctx, policyID, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreviewVulnPolicyResponse(rsp)
 }
 
 // ListVulnerabilitySbomsWithResponse Which releases ever shipped this vulnerability
@@ -91417,6 +93378,333 @@ func ParseDeleteVexStatementResponse(rsp *http.Response) (*DeleteVexStatementRes
 	switch {
 	case rsp.StatusCode == 204:
 		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListVulnPoliciesResponse parses an HTTP response from a ListVulnPoliciesWithResponse call
+func ParseListVulnPoliciesResponse(rsp *http.Response) (*ListVulnPoliciesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListVulnPoliciesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Policies *[]VulnPolicy `json:"policies,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateVulnPolicyResponse parses an HTTP response from a CreateVulnPolicyWithResponse call
+func ParseCreateVulnPolicyResponse(rsp *http.Response) (*CreateVulnPolicyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateVulnPolicyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest VulnPolicy
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseExportVulnPolicyBundleResponse parses an HTTP response from a ExportVulnPolicyBundleWithResponse call
+func ParseExportVulnPolicyBundleResponse(rsp *http.Response) (*ExportVulnPolicyBundleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ExportVulnPolicyBundleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest VulnPolicyBundle
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "yaml") && rsp.StatusCode == 200:
+		var dest VulnPolicyBundle
+		if err := yaml.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.YAML200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseImportVulnPolicyBundleResponse parses an HTTP response from a ImportVulnPolicyBundleWithResponse call
+func ParseImportVulnPolicyBundleResponse(rsp *http.Response) (*ImportVulnPolicyBundleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ImportVulnPolicyBundleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			DryRun   *bool         `json:"dry_run,omitempty"`
+			Policies *[]VulnPolicy `json:"policies,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseEvaluateVulnPoliciesResponse parses an HTTP response from a EvaluateVulnPoliciesWithResponse call
+func ParseEvaluateVulnPoliciesResponse(rsp *http.Response) (*EvaluateVulnPoliciesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &EvaluateVulnPoliciesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Applied Findings changed.
+			Applied *int `json:"applied,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePreviewVulnPoliciesResponse parses an HTTP response from a PreviewVulnPoliciesWithResponse call
+func ParsePreviewVulnPoliciesResponse(rsp *http.Response) (*PreviewVulnPoliciesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PreviewVulnPoliciesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest VulnPolicyPreview
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteVulnPolicyResponse parses an HTTP response from a DeleteVulnPolicyWithResponse call
+func ParseDeleteVulnPolicyResponse(rsp *http.Response) (*DeleteVulnPolicyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteVulnPolicyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetVulnPolicyResponse parses an HTTP response from a GetVulnPolicyWithResponse call
+func ParseGetVulnPolicyResponse(rsp *http.Response) (*GetVulnPolicyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetVulnPolicyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest VulnPolicy
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateVulnPolicyResponse parses an HTTP response from a UpdateVulnPolicyWithResponse call
+func ParseUpdateVulnPolicyResponse(rsp *http.Response) (*UpdateVulnPolicyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateVulnPolicyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest VulnPolicy
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePreviewVulnPolicyResponse parses an HTTP response from a PreviewVulnPolicyWithResponse call
+func ParsePreviewVulnPolicyResponse(rsp *http.Response) (*PreviewVulnPolicyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PreviewVulnPolicyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest VulnPolicyPreview
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest Error

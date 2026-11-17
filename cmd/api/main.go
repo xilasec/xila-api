@@ -81,6 +81,7 @@ import (
 	"github.com/xilasec/xila-api/internal/user"
 	"github.com/xilasec/xila-api/internal/vex"
 	"github.com/xilasec/xila-api/internal/vulnmatch"
+	"github.com/xilasec/xila-api/internal/vulnpolicy"
 	"github.com/xilasec/xila-api/web"
 )
 
@@ -244,13 +245,19 @@ func run() error {
 	parsers := newParserRegistry()
 	// Post-ingest passes, in order: reachability first (it sets priority, which the
 	// later passes can match on and which dedup uses to elect a primary); then VEX,
-	// whose verdicts are authoritative and must win over a generic rule; then the
-	// triage rules, which only see what VEX left open; last, imported verdicts
+	// whose verdicts are authoritative and must win over a generic rule; then
+	// vulnerability policies (component+vulnerability-pair CEL rules, with their
+	// own priority among themselves) — after VEX so an authoritative VEX verdict
+	// always wins, before the generic triage rules so a policy's analysis/rating
+	// is in place before a rule conditions on it; then the triage rules, which
+	// only see what VEX and the policies left open; last, imported verdicts
 	// (connector pulls, reports carrying their own triage), applied only to new
 	// findings nothing local has triaged.
 	reacher := correlation.NewReacher(findingRepo, findingRepo)
 	vexRepo := vex.NewRepository(db)
 	vexSvc := vex.NewService(vexRepo, findingRepo, projectRepo)
+	vulnPolicyRepo := vulnpolicy.NewRepository(db)
+	vulnPolicySvc := vulnpolicy.NewService(vulnPolicyRepo, findingRepo, findingRepo)
 	connectorRepo := connector.NewRepository(db)
 	// EU CRA Article 14: actively exploited findings (KEV, weaponized exploit)
 	// of in-scope products open reporting cases with the 24 h / 72 h / 14 d clock.
@@ -278,7 +285,7 @@ func run() error {
 	// Exposure after the triage rules: it infers asset exposure from the scan and
 	// recomputes this scan's priorities from every input (a rule's severity
 	// reset included) before dedup elects primaries.
-	appliers = append(appliers, vexSvc, triageSvc, assetSvc, connector.NewRemoteTriage(connectorRepo, findingRepo).WithApproval(cfg.RiskAcceptanceRequiresApproval))
+	appliers = append(appliers, vexSvc, vulnPolicySvc, triageSvc, assetSvc, connector.NewRemoteTriage(connectorRepo, findingRepo).WithApproval(cfg.RiskAcceptanceRequiresApproval))
 	// NVD CVSS: stamp cached vectors onto a scan's findings at ingest (no network;
 	// the enrichment schedule fetches). Before dedup, after nothing that reads it.
 	// One NVD client: CVSS enrichment and CPE matching share its rate limit.
@@ -484,6 +491,7 @@ func run() error {
 		Enrichment: enrichment.NewHandler(enrichSvc),
 		License:    license.NewHandler(licenseGroups),
 		Policy:     policy.NewHandler(policyRepo, policySvc, findingRepo),
+		VulnPolicy: vulnpolicy.NewHandler(vulnPolicyRepo, vulnPolicySvc).WithCustomFields(customFieldRepo),
 		Ready:      db.Ping,
 	}
 
@@ -529,6 +537,17 @@ func run() error {
 		job(func() {
 			runLicenseBackfill(ctx, sbomRepo)
 			runPolicyEval(ctx, policySvc, cfg.Policy.EvalInterval)
+		})
+		// Vulnerability policies: re-evaluate on VULN_POLICY_EVAL_INTERVAL,
+		// catching a validity window's expiry (ingest and policy edits already
+		// evaluate immediately). Optionally sync a GitOps bundle URL first, so
+		// a fetched update is reflected in the same pass.
+		job(func() {
+			if cfg.VulnPolicy.BundleURL != "" {
+				syncer := vulnpolicy.NewSyncer(vulnPolicySvc, cfg.VulnPolicy.BundleURL, netguard.NewClient(30*time.Second))
+				go syncer.RunEvery(ctx, cfg.VulnPolicy.BundleInterval)
+			}
+			runVulnPolicyEval(ctx, vulnPolicySvc, cfg.VulnPolicy.EvalInterval)
 		})
 		// Periodically refresh EPSS/KEV and recompute priorities; then, with
 		// NVD_ENABLED, CVSS vectors from NVD (slow without a key: rate-limited).
@@ -902,6 +921,31 @@ func runPolicyEval(ctx context.Context, svc *policy.Service, interval time.Durat
 		observability.RecordJob(ctx, "policy_eval", start, err)
 		if err != nil && ctx.Err() == nil {
 			slog.WarnContext(ctx, "policy evaluation failed", "error", err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+// runVulnPolicyEval evaluates every project against the vulnerability
+// policies once now, then on an interval, until the context ends — catching
+// a validity window's expiry (ingest and policy edits already evaluate
+// immediately). interval 0 disables it.
+func runVulnPolicyEval(ctx context.Context, svc *vulnpolicy.Service, interval time.Duration) {
+	if interval <= 0 {
+		return
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		start := time.Now()
+		_, err := svc.EvaluateAll(ctx)
+		observability.RecordJob(ctx, "vuln_policy_eval", start, err)
+		if err != nil && ctx.Err() == nil {
+			slog.WarnContext(ctx, "vulnerability policy evaluation failed", "error", err)
 		}
 		select {
 		case <-ctx.Done():
