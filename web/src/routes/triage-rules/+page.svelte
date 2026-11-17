@@ -53,7 +53,9 @@
 		kev: false,
 		project_criticality: /** @type {string[]} */ ([]),
 		expression: '',
-		reason: ''
+		reason: '',
+		sort_order: 0,
+		continue: false
 	});
 	let form = $state(blank());
 
@@ -92,7 +94,8 @@
 				.split(',')
 				.map((s) => s.trim())
 				.filter(Boolean),
-			min_epss: form.min_epss === '' || form.min_epss === null ? null : Number(form.min_epss)
+			min_epss: form.min_epss === '' || form.min_epss === null ? null : Number(form.min_epss),
+			sort_order: Number(form.sort_order) || 0
 		};
 		if (body.action !== 'set_severity') delete body.new_severity;
 		if (body.action !== 'set_custom_field') {
@@ -337,6 +340,16 @@
 		</span>
 	</Field>
 
+	<Field label={$t('triagerules.orderLabel')} hint={$t('triagerules.orderHint')}>
+		<input bind:value={form.sort_order} type="number" class="input input-bordered input-sm w-full" />
+	</Field>
+	<Field label={$t('triagerules.continueLabel')}>
+		<label class="label cursor-pointer justify-start gap-2">
+			<input type="checkbox" bind:checked={form.continue} class="checkbox checkbox-sm" />
+			<span class="label-text text-xs">{$t('triagerules.continueHint')}</span>
+		</label>
+	</Field>
+
 	<div class="md:col-span-2 flex justify-end gap-2">
 		<button type="button" class="btn btn-ghost btn-sm" onclick={previewForm} disabled={previewing}>
 			{#if previewing}<span class="loading loading-spinner loading-xs"></span>{/if}{$t('triagerules.previewButton')}
@@ -395,9 +408,12 @@
 						<td>
 							<input type="checkbox" class="toggle toggle-sm toggle-primary" checked={r.enabled} onchange={() => toggle(r)} />
 						</td>
-						<td class="font-medium">{r.name}</td>
+						<td class="font-medium"><span class="text-base-content/40 tabular-nums mr-1" title={$t('triagerules.orderLabel')}>{r.sort_order}</span>{r.name}</td>
 						<td class="text-xs text-base-content/60">{conditionSummary(r)}</td>
-						<td><span class="badge badge-ghost badge-sm">{actionLabel(r)}</span></td>
+						<td>
+							<span class="badge badge-ghost badge-sm">{actionLabel(r)}</span>
+							{#if r.continue}<span class="badge badge-outline badge-sm ml-1" title={$t('triagerules.continueHint')}>{$t('triagerules.continueBadge')}</span>{/if}
+						</td>
 						<td><span class="badge badge-sm {approvalTone[r.approval_status] ?? 'badge-ghost'}">{approvalLabel[r.approval_status] ? $t(approvalLabel[r.approval_status]) : r.approval_status}</span></td>
 						<td class="tabular-nums">{r.hit_count ?? 0}</td>
 						<td class="text-xs whitespace-nowrap">{fmtDate(r.last_hit_at)}</td>

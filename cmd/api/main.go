@@ -16,6 +16,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/xilasec/xila-api/internal/access"
 	"github.com/xilasec/xila-api/internal/account"
 	"github.com/xilasec/xila-api/internal/aitriage"
@@ -26,11 +28,13 @@ import (
 	"github.com/xilasec/xila-api/internal/auth"
 	"github.com/xilasec/xila-api/internal/badge"
 	"github.com/xilasec/xila-api/internal/compliance"
+	"github.com/xilasec/xila-api/internal/computed"
 	"github.com/xilasec/xila-api/internal/config"
 	"github.com/xilasec/xila-api/internal/connector"
 	"github.com/xilasec/xila-api/internal/correlation"
 	"github.com/xilasec/xila-api/internal/cra"
 	"github.com/xilasec/xila-api/internal/customfield"
+	"github.com/xilasec/xila-api/internal/customparser"
 	"github.com/xilasec/xila-api/internal/database"
 	"github.com/xilasec/xila-api/internal/demo"
 	"github.com/xilasec/xila-api/internal/engagement"
@@ -53,6 +57,7 @@ import (
 	"github.com/xilasec/xila-api/internal/metrics"
 	"github.com/xilasec/xila-api/internal/netguard"
 	"github.com/xilasec/xila-api/internal/notify"
+	"github.com/xilasec/xila-api/internal/objectstore"
 	"github.com/xilasec/xila-api/internal/observability"
 	"github.com/xilasec/xila-api/internal/oidc"
 	"github.com/xilasec/xila-api/internal/org"
@@ -70,6 +75,7 @@ import (
 	"github.com/xilasec/xila-api/internal/sbom"
 	"github.com/xilasec/xila-api/internal/scan"
 	"github.com/xilasec/xila-api/internal/scanner"
+	"github.com/xilasec/xila-api/internal/scim"
 	"github.com/xilasec/xila-api/internal/secretbox"
 	"github.com/xilasec/xila-api/internal/server"
 	"github.com/xilasec/xila-api/internal/serviceaccount"
@@ -80,6 +86,7 @@ import (
 	"github.com/xilasec/xila-api/internal/user"
 	"github.com/xilasec/xila-api/internal/vex"
 	"github.com/xilasec/xila-api/internal/vulnmatch"
+	"github.com/xilasec/xila-api/internal/vulnpolicy"
 	"github.com/xilasec/xila-api/web"
 )
 
@@ -142,6 +149,12 @@ func run() error {
 		slog.Warn("production hardening", "advice", warn)
 	}
 
+	// Rotatable secrets (M10 10.2): every node re-reads any secret setting
+	// that came from a reference or a NAME_FILE on SECRETS_REFRESH_INTERVAL
+	// (0 = off) — not only the leader, since each node holds its own DB
+	// connections, SMTP client, HTTP clients, etc.
+	go cfg.Secrets.Run(rootCtx)
+
 	// Database.
 	db, err := database.Connect(rootCtx, cfg.DB.DSN(), database.PoolConfig{
 		MaxConns:          cfg.DB.MaxConns,
@@ -150,6 +163,7 @@ func run() error {
 		MaxConnIdleTime:   cfg.DB.MaxConnIdleTime,
 		HealthCheckPeriod: cfg.DB.HealthCheckPeriod,
 		StatementTimeout:  cfg.DB.StatementTimeout,
+		PasswordGetter:    cfg.SecretGetter("DB_PASSWORD", cfg.DB.Password),
 		// Wait out a database that is still starting (fresh install, both
 		// restarted together) rather than crash-looping.
 		StartupWait: time.Minute,
@@ -164,11 +178,81 @@ func run() error {
 	}
 	slog.Info("database migrations applied")
 
+	// Reporting reads (portfolio, trends, reports): a read replica
+	// (DB_READ_URL) and/or a tighter statement cap (DB_READ_STATEMENT_TIMEOUT)
+	// in a pool of their own; otherwise the primary pool.
+	readDB := db
+	if cfg.DB.SeparateReadPool() {
+		timeout := cfg.DB.ReadStatementTimeout
+		if timeout == 0 {
+			timeout = cfg.DB.StatementTimeout
+		}
+		readDB, err = database.Connect(rootCtx, cfg.DB.ReadDSN(), database.PoolConfig{
+			MaxConns:          cfg.DB.ReadMaxConns,
+			MinConns:          1,
+			MaxConnLifetime:   cfg.DB.MaxConnLifetime,
+			MaxConnIdleTime:   cfg.DB.MaxConnIdleTime,
+			HealthCheckPeriod: cfg.DB.HealthCheckPeriod,
+			StatementTimeout:  timeout,
+			StartupWait:       time.Minute,
+			// DB_READ_URL carries its own credentials (possibly a different
+			// host/user entirely) and is out of scope for rotation; only the
+			// primary's password applies here when there is no separate URL.
+			PasswordGetter: readPasswordGetter(cfg),
+		})
+		if err != nil {
+			return fmt.Errorf("reporting database: %w", err)
+		}
+		defer readDB.Close()
+		slog.Info("reporting reads use their own pool", "replica", cfg.DB.ReadURL != "", "statement_timeout", timeout)
+	}
+
+	// The metric snapshot job makes a full pass over the findings: on a large
+	// instance that outlasts DB_STATEMENT_TIMEOUT, so it gets a small pool
+	// capped by DB_JOB_STATEMENT_TIMEOUT instead.
+	jobDB, err := database.Connect(rootCtx, cfg.DB.DSN(), database.PoolConfig{
+		MaxConns:          2,
+		MinConns:          0,
+		MaxConnLifetime:   cfg.DB.MaxConnLifetime,
+		MaxConnIdleTime:   cfg.DB.MaxConnIdleTime,
+		HealthCheckPeriod: cfg.DB.HealthCheckPeriod,
+		StatementTimeout:  cfg.DB.JobStatementTimeout,
+		StartupWait:       time.Minute,
+		PasswordGetter:    cfg.SecretGetter("DB_PASSWORD", cfg.DB.Password),
+	})
+	if err != nil {
+		return fmt.Errorf("job database pool: %w", err)
+	}
+	defer jobDB.Close()
+
+	// Payload storage for queued ingest jobs (INGEST_PAYLOAD_STORE, M11 11.8):
+	// postgres (scan_jobs.payload, the default) or s3 (any S3-compatible
+	// object storage; scan_jobs keeps only a reference). Built here, with a
+	// reachability check (HeadBucket), so a misconfigured bucket fails startup
+	// rather than the first upload.
+	var payloadStore scan.PayloadStore
+	if cfg.Ingest.PayloadStore == "s3" {
+		client, err := objectstore.New(rootCtx, objectstore.Config{
+			Endpoint:        cfg.S3.Endpoint,
+			Region:          cfg.S3.Region,
+			Bucket:          cfg.S3.Bucket,
+			Prefix:          cfg.S3.Prefix,
+			AccessKeyID:     cfg.SecretGetter("S3_ACCESS_KEY_ID", cfg.S3.AccessKeyID),
+			SecretAccessKey: cfg.SecretGetter("S3_SECRET_ACCESS_KEY", cfg.S3.SecretAccessKey),
+			ForcePathStyle:  cfg.S3.ForcePathStyle,
+		})
+		if err != nil {
+			return fmt.Errorf("S3 payload store: %w", err)
+		}
+		payloadStore = client
+		slog.Info("ingest payload store ready", "backend", "s3", "bucket", cfg.S3.Bucket)
+	}
+
 	// Wire dependencies.
 	userRepo := user.NewRepository(db)
 	teamRepo := team.NewRepository(db)
 	projectRepo := project.NewRepository(db)
-	retentionSvc := retention.NewService(db, projectRepo, retention.Policy(cfg.Retention))
+	retentionSvc := retention.NewService(db, projectRepo, retention.Policy(cfg.Retention), payloadStore)
 	auditRepo := audit.NewRepository(db)
 	ingestHealth := ingesthealth.NewRepository(db)
 	scanRepo := scan.NewRepository(db)
@@ -179,11 +263,16 @@ func run() error {
 	assetRepo := asset.NewRepository(db)
 	assetSvc := asset.NewService(assetRepo, findingRepo)
 	complianceRepo := compliance.NewRepository(db)
-	portfolioRepo := portfolio.NewRepository(db)
-	metricsRepo := metrics.NewRepository(db)
+	// Reporting reads go to readDB (replica / capped pool); the snapshot job
+	// writes through the primary.
+	portfolioRepo := portfolio.NewRepository(readDB).WithSnapshots(cfg.PortfolioFromSnapshots)
+	metricsRepo := metrics.NewRepository(jobDB)
+	metricsReadRepo := metrics.NewRepository(readDB)
+	portfolioParts := portfolio.NewRepository(jobDB)
 	notifyRepo := notify.NewRepository(db)
 	features := feature.NewStore(db, feature.Unavailable(cfg)...)
-	notifySvc := notify.NewService(notifyRepo, notify.SMTPConfig(cfg.SMTP)).WithFeatures(features)
+	notifySvc := notify.NewService(notifyRepo, notify.SMTPConfig(cfg.SMTP)).WithFeatures(features).
+		WithSMTPPassword(cfg.SecretGetter("SMTP_PASSWORD", cfg.SMTP.Password))
 	notifySvc.SetDeliveryPolicy(notify.DeliveryPolicy{
 		MaxAttempts: cfg.Notify.MaxAttempts, RetryBase: cfg.Notify.RetryBase,
 		RetryMax: cfg.Notify.RetryMax, Retention: cfg.Notify.Retention,
@@ -199,7 +288,11 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	trackerCipher, err := secretbox.New(integrationKey)
+	integrationPrevious, err := cfg.IntegrationPreviousKeys()
+	if err != nil {
+		return err
+	}
+	trackerCipher, err := secretbox.NewKeyring(integrationKey, integrationPrevious)
 	if err != nil {
 		return err
 	}
@@ -212,25 +305,33 @@ func run() error {
 	remediationSvc := remediation.NewService(remediationRepo, findingRepo, issueSvc, cfg.RemediationAutoCreate, cfg.PublicURL).WithFeatures(features)
 	issueSvc.AddLinkSyncer(remediationSvc)
 	// Custom fields: definitions + validated values; triage rules read and
-	// set them, component policies read the project's.
+	// set them, component policies read the project's. Computed fields
+	// (internal/computed) recompute their own value from a CEL expression.
 	customFieldRepo := customfield.NewRepository(db)
 	customFieldSvc := customfield.NewService(customFieldRepo, membershipRepo, findingRepo)
 	triageSvc := triage.NewService(triageRepo, findingRepo, findingRepo).WithCustomFields(customFieldSvc)
-
-	// Ingest queue depth: sampled once per interval and shared by the metrics
-	// exporter and the upload handler's backpressure check.
-	queueMon := scan.NewQueueMonitor(scanRepo, cfg.Ingest.QueueSampleInterval, cfg.Ingest.MaxQueueDepth)
+	computedSvc := computed.NewService(customFieldRepo, findingRepo, triageRepo, projectRepo, assetRepo)
 
 	parsers := newParserRegistry()
+	// No-code parsers (M12 12.4): admin-defined CSV/JSON/XML mappings the
+	// upload path falls back to when ?scanner= names no built-in parser.
+	customParserRepo := customparser.NewRepository(db)
+	customParserSvc := customparser.NewService(customParserRepo, parsers)
 	// Post-ingest passes, in order: reachability first (it sets priority, which the
 	// later passes can match on and which dedup uses to elect a primary); then VEX,
-	// whose verdicts are authoritative and must win over a generic rule; then the
-	// triage rules, which only see what VEX left open; last, imported verdicts
+	// whose verdicts are authoritative and must win over a generic rule; then
+	// vulnerability policies (component+vulnerability-pair CEL rules, with their
+	// own priority among themselves) — after VEX so an authoritative VEX verdict
+	// always wins, before the generic triage rules so a policy's analysis/rating
+	// is in place before a rule conditions on it; then the triage rules, which
+	// only see what VEX and the policies left open; last, imported verdicts
 	// (connector pulls, reports carrying their own triage), applied only to new
 	// findings nothing local has triaged.
 	reacher := correlation.NewReacher(findingRepo, findingRepo)
 	vexRepo := vex.NewRepository(db)
 	vexSvc := vex.NewService(vexRepo, findingRepo, projectRepo)
+	vulnPolicyRepo := vulnpolicy.NewRepository(db)
+	vulnPolicySvc := vulnpolicy.NewService(vulnPolicyRepo, findingRepo, findingRepo)
 	connectorRepo := connector.NewRepository(db)
 	// EU CRA Article 14: actively exploited findings (KEV, weaponized exploit)
 	// of in-scope products open reporting cases with the 24 h / 72 h / 14 d clock.
@@ -257,19 +358,31 @@ func run() error {
 	}
 	// Exposure after the triage rules: it infers asset exposure from the scan and
 	// recomputes this scan's priorities from every input (a rule's severity
-	// reset included) before dedup elects primaries.
-	appliers = append(appliers, vexSvc, triageSvc, assetSvc, connector.NewRemoteTriage(connectorRepo, findingRepo).WithApproval(cfg.RiskAcceptanceRequiresApproval))
+	// reset included) before dedup elects primaries. Computed fields right after
+	// the triage rules: a computed finding field reads the severity/status a
+	// rule just settled.
+	appliers = append(appliers, vexSvc, vulnPolicySvc, triageSvc, computedSvc, assetSvc,
+		connector.NewRemoteTriage(connectorRepo, findingRepo).WithApproval(cfg.RiskAcceptanceRequiresApproval))
 	// NVD CVSS: stamp cached vectors onto a scan's findings at ingest (no network;
 	// the enrichment schedule fetches). Before dedup, after nothing that reads it.
 	// One NVD client: CVSS enrichment and CPE matching share its rate limit.
-	nvdClient := enrichment.NewNVDClient(cfg.NVD.URL, cfg.NVD.APIKey)
+	nvdClient := enrichment.NewNVDClient(cfg.NVD.URL, cfg.SecretGetter("NVD_API_KEY", cfg.NVD.APIKey))
 	nvdSvc := enrichment.NewNVD(findingRepo, nvdClient)
 	if cfg.NVD.Enabled {
 		appliers = append(appliers, nvdSvc)
 	}
 	ingestSvc := scan.NewService(scanRepo, findingRepo, projectRepo, parsers, notifySvc, appliers, scanRepo).
 		WithFollowUps(remediationSvc).
-		WithSkipUnchanged(cfg.Ingest.SkipUnchanged)
+		WithSkipUnchanged(cfg.Ingest.SkipUnchanged).
+		WithHostAssets(assetRepo).
+		WithPayloadStore(payloadStore).
+		WithCustomParsers(customParserSvc)
+	// Ingest queue depth: sampled once per interval and shared by the metrics
+	// exporter, the upload handler's backpressure check, and (M11 11.7) the
+	// live-tuning sample that resizes this node's worker pool.
+	workerPool := scan.NewWorkerPool(scanRepo, ingestSvc, cfg.Ingest.PollInterval, cfg.Ingest.MaxAttempts)
+	queueMon := scan.NewQueueMonitor(scanRepo, cfg.Ingest.QueueSampleInterval, cfg.Ingest.MaxQueueDepth).
+		WithLiveSettings(scanRepo, workerPool, cfg.Ingest.Workers)
 	connectorSvc := connector.NewService(connectorRepo, ingestSvc, trackerCipher)
 	// Component policies: evaluated on every SBOM upload (the sbom post-ingest
 	// hook), after each policy change, and on POLICY_EVAL_INTERVAL.
@@ -277,9 +390,13 @@ func run() error {
 	policyRepo := policy.NewRepository(db)
 	policySvc := policy.NewService(policyRepo, sbomRepo, pkgmetaRepo, licenseGroups, ingestSvc, notifySvc).
 		WithCustomFields(customFieldRepo)
-	sbomSvc := sbom.NewService(sbomRepo, projectRepo, policySvc, reacher).WithLicenses(license.Resolve)
+	sbomSvc := sbom.NewService(sbomRepo, projectRepo, policySvc, reacher).
+		WithLicenses(license.Resolve).WithStrictValidation(cfg.SBOMStrictValidation)
 	correlationSvc := correlation.NewService(findingRepo, sbomRepo)
 	authSvc := auth.NewService(userRepo, cfg.JWT, cfg.PasswordLoginEnabled)
+	// Shared with the auth middleware and the audit recorder, so rotating
+	// JWT_SECRET (Keys.Update) applies to every signer and verifier at once.
+	jwtKeys := authSvc.Keys()
 	authSvc.WithFeatures(features)
 	authSvc.EnableResetMail(notifySvc, cfg.PublicURL)
 	// TOTP two-factor: secrets sealed like integration tokens; code attempts
@@ -298,7 +415,7 @@ func run() error {
 		if err != nil {
 			return err
 		}
-		authSvc.EnableDirectory(dir)
+		authSvc.EnableDirectory(dir.WithBindPassword(cfg.SecretGetter("LDAP_BIND_PASSWORD", cfg.LDAP.BindPassword)))
 	}
 
 	tokenRepo := apitoken.NewRepository(db)
@@ -312,9 +429,9 @@ func run() error {
 	advisoryRepo := vulnmatch.NewAdvisoryRepository(db, cfg.PublicURL)
 	jvnRepo := vulnmatch.NewJVNRepository(db)
 	vulnSources, err := vulnmatch.NewSources(cfg.VulnMatch.Sources, vulnmatch.SourceDeps{
-		OSVURL: cfg.VulnMatch.OSVURL, GitHubURL: cfg.VulnMatch.GitHubURL, GitHubToken: cfg.VulnMatch.GitHubToken,
+		OSVURL: cfg.VulnMatch.OSVURL, GitHubURL: cfg.VulnMatch.GitHubURL, GitHubToken: cfg.SecretGetter("VULNMATCH_GITHUB_TOKEN", cfg.VulnMatch.GitHubToken),
 		Mirror: osvMirrorRepo, Private: advisoryRepo, NVD: nvdClient,
-		VulnerableCodeURL: cfg.VulnMatch.VulnerableCodeURL, VulnerableCodeAPIKey: cfg.VulnMatch.VulnerableCodeAPIKey,
+		VulnerableCodeURL: cfg.VulnMatch.VulnerableCodeURL, VulnerableCodeAPIKey: cfg.SecretGetter("VULNMATCH_VULNERABLECODE_API_KEY", cfg.VulnMatch.VulnerableCodeAPIKey),
 		JVN: jvnRepo,
 	})
 	if err != nil {
@@ -370,7 +487,7 @@ func run() error {
 		sbomSvc.WithPackageMeta(policySvc.AfterRefresh(pkgmetaSvc))
 	}
 
-	kevCatalogs, err := enrichment.KEVCatalogs(cfg.Enrich.KEVSources, cfg.Enrich.KEVURLs, cfg.Enrich.VulnCheckToken,
+	kevCatalogs, err := enrichment.KEVCatalogs(cfg.Enrich.KEVSources, cfg.Enrich.KEVURLs, cfg.SecretGetter("VULNCHECK_API_TOKEN", cfg.Enrich.VulnCheckToken),
 		netguard.NewClient(5*time.Minute))
 	if err != nil {
 		return fmt.Errorf("KEV_SOURCES: %w", err)
@@ -384,7 +501,7 @@ func run() error {
 	// Opt-in AI triage (AI_TRIAGE_ENABLED): nil provider = off (routes 404).
 	var aiProvider aitriage.Provider
 	if cfg.AI.Enabled {
-		if aiProvider, err = aitriage.NewProvider(cfg.AI); err != nil {
+		if aiProvider, err = aitriage.NewProvider(cfg.AI, cfg.SecretGetter("AI_API_KEY", cfg.AI.APIKey)); err != nil {
 			return err
 		}
 		slog.InfoContext(rootCtx, "AI triage enabled", "provider", cfg.AI.Provider, "model", cfg.AI.Model)
@@ -403,7 +520,7 @@ func run() error {
 		Project: project.NewHandler(projectRepo, findingRepo, membershipRepo).WithTagsChanged(func(id string) {
 			policySvc.Reevaluate([]string{id}, false) // tag-scoped policies may now (not) apply
 		}),
-		Scan: scan.NewHandler(scanRepo, ingestSvc, cfg.Ingest.Async, queueMon),
+		Scan: scan.NewHandler(scanRepo, ingestSvc, cfg.Ingest.Async, queueMon, workerPool),
 		Finding: finding.NewHandler(findingRepo, notifySvc, membershipRepo, cfg.AssessmentRequiresApproval).
 			WithRiskAcceptanceApproval(cfg.RiskAcceptanceRequiresApproval).WithCustomFields(customFieldRepo),
 		AITriage: aitriage.NewHandler(aitriage.NewService(aitriage.NewRepository(db), findingRepo, aiProvider,
@@ -413,25 +530,27 @@ func run() error {
 		Asset:      asset.NewHandler(assetRepo, assetSvc, membershipRepo),
 		Compliance: compliance.NewHandler(complianceRepo),
 		Portfolio:  portfolio.NewHandler(portfolioRepo),
-		Metrics:    metrics.NewHandler(metricsRepo),
-		Report: report.NewHandler(report.NewService(portfolioRepo, findingRepo, complianceRepo, projectRepo,
+		Metrics:    metrics.NewHandler(metricsReadRepo).WithSnapshotter(metricsRepo, portfolioParts.SnapshotParts),
+		Report: report.NewHandler(report.NewService(portfolioRepo, finding.NewRepository(readDB), complianceRepo, projectRepo,
 			report.NewRepository(db)).WithEngagements(engagementRepo), reportTemplates),
-		Engagement:   engagement.NewHandler(engagementRepo, ingestSvc, findingRepo, findingTemplates),
-		Badge:        badge.NewHandler(badge.NewRepository(db), portfolioRepo, gateRepo, findingRepo).WithPublicURL(cfg.PublicURL),
-		FixPlan:      fixplan.NewHandler(findingRepo),
-		Remediation:  remediation.NewHandler(remediationRepo, remediationSvc, membershipRepo),
-		RootCauses:   rootcause.NewHandler(rootcause.NewService(findingRepo, remediationRepo, remediationSvc, membershipRepo)),
-		Exploits:     exploitintel.NewHandler(exploitRepo, exploitSvc, findingRepo),
-		Evidence:     evidence.NewHandler(evidence.NewRepository(db), projectRepo, complianceRepo, portfolioRepo, craRepo),
-		CRACases:     cra.NewCaseHandler(craSvc),
-		FindingTmpl:  findingtemplate.NewHandler(findingTemplates),
-		ReportTmpl:   report.NewTemplateHandler(reportTemplates),
-		CustomFields: customfield.NewHandler(customFieldRepo, customFieldSvc),
+		Engagement:  engagement.NewHandler(engagementRepo, ingestSvc, findingRepo, findingTemplates),
+		Badge:       badge.NewHandler(badge.NewRepository(db), portfolioRepo, gateRepo, findingRepo).WithPublicURL(cfg.PublicURL),
+		FixPlan:     fixplan.NewHandler(findingRepo),
+		Remediation: remediation.NewHandler(remediationRepo, remediationSvc, membershipRepo),
+		RootCauses:  rootcause.NewHandler(rootcause.NewService(findingRepo, remediationRepo, remediationSvc, membershipRepo)),
+		Exploits:    exploitintel.NewHandler(exploitRepo, exploitSvc, findingRepo),
+		Evidence:    evidence.NewHandler(evidence.NewRepository(db), projectRepo, complianceRepo, portfolioRepo, craRepo),
+		CRACases:    cra.NewCaseHandler(craSvc),
+		FindingTmpl: findingtemplate.NewHandler(findingTemplates),
+		ReportTmpl:  report.NewTemplateHandler(reportTemplates),
+		CustomFields: customfield.NewHandler(customFieldRepo, customFieldSvc).
+			WithComputedValidator(computedSvc).WithComputedChanged(computedSvc.OnDefinitionChanged),
+		CustomParser: customparser.NewHandler(customParserSvc),
 		Notify:       notify.NewHandler(notifyRepo, notifySvc),
 		Retention:    retention.NewHandler(retentionSvc),
 		Archive:      archive.NewHandler(archive.NewRepository(db), findingRepo, cfg.Retention.ArchiveAge),
 		Audit:        audit.NewHandler(auditRepo),
-		AuditLog:     audit.NewRecorder(auditRepo, membershipRepo, cfg.JWT.Secret),
+		AuditLog:     audit.NewRecorder(auditRepo, membershipRepo, jwtKeys),
 		IngestHealth: ingesthealth.NewHandler(ingestHealth),
 		Triage:       triage.NewHandler(triageRepo, triageSvc, cfg.TriageRulesRequireApproval).WithCustomFields(customFieldRepo),
 		Gate:         gate.NewHandler(gateRepo, findingRepo, projectRepo),
@@ -445,9 +564,10 @@ func run() error {
 		PSIRT:        psirt.NewHandler(psirtSvc, psirtRepo),
 		PkgMeta:      pkgmeta.NewHandler(pkgmetaRepo, pkgmetaSvc),
 		Correlation:  correlation.NewHandler(correlationSvc),
-		ApiToken:     apitoken.NewHandler(tokenRepo, tokenSvc),
+		ApiToken:     apitoken.NewHandler(tokenRepo, tokenSvc).WithReauthWindow(cfg.JWT.ReauthWindow),
 		SvcAccount:   serviceaccount.NewHandler(serviceaccount.NewRepository(db), tokenSvc, tokenRepo, cfg.ServiceAccounts.KeyMaxDays),
 		Federation:   federation.NewHandler(federationRepo, federationSvc, !cfg.IsProduction()),
+		SCIM:         scim.NewHandler(scim.NewStore(db), auditRepo),
 		TokenAuth:    tokenSvc,
 		Sessions:     userRepo,
 		AuthLimiter: ratelimit.New(db, ratelimit.Limits{
@@ -457,6 +577,9 @@ func run() error {
 		Enrichment: enrichment.NewHandler(enrichSvc),
 		License:    license.NewHandler(licenseGroups),
 		Policy:     policy.NewHandler(policyRepo, policySvc, findingRepo),
+		VulnPolicy: vulnpolicy.NewHandler(vulnPolicyRepo, vulnPolicySvc).WithCustomFields(customFieldRepo),
+		Secrets:    secretbox.NewHandler(db, trackerCipher),
+		JWTKeys:    jwtKeys,
 		Ready:      db.Ping,
 	}
 
@@ -471,6 +594,7 @@ func run() error {
 		sso.ProviderOIDC: oidc.Protocol{},
 		sso.ProviderSAML: saml.Protocol{Keys: saml.NewKeyStore(db, trackerCipher)},
 	})
+	wireKeyRotation(cfg, jwtKeys, trackerCipher, ssoRegistry)
 	// SAML Single Logout: a login is recorded (NameID/SessionIndex) until the
 	// JWT's own TTL, so a later /me/logout can find the IdP to sign out of,
 	// and an IdP-initiated LogoutRequest can find the session to end here.
@@ -503,6 +627,21 @@ func run() error {
 			runLicenseBackfill(ctx, sbomRepo)
 			runPolicyEval(ctx, policySvc, cfg.Policy.EvalInterval)
 		})
+		// Vulnerability policies: re-evaluate on VULN_POLICY_EVAL_INTERVAL,
+		// catching a validity window's expiry (ingest and policy edits already
+		// evaluate immediately). Optionally sync a GitOps bundle URL first, so
+		// a fetched update is reflected in the same pass.
+		job(func() {
+			if cfg.VulnPolicy.BundleURL != "" {
+				syncer := vulnpolicy.NewSyncer(vulnPolicySvc, cfg.VulnPolicy.BundleURL, netguard.NewClient(30*time.Second))
+				go syncer.RunEvery(ctx, cfg.VulnPolicy.BundleInterval)
+			}
+			runVulnPolicyEval(ctx, vulnPolicySvc, cfg.VulnPolicy.EvalInterval)
+		})
+		// Computed custom fields: EPSS/KEV, status and other facts a computed
+		// field reads change without a new scan, so a sweep keeps every project,
+		// asset and finding fresh within COMPUTED_FIELDS_INTERVAL (0 = off).
+		job(func() { runComputedFields(ctx, computedSvc, cfg.ComputedFields.Interval) })
 		// Periodically refresh EPSS/KEV and recompute priorities; then, with
 		// NVD_ENABLED, CVSS vectors from NVD (slow without a key: rate-limited).
 		if cfg.Enrich.Enabled {
@@ -559,19 +698,23 @@ func run() error {
 		// Ingestion health: alert once when a project's intake looks broken.
 		job(func() { ingestHealth.RunSweep(ctx, notifySvc) })
 		// Daily metric snapshots for the trend charts (backfills 90 days on first run).
-		job(func() { runMetricsSnapshots(ctx, metricsRepo, cfg.MetricsSnapshotInterval) })
+		job(func() { runMetricsSnapshots(ctx, metricsRepo, portfolioParts, cfg.MetricsSnapshotInterval) })
 		// Scheduled per-channel summaries (daily / weekly, set on each channel).
 		job(func() { notifySvc.RunSummaries(ctx, findingRepo) })
+		// Re-seal rows a previous INTEGRATION_SECRET_KEY still opens under the
+		// current primary: once at startup if a previous key is configured,
+		// and again whenever a rotation changes the primary (ring.Changed()).
+		job(func() { runSecretRekey(ctx, db, trackerCipher) })
 		wg.Wait()
 	})
 	// Async ingestion: a worker pool drains the durable scan-job queue so uploads
 	// return immediately and processing scales with worker count, not request rate.
 	if cfg.Ingest.Async {
 		// INGEST_WORKERS=0 makes a web-only node: it accepts and queues uploads,
-		// and dedicated worker nodes drain the queue.
-		for i := 0; i < cfg.Ingest.Workers; i++ {
-			go runScanWorker(rootCtx, scanRepo, ingestSvc, cfg.Ingest.PollInterval, cfg.Ingest.MaxAttempts)
-		}
+		// and dedicated worker nodes drain the queue. The queue monitor's sample
+		// (M11 11.7) keeps resizing this to the live-tuned count every interval,
+		// so this initial Resize just avoids waiting a full interval at startup.
+		workerPool.Resize(rootCtx, cfg.Ingest.Workers)
 		// Watch the backlog: the gauges say how far behind we are, and the same
 		// sample sheds uploads (429) once the queue is deeper than we can drain.
 		if err := queueMon.RegisterMetrics(); err != nil {
@@ -591,7 +734,7 @@ func run() error {
 	// or its own listener on METRICS_ADDR (keep that one cluster-internal).
 	var metricsSrv *http.Server
 	if telemetry.Metrics != nil {
-		guarded := observability.GuardMetrics(telemetry.Metrics, cfg.Metrics.Token)
+		guarded := observability.GuardMetrics(telemetry.Metrics, cfg.SecretGetter("METRICS_TOKEN", cfg.Metrics.Token))
 		if cfg.Metrics.Addr == "" {
 			handlers.PromMetrics = guarded
 		} else {
@@ -761,6 +904,40 @@ func runSLASweep(ctx context.Context, svc *sla.Service, interval time.Duration) 
 	}
 }
 
+// runSecretRekey re-seals, under the ring's current primary, every row still
+// sealed with a previous INTEGRATION_SECRET_KEY: once at startup if a
+// previous key is configured (a rotation already in progress when this
+// replica became leader), and again every time ring.Changed() fires — a live
+// refresh or an admin rotating the primary — until the context ends.
+func runSecretRekey(ctx context.Context, db *pgxpool.Pool, ring *secretbox.Keyring) {
+	rekey := func() {
+		start := time.Now()
+		statuses, err := secretbox.Rekey(ctx, db, ring)
+		observability.RecordJob(ctx, "secret_rekey", start, err)
+		if err != nil {
+			slog.WarnContext(ctx, "secret rekey failed", "error", err)
+			return
+		}
+		for _, st := range statuses {
+			if st.Previous > 0 || st.Unreadable > 0 {
+				slog.InfoContext(ctx, "secret rekey", "table", st.Table, "column", st.Column,
+					"total", st.Total, "primary", st.Primary, "previous", st.Previous, "unreadable", st.Unreadable)
+			}
+		}
+	}
+	if ring.HasPrevious() {
+		rekey()
+	}
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ring.Changed():
+			rekey()
+		}
+	}
+}
+
 // runIssueSync reconciles linked issues with their findings (both ways) and
 // auto-creates issues over each tracker's threshold, on an interval, until the
 // context ends.
@@ -859,42 +1036,15 @@ func corsMode(origins []string) string {
 	return strings.Join(origins, ",")
 }
 
-// runScanWorker drains queued ingest jobs until the context ends. Each iteration
-// claims one job (SKIP LOCKED), processes it off the request path, and either
-// deletes it or re-queues/parks it on failure. Many workers/instances run safely
-// in parallel. Idle workers poll on an interval.
-func runScanWorker(ctx context.Context, jobs *scan.Repository, ingest *scan.Service, poll time.Duration, maxAttempts int) {
-	const staleAfter = 5 * time.Minute
-	ticker := time.NewTicker(poll)
-	defer ticker.Stop()
-	for {
-		// Drain everything available before sleeping, so bursts don't wait a tick.
-		for {
-			if ctx.Err() != nil {
-				return
-			}
-			job, err := jobs.ClaimJob(ctx, staleAfter)
-			if err != nil {
-				slog.WarnContext(ctx, "claim scan job failed", "error", err)
-				break
-			}
-			if job == nil {
-				break // queue empty
-			}
-			if err := ingest.ProcessJob(ctx, *job); err != nil {
-				retry, ferr := jobs.FailJob(ctx, job.ID, err.Error(), maxAttempts)
-				slog.WarnContext(ctx, "scan job failed", "job_id", job.ID, "scan_id", job.ScanID,
-					"attempts", job.Attempts, "will_retry", retry, "error", err, "fail_err", ferr)
-			} else if err := jobs.CompleteJob(ctx, job.ID); err != nil {
-				slog.WarnContext(ctx, "complete scan job failed", "job_id", job.ID, "error", err)
-			}
-		}
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-		}
+// readPasswordGetter is the DB_PASSWORD getter for the reporting read pool:
+// nil when DB_READ_URL points reporting reads at a separate connection
+// string (its own credentials, rotation out of scope), the primary's
+// rotating password otherwise.
+func readPasswordGetter(cfg config.Config) func() string {
+	if cfg.DB.ReadURL != "" {
+		return nil
 	}
+	return cfg.SecretGetter("DB_PASSWORD", cfg.DB.Password)
 }
 
 // runPolicyEval evaluates every project against the component policies once
@@ -913,6 +1063,57 @@ func runPolicyEval(ctx context.Context, svc *policy.Service, interval time.Durat
 		observability.RecordJob(ctx, "policy_eval", start, err)
 		if err != nil && ctx.Err() == nil {
 			slog.WarnContext(ctx, "policy evaluation failed", "error", err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+// runVulnPolicyEval evaluates every project against the vulnerability
+// policies once now, then on an interval, until the context ends, catching
+// a validity window's expiry (ingest and policy edits already evaluate
+// immediately). interval 0 disables it.
+func runVulnPolicyEval(ctx context.Context, svc *vulnpolicy.Service, interval time.Duration) {
+	if interval <= 0 {
+		return
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		start := time.Now()
+		_, err := svc.EvaluateAll(ctx)
+		observability.RecordJob(ctx, "vuln_policy_eval", start, err)
+		if err != nil && ctx.Err() == nil {
+			slog.WarnContext(ctx, "vulnerability policy evaluation failed", "error", err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+// runComputedFields recomputes every project, asset and finding's computed
+// custom fields on COMPUTED_FIELDS_INTERVAL (0 = off; ingest and a
+// definition change still recompute).
+func runComputedFields(ctx context.Context, svc *computed.Service, interval time.Duration) {
+	if interval <= 0 {
+		return
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		start := time.Now()
+		n, err := svc.RunSweep(ctx)
+		observability.RecordJob(ctx, "computed_fields", start, err)
+		if err != nil && ctx.Err() == nil {
+			slog.WarnContext(ctx, "computed fields sweep failed", "error", err)
+		} else {
+			slog.InfoContext(ctx, "computed fields sweep complete", "changed", n)
 		}
 		select {
 		case <-ctx.Done():
@@ -1069,13 +1270,18 @@ func runPackageMeta(ctx context.Context, svc *pkgmeta.Service, interval time.Dur
 // a fresh instance's first run backfills history and the charts aren't empty —
 // then every interval, each run rewriting yesterday (closing it out) and today.
 // interval 0 disables it.
-func runMetricsSnapshots(ctx context.Context, repo *metrics.Repository, interval time.Duration) {
+func runMetricsSnapshots(ctx context.Context, repo *metrics.Repository, parts *portfolio.Repository, interval time.Duration) {
 	if interval <= 0 {
 		return
 	}
 	snap := func() {
 		start := time.Now()
 		res, err := repo.Run(ctx, time.Now())
+		if err == nil {
+			// The rest of the portfolio (compliance, SLA) for
+			// PORTFOLIO_FROM_SNAPSHOTS, taken with the counts.
+			err = parts.SnapshotParts(ctx)
+		}
 		observability.RecordJob(ctx, "metrics_snapshot", start, err)
 		if err != nil {
 			slog.WarnContext(ctx, "metric snapshot failed", "error", err)
@@ -1155,7 +1361,7 @@ func newParserRegistry() *scanner.Registry {
 		scanner.NewDetectSecrets(), scanner.NewGGShield(),
 		scanner.NewHadolint(), scanner.NewKICS(), scanner.NewESLint(), scanner.NewYarnAudit(), scanner.NewNJSScan(),
 		scanner.NewSonarQube(), scanner.NewCheckmarx(), scanner.NewVeracode(), scanner.NewMend(),
-		scanner.NewNessus(), scanner.NewOpenVAS(), scanner.NewQualys(), scanner.NewAcunetix(), scanner.NewInvicti(), scanner.NewTestSSL(),
+		scanner.NewNessus(), scanner.NewOpenVAS(), scanner.NewQualys(), scanner.NewAcunetix(), scanner.NewInvicti(), scanner.NewTestSSL(), scanner.NewCryptoLyzer(), scanner.NewDrHeader(),
 		scanner.NewBearer(), scanner.NewMobSF(), scanner.NewJFrogXray(), scanner.NewAWSInspector2(), scanner.NewAWSSecurityHub(),
 		scanner.NewNancy(), scanner.NewCloudSploit(), scanner.NewArachni(), scanner.NewSpotBugs(), scanner.NewFortify(), scanner.NewSteampipe(),
 	)

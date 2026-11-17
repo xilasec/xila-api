@@ -36,6 +36,7 @@ func (h *Handler) Register(r fiber.Router) {
 	r.Post("/me/password", h.ChangePassword)
 	r.Post("/me/logout", h.Logout)
 	r.Post("/me/sessions/revoke", h.RevokeSessions)
+	r.Post("/me/reauth", h.Reauthenticate)
 	r.Get("/me/mfa", h.MFAStatus)
 	r.Post("/me/mfa/setup", h.MFASetup)
 	r.Post("/me/mfa/enable", h.MFAEnable)
@@ -213,13 +214,45 @@ func (h *Handler) ChangePassword(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"token": token, "user": u})
 }
 
+type reauthRequest struct {
+	Password string `json:"password"`
+	Code     string `json:"code"`
+}
+
+// Reauthenticate handles POST /me/reauth: the caller proves it is still them
+// (password, and the two-factor code when on) and gets a session marked as
+// freshly authenticated, which sensitive actions such as creating an API
+// token require.
+func (h *Handler) Reauthenticate(c *fiber.Ctx) error {
+	actor, err := sessionOnly(c)
+	if err != nil {
+		return err
+	}
+	var body reauthRequest
+	if err := httpx.Parse(c, &body); err != nil {
+		return err
+	}
+	token, u, err := h.auth.Reauthenticate(c.UserContext(), actor.UserID, body.Password, body.Code)
+	switch {
+	case errors.Is(err, auth.ErrNoLocalPassword), errors.Is(err, auth.ErrCodeRequired):
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	case errors.Is(err, auth.ErrWrongPassword):
+		return fiber.NewError(fiber.StatusBadRequest, "password is incorrect")
+	case errors.Is(err, auth.ErrInvalidCode):
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	case err != nil:
+		return err
+	}
+	return c.JSON(fiber.Map{"token": token, "user": u})
+}
+
 // RevokeSessions signs the caller out everywhere else.
 func (h *Handler) RevokeSessions(c *fiber.Ctx) error {
 	actor, err := sessionOnly(c)
 	if err != nil {
 		return err
 	}
-	token, u, err := h.auth.RevokeSessions(c.UserContext(), actor.UserID)
+	token, u, err := h.auth.RevokeSessions(c.UserContext(), actor.UserID, actor.AuthTime)
 	if err != nil {
 		return err
 	}

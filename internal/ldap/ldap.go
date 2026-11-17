@@ -21,6 +21,7 @@ import (
 
 	"github.com/xilasec/xila-api/internal/auth"
 	"github.com/xilasec/xila-api/internal/config"
+	"github.com/xilasec/xila-api/internal/secretref"
 	"github.com/xilasec/xila-api/internal/sso"
 	"github.com/xilasec/xila-api/internal/user"
 )
@@ -33,6 +34,7 @@ type Login interface {
 // Directory authenticates against the configured directory.
 type Directory struct {
 	cfg      config.LDAP
+	password secretref.Value // the live LDAP_BIND_PASSWORD; nil = cfg.BindPassword
 	login    Login
 	tls      *tls.Config
 	provider sso.Provider
@@ -62,6 +64,13 @@ func New(cfg config.LDAP, login Login) (*Directory, error) {
 	}, nil
 }
 
+// WithBindPassword reads the service account's password per search instead
+// of the startup value, so a rotated LDAP_BIND_PASSWORD applies at once.
+func (d *Directory) WithBindPassword(v secretref.Value) *Directory {
+	d.password = v
+	return d
+}
+
 // Authenticate checks login/password against the directory and returns the
 // linked user. Wrong credentials are auth.ErrInvalidCredentials; a directory
 // account Xila won't admit fails with the SSO layer's error (no account,
@@ -80,7 +89,11 @@ func (d *Directory) Authenticate(ctx context.Context, login, password string) (u
 	defer conn.Close()
 
 	if d.cfg.BindDN != "" {
-		if err := conn.Bind(d.cfg.BindDN, d.cfg.BindPassword); err != nil {
+		pass := d.cfg.BindPassword
+		if d.password != nil {
+			pass = d.password.Get()
+		}
+		if err := conn.Bind(d.cfg.BindDN, pass); err != nil {
 			return user.User{}, fmt.Errorf("ldap: service bind: %w", err)
 		}
 	}

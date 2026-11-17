@@ -86,6 +86,7 @@
 	/** @type {{ href: string, key: import('#lib/i18n.js').MessageKey }[]} */
 	const baseNav = [
 		{ href: '/', key: 'nav.projects' },
+		{ href: '/my-work', key: 'nav.myWork' },
 		{ href: '/findings', key: 'nav.findings' },
 		{ href: '/fix-plan', key: 'nav.fixPlan' },
 		{ href: '/remediation', key: 'nav.remediation' },
@@ -107,13 +108,16 @@
 	/** @type {{ href: string, key: import('#lib/i18n.js').MessageKey }[]} */
 	const adminNav = [
 		{ href: '/triage-rules', key: 'nav.triageRules' },
+		{ href: '/vuln-policies', key: 'nav.vulnPolicies' },
 		{ href: '/custom-fields', key: 'nav.customFields' },
+		{ href: '/custom-parsers', key: 'nav.customParsers' },
 		{ href: '/psirt', key: 'nav.psirt' },
 		{ href: '/feed-rules', key: 'nav.feedRules' },
 		{ href: '/finding-templates', key: 'nav.findingTemplates' },
 		{ href: '/report-templates', key: 'nav.reportTemplates' },
 		{ href: '/users', key: 'nav.users' },
 		{ href: '/service-accounts', key: 'nav.serviceAccounts' },
+		{ href: '/groups', key: 'nav.groups' },
 		{ href: '/audit-log', key: 'nav.auditLog' },
 		{ href: '/permissions', key: 'nav.permissions' },
 		{ href: '/sso', key: 'nav.sso' },

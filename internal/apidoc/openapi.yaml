@@ -52,6 +52,8 @@ servers:
 tags:
   - name: Auth
     description: Registration, login, SSO discovery.
+  - name: SCIM
+    description: SCIM 2.0 provisioning of users and groups (RFC 7643/7644), with org-scoped SCIM tokens.
   - name: Organizations
     description: The top of the tenancy hierarchy.
   - name: Teams
@@ -78,6 +80,8 @@ tags:
     description: The things findings are attached to (repos, images, cloud resources).
   - name: Custom fields
     description: Admin-defined typed fields on projects, assets and findings.
+  - name: Custom parsers
+    description: No-code parsers — map any CSV, JSON or XML report's fields onto findings without writing a Go parser.
   - name: Compliance
     description: Framework posture derived from findings.
   - name: Portfolio
@@ -100,6 +104,8 @@ tags:
     description: DefectDojo-style engagements (time-boxed work whose scans are its tests), manual findings and finding templates.
   - name: Policies
     description: Component policies over security, license and operational facts; violations become findings.
+  - name: Vulnerability policies
+    description: CEL rules over a component + vulnerability pair that set an analysis or rating override atomically, with priority, a validity window and GitOps bundles.
   - name: Notifications
     description: Webhook/Slack channels and the delivery log.
   - name: Admin
@@ -991,6 +997,41 @@ paths:
                   user: { $ref: "#/components/schemas/User" }
         "403": { $ref: "#/components/responses/Error" }
 
+  /me/reauth:
+    post:
+      operationId: reauthenticateMe
+      tags: [Auth]
+      summary: Confirm your password for a sensitive action
+      description: |
+        Proves you are still at the keyboard: your password, plus your current
+        two-factor code when two-factor is on. Returns a session marked as
+        freshly authenticated, which creating an API token requires
+        (`REAUTH_WINDOW`, default 10 minutes). Accounts without a local password
+        sign in again through their identity provider instead (400). API tokens
+        can't call it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password: { type: string, format: password }
+                code: { type: string, description: TOTP or recovery code (required with two-factor on). }
+      responses:
+        "200":
+          description: Re-authenticated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string, description: A JWT whose authentication time is now. }
+                  user: { $ref: "#/components/schemas/User" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+
   /me/mfa:
     get:
       operationId: getMeMfa
@@ -1361,9 +1402,12 @@ paths:
           application/json:
             schema:
               type: object
-              required: [email, role]
+              required: [role]
+              description: Exactly one of `email` (a user) or `group_id` (a user group of the organization).
               properties:
                 email: { type: string, format: email }
+                group_id: { type: string, format: uuid, description: A user group of the same organization; every member gets the role. }
+                custom_role_id: { type: string, format: uuid, description: "A custom role of the same organization: `role` minus its denied capabilities." }
                 role:
                   type: string
                   enum: [owner, editor, viewer, uploader]
@@ -1447,6 +1491,9 @@ paths:
       description: |
         The secret is shown **once**, in this response. Scope it to a project
         (`project_id`) so a repo's CI can only touch its own project.
+        Needs a session that signed in within `REAUTH_WINDOW` (default 10 minutes):
+        otherwise 403 with header `X-Reauth-Required: true`; confirm your password
+        with `POST /me/reauth` and retry. API tokens can't create tokens.
       requestBody:
         required: true
         content:
@@ -1457,7 +1504,7 @@ paths:
               properties:
                 name: { type: string, examples: ["github-actions"] }
                 project_id: { type: string, format: uuid, description: Restrict the token to one project }
-                expires_at: { type: string, format: date-time }
+                expires_in_days: { type: integer, minimum: 0, description: "Days until it expires (0 = never)." }
       responses:
         "201":
           description: Created — save the secret now
@@ -1468,6 +1515,16 @@ paths:
                 properties:
                   token: { $ref: "#/components/schemas/ApiToken" }
                   secret: { type: string, examples: ["xila_9f3c…"], description: Shown once. Never retrievable again. }
+        "403":
+          description: An API token or service account asked, or the session needs re-authentication (`X-Reauth-Required`).
+          headers:
+            X-Reauth-Required: { schema: { type: string, enum: ["true"] } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
 
   /tokens/{tokenID}:
     delete:
@@ -1842,9 +1899,11 @@ paths:
           application/json:
             schema:
               type: object
-              required: [email, role]
+              required: [role]
+              description: Exactly one of `email` (a user) or `group_id` (a user group of this organization).
               properties:
                 email: { type: string, format: email }
+                group_id: { type: string, format: uuid }
                 role: { type: string, enum: [admin, member] }
       responses:
         "201": { description: Added }
@@ -1973,9 +2032,12 @@ paths:
           application/json:
             schema:
               type: object
-              required: [email, role]
+              required: [role]
+              description: Exactly one of `email` (a user) or `group_id` (a user group of the organization).
               properties:
                 email: { type: string, format: email }
+                group_id: { type: string, format: uuid, description: A user group of the same organization; every member gets the role. }
+                custom_role_id: { type: string, format: uuid, description: "A custom role of the same organization: `role` minus its denied capabilities." }
                 role:
                   type: string
                   enum: [owner, editor, viewer, uploader]
@@ -1983,6 +2045,447 @@ paths:
       responses:
         "201": { description: Added }
         "403": { $ref: "#/components/responses/Error" }
+
+  /orgs/{orgID}/member-groups/{groupID}:
+    delete:
+      operationId: deleteOrgMemberGroup
+      tags: [Organizations]
+      summary: Remove a user group's grant on the organization
+      description: Requires org `admin`.
+      parameters: [{ $ref: "#/components/parameters/OrgID" }, { $ref: "#/components/parameters/GroupID" }]
+      responses:
+        "204": { description: Removed }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /orgs/{orgID}/groups:
+    get:
+      operationId: listOrgGroups
+      tags: [Organizations]
+      summary: The organization's user groups
+      parameters: [{ $ref: "#/components/parameters/OrgID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  groups: { type: array, items: { $ref: "#/components/schemas/UserGroup" } }
+    post:
+      operationId: createOrgGroup
+      tags: [Organizations]
+      summary: Create a user group
+      description: |
+        Requires org `admin`. A group is grantable on the organization, a team or a
+        project exactly like a user (`group_id` in the members endpoints); every
+        member gets the role. SCIM clients can provision groups too.
+      parameters: [{ $ref: "#/components/parameters/OrgID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [name], properties: { name: { type: string } } }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/UserGroup" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /orgs/{orgID}/groups/{groupID}:
+    get:
+      operationId: getOrgGroup
+      tags: [Organizations]
+      summary: A user group and its members
+      parameters: [{ $ref: "#/components/parameters/OrgID" }, { $ref: "#/components/parameters/GroupID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  group: { $ref: "#/components/schemas/UserGroup" }
+                  members:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        user_id: { type: string, format: uuid }
+                        email: { type: string, format: email }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      operationId: putOrgGroup
+      tags: [Organizations]
+      summary: Rename a user group
+      parameters: [{ $ref: "#/components/parameters/OrgID" }, { $ref: "#/components/parameters/GroupID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [name], properties: { name: { type: string } } }
+      responses:
+        "200": { description: Renamed, content: { application/json: { schema: { $ref: "#/components/schemas/UserGroup" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deleteOrgGroup
+      tags: [Organizations]
+      summary: Delete a user group (its grants go with it)
+      parameters: [{ $ref: "#/components/parameters/OrgID" }, { $ref: "#/components/parameters/GroupID" }]
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /orgs/{orgID}/groups/{groupID}/members:
+    post:
+      operationId: createOrgGroupMember
+      tags: [Organizations]
+      summary: Add a user to a group
+      parameters: [{ $ref: "#/components/parameters/OrgID" }, { $ref: "#/components/parameters/GroupID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [email], properties: { email: { type: string, format: email } } }
+      responses:
+        "201": { description: Added }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /orgs/{orgID}/groups/{groupID}/members/{userID}:
+    delete:
+      operationId: deleteOrgGroupMember
+      tags: [Organizations]
+      summary: Remove a user from a group
+      parameters:
+        - { $ref: "#/components/parameters/OrgID" }
+        - { $ref: "#/components/parameters/GroupID" }
+        - { $ref: "#/components/parameters/UserID" }
+      responses:
+        "204": { description: Removed }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /orgs/{orgID}/custom-roles:
+    get:
+      operationId: listOrgCustomRoles
+      tags: [Organizations]
+      summary: The organization's custom roles
+      parameters: [{ $ref: "#/components/parameters/OrgID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  custom_roles: { type: array, items: { $ref: "#/components/schemas/CustomRole" } }
+    post:
+      operationId: createOrgCustomRole
+      tags: [Organizations]
+      summary: Create a custom role
+      description: |
+        Requires org `admin`. A custom role is a base role minus denied capabilities,
+        assignable on team and project grants (`custom_role_id`). Several grants
+        combine by union: a capability one grant denies is allowed when another
+        grant at the needed level doesn't deny it.
+      parameters: [{ $ref: "#/components/parameters/OrgID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, base_role]
+              properties:
+                name: { type: string }
+                base_role: { type: string, enum: [owner, editor, viewer, uploader] }
+                denied_capabilities: { type: array, items: { $ref: "#/components/schemas/Capability" } }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/CustomRole" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /orgs/{orgID}/custom-roles/{roleID}:
+    put:
+      operationId: putOrgCustomRole
+      tags: [Organizations]
+      summary: Change a custom role
+      parameters: [{ $ref: "#/components/parameters/OrgID" }, { $ref: "#/components/parameters/RoleID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, base_role]
+              properties:
+                name: { type: string }
+                base_role: { type: string, enum: [owner, editor, viewer, uploader] }
+                denied_capabilities: { type: array, items: { $ref: "#/components/schemas/Capability" } }
+      responses:
+        "200": { description: Changed, content: { application/json: { schema: { $ref: "#/components/schemas/CustomRole" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deleteOrgCustomRole
+      tags: [Organizations]
+      summary: Delete a custom role (grants using it fall back to their base role)
+      parameters: [{ $ref: "#/components/parameters/OrgID" }, { $ref: "#/components/parameters/RoleID" }]
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /teams/{teamID}/groups/{groupID}:
+    delete:
+      operationId: deleteTeamGroup
+      tags: [Teams]
+      summary: Remove a user group's grant on the team
+      parameters: [{ $ref: "#/components/parameters/TeamID" }, { $ref: "#/components/parameters/GroupID" }]
+      responses:
+        "204": { description: Removed }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /projects/{projectID}/groups/{groupID}:
+    delete:
+      operationId: deleteProjectGroup
+      tags: [Projects]
+      summary: Remove a user group's grant on the project
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }, { $ref: "#/components/parameters/GroupID" }]
+      responses:
+        "204": { description: Removed }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /capabilities:
+    get:
+      operationId: listCapabilities
+      tags: [Organizations]
+      summary: What a custom role can deny
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  capabilities: { type: array, items: { $ref: "#/components/schemas/Capability" } }
+
+  /scim-tokens:
+    get:
+      operationId: listScimTokens
+      tags: [SCIM]
+      summary: SCIM tokens (instance admin)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tokens: { type: array, items: { $ref: "#/components/schemas/SCIMToken" } }
+    post:
+      operationId: createScimToken
+      tags: [SCIM]
+      summary: Create a SCIM token for an organization (instance admin)
+      description: The secret is shown once. It authenticates `/scim/v2` only, and only for this organization.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, org_id]
+              properties:
+                name: { type: string }
+                org_id: { type: string, format: uuid }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { $ref: "#/components/schemas/SCIMToken" }
+                  secret: { type: string }
+        "400": { $ref: "#/components/responses/Error" }
+
+  /scim-tokens/{tokenID}:
+    delete:
+      operationId: deleteScimToken
+      tags: [SCIM]
+      summary: Revoke a SCIM token
+      parameters: [{ $ref: "#/components/parameters/TokenID" }]
+      responses:
+        "204": { description: Revoked }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /scim/v2/ServiceProviderConfig:
+    get:
+      operationId: getScimV2ServiceProviderConfig
+      tags: [SCIM]
+      summary: SCIM service provider configuration
+      security: [{ scimToken: [] }]
+      responses:
+        "200": { description: OK, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+
+  /scim/v2/ResourceTypes:
+    get:
+      operationId: listScimV2ResourceTypes
+      tags: [SCIM]
+      summary: SCIM resource types
+      security: [{ scimToken: [] }]
+      responses:
+        "200": { description: OK, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+
+  /scim/v2/Schemas:
+    get:
+      operationId: listScimV2Schemas
+      tags: [SCIM]
+      summary: SCIM schemas
+      security: [{ scimToken: [] }]
+      responses:
+        "200": { description: OK, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+
+  /scim/v2/Users:
+    get:
+      operationId: listScimV2Users
+      tags: [SCIM]
+      summary: List Users
+      description: '`filter` supports `attr eq "value"` only. Paged by `startIndex` (1-based) and `count` (max 200).'
+      security: [{ scimToken: [] }]
+      parameters:
+        - { name: filter, in: query, schema: { type: string } }
+        - { name: startIndex, in: query, schema: { type: integer, minimum: 1 } }
+        - { name: count, in: query, schema: { type: integer, minimum: 0, maximum: 200 } }
+      responses:
+        "200": { description: A SCIM ListResponse, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+    post:
+      operationId: createScimV2User
+      tags: [SCIM]
+      summary: Create a User
+      security: [{ scimToken: [] }]
+      requestBody: { required: true, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+      responses:
+        "201": { description: Created, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /scim/v2/Users/{id}:
+    get:
+      operationId: getScimV2User
+      tags: [SCIM]
+      summary: Get a User
+      security: [{ scimToken: [] }]
+      parameters: [{ $ref: "#/components/parameters/SCIMID" }]
+      responses:
+        "200": { description: OK, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      operationId: putScimV2User
+      tags: [SCIM]
+      summary: Replace a User
+      security: [{ scimToken: [] }]
+      parameters: [{ $ref: "#/components/parameters/SCIMID" }]
+      requestBody: { required: true, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+      responses:
+        "200": { description: Replaced, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+        "204": { description: The user left this organization (it also belongs to another one) }
+        "404": { $ref: "#/components/responses/Error" }
+    patch:
+      operationId: updateScimV2User
+      tags: [SCIM]
+      summary: Change a User (PatchOp)
+      security: [{ scimToken: [] }]
+      parameters: [{ $ref: "#/components/parameters/SCIMID" }]
+      requestBody: { required: true, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+      responses:
+        "200": { description: Changed, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+        "204": { description: Changed (members excluded, or the user left this organization) }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deleteScimV2User
+      tags: [SCIM]
+      summary: Delete a User
+      security: [{ scimToken: [] }]
+      parameters: [{ $ref: "#/components/parameters/SCIMID" }]
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /scim/v2/Groups:
+    get:
+      operationId: listScimV2Groups
+      tags: [SCIM]
+      summary: List Groups
+      description: '`filter` supports `attr eq "value"` only. Paged by `startIndex` (1-based) and `count` (max 200).'
+      security: [{ scimToken: [] }]
+      parameters:
+        - { name: filter, in: query, schema: { type: string } }
+        - { name: startIndex, in: query, schema: { type: integer, minimum: 1 } }
+        - { name: count, in: query, schema: { type: integer, minimum: 0, maximum: 200 } }
+      responses:
+        "200": { description: A SCIM ListResponse, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+    post:
+      operationId: createScimV2Group
+      tags: [SCIM]
+      summary: Create a Group
+      security: [{ scimToken: [] }]
+      requestBody: { required: true, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+      responses:
+        "201": { description: Created, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /scim/v2/Groups/{id}:
+    get:
+      operationId: getScimV2Group
+      tags: [SCIM]
+      summary: Get a Group
+      security: [{ scimToken: [] }]
+      parameters: [{ $ref: "#/components/parameters/SCIMID" }]
+      responses:
+        "200": { description: OK, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      operationId: putScimV2Group
+      tags: [SCIM]
+      summary: Replace a Group
+      security: [{ scimToken: [] }]
+      parameters: [{ $ref: "#/components/parameters/SCIMID" }]
+      requestBody: { required: true, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+      responses:
+        "200": { description: Replaced, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+        "204": { description: The user left this organization (it also belongs to another one) }
+        "404": { $ref: "#/components/responses/Error" }
+    patch:
+      operationId: updateScimV2Group
+      tags: [SCIM]
+      summary: Change a Group (PatchOp)
+      security: [{ scimToken: [] }]
+      parameters: [{ $ref: "#/components/parameters/SCIMID" }]
+      requestBody: { required: true, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+      responses:
+        "200": { description: Changed, content: { application/scim+json: { schema: { $ref: "#/components/schemas/SCIMResource" } } } }
+        "204": { description: Changed (members excluded, or the user left this organization) }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deleteScimV2Group
+      tags: [SCIM]
+      summary: Delete a Group
+      security: [{ scimToken: [] }]
+      parameters: [{ $ref: "#/components/parameters/SCIMID" }]
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Error" }
 
   /teams/{teamID}/members/{userID}:
     delete:
@@ -2157,6 +2660,46 @@ paths:
                 properties:
                   projects: { type: array, items: { $ref: "#/components/schemas/Project" } }
 
+  /projects/{projectID}/priority-weights:
+    get:
+      operationId: listProjectPriorityWeights
+      tags: [Projects]
+      summary: The project's priority weights
+      description: What the project's priorities are computed with, whether that's its own override (`custom`), and the defaults.
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }]
+      responses:
+        "200": { $ref: "#/components/responses/PriorityWeightsResult" }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      operationId: putProjectPriorityWeights
+      tags: [Projects]
+      summary: Override the project's priority weights
+      description: |
+        Owner. Fields left out keep their default. Discounts (`transitive`, `dev`,
+        `optional`, `isolated`) stay in (0, 1]; uplifts (`kev`, `weaponized`, `poc`,
+        `internet`) stay at 1 or more; severities keep their order; and an exploited
+        critical in a transitive dev dependency on an isolated asset must still
+        outrank a quiet medium on an internet-facing one. The project's priorities
+        are recomputed at once (`reprioritized`) and its findings regrouped.
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PriorityWeights" }
+      responses:
+        "200": { $ref: "#/components/responses/PriorityWeightsResult" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deleteProjectPriorityWeights
+      tags: [Projects]
+      summary: Back to the default priority weights
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }]
+      responses:
+        "200": { $ref: "#/components/responses/PriorityWeightsResult" }
+        "403": { $ref: "#/components/responses/Error" }
+
   /projects/{projectID}/summary:
     get:
       operationId: getProjectSummary
@@ -2258,6 +2801,14 @@ paths:
             Always run the full pipeline, even if this report's content hash
             matches the target's previous completed scan (bypasses
             `INGEST_SKIP_UNCHANGED`).
+          schema: { type: boolean, default: false }
+        - name: split_assets
+          in: query
+          description: |
+            File each finding under the host asset of the machine it names (Nessus,
+            OpenVAS, Qualys, Nmap, testssl.sh and other infrastructure scanners
+            record the host), creating missing host assets. For multi-host network
+            scans; not together with `asset_id`.
           schema: { type: boolean, default: false }
       requestBody:
         required: true
@@ -2379,6 +2930,43 @@ paths:
                   oldest_wait_seconds: { type: number }
                   saturated: { type: boolean, description: Uploads are being shed with 429 }
 
+  /ingest/settings:
+    get:
+      operationId: getIngestSettings
+      tags: [Admin]
+      summary: Live ingest tuning overrides
+      description: |
+        Instance admin (M11 11.7). The queue-depth backpressure threshold
+        (`INGEST_MAX_QUEUE_DEPTH`) and the worker count per node
+        (`INGEST_WORKERS`) as instance-wide overrides, applied by every node on
+        its next queue sample — no restart. A null field means "use the env
+        default"; `effective_*` is what's actually in force on the node that
+        answered this request right now.
+      responses:
+        "200": { $ref: "#/components/responses/IngestSettings" }
+    put:
+      operationId: putIngestSettings
+      tags: [Admin]
+      summary: Change live ingest tuning overrides
+      description: |
+        Instance admin. Every node watching the queue picks up the change on
+        its next sample (`INGEST_QUEUE_SAMPLE_INTERVAL`): the backpressure
+        threshold and that node's worker count change within one sample
+        interval. Set a field to `null` to revert it to its env default.
+        `workers: 0` is valid (a web-only node).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                max_queue_depth: { type: integer, minimum: 0, nullable: true }
+                workers: { type: integer, minimum: 0, nullable: true }
+      responses:
+        "200": { $ref: "#/components/responses/IngestSettings" }
+        "400": { $ref: "#/components/responses/Error" }
+
   /findings:
     get:
       operationId: listFindings
@@ -2405,6 +2993,14 @@ paths:
         - name: kev
           in: query
           description: Only findings a KEV catalog (CISA, ENISA EUVD, VulnCheck) lists as known-exploited.
+          schema: { type: boolean }
+        - name: kev_ransomware
+          in: query
+          description: Only findings a KEV catalog marks as known to be used in ransomware campaigns.
+          schema: { type: boolean }
+        - name: active
+          in: query
+          description: Only findings still awaiting a fix (open or confirmed).
           schema: { type: boolean }
         - name: reachable
           in: query
@@ -2717,7 +3313,11 @@ paths:
       operationId: createCustomField
       tags: [Custom fields]
       summary: Define a custom field
-      description: Instance admin. `key` is unique per entity and becomes `custom.<key>` in the API, CEL and filters.
+      description: |
+        Instance admin. `key` is unique per entity and becomes `custom.<key>` in the
+        API, CEL and filters. With `computed` true, `expression` (CEL over the
+        entity's facts) replaces a person's write; every entity of this type is
+        computed before this call returns.
       requestBody:
         required: true
         content:
@@ -2751,9 +3351,13 @@ paths:
       tags: [Custom fields]
       summary: Edit a custom-field definition
       description: |
-        Instance admin. Label, options, required and organization scope are editable;
-        entity, key and type are fixed. Removing an enum option leaves stored values as
-        they are (the next edit of that entity must pick a current option).
+        Instance admin. Label, options, required, organization scope, computed and
+        expression are editable; entity, key and type are fixed. Removing an enum
+        option leaves stored values as they are (the next edit of that entity must
+        pick a current option). Turning a field computed (or changing its
+        expression) recomputes every entity of that type before this call returns;
+        turning it back off leaves its last computed value in place until a person
+        edits it.
       parameters: [{ $ref: "#/components/parameters/CustomFieldID" }]
       requestBody:
         required: true
@@ -2767,6 +3371,8 @@ paths:
                 required: { type: boolean }
                 org_id: { type: string, format: uuid }
                 clear_org: { type: boolean, description: Apply to every organization again. }
+                computed: { type: boolean }
+                expression: { type: string }
       responses:
         "200":
           description: OK
@@ -2781,6 +3387,129 @@ paths:
       summary: Delete a custom-field definition
       description: Instance admin. Removes the field's value from every entity (recorded in finding history).
       parameters: [{ $ref: "#/components/parameters/CustomFieldID" }]
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /custom-parsers:
+    get:
+      operationId: listCustomParsers
+      tags: [Custom parsers]
+      summary: List no-code parser definitions
+      description: Instance admin.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  custom_parsers: { type: array, items: { $ref: "#/components/schemas/CustomParser" } }
+    post:
+      operationId: createCustomParser
+      tags: [Custom parsers]
+      summary: Define a no-code parser
+      description: |
+        Instance admin. `name` becomes the scanner identifier for uploads
+        (`?scanner=<name>`); it must be a lowercase slug and must not collide with a
+        built-in parser's name. `fields.title` is required; every other field is
+        optional. See `CustomParser` for the mapping shape.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CustomParser" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CustomParser" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /custom-parsers/dry-run:
+    post:
+      operationId: dryRunCustomParser
+      tags: [Custom parsers]
+      summary: Preview a definition against a pasted sample
+      description: |
+        Instance admin. Body is a definition (saved or not) plus `sample`, the raw
+        report text. Parses `sample` and returns the findings it would create, with
+        per-record errors; writes nothing.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - { $ref: "#/components/schemas/CustomParser" }
+                - type: object
+                  required: [sample]
+                  properties:
+                    sample: { type: string, description: The raw report text (CSV, JSON or XML, matching `format`). }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  findings: { type: array, items: { $ref: "#/components/schemas/ParsedFinding" } }
+                  record_errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        index: { type: integer, description: 0-based position of the record that failed to map. }
+                        error: { type: string }
+        "400": { $ref: "#/components/responses/Error" }
+
+  /custom-parsers/{parserID}:
+    get:
+      operationId: getCustomParser
+      tags: [Custom parsers]
+      summary: Read a no-code parser definition
+      parameters: [{ $ref: "#/components/parameters/CustomParserID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CustomParser" }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      operationId: updateCustomParser
+      tags: [Custom parsers]
+      summary: Replace a no-code parser's mapping
+      description: |
+        Instance admin. A full replacement, same id, so findings it already created
+        keep referencing this scanner name. Picked up by the next upload on every
+        node (re-read by `updated_at`), no restart needed.
+      parameters: [{ $ref: "#/components/parameters/CustomParserID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CustomParser" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CustomParser" }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deleteCustomParser
+      tags: [Custom parsers]
+      summary: Delete a no-code parser definition
+      description: Instance admin. Its findings keep this scanner name as history; new uploads with this name are refused.
+      parameters: [{ $ref: "#/components/parameters/CustomParserID" }]
       responses:
         "204": { description: Deleted }
         "404": { $ref: "#/components/responses/Error" }
@@ -3656,6 +4385,41 @@ paths:
                 type: object
                 properties:
                   assessments: { type: array, items: { $ref: "#/components/schemas/Assessment" } }
+
+  /ai-proposals:
+    get:
+      operationId: listAiProposals
+      tags: [Findings]
+      summary: Open AI triage proposals across projects
+      description: |
+        Proposals still waiting for a decision (`state: proposed`) across every
+        project you can see, newest first, with their finding's title and
+        severity. `mine=true` keeps the ones you asked for or whose finding is
+        assigned to you. 404 while AI triage is off.
+      parameters:
+        - { name: mine, in: query, schema: { type: boolean } }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Offset" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  proposals:
+                    type: array
+                    items:
+                      allOf:
+                        - { $ref: "#/components/schemas/AIProposal" }
+                        - type: object
+                          properties:
+                            finding_title: { type: string }
+                            finding_severity: { type: string }
+                            project_name: { type: string }
+                  pagination: { $ref: "#/components/schemas/Pagination" }
+        "404": { $ref: "#/components/responses/Error" }
 
   /findings/{findingID}/ai-proposals:
     get:
@@ -4564,12 +5328,20 @@ paths:
         The dependency graph in the document matters: it's where `dep_direct`,
         `dep_depth` and `dep_scope` on findings come from, and uploading a new SBOM
         re-scores the project's existing backlog against it.
+
+        `strict=true` (or the instance-wide `SBOM_STRICT_VALIDATION` setting)
+        validates a CycloneDX upload against the official JSON schema for its
+        own `specVersion` (1.2 through 1.7) before storing it; a failure
+        returns 400 with up to 50 field-level errors, each with a JSON
+        Pointer path. XML CycloneDX is always rejected — upload CycloneDX or
+        SPDX JSON instead.
       parameters:
         - { $ref: "#/components/parameters/ProjectID" }
         - { name: artifact, in: query, description: Overrides the SBOM's own subject name., schema: { type: string } }
         - { name: version, in: query, description: The artifact's own version (not the project branch)., schema: { type: string } }
         - { name: branch, in: query, description: The project branch this SBOM describes. Omit for the default version., schema: { type: string } }
         - { name: release, in: query, description: Instead of a branch, the release it describes. Not both., schema: { type: string } }
+        - { name: strict, in: query, description: Reject a CycloneDX document that fails the official JSON schema for its specVersion., schema: { type: boolean, default: false } }
       requestBody:
         required: true
         content:
@@ -4581,6 +5353,7 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Sbom" }
+        "400": { $ref: "#/components/responses/SbomStrictError" }
         "409":
           description: The project is a collection, which holds no SBOMs of its own
           $ref: "#/components/responses/Error"
@@ -6558,14 +7331,19 @@ paths:
     post:
       operationId: createProjectConnector
       tags: [Connectors]
-      summary: Add a Dependency-Track or DefectDojo connector
+      summary: Add a pull connector
       description: |
         Project `owner` — the connector holds a credential for another system.
-        `token` is required and write-only (a Dependency-Track API key with
-        VIEW_PORTFOLIO + VIEW_VULNERABILITY, or a DefectDojo API v2 key), encrypted
-        at rest with `INTEGRATION_SECRET_KEY` (AES-256-GCM); without that key this
-        returns 400. One connector per kind per project version (409 otherwise):
-        two would auto-close each other's findings.
+        `token` is required and write-only, encrypted at rest with
+        `INTEGRATION_SECRET_KEY` (AES-256-GCM); without that key this returns 400.
+        For `dependency-track`, `defectdojo`, `snyk-api`, `github` and `gitlab` it
+        is the remote's API token; for `wiz` and `tenable`, whose auth is two
+        secrets, it is a JSON object carrying both, so both are sealed together
+        (`{"client_id":"...","client_secret":"..."}` for Wiz,
+        `{"access_key":"...","secret_key":"..."}` for Tenable). `auth_url` is the
+        Wiz OAuth token endpoint (required for `wiz` only; not a secret). One
+        connector per kind per project version (409 otherwise): two would
+        auto-close each other's findings.
       parameters: [{ $ref: "#/components/parameters/ProjectID" }]
       requestBody:
         required: true
@@ -6646,15 +7424,18 @@ paths:
       description: |
         Project `editor`. Also runs every `CONNECTOR_PULL_INTERVAL` for enabled
         connectors. Fetches every finding the remote reports and records them as
-        one scan by scanner `dependency-track` / `defectdojo` on the connector's
-        version, through the normal ingest pipeline — so findings no longer
-        reported are auto-closed. A failed or incomplete fetch applies nothing
-        (502, recorded in `last_error`); findings are never closed because the
-        remote was unreachable. A remote triage verdict (Dependency-Track analysis
-        NOT_AFFECTED / FALSE_POSITIVE → false positive, EXPLOITABLE → confirmed;
-        DefectDojo false positive / risk accepted / verified) is kept in the
-        finding's metadata and applied only to newly imported, untriaged findings —
-        it never overturns Xila's triage. 409 while a pull of this connector runs.
+        one scan by the connector's scanner (its `kind`, except `snyk-api`, whose
+        pull API is kept distinct from the file-upload Snyk parser's `snyk`
+        scanner) on the connector's version, through the normal ingest pipeline
+        — so findings no longer reported are auto-closed. A failed or incomplete
+        fetch applies nothing (502, recorded in `last_error`); findings are never
+        closed because the remote was unreachable. Each kind's dismissed/ignored/
+        rejected verdict (Dependency-Track analysis, DefectDojo flags, a Snyk
+        ignore, a dismissed GitHub code scanning/Dependabot alert, a dismissed
+        GitLab vulnerability, a rejected Wiz finding, a Tenable severity
+        acceptance) is kept in the finding's metadata and applied only to newly
+        imported, untriaged findings — it never overturns Xila's triage. 409
+        while a pull of this connector runs.
       parameters: [{ $ref: "#/components/parameters/ProjectID" }, { $ref: "#/components/parameters/ConnectorID" }]
       responses:
         "200":
@@ -6895,6 +7676,18 @@ paths:
       parameters:
         - { name: state, in: query, schema: { type: string, enum: [requested, approved, expired, revoked, rejected] } }
         - { name: project_id, in: query, schema: { type: string, format: uuid } }
+        - name: actionable
+          in: query
+          description: Only the requests you may approve (projects you own; with four-eyes, not your own requests).
+          schema: { type: boolean }
+        - name: owner
+          in: query
+          description: "`me` or a user id: acceptances with that owner."
+          schema: { type: string }
+        - name: expires_within_days
+          in: query
+          description: Only acceptances expiring within this many days (soonest first).
+          schema: { type: integer, minimum: 1, maximum: 3650 }
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Offset" }
       responses:
@@ -7103,6 +7896,10 @@ paths:
       parameters:
         - { name: state, in: query, schema: { type: string, enum: [pending, approved, rejected] } }
         - { name: project_id, in: query, schema: { type: string, format: uuid } }
+        - name: actionable
+          in: query
+          description: Only what you may decide - pending assessments of projects you own that someone else requested.
+          schema: { type: boolean }
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Offset" }
       responses:
@@ -7245,6 +8042,8 @@ paths:
                   scan_days: { type: number }
                   log_days: { type: number }
                   audit_days: { type: number }
+                  archive_days: { type: number }
+                  finding_archive_days: { type: number, description: "FINDING_ARCHIVE_AFTER: findings fixed longer ago are archived." }
         "403": { $ref: "#/components/responses/Error" }
 
   /retention/run:
@@ -7271,6 +8070,45 @@ paths:
                   deliveries: { type: integer }
                   failed_jobs: { type: integer }
                   audit_entries: { type: integer }
+                  fixed_findings_archived: { type: integer }
+                  archived_projects: { type: integer }
+                  archived_engagements: { type: integer }
+                  archived_scans: { type: integer }
+                  archived_findings: { type: integer }
+        "403": { $ref: "#/components/responses/Error" }
+
+  /admin/secrets/status:
+    get:
+      operationId: getAdminSecretsStatus
+      tags: [Admin]
+      summary: Secret key-ring rotation status
+      description: |
+        Instance admin. Per sealed column (issue-tracker and connector tokens, the
+        SAML SP key, SSO provider secrets, personal and signed-webhook secrets, and
+        two-factor secrets): how many rows the current `INTEGRATION_SECRET_KEY`
+        ring opened with the primary key, how many still open only with a previous
+        key (not yet rekeyed), and how many open with no configured key at all (a
+        wrong key, or data this instance never sealed). `previous` reaching zero
+        everywhere means `INTEGRATION_SECRET_KEY_PREVIOUS` can be dropped.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  columns:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        table: { type: string }
+                        column: { type: string }
+                        total: { type: integer }
+                        primary: { type: integer }
+                        previous: { type: integer }
+                        unreadable: { type: integer }
         "403": { $ref: "#/components/responses/Error" }
 
   /audit-log:
@@ -7856,7 +8694,8 @@ paths:
         Instance admin. A channel with a `project_id` receives that project's events;
         one without receives everything. `url` is validated per `type` (400 on an
         invalid URL or recipient); creating an `email` channel without SMTP configured
-        returns 400 `SMTP is not configured`.
+        returns 400 `SMTP is not configured`. A `kafka` channel requires `kafka.brokers`
+        and, with `kafka.sasl_mechanism` set, `kafka.sasl_username` and `sasl_password`.
       requestBody:
         required: true
         content:
@@ -8175,6 +9014,205 @@ paths:
                 properties:
                   policies: { type: array, items: { $ref: "#/components/schemas/Policy" } }
 
+
+  /vuln-policies:
+    get:
+      operationId: listVulnPolicies
+      tags: [Vulnerability policies]
+      summary: List vulnerability policies
+      description: Instance admin. Highest `priority` first; the highest-priority matching policy wins when several match the same pair.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  policies: { type: array, items: { $ref: "#/components/schemas/VulnPolicy" } }
+    post:
+      operationId: createVulnPolicy
+      tags: [Vulnerability policies]
+      summary: Create a vulnerability policy
+      description: |
+        A CEL condition over a component + vulnerability pair (package findings) that
+        sets an analysis and/or a rating override atomically when it matches. Takes
+        effect immediately: matching findings in scope are claimed in the background.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VulnPolicy" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VulnPolicy" }
+        "400": { $ref: "#/components/responses/Error" }
+
+  /vuln-policies/{policyID}:
+    get:
+      operationId: getVulnPolicy
+      tags: [Vulnerability policies]
+      summary: Read a vulnerability policy
+      parameters: [{ $ref: "#/components/parameters/PolicyID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VulnPolicy" }
+        "404": { $ref: "#/components/responses/Error" }
+    patch:
+      operationId: updateVulnPolicy
+      tags: [Vulnerability policies]
+      summary: Update a vulnerability policy
+      description: Full replacement. Re-evaluates in the background — a condition or priority change may immediately claim or release findings.
+      parameters: [{ $ref: "#/components/parameters/PolicyID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VulnPolicy" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VulnPolicy" }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deleteVulnPolicy
+      tags: [Vulnerability policies]
+      summary: Delete a vulnerability policy
+      description: Findings it was holding revert to what they were before it ever matched, on the evaluation that follows.
+      parameters: [{ $ref: "#/components/parameters/PolicyID" }]
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /vuln-policies/preview:
+    post:
+      operationId: previewVulnPolicies
+      tags: [Vulnerability policies]
+      summary: Dry-run an unsaved policy
+      description: |
+        Body is a policy exactly as for create; nothing is stored or changed. Returns
+        the findings the policy **would** act on and how — evaluated on its own
+        (ignoring priority against other live policies), so you can see its effect
+        before saving it.
+      parameters:
+        - name: project_id
+          in: query
+          schema: { type: string, format: uuid }
+          description: Narrow the preview to one project; omit to cover every project the policy's scope reaches.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VulnPolicy" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VulnPolicyPreview" }
+        "400": { $ref: "#/components/responses/Error" }
+
+  /vuln-policies/{policyID}/preview:
+    post:
+      operationId: previewVulnPolicy
+      tags: [Vulnerability policies]
+      summary: Dry-run a stored policy
+      description: As `POST /vuln-policies/preview`, for a stored policy — whatever its enabled state.
+      parameters:
+        - { $ref: "#/components/parameters/PolicyID" }
+        - name: project_id
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VulnPolicyPreview" }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /vuln-policies/evaluate:
+    post:
+      operationId: evaluateVulnPolicies
+      tags: [Vulnerability policies]
+      summary: Re-evaluate the backlog now
+      description: |
+        Ingest and every policy edit already evaluate immediately; this is for
+        catching a validity window's expiry without waiting for
+        `VULN_POLICY_EVAL_INTERVAL`.
+      parameters:
+        - name: project_id
+          in: query
+          schema: { type: string, format: uuid }
+          description: Omit to evaluate every project.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { applied: { type: integer, description: Findings changed. } }
+
+  /vuln-policies/bundle:
+    get:
+      operationId: exportVulnPolicyBundle
+      tags: [Vulnerability policies]
+      summary: Export every policy as a GitOps bundle
+      description: The whole policy set, without database ids, so it can live in git and be reapplied verbatim with `PUT`.
+      parameters:
+        - name: format
+          in: query
+          schema: { type: string, enum: [yaml, json], default: yaml }
+      responses:
+        "200":
+          description: The bundle, as an attachment.
+          content:
+            application/yaml:
+              schema: { $ref: "#/components/schemas/VulnPolicyBundle" }
+            application/json:
+              schema: { $ref: "#/components/schemas/VulnPolicyBundle" }
+    put:
+      operationId: importVulnPolicyBundle
+      tags: [Vulnerability policies]
+      summary: Replace the whole policy set from a bundle
+      description: |
+        Every policy in the body is validated (unique names, compilable condition)
+        before anything is written; on success the whole stored set is atomically
+        replaced (fresh ids) and re-evaluated. A policy the old set had applying that
+        the new set drops is reverted like any other removed policy.
+      parameters:
+        - name: dry_run
+          in: query
+          schema: { type: boolean, default: false }
+          description: Validate and report the resulting set without writing it.
+      requestBody:
+        required: true
+        content:
+          application/yaml:
+            schema: { $ref: "#/components/schemas/VulnPolicyBundle" }
+          application/json:
+            schema: { $ref: "#/components/schemas/VulnPolicyBundle" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  policies: { type: array, items: { $ref: "#/components/schemas/VulnPolicy" } }
+                  dry_run: { type: boolean }
+        "400": { $ref: "#/components/responses/Error" }
 components:
   securitySchemes:
     bearerAuth:
@@ -8183,6 +9221,10 @@ components:
       description: |
         A **JWT** from `POST /auth/login`, or an **API token** (`xila_…`) from
         `POST /tokens`. API tokens can be scoped to a single project.
+    scimToken:
+      type: http
+      scheme: bearer
+      description: A SCIM token (`xila_scim_…`) from `POST /scim-tokens`. It works on `/scim/v2` only.
 
   parameters:
     ArchivedFilter: { name: archived, in: query, description: "List archived records instead of live ones (requires `owner`; a portfolio-wide list narrows to the projects you own).", schema: { type: boolean } }
@@ -8297,6 +9339,7 @@ components:
     ScanID: { name: scanID, in: path, required: true, schema: { type: string, format: uuid } }
     FindingID: { name: findingID, in: path, required: true, schema: { type: string, format: uuid } }
     CustomFieldID: { name: fieldID, in: path, required: true, schema: { type: string, format: uuid } }
+    CustomParserID: { name: parserID, in: path, required: true, schema: { type: string, format: uuid } }
     IfMatch: { name: If-Match, in: header, description: 'The finding''s updated_at as last read (quoted RFC 3339); a stale value answers 412.', schema: { type: string } }
     RiskAcceptanceID: { name: acceptanceID, in: path, required: true, schema: { type: string, format: uuid } }
     SbomID: { name: sbomID, in: path, required: true, schema: { type: string, format: uuid } }
@@ -8346,6 +9389,9 @@ components:
     AssetID: { name: assetID, in: path, required: true, schema: { type: string, format: uuid } }
     UserID: { name: userID, in: path, required: true, schema: { type: string, format: uuid } }
     TokenID: { name: tokenID, in: path, required: true, schema: { type: string, format: uuid } }
+    GroupID: { name: groupID, in: path, required: true, schema: { type: string, format: uuid } }
+    RoleID: { name: roleID, in: path, required: true, schema: { type: string, format: uuid } }
+    SCIMID: { name: id, in: path, required: true, schema: { type: string } }
     AccountID: { name: accountID, in: path, required: true, schema: { type: string, format: uuid } }
     KeyID: { name: keyID, in: path, required: true, schema: { type: string, format: uuid } }
     IssuerID: { name: issuerID, in: path, required: true, schema: { type: string, format: uuid } }
@@ -8379,11 +9425,34 @@ components:
       schema: { type: string, enum: [csv, xlsx], default: csv }
 
   responses:
+    PriorityWeightsResult:
+      description: The weights in force
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              weights: { $ref: "#/components/schemas/PriorityWeights" }
+              custom: { type: boolean, description: Whether the project overrides the defaults. }
+              defaults: { $ref: "#/components/schemas/PriorityWeights" }
+              reprioritized: { type: integer, description: Findings whose priority changed (PUT / DELETE). }
     Watching:
       description: Whether you watch the project.
       content:
         application/json:
           schema: { type: object, properties: { watching: { type: boolean } } }
+    IngestSettings:
+      description: OK
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              max_queue_depth: { type: integer, nullable: true, description: "Override; null = use INGEST_MAX_QUEUE_DEPTH" }
+              workers: { type: integer, nullable: true, description: "Override; null = use INGEST_WORKERS" }
+              updated_at: { type: string, format: date-time }
+              effective_max_queue_depth: { type: integer, description: What's actually in force on the responding node right now }
+              effective_workers: { type: integer, description: Workers actually running on the responding node right now }
     RiskAcceptanceList:
       description: OK
       content:
@@ -8401,6 +9470,18 @@ components:
             type: object
             properties:
               error: { type: string }
+    SbomStrictError:
+      description: |
+        A strict (`?strict=true` or SBOM_STRICT_VALIDATION) CycloneDX upload
+        failed its own specVersion's official JSON schema. Up to 50 field
+        errors, each with a JSON Pointer path (e.g. `/components/3/purl`).
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error: { type: string }
+              fields: { type: array, items: { $ref: "#/components/schemas/SbomFieldError" } }
     Export:
       description: |
         The download (`Content-Disposition: attachment`). CSV cells that a
@@ -8538,6 +9619,10 @@ components:
               source: { type: string, enum: [manual, sso] }
               via_id: { type: [string, "null"], format: uuid, description: The team (team) or org (org_admin). }
               via_name: { type: [string, "null"] }
+              group_id: { type: [string, "null"], format: uuid, description: The user group the grant reaches the user through. }
+              group_name: { type: [string, "null"] }
+              custom_role: { type: [string, "null"], description: The custom role narrowing the grant. }
+              denied_capabilities: { type: array, items: { type: string } }
               sso_mappings: { type: array, items: { type: string }, description: '"provider:group" of the SSO mappings that produce this grant.' }
     AuditEntry:
       type: object
@@ -8867,6 +9952,82 @@ components:
           type: string
           enum: [manual, sso]
           description: "`sso` = granted by an IdP group mapping and synced on that user's SSO logins; `manual` = granted here."
+        group_id: { type: string, format: uuid, description: Set instead of user_id for a grant on a user group. }
+        group_name: { type: string }
+        custom_role_id: { type: string, format: uuid, description: "The custom role narrowing `role`, if any." }
+        custom_role_name: { type: string }
+
+    UserGroup:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        org_id: { type: string, format: uuid }
+        name: { type: string }
+        external_id: { type: string, description: Set when a SCIM client provisioned it. }
+        member_count: { type: integer }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    CustomRole:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        org_id: { type: string, format: uuid }
+        name: { type: string }
+        base_role: { type: string, enum: [owner, editor, viewer, uploader] }
+        denied_capabilities:
+          type: array
+          items: { $ref: "#/components/schemas/Capability" }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    Capability:
+      type: string
+      enum: [triage, comment, manage_members, project_settings, upload, export, risk_acceptance_approve]
+      description: |
+        What a custom role can deny: `triage` (status, severity, assignee, accepting AI
+        proposals, deciding assessments, bulk edits), `comment` (comments and
+        attachments), `manage_members` (team and project members and groups),
+        `project_settings` (gate policy, SLA, issue tracker, connectors, versions,
+        badge token), `upload` (scans, SBOMs, VEX, gate runs, connector pulls), `export`
+        (CSV/XLSX and VEX exports), `risk_acceptance_approve` (approving, rejecting,
+        revoking risk acceptances).
+
+    SCIMToken:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        org_id: { type: string, format: uuid }
+        org_name: { type: string }
+        created_at: { type: string, format: date-time }
+        last_used_at: { type: [string, "null"], format: date-time }
+        revoked_at: { type: [string, "null"], format: date-time }
+
+    SCIMResource:
+      type: object
+      description: A SCIM 2.0 User or Group (RFC 7643), `application/scim+json`.
+      additionalProperties: true
+
+    PriorityWeights:
+      type: object
+      additionalProperties: false
+      description: The factors of a finding's priority (severity weight × exploitability × reachability × exposure).
+      properties:
+        critical: { type: number, default: 15 }
+        high: { type: number, default: 7 }
+        medium: { type: number, default: 3 }
+        low: { type: number, default: 1 }
+        info: { type: number, default: 0 }
+        kev: { type: number, default: 3, description: Multiplier of a finding on a KEV catalog. }
+        epss_slope: { type: number, default: 2, description: "The EPSS factor is 1 + epss_slope × EPSS." }
+        weaponized: { type: number, default: 2.5, description: Floor set by a weaponized exploit (Metasploit). }
+        poc: { type: number, default: 1.5, description: Floor set by a public proof of concept. }
+        transitive: { type: number, default: 0.8 }
+        dev: { type: number, default: 0.25 }
+        optional: { type: number, default: 0.5 }
+        internet: { type: number, default: 1.25 }
+        isolated: { type: number, default: 0.75 }
 
     Criticality:
       type: string
@@ -8938,8 +10099,10 @@ components:
         label: { type: string, maxLength: 100 }
         type: { type: string, enum: [text, number, date, enum, user] }
         options: { type: array, items: { type: string }, description: The allowed values of an `enum` field (required for it, refused otherwise). }
-        required: { type: boolean, description: Every edit of the entity must leave the field set. }
+        required: { type: boolean, description: Every edit of the entity must leave the field set. Never true on a computed field. }
         org_id: { type: [string, "null"], format: uuid, description: Only this organization's entities have the field; null = all. }
+        computed: { type: boolean, description: "The value comes from `expression`, not a person's write; writing it directly is refused (400)." }
+        expression: { type: string, description: "A CEL expression over the entity's facts (`finding.*`/`project.*`, `project.*`, or `asset.*`/`project.*`), required when `computed` is true. A result that doesn't fit the field type, an evaluation error, or null leaves the field unset." }
         created_at: { type: string, format: date-time, readOnly: true }
         updated_at: { type: string, format: date-time, readOnly: true }
 
@@ -8947,6 +10110,85 @@ components:
       type: object
       description: Custom-field values by key — text, a number, a `YYYY-MM-DD` date, an enum option or a user id. Unset fields are absent.
       additionalProperties: { type: [string, number, "null"] }
+
+    CustomParserFieldMap:
+      type: object
+      description: |
+        One ParsedFinding field's mapping. Resolution order: `template` (its
+        `{path}` placeholders are other paths/columns in the same record), else
+        `path` (falling back to `value` if absent or empty), else the static
+        `value` alone. `value_map` is only valid on the `severity` field: maps
+        the raw mapped text (e.g. a tool's numeric or custom severity code) to
+        critical/high/medium/low/info; unmapped text falls back to the same
+        normalization every built-in parser uses.
+      properties:
+        path:
+          type: string
+          description: |
+            A record path/column: a CSV header, a dotted JSON path
+            ("vulnerability.id", "aliases.0"), or an XML element/attribute path
+            relative to the record element ("name", "@severity").
+        template:
+          type: string
+          description: 'A "{path} in {path2}" template over other paths/columns in the same record, e.g. "{rule} in {component}".'
+        value:
+          type: string
+          description: A static value, used when no path/template is set or the path is absent/empty.
+        value_map:
+          type: object
+          additionalProperties: { type: string }
+          description: 'severity only: raw mapped text -> critical/high/medium/low/info, e.g. {"4": "critical", "Sev3": "medium"}.'
+
+    CustomParser:
+      type: object
+      required: [name, category, format, fields]
+      description: |
+        A no-code parser (M12 12.4): maps the fields of a CSV, JSON or XML
+        report onto findings without a Go parser. `name` is the scanner
+        identifier used in uploads (`?scanner=<name>`); it must be a lowercase
+        slug and must not collide with a built-in parser's name.
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        name: { type: string, pattern: "^[a-z][a-z0-9-]{1,63}$", examples: [acme-scanner] }
+        category: { $ref: "#/components/schemas/Category" }
+        format: { type: string, enum: [csv, json, xml] }
+        record_selector:
+          type: string
+          description: |
+            Where the repeated records live. json: a dotted path to the array
+            ("results", "runs.0.results"), or "$" for a top-level array. xml: a
+            "/"-separated element path from the document root ("report/item").
+            csv: unused — the header row already defines each record's fields.
+        fields:
+          type: object
+          description: |
+            ParsedFinding field -> mapping. Keys: title (required), severity,
+            rule_id, description, cve, cwe, file_path, line, package,
+            package_version, fixed_version, url, cvss.
+          additionalProperties: { $ref: "#/components/schemas/CustomParserFieldMap" }
+        created_by: { type: [string, "null"], format: uuid, readOnly: true }
+        created_at: { type: string, format: date-time, readOnly: true }
+        updated_at: { type: string, format: date-time, readOnly: true }
+
+    ParsedFinding:
+      type: object
+      description: One finding a parser (built-in or no-code) would create. Returned only by the custom-parser dry-run preview.
+      properties:
+        category: { $ref: "#/components/schemas/Category" }
+        rule_id: { type: string }
+        title: { type: string }
+        description: { type: string }
+        severity: { $ref: "#/components/schemas/Severity" }
+        cwe: { type: [integer, "null"] }
+        cve: { type: array, items: { type: string } }
+        file_path: { type: string }
+        line: { type: [integer, "null"] }
+        package: { type: string }
+        package_version: { type: string }
+        fixed_version: { type: string }
+        purl: { type: string }
+        url: { type: string }
+        cvss: { type: [number, "null"] }
 
     ProjectVersion:
       type: object
@@ -9067,14 +10309,15 @@ components:
       properties:
         id: { type: string, format: uuid }
         project_id: { type: string, format: uuid }
-        kind: { type: string, enum: [jira, github, gitlab] }
-        base_url: { type: string, description: "Jira site, GitHub API (https://api.github.com, or https://host/api/v3 for Enterprise), or GitLab instance (https://gitlab.com)." }
-        target: { type: string, description: "Jira project key, GitHub owner/repo, or GitLab project id or full path." }
+        kind: { type: string, enum: [jira, github, gitlab, azure-devops, linear, servicenow] }
+        base_url: { type: string, description: "Jira site, GitHub API (https://api.github.com, or https://host/api/v3 for Enterprise), GitLab instance (https://gitlab.com), Azure DevOps organization/collection (https://dev.azure.com/your-org), Linear API (https://api.linear.app), or ServiceNow instance (https://your-instance.service-now.com)." }
+        target: { type: string, description: "Jira project key, GitHub owner/repo, GitLab project id or full path, Azure DevOps project name, Linear team id, or ServiceNow table name (default incident)." }
         has_token: { type: boolean }
         jira_email: { type: string, description: "Jira Cloud account email (basic auth with the API token); empty sends the token as a Bearer PAT." }
-        issue_type: { type: string, description: Jira issue type. }
-        done_transition: { type: string, description: Jira transition (or target status) used to close. }
-        reopen_transition: { type: string, description: Jira transition (or target status) used to reopen. }
+        auth_user: { type: string, description: "ServiceNow HTTP Basic auth username; empty sends the token as an OAuth Bearer access token instead." }
+        issue_type: { type: string, description: Jira issue type, or Azure DevOps work item type (e.g. Bug, Issue, Task). }
+        done_transition: { type: string, description: "Jira transition (or target status), Azure DevOps System.State value, Linear workflow state type, or ServiceNow state value used to close." }
+        reopen_transition: { type: string, description: "Jira transition (or target status), Azure DevOps System.State value, Linear workflow state type, or ServiceNow state value used to reopen." }
         min_severity: { $ref: "#/components/schemas/Severity" }
         auto_create: { type: boolean }
         labels: { type: array, items: { type: string } }
@@ -9086,11 +10329,12 @@ components:
       type: object
       required: [kind, target]
       properties:
-        kind: { type: string, enum: [jira, github, gitlab] }
-        base_url: { type: string, description: "Defaults to https://api.github.com / https://gitlab.com; required for Jira." }
+        kind: { type: string, enum: [jira, github, gitlab, azure-devops, linear, servicenow] }
+        base_url: { type: string, description: "Defaults to https://api.github.com / https://gitlab.com / https://api.linear.app; required for Jira, Azure DevOps and ServiceNow." }
         target: { type: string }
         token: { type: string, writeOnly: true, description: Required when creating; omit to keep the stored token. }
         jira_email: { type: string }
+        auth_user: { type: string, description: ServiceNow only; empty uses OAuth Bearer auth. }
         issue_type: { type: string, default: Bug }
         done_transition: { type: string, default: Done }
         reopen_transition: { type: string, default: To Do }
@@ -9105,7 +10349,7 @@ components:
         id: { type: string, format: uuid }
         finding_id: { type: string, format: uuid }
         tracker_id: { type: string, format: uuid }
-        kind: { type: string, enum: [jira, github, gitlab] }
+        kind: { type: string, enum: [jira, github, gitlab, azure-devops, linear, servicenow] }
         external_id: { type: string, description: "Jira key, GitHub issue number or GitLab iid." }
         url: { type: string }
         state: { type: string, enum: [open, closed], description: The state both sides last agreed on. }
@@ -9117,11 +10361,20 @@ components:
       properties:
         id: { type: string, format: uuid }
         project_id: { type: string, format: uuid }
-        kind: { type: string, enum: [dependency-track, defectdojo] }
+        kind: { type: string, enum: [dependency-track, defectdojo, snyk-api, github, gitlab, wiz, tenable] }
         name: { type: string }
-        base_url: { type: string, description: "Server root, e.g. https://dtrack.example.com or https://defectdojo.example.com (no /api suffix)." }
-        remote_project: { type: string, description: "Dependency-Track project UUID; DefectDojo product id (42) or engagement id (engagement:42)." }
+        base_url: { type: string, description: "Server/API root; normalized per kind (e.g. the /api/v1, /api/v2, /api/v3, /api/v4 or /rest suffix is added or stripped as needed)." }
+        remote_project:
+          type: string
+          description: >-
+            Dependency-Track project UUID; DefectDojo product id (42) or
+            engagement id (engagement:42); Snyk org id, optionally
+            ":<project id>"; GitHub "owner/repo" or "org:<org>"; GitLab project
+            path ("group/project"); comma-separated Wiz project UUIDs (empty =
+            every project); or a Tenable "category=value" asset tag filter
+            (empty = the whole instance).
         has_token: { type: boolean }
+        auth_url: { type: string, description: "Wiz OAuth token endpoint; empty for every other kind." }
         version: { type: string, description: Project version (branch) the findings land in; empty = the default version. }
         enabled: { type: boolean, description: Pulled on the schedule. }
         last_pulled_at: { type: [string, "null"], format: date-time, description: Last attempt, successful or not. }
@@ -9136,11 +10389,20 @@ components:
       type: object
       required: [base_url, remote_project]
       properties:
-        kind: { type: string, enum: [dependency-track, defectdojo], description: Required when creating; can't change. }
+        kind: { type: string, enum: [dependency-track, defectdojo, snyk-api, github, gitlab, wiz, tenable], description: Required when creating; can't change. }
         name: { type: string, maxLength: 100 }
         base_url: { type: string }
         remote_project: { type: string }
-        token: { type: string, writeOnly: true, description: Required when creating or changing base_url; omit to keep the stored token. }
+        token:
+          type: string
+          writeOnly: true
+          description: >-
+            Required when creating, or when changing base_url or auth_url;
+            omit to keep the stored token. The remote's API token for every
+            kind except wiz and tenable, whose two secrets are sealed together
+            as one JSON object: {"client_id":"...","client_secret":"..."} for
+            wiz, {"access_key":"...","secret_key":"..."} for tenable.
+        auth_url: { type: string, description: "Wiz OAuth token endpoint; required for kind wiz, ignored otherwise." }
         version: { type: string }
         enabled: { type: boolean, default: true }
 
@@ -9266,7 +10528,7 @@ components:
         id: { type: string, format: uuid }
         action_id: { type: string, format: uuid }
         tracker_id: { type: string, format: uuid }
-        kind: { type: string, enum: [jira, github, gitlab] }
+        kind: { type: string, enum: [jira, github, gitlab, azure-devops, linear, servicenow] }
         external_id: { type: string }
         url: { type: string }
         state: { type: string, enum: [open, closed] }
@@ -9539,6 +10801,7 @@ components:
             Digest of the parsed report's findings, set once ingestion finishes.
             `null` for a scan with no raw report (manual findings, the OSV
             matcher) or where hashing failed. See `unchanged_of`.
+        split_assets: { type: boolean, readOnly: true, description: The upload filed its findings under one host asset per machine. }
         unchanged_of:
           type: [string, "null"]
           format: uuid
@@ -9695,6 +10958,11 @@ components:
             The KEV catalogs asserting it (sorted): `cisa` (CISA KEV), `enisa` (ENISA EU
             Vulnerability Database, exploited), `vulncheck` (VulnCheck KEV). Matched through
             aliases — the finding's CVEs, rule id and the advisory's aliases.
+        kev_ransomware:
+          type: boolean
+          description: |
+            A KEV catalog asserting the finding says the flaw is known to be used in
+            ransomware campaigns (`knownRansomwareCampaignUse` in CISA KEV and VulnCheck KEV).
         priority:
           type: number
           description: |
@@ -9891,6 +11159,13 @@ components:
         component_count: { type: integer }
         created_at: { type: string, format: date-time }
         root_ref: { type: string, description: "The dependency graph's root node (CycloneDX metadata.component bom-ref / SPDX described package)." }
+
+    SbomFieldError:
+      type: object
+      description: One CycloneDX schema violation from a strict upload.
+      properties:
+        path: { type: string, description: "JSON Pointer to the offending value, e.g. /components/3/purl" }
+        message: { type: string }
 
     MLFacts:
       type: object
@@ -10543,11 +11818,15 @@ components:
       type: object
       properties:
         projects: { type: integer }
-        open_findings: { type: integer }
+        total_open: { type: integer }
         risk_score: { type: number }
         kev_open: { type: integer }
-        exploitable_open: { type: integer }
-        by_category:
+        exploitable_open: { type: integer, description: Open findings on a KEV list or with EPSS of 0.5 or more. }
+        expiring_soon: { type: integer, description: Exceptions and risk acceptances lapsing within 30 days. }
+        open_by_severity:
+          type: object
+          additionalProperties: { type: integer }
+        open_by_category:
           type: object
           additionalProperties: { type: integer }
         compliance:
@@ -10556,7 +11835,9 @@ components:
             type: object
             properties:
               framework: { type: string }
-              average_score: { type: number }
+              name: { type: string }
+              avg_score: { type: number }
+              projects_assessed: { type: integer }
         top_projects:
           type: array
           items:
@@ -10564,9 +11845,18 @@ components:
             properties:
               id: { type: string, format: uuid }
               name: { type: string }
+              slug: { type: string }
               risk_score: { type: number }
+              total_open: { type: integer }
+              critical: { type: integer }
         sla: { $ref: "#/components/schemas/SLAStats" }
-
+        source:
+          type: string
+          enum: [live, snapshots]
+          description: |
+            `snapshots` when the whole overview comes from the latest snapshot
+            run (`PORTFOLIO_FROM_SNAPSHOTS`) rather than from findings now.
+        as_of: { type: string, format: date-time, description: When the oldest part of that snapshot run was taken (snapshots only). }
     MetricPoint:
       type: object
       description: |
@@ -10615,6 +11905,9 @@ components:
         enabled: { type: boolean }
         max_critical: { type: integer, description: Fail if open criticals exceed this. }
         max_high: { type: integer }
+        max_medium: { type: integer, description: Fail if open mediums exceed this. }
+        max_low: { type: integer, description: Fail if open lows exceed this. }
+        max_info: { type: integer, description: Fail if open info findings exceed this. }
         block_kev: { type: boolean, description: Fail on any open KEV finding. }
         kev_sources:
           type: array
@@ -10651,6 +11944,7 @@ components:
             open_high: { type: integer }
             open_medium: { type: integer }
             open_low: { type: integer }
+            open_info: { type: integer }
             open_kev: { type: integer }
             open_kev_sources:
               type: object
@@ -10668,7 +11962,13 @@ components:
         id: { type: string, format: uuid }
         name: { type: string }
         enabled: { type: boolean }
-        sort_order: { type: integer, description: Evaluation order. First match wins. }
+        sort_order: { type: integer, description: Evaluation order (lowest first). The first match acts. }
+        continue:
+          type: boolean
+          description: |
+            Chain this rule: after it acts, the rules after it still evaluate, against the
+            finding as it left it (raise a severity, then act on the raised severity).
+            Without it the first matching rule is the only one that acts.
         project_id: { type: [string, "null"], format: uuid, description: Null = applies to every project. }
         scanner: { type: string }
         category: { $ref: "#/components/schemas/Category" }
@@ -10885,6 +12185,97 @@ components:
                     value: { description: The condition's normalized value. }
                     fact: { type: string, description: What the component had, e.g. `license GPL-3.0-only`. }
 
+
+    VulnPolicy:
+      type: object
+      required: [name, condition, scope, mode]
+      description: |
+        A CEL condition over `component` (`name`, `version`, `purl`, `group`, `license`,
+        `scope`, `direct`), `vulnerability` (`id`, `aliases`, `severity`, `cvss`, `epss`,
+        `kev`, `cwes`, `published` — always unknown, findings carry no disclosure date)
+        and `project` (`name`, `tags`, `criticality`, `custom.<key>`), e.g.
+        `vulnerability.kev == true && component.scope == "dev"`. Unknown facts are null
+        and never match; syntax errors, misspelled fields and non-boolean results are
+        rejected when saving.
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        name: { type: string }
+        description: { type: string }
+        enabled: { type: boolean, default: true }
+        condition: { type: string }
+        priority:
+          type: integer
+          default: 0
+          description: The highest-priority policy whose condition matches a pair wins when several do. Ties break oldest-first.
+        analysis:
+          type: [object, "null"]
+          description: The verdict to record; omit (null) for a rating-only policy.
+          properties:
+            state:
+              type: string
+              enum: [not_affected, false_positive, exploitable, in_triage]
+              description: |
+                `not_affected` and `false_positive` both set the finding `false_positive`
+                (Dependency-Track distinguishes them as justifications of the same
+                outcome); `exploitable` sets `confirmed`; `in_triage` sets no status (use
+                it to flag a pair for review without moving it).
+            justification: { type: string }
+            details: { type: string }
+        rating:
+          type: [object, "null"]
+          description: A severity override to apply; omit (null) for an analysis-only policy.
+          properties:
+            severity: { $ref: "#/components/schemas/Severity" }
+            cvss_vector: { type: string, description: "Detail only (display/bundle); never overwrites a scanner- or NVD-sourced CVSS." }
+            cvss_score: { type: [number, "null"] }
+        valid_from: { type: [string, "null"], format: date-time, description: Null = unbounded. }
+        valid_until: { type: [string, "null"], format: date-time, description: Null = unbounded. Outside the window the policy doesn't apply, and its earlier effect reverts on the next evaluation. }
+        scope:
+          type: string
+          enum: [global, projects, tag]
+          default: global
+        project_ids:
+          type: array
+          items: { type: string, format: uuid }
+          description: Required (non-empty) when `scope` is `projects`.
+        tag: { type: string, description: Required when `scope` is `tag`. }
+        mode:
+          type: string
+          enum: [apply, log]
+          default: apply
+          description: "`log`: the condition is still evaluated (see preview) but never mutates a finding and never wins election over an `apply` policy."
+        created_by: { type: [string, "null"], format: uuid, readOnly: true }
+        created_at: { type: string, format: date-time, readOnly: true }
+        updated_at: { type: string, format: date-time, readOnly: true }
+
+    VulnPolicyPreview:
+      type: object
+      properties:
+        total: { type: integer, description: Every pair the policy would act on (the list is capped at 200). }
+        findings:
+          type: array
+          maxItems: 200
+          items:
+            type: object
+            properties:
+              finding_id: { type: string, format: uuid }
+              project_id: { type: string, format: uuid }
+              title: { type: string }
+              package_name: { type: string }
+              package_version: { type: string }
+              purl: { type: string }
+              vulnerability_id: { type: string }
+              current_status: { $ref: "#/components/schemas/FindingStatus" }
+              set_status: { $ref: "#/components/schemas/FindingStatus" }
+              current_severity: { $ref: "#/components/schemas/Severity" }
+              set_severity: { $ref: "#/components/schemas/Severity" }
+
+    VulnPolicyBundle:
+      type: object
+      description: The GitOps-portable policy set — every policy, without database ids (an import always assigns fresh ones).
+      properties:
+        policies: { type: array, items: { $ref: "#/components/schemas/VulnPolicy" } }
+
     Channel:
       type: object
       properties:
@@ -10892,7 +12283,7 @@ components:
         name: { type: string }
         type:
           type: string
-          enum: [webhook, slack, teams, mattermost, email]
+          enum: [webhook, slack, teams, mattermost, email, kafka]
           description: |
             `webhook` POSTs the raw event JSON with `X-Xila-Delivery` (a delivery id, the
             same across retries) and `X-Xila-Timestamp`, plus `X-Xila-Signature` when it
@@ -10900,12 +12291,14 @@ components:
             `{"text": …}` (Mattermost adds `"username": "Xila"`); `teams` posts an Office 365
             connector MessageCard (legacy incoming webhooks and the Teams Workflows
             "When a Teams webhook request is received" trigger); `email` sends a
-            multipart (plain + HTML) mail via the configured SMTP server.
+            multipart (plain + HTML) mail via the configured SMTP server; `kafka`
+            produces the raw event JSON to a topic (`url`) over brokers from `kafka`.
         url:
           type: string
           description: |
             For `webhook`, `slack`, `teams`, `mattermost`: the http(s) webhook URL.
             For `email`: a comma-separated recipient list, e.g. `alice@example.com, Bob <bob@example.com>`.
+            For `kafka`: the topic name.
         project_id: { type: [string, "null"], format: uuid, description: Null = receives events from every project. }
         events:
           type: array
@@ -10952,7 +12345,33 @@ components:
             verify within 5 minutes (see the README). Encrypted at rest
             (`INTEGRATION_SECRET_KEY` required) and never returned. On PATCH a value
             rotates it, `""` removes it, omitted keeps it.
-        has_secret: { type: boolean, readOnly: true, description: The channel signs its deliveries. }
+        has_secret: { type: boolean, readOnly: true, description: The channel signs its deliveries, or (`kafka`) has a sealed SASL password. }
+        kafka: { $ref: "#/components/schemas/KafkaConfig" }
+        sasl_password:
+          type: string
+          writeOnly: true
+          description: |
+            `kafka` only, with `kafka.sasl_mechanism` set. Encrypted at rest
+            (`INTEGRATION_SECRET_KEY` required) and never returned. On PATCH a
+            value rotates it, `""` removes it, omitted keeps it.
+
+    KafkaConfig:
+      type: object
+      description: A `kafka` channel's broker and security settings. The topic is the channel's `url`.
+      required: [brokers]
+      properties:
+        brokers: { type: array, items: { type: string }, description: "`host:port` addresses, dialed through the server's outbound (OUTBOUND_*) policy." }
+        key_template:
+          type: string
+          description: |
+            Record key template with `{project_id}`, `{finding_id}`, `{event_type}`
+            and `{severity}` placeholders. Empty defaults to the project id (or no
+            key for a global event), so a consumer can partition or compact by
+            project without configuring anything.
+        tls: { type: boolean, default: false }
+        tls_ca: { type: string, description: Optional PEM CA certificate; empty uses the system trust store. Ignored unless `tls` is set. }
+        sasl_mechanism: { type: string, enum: ["", PLAIN, SCRAM-SHA-256, SCRAM-SHA-512], description: Empty = no SASL. }
+        sasl_username: { type: string, description: Required with a `sasl_mechanism`. }
 
     IngestionAnomaly:
       type: object

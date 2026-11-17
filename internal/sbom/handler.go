@@ -70,13 +70,20 @@ func (h *Handler) Upload(c *fiber.Ctx) error {
 		Version:   c.Query("version"),
 		Branch:    strings.TrimSpace(c.Query("branch")),
 		Release:   strings.TrimSpace(c.Query("release")),
+		Strict:    c.QueryBool("strict", false),
 	}
 	s, err := h.ingest.Ingest(c.UserContext(), req, bytes.NewReader(c.Body()))
+	var strictErr *StrictValidationError
 	switch {
 	case errors.Is(err, ErrProjectNotFound):
 		return fiber.NewError(fiber.StatusNotFound, "project not found")
 	case errors.Is(err, ErrCollection):
 		return fiber.NewError(fiber.StatusConflict, err.Error())
+	case errors.As(err, &strictErr):
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":  strictErr.Error(),
+			"fields": strictErr.Fields,
+		})
 	case err != nil:
 		return fiber.NewError(fiber.StatusUnprocessableEntity, err.Error())
 	}

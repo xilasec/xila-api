@@ -15,6 +15,7 @@ import (
 	"math"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -61,6 +62,31 @@ func (t Type) Valid() bool {
 	return false
 }
 
+// FitsOutputType reports whether a CEL-inferred static result type (an
+// expr.Program.OutputType such as "bool", "string", "double", "int", "uint",
+// "null_type", or "dyn" when CEL couldn't tell) could ever produce a value
+// for this field type. "dyn" and "null_type" are always allowed — a ternary
+// mixing types, or a fact whose static type is unknown — and Fit still
+// checks every actual result on each evaluation; this only rejects an
+// expression CEL can already prove will never fit, at save time.
+func (t Type) FitsOutputType(outputType string) bool {
+	switch outputType {
+	case "dyn", "null_type":
+		return true
+	}
+	switch t {
+	case TypeText:
+		return true // every scalar CEL type renders as text
+	case TypeNumber:
+		return outputType == "double" || outputType == "int" || outputType == "uint"
+	case TypeEnum:
+		return outputType == "string"
+	case TypeDate:
+		return outputType == "string" || outputType == "google.protobuf.Timestamp"
+	}
+	return false // user: never computed
+}
+
 // Limits.
 const (
 	MaxTextLength = 1000
@@ -97,9 +123,17 @@ type Definition struct {
 	Options  []string `json:"options"`
 	Required bool     `json:"required"`
 	// OrgID scopes the field to one organization's entities; nil = all.
-	OrgID     *string   `json:"org_id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	OrgID *string `json:"org_id"`
+	// Computed marks the field as read-only through the API: its value comes
+	// from Expression (a CEL expression over the entity's facts) instead of
+	// a person's write. See internal/computed, which recomputes it on
+	// ingest, on a definition change, and on COMPUTED_FIELDS_INTERVAL.
+	Computed bool `json:"computed"`
+	// Expression is the CEL expression a computed field is evaluated with.
+	// Empty for a field people set by hand.
+	Expression string    `json:"expression"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
 }
 
 // keyPattern keeps a key a plain CEL identifier (finding.custom.<key>) and a
@@ -149,6 +183,17 @@ func (d *Definition) Validate() error {
 	}
 	if d.OrgID != nil && uuid.Validate(*d.OrgID) != nil {
 		return invalid("org_id must be an organization id")
+	}
+	d.Expression = strings.TrimSpace(d.Expression)
+	switch {
+	case d.Computed && d.Expression == "":
+		return invalid("a computed field needs an expression")
+	case !d.Computed && d.Expression != "":
+		return invalid("expression is only for a computed field")
+	case d.Computed && d.Required:
+		return invalid("a computed field can't be required — it is never set by a person")
+	case d.Computed && d.Type == TypeUser:
+		return invalid("a computed field can't be type user")
 	}
 	return nil
 }
@@ -205,6 +250,84 @@ func (d Definition) Normalize(v any) (any, error) {
 	return nil, invalid("%s has an unknown type", d.Key)
 }
 
+// Fit converts a computed expression's evaluated native Go value (bool,
+// string, int64, uint64, float64, time.Time, or nil for CEL's null — see
+// expr.Program.Eval) into the value stored for this field, the same shape
+// Normalize produces. ok is false when v is nil, doesn't fit the type, or
+// (enum) isn't one of the options — the field is then left unset, never a
+// guess. Never called for a user field (Validate refuses Computed there).
+func (d Definition) Fit(v any) (any, bool) {
+	if v == nil {
+		return nil, false
+	}
+	switch d.Type {
+	case TypeNumber:
+		switch n := v.(type) {
+		case float64:
+			if math.IsNaN(n) || math.IsInf(n, 0) {
+				return nil, false
+			}
+			return n, true
+		case int64:
+			return float64(n), true
+		case uint64:
+			return float64(n), true
+		}
+		return nil, false
+	case TypeText:
+		s, ok := fitText(v)
+		if !ok || len([]rune(s)) > MaxTextLength {
+			return nil, false
+		}
+		return s, true
+	case TypeEnum:
+		s, ok := v.(string)
+		if !ok || !slices.Contains(d.Options, s) {
+			return nil, false
+		}
+		return s, true
+	case TypeDate:
+		switch t := v.(type) {
+		case time.Time:
+			return t.UTC().Format(time.DateOnly), true
+		case string:
+			if parsed, err := time.Parse(time.RFC3339, t); err == nil {
+				return parsed.UTC().Format(time.DateOnly), true
+			}
+			if _, err := time.Parse(time.DateOnly, t); err == nil {
+				return t, true
+			}
+		}
+		return nil, false
+	}
+	return nil, false // user: never computed
+}
+
+// fitText renders a scalar CEL value as text (brief: "a number/bool rendered
+// as text" also fits a text field).
+func fitText(v any) (string, bool) {
+	switch x := v.(type) {
+	case string:
+		s := strings.TrimSpace(x)
+		if s == "" {
+			return "", false
+		}
+		return s, true
+	case bool:
+		return strconv.FormatBool(x), true
+	case int64:
+		return strconv.FormatInt(x, 10), true
+	case uint64:
+		return strconv.FormatUint(x, 10), true
+	case float64:
+		if math.IsNaN(x) || math.IsInf(x, 0) {
+			return "", false
+		}
+		return strconv.FormatFloat(x, 'g', -1, 64), true
+	}
+	return "", false
+}
+
 // Sample is a value of the field's type — what CEL schemas dry-run against.
 func (d Definition) Sample() any {
 	switch d.Type {
@@ -231,6 +354,23 @@ func Samples(defs []Definition) map[string]any {
 	return out
 }
 
+// FilterComputed drops every computed key from values — used when building
+// the document a computed field's own expression evaluates against, so one
+// computed field never reads another (avoids cycles; the dropped keys are
+// still visible to everyone else — triage rules, policies, filters, exports).
+func FilterComputed(values map[string]any, defs []Definition) map[string]any {
+	out := make(map[string]any, len(values))
+	for k, v := range values {
+		out[k] = v
+	}
+	for _, d := range defs {
+		if d.Computed {
+			delete(out, d.Key)
+		}
+	}
+	return out
+}
+
 // AppliesTo reports whether the field applies to an entity in orgID.
 func (d Definition) AppliesTo(orgID string) bool { return d.OrgID == nil || *d.OrgID == orgID }
 
@@ -242,11 +382,12 @@ type Repository struct {
 // NewRepository constructs a Repository.
 func NewRepository(db *pgxpool.Pool) *Repository { return &Repository{db: db} }
 
-const columns = `id, entity, key, label, type, options, required, org_id, created_at, updated_at`
+const columns = `id, entity, key, label, type, options, required, org_id, computed, expression, created_at, updated_at`
 
 func scan(row pgx.Row) (Definition, error) {
 	var d Definition
-	err := row.Scan(&d.ID, &d.Entity, &d.Key, &d.Label, &d.Type, &d.Options, &d.Required, &d.OrgID, &d.CreatedAt, &d.UpdatedAt)
+	err := row.Scan(&d.ID, &d.Entity, &d.Key, &d.Label, &d.Type, &d.Options, &d.Required, &d.OrgID,
+		&d.Computed, &d.Expression, &d.CreatedAt, &d.UpdatedAt)
 	return d, err
 }
 
@@ -297,20 +438,23 @@ func (r *Repository) Get(ctx context.Context, id string) (Definition, error) {
 // Create stores a validated definition.
 func (r *Repository) Create(ctx context.Context, d Definition) (Definition, error) {
 	out, err := scan(r.db.QueryRow(ctx, `
-		INSERT INTO custom_field_definitions (entity, key, label, type, options, required, org_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING `+columns,
-		d.Entity, d.Key, d.Label, d.Type, d.Options, d.Required, d.OrgID))
+		INSERT INTO custom_field_definitions (entity, key, label, type, options, required, org_id, computed, expression)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING `+columns,
+		d.Entity, d.Key, d.Label, d.Type, d.Options, d.Required, d.OrgID, d.Computed, d.Expression))
 	if err != nil {
 		return Definition{}, writeErr(err, "create")
 	}
 	return out, nil
 }
 
-// Update replaces the editable parts (label, options, required, org scope).
+// Update replaces the editable parts (label, options, required, org scope,
+// computed + expression — editing either re-validates and the caller
+// backfills every entity of this type; see internal/computed).
 func (r *Repository) Update(ctx context.Context, d Definition) (Definition, error) {
 	out, err := scan(r.db.QueryRow(ctx, `
-		UPDATE custom_field_definitions SET label = $2, options = $3, required = $4, org_id = $5, updated_at = now()
-		WHERE id = $1 RETURNING `+columns, d.ID, d.Label, d.Options, d.Required, d.OrgID))
+		UPDATE custom_field_definitions SET label = $2, options = $3, required = $4, org_id = $5,
+			computed = $6, expression = $7, updated_at = now()
+		WHERE id = $1 RETURNING `+columns, d.ID, d.Label, d.Options, d.Required, d.OrgID, d.Computed, d.Expression))
 	if err != nil {
 		return Definition{}, writeErr(err, "update")
 	}
@@ -394,10 +538,18 @@ func (r *Repository) OrgOfProject(ctx context.Context, projectID string) (string
 }
 
 // SetValues merges set into a project's or asset's values and drops unset
-// (findings go through the finding repository, which records history).
+// (findings go through the finding repository, which records history). set
+// and unset may be nil; a SQL NULL would otherwise propagate through
+// `custom || NULL` / `custom - NULL`, wiping every existing value.
 func (r *Repository) SetValues(ctx context.Context, entity Entity, id string, set map[string]any, unset []string) (map[string]any, error) {
 	if entity != EntityProject && entity != EntityAsset {
 		return nil, fmt.Errorf("set values: unsupported entity %q", entity)
+	}
+	if set == nil {
+		set = map[string]any{}
+	}
+	if unset == nil {
+		unset = []string{}
 	}
 	var out map[string]any
 	// The table name comes from a fixed map, never from input.

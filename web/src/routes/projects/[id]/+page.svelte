@@ -40,6 +40,7 @@
 	import AccessTable from '#lib/components/AccessTable.svelte';
 	import CustomFieldsEditor from '#lib/components/CustomFieldsEditor.svelte';
 	import ManualControls from '#lib/components/ManualControls.svelte';
+	import PriorityWeights from '#lib/components/PriorityWeights.svelte';
 	import { OPEN_BY_SEVERITY, RISK, FLOW, fmtCount, fmtRisk, windowStats } from '#lib/trends.js';
 	import { parentChoices } from '#lib/projectTree.js';
 
@@ -172,7 +173,7 @@
 	const POLICY_TONE = { fail: 'badge-error', warn: 'badge-warning', info: 'badge-info' };
 	let compliance = $state(/** @type {any[]} */ ([]));
 	let alertChannels = $state(/** @type {any[]} */ ([]));
-	let alertForm = $state({ name: '', type: 'slack', url: '', events: '*', min_severity: '', filter: '', summary: 'none' });
+	let alertForm = $state({ name: '', type: 'slack', url: '', events: '*', min_severity: '', filter: '', summary: 'none', kafka_brokers: '' });
 	let alertTesting = $state('');
 	let slaPolicy = $state(/** @type {any} */ (null));
 	async function loadSla() {
@@ -259,16 +260,37 @@
 			accessLoading = false;
 		}
 	}
-	let memberForm = $state({ email: '', role: 'viewer' });
+	let memberForm = $state({ kind: 'user', email: '', group_id: '', role: 'viewer', custom_role_id: '' });
 	let memberBusy = $state(false);
+	// The project's org's groups and custom roles, for the grant form (empty
+	// when the caller can't list them).
+	let orgGroups = $state(/** @type {any[]} */ ([]));
+	let orgRoles = $state(/** @type {any[]} */ ([]));
+	async function loadGrantOptions() {
+		try {
+			const team = (await api.listTeams()).find((/** @type {any} */ tm) => tm.id === project?.team_id);
+			if (!team) return;
+			[orgGroups, orgRoles] = await Promise.all([
+				api.listGroups(team.org_id).catch(() => []),
+				api.listCustomRoles(team.org_id).catch(() => [])
+			]);
+		} catch {
+			/* the form still grants users */
+		}
+	}
 
 	/** @param {SubmitEvent} e */
 	async function addMember(e) {
 		e.preventDefault();
 		memberBusy = true;
 		try {
-			await api.addProjectMember(id, memberForm.email.trim().toLowerCase(), memberForm.role);
-			memberForm = { email: '', role: 'viewer' };
+			/** @type {{ email?: string, group_id?: string, role: string, custom_role_id?: string }} */
+			const grant = { role: memberForm.role };
+			if (memberForm.kind === 'group') grant.group_id = memberForm.group_id;
+			else grant.email = memberForm.email.trim().toLowerCase();
+			if (memberForm.custom_role_id) grant.custom_role_id = memberForm.custom_role_id;
+			await api.addProjectMember(id, grant);
+			memberForm = { kind: memberForm.kind, email: '', group_id: '', role: 'viewer', custom_role_id: '' };
 			members = await api.listProjectMembers(id);
 			notify($t('proj.accessGranted'), 'success');
 		} catch (err) {
@@ -281,6 +303,12 @@
 	/** @param {any} m */
 	async function removeMember(m) {
 		try {
+			if (m.group_id) {
+				await api.removeProjectGroup(id, m.group_id);
+				notify($t('proj.accessRevoked'), 'success');
+				members = await api.listProjectMembers(id);
+				return;
+			}
 			const res = await api.removeProjectMember(id, m.user_id);
 			// The API tells us honestly when the user still reaches the project
 			// through its team — the grant is gone, the access isn't.
@@ -365,6 +393,9 @@
 		gatePolicy = {
 			max_critical: policy.max_critical ?? null,
 			max_high: policy.max_high ?? null,
+			max_medium: policy.max_medium ?? null,
+			max_low: policy.max_low ?? null,
+			max_info: policy.max_info ?? null,
 			block_kev: policy.block_kev ?? false,
 			max_epss: policy.max_epss ?? null,
 			block_license: policy.block_license ?? false,
@@ -390,7 +421,7 @@
 		try {
 			/** @type {Record<string, any>} */
 			const body = {};
-			for (const k of ['max_critical', 'max_high', 'max_epss', 'max_risk_score']) {
+			for (const k of ['max_critical', 'max_high', 'max_medium', 'max_low', 'max_info', 'max_epss', 'max_risk_score']) {
 				body[k] = gatePolicy[k] === '' || gatePolicy[k] === null ? null : Number(gatePolicy[k]);
 			}
 			body.block_kev = gatePolicy.block_kev;
@@ -432,7 +463,8 @@
 	let sbomDialog;
 	let saving = $state(false);
 	let scanForm = $state({ preset: 'trivy', scanner: '', format: '', branch: '', commit: '', asset_id: '', raw: '' });
-	let sbomForm = $state({ artifact: '', version: '', raw: '' });
+	let sbomForm = $state({ artifact: '', version: '', raw: '', strict: false });
+	let sbomFieldErrors = $state(/** @type {{path: string, message: string}[]} */ ([]));
 
 	const selectedPreset = $derived(SCAN_PRESETS.find((p) => p.id === scanForm.preset));
 
@@ -677,7 +709,10 @@
 			if (name === 'scans') scans = await api.listScans(id);
 			else if (name === 'sboms') sboms = await api.listSboms(id);
 			else if (name === 'vex') vexStatements = await api.listVex(id);
-			else if (name === 'members') members = await api.listProjectMembers(id);
+			else if (name === 'members') {
+				members = await api.listProjectMembers(id);
+				loadGrantOptions();
+			}
 			else if (name === 'components') {
 				const res = await api.projectComponents(id, { ...componentQuery(), limit: 200 });
 				components = res.components ?? [];
@@ -751,9 +786,12 @@
 				project_id: id,
 				min_severity: alertForm.min_severity,
 				filter: alertForm.filter,
-				summary: alertForm.summary
+				summary: alertForm.summary,
+				...(alertForm.type === 'kafka'
+					? { kafka: { brokers: alertForm.kafka_brokers.split(',').map((b) => b.trim()).filter(Boolean) } }
+					: {})
 			});
-			alertForm = { name: '', type: 'slack', url: '', events: '*', min_severity: '', filter: '', summary: 'none' };
+			alertForm = { name: '', type: 'slack', url: '', events: '*', min_severity: '', filter: '', summary: 'none', kafka_brokers: '' };
 			notify($t('proj.alertAdded'), 'success');
 			alertChannels = await api.listChannels(id);
 		} catch (err) {
@@ -826,16 +864,18 @@
 	async function submitSbom(e) {
 		e.preventDefault();
 		saving = true;
+		sbomFieldErrors = [];
 		try {
-			const { artifact, version, raw } = sbomForm;
-			await api.uploadSbom(id, raw, { artifact, version });
+			const { artifact, version, raw, strict } = sbomForm;
+			await api.uploadSbom(id, raw, { artifact, version, strict });
 			sbomDialog.close();
-			sbomForm = { artifact: '', version: '', raw: '' };
+			sbomForm = { artifact: '', version: '', raw: '', strict: false };
 			notify($t('proj.sbomUploaded'), 'success');
 			loaded.sboms = false;
 			loaded.components = false;
 			await Promise.all([switchTab('sboms'), loadHeader(), loadFindings()]);
 		} catch (err) {
+			if (err instanceof ApiError && Array.isArray(err.data?.fields)) sbomFieldErrors = err.data.fields;
 			notify(errorMessage(err));
 		} finally {
 			saving = false;
@@ -907,7 +947,7 @@
 			<ReportMenu open={(opts) => api.openProjectReport(id, opts)} />
 			<button class="btn btn-sm btn-ghost" onclick={openEdit}>{$t('common.edit')}</button>
 			{#if !project.is_collection}
-				<button class="btn btn-sm btn-outline" onclick={() => sbomDialog.showModal()}>{$t('proj.uploadSbom')}</button>
+				<button class="btn btn-sm btn-outline" onclick={() => { sbomFieldErrors = []; sbomDialog.showModal(); }}>{$t('proj.uploadSbom')}</button>
 				<button class="btn btn-sm btn-primary" onclick={openScan}>{$t('proj.uploadScan')}</button>
 			{/if}
 			{#if !project.archived_at}
@@ -1203,10 +1243,27 @@
 		</p>
 
 		<form onsubmit={addMember} class="mb-4 flex flex-wrap items-end gap-2">
-			<Field label={$t('proj.email')}>
-				<input bind:value={memberForm.email} type="email" required placeholder="dana@example.com"
-					class="input input-bordered input-sm w-64" />
-			</Field>
+			{#if orgGroups.length > 0}
+				<Field label={$t('proj.grantTo')}>
+					<select bind:value={memberForm.kind} class="select select-bordered select-sm">
+						<option value="user">{$t('proj.grantUser')}</option>
+						<option value="group">{$t('proj.grantGroup')}</option>
+					</select>
+				</Field>
+			{/if}
+			{#if memberForm.kind === 'group'}
+				<Field label={$t('proj.group')}>
+					<select bind:value={memberForm.group_id} required class="select select-bordered select-sm w-64">
+						<option value="" disabled>{$t('proj.pickGroup')}</option>
+						{#each orgGroups as g (g.id)}<option value={g.id}>{g.name}</option>{/each}
+					</select>
+				</Field>
+			{:else}
+				<Field label={$t('proj.email')}>
+					<input bind:value={memberForm.email} type="email" required placeholder="dana@example.com"
+						class="input input-bordered input-sm w-64" />
+				</Field>
+			{/if}
 			<Field label={$t('proj.role')}>
 				<select bind:value={memberForm.role} class="select select-bordered select-sm">
 					<option value="viewer">{$t('proj.roleViewer')}</option>
@@ -1215,9 +1272,18 @@
 					<option value="uploader">{$t('proj.roleUploader')}</option>
 				</select>
 			</Field>
+			{#if orgRoles.length > 0}
+				<Field label={$t('proj.customRole')}>
+					<select bind:value={memberForm.custom_role_id} class="select select-bordered select-sm">
+						<option value="">{$t('proj.noCustomRole')}</option>
+						{#each orgRoles as r (r.id)}<option value={r.id}>{r.name}</option>{/each}
+					</select>
+				</Field>
+			{/if}
 			<button class="btn btn-primary btn-sm" disabled={memberBusy}>
 				{#if memberBusy}<span class="loading loading-spinner loading-xs"></span>{/if}{$t('proj.grant')}
 			</button>
+			<a href="/groups" class="link text-xs self-center">{$t('proj.manageGroups')}</a>
 		</form>
 
 		<State loading={tabLoading} empty={!tabLoading && members.length === 0}
@@ -1227,11 +1293,14 @@
 				<table class="table table-sm">
 					<thead><tr><th>{$t('proj.colUser')}</th><th>{$t('proj.colRoleHere')}</th><th></th></tr></thead>
 					<tbody>
-						{#each members as m (m.user_id)}
+						{#each members as m (m.group_id || m.user_id)}
 							<tr class="hover">
-								<td class="font-medium">{m.email}</td>
+								<td class="font-medium">
+									{#if m.group_id}<span class="badge badge-outline badge-xs mr-1">{$t('proj.grantGroup')}</span>{m.group_name}{:else}{m.email}{/if}
+								</td>
 								<td>
 								<span class="badge badge-ghost badge-sm">{$labelOf('role', m.role)}</span>
+								{#if m.custom_role_name}<span class="badge badge-info badge-outline badge-xs" title={$t('proj.customRole')}>{m.custom_role_name}</span>{/if}
 								{#if m.source === 'sso'}<span class="badge badge-outline badge-xs" title={$t('home.ssoGrantTitle')}>SSO</span>{/if}
 							</td>
 								<td class="text-right">
@@ -1522,6 +1591,15 @@
 				<Field label={$t('proj.maxHigh')} hint={$t('proj.noLimit')}>
 					<input type="number" min="0" bind:value={gatePolicy.max_high} placeholder="—" class="input input-bordered input-sm w-full" />
 				</Field>
+				<Field label={$t('proj.maxMedium')} hint={$t('proj.noLimit')}>
+					<input type="number" min="0" bind:value={gatePolicy.max_medium} placeholder="—" class="input input-bordered input-sm w-full" />
+				</Field>
+				<Field label={$t('proj.maxLow')} hint={$t('proj.noLimit')}>
+					<input type="number" min="0" bind:value={gatePolicy.max_low} placeholder="—" class="input input-bordered input-sm w-full" />
+				</Field>
+				<Field label={$t('proj.maxInfo')} hint={$t('proj.noLimit')}>
+					<input type="number" min="0" bind:value={gatePolicy.max_info} placeholder="—" class="input input-bordered input-sm w-full" />
+				</Field>
 				<Field label={$t('proj.maxEpss')} hint={$t('proj.maxEpssHint')}>
 					<input type="number" min="0" max="1" step="0.01" bind:value={gatePolicy.max_epss} placeholder="—" class="input input-bordered input-sm w-full" />
 				</Field>
@@ -1593,6 +1671,7 @@
 				</table>
 			</div>
 		{/if}
+		<PriorityWeights projectId={id} />
 	{:else if tab === 'sla'}
 		<p class="text-sm text-base-content/60 mb-3">
 			{$t('proj.slaIntro')}
@@ -1656,6 +1735,10 @@
 				{#each CHANNEL_TYPES as ct}<option value={ct.id}>{ct.id === 'email' ? $t('channel.email') : ct.label}</option>{/each}
 			</select>
 			<input bind:value={alertForm.url} required type={channelInputType(alertForm.type)} placeholder={channelPlaceholder(alertForm.type)} title={channelHint(alertForm.type, $t)} class="input input-bordered input-sm flex-1 min-w-48" />
+			{#if alertForm.type === 'kafka'}
+				<input bind:value={alertForm.kafka_brokers} required placeholder="broker-1:9092,broker-2:9092"
+					title={$t('notif.kafkaBrokersHint')} class="input input-bordered input-sm font-mono flex-1 min-w-48" />
+			{/if}
 			<select bind:value={alertForm.events} class="select select-bordered select-sm">
 				{#each EVENT_TYPES.filter((e) => e.id !== 'exception.expired') as e}<option value={e.id}>{$t(e.key)}</option>{/each}
 			</select>
@@ -1823,6 +1906,19 @@
 				<textarea bind:value={sbomForm.raw} required placeholder={$t('proj.sbomPh')}
 					class="textarea textarea-bordered font-mono text-xs h-40 w-full"></textarea>
 			</Field>
+			<label class="label cursor-pointer justify-start gap-2">
+				<input type="checkbox" bind:checked={sbomForm.strict} class="checkbox checkbox-sm" />
+				<span class="label-text">{$t('proj.sbomStrict')}</span>
+			</label>
+			<p class="text-xs text-base-content/50 -mt-2">{$t('proj.sbomStrictHint')}</p>
+			{#if sbomFieldErrors.length > 0}
+				<div class="alert alert-error text-xs py-2 flex-col items-start gap-1">
+					<span class="font-semibold">{$t('proj.sbomStrictErrors')}</span>
+					{#each sbomFieldErrors as f}
+						<div class="font-mono"><span class="opacity-70">{f.path}:</span> {f.message}</div>
+					{/each}
+				</div>
+			{/if}
 			<div class="modal-action">
 				<button type="button" class="btn btn-ghost" onclick={() => sbomDialog.close()}>{$t('common.cancel')}</button>
 				<button class="btn btn-primary" disabled={saving}>

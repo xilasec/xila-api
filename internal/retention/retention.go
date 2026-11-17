@@ -36,7 +36,8 @@ type Policy struct {
 	// scan and the latest scan of each scan target.
 	ScanAge time.Duration
 	// LogAge deletes notification delivery-log entries and failed ingest jobs
-	// (which hold the uploaded report) older than this.
+	// (which hold the uploaded report, or its payload_ref object — see
+	// payloadDeleter) older than this.
 	LogAge time.Duration
 	// AuditAge deletes audit log entries older than this, through the one
 	// path the log's append-only trigger allows (audit_log_purge).
@@ -44,6 +45,10 @@ type Policy struct {
 	// ArchiveAge purges projects, engagements, scans and findings archived
 	// longer ago than this (internal/archive); until then they can be restored.
 	ArchiveAge time.Duration
+	// FindingArchiveAfter archives findings remediated longer ago than this
+	// (0 = off), taking them out of every live query; ArchiveAge then purges
+	// them. A finding reported again is unarchived by the upsert.
+	FindingArchiveAfter time.Duration
 }
 
 // Result counts what one run deleted.
@@ -55,6 +60,8 @@ type Result struct {
 	Deliveries    int64 `json:"deliveries"`
 	FailedJobs    int64 `json:"failed_jobs"`
 	AuditEntries  int64 `json:"audit_entries"`
+	// Remediated findings archived past FINDING_ARCHIVE_AFTER.
+	FixedFindingsArchived int64 `json:"fixed_findings_archived"`
 	// Archived records purged past ARCHIVE_RETENTION.
 	ArchivedProjects    int64 `json:"archived_projects"`
 	ArchivedEngagements int64 `json:"archived_engagements"`
@@ -63,7 +70,7 @@ type Result struct {
 }
 
 func (r Result) total() int64 {
-	return r.Branches + r.Releases + r.SBOMSnapshots + r.Scans + r.Deliveries + r.FailedJobs + r.AuditEntries +
+	return r.Branches + r.Releases + r.SBOMSnapshots + r.Scans + r.Deliveries + r.FailedJobs + r.AuditEntries + r.FixedFindingsArchived +
 		r.ArchivedProjects + r.ArchivedEngagements + r.ArchivedScans + r.ArchivedFindings
 }
 
@@ -72,17 +79,26 @@ type versionPruner interface {
 	PruneStaleVersions(ctx context.Context, kind string, maxAge time.Duration) (int64, error)
 }
 
+// payloadDeleter removes an object-store payload a purged failed job
+// referenced (internal/objectstore.Client satisfies it structurally). Nil
+// when INGEST_PAYLOAD_STORE=postgres, since nothing lives outside the row.
+type payloadDeleter interface {
+	Delete(ctx context.Context, key string) error
+}
+
 // Service applies a Policy.
 type Service struct {
 	db       *pgxpool.Pool
 	versions versionPruner
 	archived *archive.Repository
 	policy   Policy
+	payloads payloadDeleter
 }
 
-// NewService constructs the housekeeper.
-func NewService(db *pgxpool.Pool, versions versionPruner, p Policy) *Service {
-	return &Service{db: db, versions: versions, archived: archive.NewRepository(db), policy: p}
+// NewService constructs the housekeeper. payloads may be nil (postgres
+// payload store: nothing to clean up outside scan_jobs itself).
+func NewService(db *pgxpool.Pool, versions versionPruner, p Policy, payloads payloadDeleter) *Service {
+	return &Service{db: db, versions: versions, archived: archive.NewRepository(db), policy: p, payloads: payloads}
 }
 
 // Policy returns the configured policy.
@@ -116,7 +132,10 @@ func (s *Service) Run(ctx context.Context) (Result, error) {
 		return s.exec(ctx, `DELETE FROM notification_deliveries WHERE created_at < now() - make_interval(secs => $1)`, p.LogAge.Seconds())
 	})
 	step("failed ingest jobs", p.LogAge > 0, &res.FailedJobs, func() (int64, error) {
-		return s.exec(ctx, `DELETE FROM scan_jobs WHERE status = 'failed' AND created_at < now() - make_interval(secs => $1)`, p.LogAge.Seconds())
+		return s.pruneFailedJobs(ctx, p.LogAge)
+	})
+	step("fixed findings", p.FindingArchiveAfter > 0, &res.FixedFindingsArchived, func() (int64, error) {
+		return s.archiveFixed(ctx, p.FindingArchiveAfter)
 	})
 	if p.ArchiveAge > 0 {
 		// Through the same delete paths an explicit purge takes.
@@ -181,6 +200,72 @@ func (s *Service) pruneScans(ctx context.Context) (int64, error) {
 		s.policy.ScanAge.Seconds())
 }
 
+// pruneFailedJobs deletes parked (status='failed') ingest jobs older than age
+// — along with each one's payload_ref object, when INGEST_PAYLOAD_STORE=s3,
+// since nothing else ever cleans those up for a job that exhausted its
+// retries (a successfully processed job's object is deleted by
+// scan.Service.ProcessJob; a parked one is kept, on purpose, so an operator
+// can still fetch and inspect what failed, until this sweep removes it along
+// with the row).
+func (s *Service) pruneFailedJobs(ctx context.Context, age time.Duration) (int64, error) {
+	if s.payloads != nil {
+		rows, err := s.db.Query(ctx,
+			`SELECT payload_ref FROM scan_jobs
+			 WHERE status = 'failed' AND payload_ref IS NOT NULL
+			   AND created_at < now() - make_interval(secs => $1)`,
+			age.Seconds())
+		if err != nil {
+			return 0, fmt.Errorf("list failed job payloads: %w", err)
+		}
+		var refs []string
+		for rows.Next() {
+			var ref string
+			if err := rows.Scan(&ref); err != nil {
+				rows.Close()
+				return 0, err
+			}
+			refs = append(refs, ref)
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			return 0, err
+		}
+		for _, ref := range refs {
+			if err := s.payloads.Delete(ctx, ref); err != nil {
+				slog.WarnContext(ctx, "retention: delete queued payload", "ref", ref, "error", err)
+			}
+		}
+	}
+	return s.exec(ctx, `DELETE FROM scan_jobs WHERE status = 'failed' AND created_at < now() - make_interval(secs => $1)`, age.Seconds())
+}
+
+// archiveFixedBatch bounds one archiving statement, so a backlog of millions
+// of fixed findings is worked off in short transactions (no long lock, no
+// statement timeout) rather than one huge UPDATE.
+const archiveFixedBatch = 5000
+
+// archiveFixed archives findings remediated longer ago than age, in batches.
+func (s *Service) archiveFixed(ctx context.Context, age time.Duration) (int64, error) {
+	var total int64
+	for {
+		n, err := s.exec(ctx, `
+			UPDATE findings SET archived_at = now()
+			WHERE id IN (
+				SELECT id FROM findings
+				WHERE status = 'remediated' AND archived_at IS NULL
+				  AND resolved_at < now() - make_interval(secs => $1)
+				LIMIT $2
+				FOR UPDATE SKIP LOCKED)`, age.Seconds(), archiveFixedBatch)
+		total += n
+		if err != nil || n < archiveFixedBatch {
+			return total, err
+		}
+		if ctx.Err() != nil {
+			return total, ctx.Err()
+		}
+	}
+}
+
 // RunEvery applies the policy daily (and once at start) until ctx ends.
 // Leader-only.
 func (s *Service) RunEvery(ctx context.Context, interval time.Duration) {
@@ -227,7 +312,7 @@ func (h *Handler) get(c *fiber.Ctx) error {
 		"branch_days": days(p.BranchAge), "release_days": days(p.ReleaseAge),
 		"sbom_keep": p.SBOMKeep, "sbom_days": days(p.SBOMAge),
 		"scan_days": days(p.ScanAge), "log_days": days(p.LogAge), "audit_days": days(p.AuditAge),
-		"archive_days": days(p.ArchiveAge),
+		"archive_days": days(p.ArchiveAge), "finding_archive_days": days(p.FindingArchiveAfter),
 	})
 }
 

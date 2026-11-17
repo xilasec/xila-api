@@ -320,11 +320,19 @@ type AcceptanceFilter struct {
 	// visible scope); an empty non-nil slice matches nothing.
 	ProjectIDs []string
 	State      AcceptanceState // "" = any
-	Limit      int             // 0 = no limit
-	Offset     int
+	// ExcludeRequester drops acceptances this user requested (four-eyes: the
+	// approval queue of someone who can't decide their own requests).
+	ExcludeRequester string
+	// OwnerID narrows to acceptances owned by this user.
+	OwnerID string
+	// ExpiresBefore narrows to acceptances with an expiry before it.
+	ExpiresBefore *time.Time
+	Limit         int // 0 = no limit
+	Offset        int
 }
 
-// ListAcceptances returns acceptances, newest first.
+// ListAcceptances returns acceptances, newest first (soonest expiry first
+// when ExpiresBefore is set).
 func (r *Repository) ListAcceptances(ctx context.Context, f AcceptanceFilter) ([]RiskAcceptance, error) {
 	var where []string
 	var args []any
@@ -341,11 +349,24 @@ func (r *Repository) ListAcceptances(ctx context.Context, f AcceptanceFilter) ([
 	if f.State != "" {
 		add("ra.state = $%d", string(f.State))
 	}
+	if f.ExcludeRequester != "" {
+		add("ra.requested_by IS DISTINCT FROM $%d", f.ExcludeRequester)
+	}
+	if f.OwnerID != "" {
+		add("ra.owner_id = $%d", f.OwnerID)
+	}
+	if f.ExpiresBefore != nil {
+		add("ra.expires_at < $%d", *f.ExpiresBefore)
+	}
 	q := `SELECT ` + acceptanceColumns + acceptanceFrom
 	if len(where) > 0 {
 		q += " WHERE " + strings.Join(where, " AND ")
 	}
-	q += " ORDER BY ra.created_at DESC, ra.id"
+	if f.ExpiresBefore != nil {
+		q += " ORDER BY ra.expires_at, ra.id"
+	} else {
+		q += " ORDER BY ra.created_at DESC, ra.id"
+	}
 	if f.Limit > 0 {
 		args = append(args, f.Limit, f.Offset)
 		q += fmt.Sprintf(" LIMIT $%d OFFSET $%d", len(args)-1, len(args))

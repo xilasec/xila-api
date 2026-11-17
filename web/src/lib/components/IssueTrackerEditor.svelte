@@ -15,19 +15,23 @@
 	const KINDS = [
 		{ id: 'github', label: 'GitHub Issues', url: 'https://api.github.com', target: 'owner/repo' },
 		{ id: 'gitlab', label: 'GitLab Issues', url: 'https://gitlab.com', target: 'it.targetGitlab' },
-		{ id: 'jira', label: 'Jira', url: 'https://your-site.atlassian.net', target: 'it.targetJira' }
+		{ id: 'azure-devops', label: 'Azure DevOps Boards', url: '', target: 'it.targetAzure', done: 'Closed', reopen: 'Active' },
+		{ id: 'linear', label: 'Linear', url: 'https://api.linear.app', target: 'it.targetLinear', done: 'completed', reopen: 'unstarted' },
+		{ id: 'servicenow', label: 'ServiceNow', url: '', target: 'it.targetServiceNow', done: 'Resolved', reopen: 'New' },
+		{ id: 'jira', label: 'Jira', url: 'https://your-site.atlassian.net', target: 'it.targetJira', done: 'Done', reopen: 'To Do' }
 	];
 
-	/** @returns {{ kind: string, base_url: string, target: string, token?: string, jira_email: string, issue_type: string, done_transition: string, reopen_transition: string, min_severity: string, auto_create: boolean, labels: string, enabled: boolean }} */
+	/** @returns {{ kind: string, base_url: string, target: string, token?: string, jira_email: string, auth_user: string, issue_type: string, done_transition: string, reopen_transition: string, min_severity: string, auto_create: boolean, labels: string, enabled: boolean }} */
 	const blank = () => ({
 		kind: 'github',
 		base_url: '',
 		target: '',
 		token: '',
 		jira_email: '',
-		issue_type: 'Bug',
-		done_transition: 'Done',
-		reopen_transition: 'To Do',
+		auth_user: '',
+		issue_type: '',
+		done_transition: '',
+		reopen_transition: '',
 		min_severity: 'high',
 		auto_create: false,
 		labels: '',
@@ -41,6 +45,18 @@
 
 	const kind = $derived(KINDS.find((k) => k.id === form.kind) ?? KINDS[0]);
 
+	// Jira, Azure DevOps, Linear and ServiceNow all close/reopen an issue by
+	// writing a state value of some kind (a workflow transition name, a
+	// System.State value, a workflow state type, or a state field value);
+	// only GitHub and GitLab have a plain open/closed flag instead.
+	const hasTransitions = $derived(form.kind !== 'github' && form.kind !== 'gitlab');
+	const hasIssueType = $derived(form.kind === 'jira' || form.kind === 'azure-devops');
+	const transitionHintKey = $derived(
+		/** @type {import('#lib/i18n.js').MessageKey} */ (
+			{ 'azure-devops': 'it.azureStateHint', linear: 'it.linearStateHint', servicenow: 'it.snowStateHint' }[form.kind] ?? 'it.transitionHint'
+		)
+	);
+
 	/** @param {any} t */
 	function fill(t) {
 		tracker = t;
@@ -51,6 +67,7 @@
 					target: t.target,
 					token: '',
 					jira_email: t.jira_email,
+					auth_user: t.auth_user,
 					issue_type: t.issue_type,
 					done_transition: t.done_transition,
 					reopen_transition: t.reopen_transition,
@@ -155,11 +172,16 @@
 						{#each KINDS as k}<option value={k.id}>{k.label}</option>{/each}
 					</select>
 				</Field>
-				<Field label={$t('it.baseUrl')} required={form.kind === 'jira'} hint={form.kind === 'jira' ? '' : $t('it.blankDefault', { url: kind.url })}>
+				<Field label={$t('it.baseUrl')} required={kind.url === ''} hint={kind.url === '' ? '' : $t('it.blankDefault', { url: kind.url })}>
 					<input bind:value={form.base_url} type="url" placeholder={kind.url} class="input input-bordered input-sm" />
 				</Field>
 				<Field label={$t('it.target')} required>
-					<input bind:value={form.target} required placeholder={targetHint(kind.target)} class="input input-bordered input-sm" />
+					<input
+						bind:value={form.target}
+						required={form.kind !== 'servicenow'}
+						placeholder={form.kind === 'servicenow' ? 'incident' : targetHint(kind.target)}
+						class="input input-bordered input-sm"
+					/>
 				</Field>
 				<Field label={$t('it.token')} required={!tracker?.has_token} hint={$t('it.writeOnly')}>
 					<input
@@ -175,14 +197,22 @@
 					<Field label={$t('it.jiraEmail')} hint={$t('it.jiraEmailHint')}>
 						<input bind:value={form.jira_email} type="email" class="input input-bordered input-sm" />
 					</Field>
-					<Field label={$t('it.issueType')}>
-						<input bind:value={form.issue_type} class="input input-bordered input-sm" />
+				{:else if form.kind === 'servicenow'}
+					<Field label={$t('it.authUser')} hint={$t('it.authUserHint')}>
+						<input bind:value={form.auth_user} class="input input-bordered input-sm" />
 					</Field>
-					<Field label={$t('it.closeTransition')} hint={$t('it.transitionHint')}>
-						<input bind:value={form.done_transition} class="input input-bordered input-sm" />
+				{/if}
+				{#if hasIssueType}
+					<Field label={$t('it.issueType')} hint={form.kind === 'azure-devops' ? $t('it.workItemTypeHint') : ''}>
+						<input bind:value={form.issue_type} placeholder="Bug" class="input input-bordered input-sm" />
+					</Field>
+				{/if}
+				{#if hasTransitions}
+					<Field label={$t('it.closeTransition')} hint={$t(transitionHintKey)}>
+						<input bind:value={form.done_transition} placeholder={kind.done} class="input input-bordered input-sm" />
 					</Field>
 					<Field label={$t('it.reopenTransition')}>
-						<input bind:value={form.reopen_transition} class="input input-bordered input-sm" />
+						<input bind:value={form.reopen_transition} placeholder={kind.reopen} class="input input-bordered input-sm" />
 					</Field>
 				{/if}
 				<Field label={$t('it.threshold')} hint={$t('it.thresholdHint')}>

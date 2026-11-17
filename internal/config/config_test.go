@@ -1,6 +1,10 @@
 package config
 
 import (
+	"encoding/json"
+	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"slices"
@@ -244,6 +248,21 @@ func TestTriageRulesRequireApproval(t *testing.T) {
 	}
 }
 
+func TestSBOMStrictValidation(t *testing.T) {
+	t.Setenv("APP_ENV", "development")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.SBOMStrictValidation {
+		t.Error("strict CycloneDX schema validation must be off by default")
+	}
+	t.Setenv("SBOM_STRICT_VALIDATION", "true")
+	if cfg, _ = Load(); !cfg.SBOMStrictValidation {
+		t.Error("SBOM_STRICT_VALIDATION=true should enable it")
+	}
+}
+
 func TestAssessmentRequiresApproval(t *testing.T) {
 	t.Setenv("APP_ENV", "development")
 	cfg, err := Load()
@@ -341,6 +360,9 @@ func TestLegacyLicenseDenylistWarns(t *testing.T) {
 	}
 	if cfg.Policy.EvalInterval != 6*time.Hour {
 		t.Errorf("POLICY_EVAL_INTERVAL default = %v, want 6h", cfg.Policy.EvalInterval)
+	}
+	if cfg.ComputedFields.Interval != 15*time.Minute {
+		t.Errorf("COMPUTED_FIELDS_INTERVAL default = %v, want 15m", cfg.ComputedFields.Interval)
 	}
 }
 
@@ -570,5 +592,243 @@ func TestIngestWorkersZero(t *testing.T) {
 	t.Setenv("INGEST_WORKERS", "-1")
 	if _, err := Load(); err == nil {
 		t.Error("INGEST_WORKERS=-1 accepted")
+	}
+}
+
+// INGEST_PAYLOAD_STORE defaults to postgres (today's behavior); an unknown
+// value is rejected.
+func TestIngestPayloadStoreDefault(t *testing.T) {
+	t.Setenv("APP_ENV", "development")
+	unset(t, "INGEST_PAYLOAD_STORE")
+	cfg, err := Load()
+	if err != nil || cfg.Ingest.PayloadStore != "postgres" {
+		t.Fatalf("default PayloadStore = %q, %v", cfg.Ingest.PayloadStore, err)
+	}
+	t.Setenv("INGEST_PAYLOAD_STORE", "dropbox")
+	if _, err := Load(); err == nil {
+		t.Error("INGEST_PAYLOAD_STORE=dropbox accepted")
+	}
+}
+
+// INGEST_PAYLOAD_STORE=s3 fails fast (no network) without S3_BUCKET/REGION,
+// the fields objectstore.New needs before it can even try to reach the
+// bucket.
+func TestIngestPayloadStoreS3RequiresBucketAndRegion(t *testing.T) {
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("INGEST_PAYLOAD_STORE", "s3")
+	unset(t, "S3_BUCKET")
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "S3_BUCKET") {
+		t.Errorf("s3 store without S3_BUCKET: %v", err)
+	}
+	t.Setenv("S3_BUCKET", "xila-payloads")
+	t.Setenv("S3_REGION", "")
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "S3_REGION") {
+		t.Errorf("s3 store without S3_REGION: %v", err)
+	}
+	t.Setenv("S3_REGION", "eu-west-1")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("s3 store with bucket+region: %v", err)
+	}
+	if cfg.S3.Bucket != "xila-payloads" || cfg.S3.Region != "eu-west-1" {
+		t.Errorf("S3 config = %+v", cfg.S3)
+	}
+	// S3_ENDPOINT goes through netguard.CheckURL, like every other configured
+	// destination; a metadata-service address is refused.
+	t.Setenv("S3_ENDPOINT", "http://169.254.169.254")
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "S3_ENDPOINT") {
+		t.Errorf("metadata-address S3_ENDPOINT accepted: %v", err)
+	}
+}
+
+// S3_ACCESS_KEY_ID / S3_SECRET_ACCESS_KEY support the NAME_FILE secret
+// convention, like every other credential in this package.
+func TestS3CredentialsFromFile(t *testing.T) {
+	t.Setenv("APP_ENV", "development")
+	unset(t, "S3_SECRET_ACCESS_KEY")
+	path := filepath.Join(t.TempDir(), "s3-secret")
+	if err := os.WriteFile(path, []byte("from-a-file\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("S3_SECRET_ACCESS_KEY_FILE", path)
+	cfg, err := Load()
+	if err != nil || cfg.S3.SecretAccessKey != "from-a-file" {
+		t.Fatalf("S3_SECRET_ACCESS_KEY_FILE = %q, %v", cfg.S3.SecretAccessKey, err)
+	}
+}
+
+// S3_FORCE_PATH_STYLE and S3_PREFIX reach the config untouched (the prefix
+// trimmed of surrounding slashes).
+func TestS3PathStyleAndPrefix(t *testing.T) {
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("S3_PREFIX", "/xila/ingest/")
+	t.Setenv("S3_FORCE_PATH_STYLE", "true")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.S3.Prefix != "xila/ingest" || !cfg.S3.ForcePathStyle {
+		t.Errorf("S3 config = %+v", cfg.S3)
+	}
+}
+
+// Reporting reads: no read settings = one pool; DB_READ_URL (also via
+// _FILE, it holds a password) or DB_READ_STATEMENT_TIMEOUT = a separate one;
+// a non-postgres URL is refused.
+func TestReadPool(t *testing.T) {
+	t.Setenv("APP_ENV", "development")
+	cfg, err := Load()
+	if err != nil || cfg.DB.SeparateReadPool() || cfg.DB.ReadDSN() != cfg.DB.DSN() {
+		t.Fatalf("default: separate=%v, %v", cfg.DB.SeparateReadPool(), err)
+	}
+	t.Setenv("DB_READ_STATEMENT_TIMEOUT", "5s")
+	if cfg, err = Load(); err != nil || !cfg.DB.SeparateReadPool() || cfg.DB.ReadDSN() != cfg.DB.DSN() {
+		t.Errorf("timeout only: separate=%v dsn=%q, %v; want a capped pool on the primary", cfg.DB.SeparateReadPool(), cfg.DB.ReadDSN(), err)
+	}
+	dir := t.TempDir()
+	path := dir + "/read-url"
+	if err := os.WriteFile(path, []byte("postgres://reader:s3cret@replica:5432/xila?sslmode=require\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("DB_READ_URL_FILE", path)
+	if cfg, err = Load(); err != nil || cfg.DB.ReadDSN() != "postgres://reader:s3cret@replica:5432/xila?sslmode=require" {
+		t.Errorf("DB_READ_URL_FILE: %q, %v", cfg.DB.ReadDSN(), err)
+	}
+	t.Setenv("DB_READ_URL_FILE", "")
+	t.Setenv("DB_READ_URL", "mysql://replica/xila")
+	if _, err := Load(); err == nil {
+		t.Error("a non-postgres DB_READ_URL was accepted")
+	}
+}
+
+// fakeVault is a minimal httptest Vault (KV v2) that answers one secret at
+// one path with a static token, used to prove secretref references resolve
+// through config.Load.
+func fakeVault(t *testing.T, fields map[string]any) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Vault-Token") != "test-token" {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"data": map[string]any{"data": fields},
+		})
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+// A reference in NAME resolves at Load time.
+func TestSecretReferenceInEnv(t *testing.T) {
+	srv := fakeVault(t, map[string]any{"jwt": "resolved-from-vault"})
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("VAULT_ADDR", srv.URL)
+	t.Setenv("VAULT_TOKEN", "test-token")
+	unset(t, "JWT_SECRET_FILE")
+	t.Setenv("JWT_SECRET", "vault://kv/data/xila#jwt")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.JWT.Secret != "resolved-from-vault" {
+		t.Errorf("JWT.Secret = %q, want the value resolved from Vault", cfg.JWT.Secret)
+	}
+}
+
+// A reference inside a NAME_FILE's content resolves too.
+func TestSecretReferenceInFile(t *testing.T) {
+	srv := fakeVault(t, map[string]any{"jwt": "resolved-from-vault-file"})
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("VAULT_ADDR", srv.URL)
+	t.Setenv("VAULT_TOKEN", "test-token")
+	unset(t, "JWT_SECRET")
+
+	path := filepath.Join(t.TempDir(), "jwt-ref")
+	if err := os.WriteFile(path, []byte("vault://kv/data/xila#jwt\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("JWT_SECRET_FILE", path)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.JWT.Secret != "resolved-from-vault-file" {
+		t.Errorf("JWT.Secret = %q, want the value resolved from the file's reference", cfg.JWT.Secret)
+	}
+}
+
+// A failed lookup fails Load, naming the setting and the reference's
+// scheme+path, never a value.
+func TestSecretReferenceFailedLookupFailsLoad(t *testing.T) {
+	t.Setenv("APP_ENV", "development")
+	unset(t, "VAULT_ADDR")
+	unset(t, "JWT_SECRET_FILE")
+	t.Setenv("JWT_SECRET", "vault://kv/data/xila#jwt")
+
+	_, err := Load()
+	if err == nil {
+		t.Fatal("expected Load to fail: VAULT_ADDR is not set")
+	}
+	if !strings.Contains(err.Error(), "JWT_SECRET") {
+		t.Errorf("error = %q, want it to name the setting", err.Error())
+	}
+	if !strings.Contains(err.Error(), "vault://kv/data/xila") {
+		t.Errorf("error = %q, want it to name the reference", err.Error())
+	}
+}
+
+// SECRETS_TIMEOUT bounds a single lookup: a backend that never answers fails
+// Load instead of hanging the whole startup.
+func TestSecretReferenceTimeout(t *testing.T) {
+	// A listener that accepts but never answers is reachable but hangs the
+	// read, exercising the per-lookup timeout rather than a connect error.
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { l.Close() })
+	go func() {
+		for {
+			c, err := l.Accept()
+			if err != nil {
+				return
+			}
+			// Never respond; hold the connection open.
+			_ = c
+		}
+	}()
+
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("VAULT_ADDR", "http://"+l.Addr().String())
+	t.Setenv("VAULT_TOKEN", "t")
+	t.Setenv("SECRETS_TIMEOUT", "100ms")
+	unset(t, "JWT_SECRET_FILE")
+	t.Setenv("JWT_SECRET", "vault://kv/data/xila#jwt")
+
+	start := time.Now()
+	if _, err := Load(); err == nil {
+		t.Fatal("expected Load to fail: the backend never answers")
+	}
+	if d := time.Since(start); d > 5*time.Second {
+		t.Errorf("Load took %v, want it bounded by SECRETS_TIMEOUT", d)
+	}
+}
+
+// A value without a known scheme is used literally, as today.
+func TestSecretLiteralValueUntouched(t *testing.T) {
+	t.Setenv("APP_ENV", "development")
+	unset(t, "JWT_SECRET_FILE")
+	t.Setenv("JWT_SECRET", "a-plain-literal-secret")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.JWT.Secret != "a-plain-literal-secret" {
+		t.Errorf("JWT.Secret = %q, want the literal value untouched", cfg.JWT.Secret)
 	}
 }

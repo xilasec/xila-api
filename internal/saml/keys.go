@@ -49,12 +49,12 @@ func ParseKeyPair(certPEM, keyPEM string) (KeyPair, error) {
 // with INTEGRATION_SECRET_KEY.
 type KeyStore struct {
 	db     *pgxpool.Pool
-	cipher *secretbox.Cipher
+	cipher *secretbox.Keyring
 }
 
-// NewKeyStore constructs a KeyStore. A nil cipher (no INTEGRATION_SECRET_KEY)
-// makes LoadOrCreate fail with secretbox.ErrNoKey.
-func NewKeyStore(db *pgxpool.Pool, cipher *secretbox.Cipher) *KeyStore {
+// NewKeyStore constructs a KeyStore. An unconfigured cipher (no
+// INTEGRATION_SECRET_KEY) makes LoadOrCreate fail with secretbox.ErrNoKey.
+func NewKeyStore(db *pgxpool.Pool, cipher *secretbox.Keyring) *KeyStore {
 	return &KeyStore{db: db, cipher: cipher}
 }
 
@@ -64,7 +64,7 @@ const keyAAD = "saml-sp-key"
 // there is none. Replicas booting together race on the single-row insert; the
 // losers discard their key and load the winner's.
 func (s *KeyStore) LoadOrCreate(ctx context.Context, commonName string) (KeyPair, error) {
-	if s.cipher == nil {
+	if !s.cipher.Configured() {
 		return KeyPair{}, secretbox.ErrNoKey
 	}
 	if kp, err := s.load(ctx); err == nil || !errors.Is(err, pgx.ErrNoRows) {

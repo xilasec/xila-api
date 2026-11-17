@@ -66,6 +66,8 @@ export const SCAN_PRESETS = [
 	{ id: 'acunetix', label: 'Acunetix / Acunetix 360', scanner: 'acunetix', format: '', hint: 'Classic XML export, or Acunetix 360 JSON' },
 	{ id: 'invicti', label: 'Invicti / Netsparker (JSON)', scanner: 'invicti', format: '', hint: 'Invicti JSON report export' },
 	{ id: 'testssl', label: 'testssl.sh (CSV)', scanner: 'testssl', format: '', hint: 'testssl.sh --csvfile out.csv https://target' },
+	{ id: 'cryptolyzer', label: 'CryptoLyzer (JSON)', scanner: 'cryptolyzer', format: '', hint: 'cryptolyze --output-format json tls all target:443 > out.json' },
+	{ id: 'drheader', label: 'drHEADer (JSON)', scanner: 'drheader', format: '', hint: 'drheader scan single https://target --output json > out.json' },
 	{ id: 'aws-inspector2', label: 'AWS Inspector2 (JSON)', scanner: 'aws-inspector2', format: '', hint: 'aws inspector2 list-findings > out.json' },
 	{ id: 'aws-security-hub', label: 'AWS Security Hub (ASFF)', scanner: 'aws-security-hub', format: '', hint: 'aws securityhub get-findings > out.json' },
 	{ id: 'nancy', label: 'Nancy (Go SCA)', scanner: 'nancy', format: '', hint: 'nancy sleuth --output=json < go.list > out.json' },

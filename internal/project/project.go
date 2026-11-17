@@ -261,3 +261,29 @@ func (r *Repository) Children(ctx context.Context, id string) ([]Project, error)
 	}
 	return out, rows.Err()
 }
+
+// PriorityWeights returns a project's priority weight override as stored
+// (nil = the defaults).
+func (r *Repository) PriorityWeights(ctx context.Context, id string) ([]byte, error) {
+	var raw []byte
+	err := r.db.QueryRow(ctx, `SELECT priority_weights FROM projects WHERE id = $1`, id).Scan(&raw)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get priority weights: %w", err)
+	}
+	return raw, nil
+}
+
+// SetPriorityWeights stores a project's override (nil clears it).
+func (r *Repository) SetPriorityWeights(ctx context.Context, id string, raw []byte) error {
+	tag, err := r.db.Exec(ctx, `UPDATE projects SET priority_weights = $2, updated_at = now() WHERE id = $1`, id, raw)
+	if err != nil {
+		return fmt.Errorf("set priority weights: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}

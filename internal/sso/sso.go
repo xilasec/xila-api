@@ -349,7 +349,7 @@ func (r *Repository) SyncGrants(ctx context.Context, userID string, p Provider, 
 		upsert := fmt.Sprintf(`
 			INSERT INTO %[1]s (%[2]s, user_id, role, source)
 			SELECT t.id, $1, t.role, 'sso' FROM unnest($2::uuid[], $3::text[]) AS t(id, role)
-			ON CONFLICT (%[2]s, user_id) DO UPDATE SET role = EXCLUDED.role
+			ON CONFLICT (%[2]s, user_id) WHERE user_id IS NOT NULL DO UPDATE SET role = EXCLUDED.role
 			WHERE %[1]s.source = 'sso' AND %[1]s.role IS DISTINCT FROM EXCLUDED.role`, g.table, g.target)
 		if _, err := tx.Exec(ctx, upsert, userID, ids, roles); err != nil {
 			return fmt.Errorf("sync %s: %w", g.table, err)

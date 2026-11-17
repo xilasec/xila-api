@@ -1,6 +1,6 @@
 // Notification channel types: the `url` field is a webhook URL for every type
-// except email, where it holds a comma-separated recipient list. Labels are
-// i18n message keys (#lib/i18n.js).
+// except email (comma-separated recipient list) and kafka (the topic name).
+// Labels are i18n message keys (#lib/i18n.js).
 /** @typedef {import('./i18n.js').MessageKey} MessageKey */
 /** @typedef {import('./i18n.js').Translate} Translate */
 
@@ -10,7 +10,8 @@ export const CHANNEL_TYPES = [
 	{ id: 'teams', label: 'Teams', long: 'channel.teamsLong' },
 	{ id: 'mattermost', label: 'Mattermost', long: 'channel.mattermostLong' },
 	{ id: 'email', label: 'Email', long: 'channel.emailLong' },
-	{ id: 'webhook', label: 'Webhook', long: 'channel.webhookLong' }
+	{ id: 'webhook', label: 'Webhook', long: 'channel.webhookLong' },
+	{ id: 'kafka', label: 'Kafka', long: 'channel.kafkaLong' }
 ];
 
 /** @type {Record<string, string | MessageKey>} */
@@ -19,7 +20,8 @@ const HINTS = {
 	teams: 'channel.hint.teams',
 	mattermost: 'https://mattermost.example.com/hooks/…',
 	email: 'channel.hint.email',
-	webhook: 'https://your-endpoint/…'
+	webhook: 'https://your-endpoint/…',
+	kafka: 'channel.hint.kafka'
 };
 
 /** @param {string} type @param {Translate} t */
@@ -28,8 +30,35 @@ export const channelHint = (type, t) => {
 	return h.startsWith('channel.') ? t(/** @type {MessageKey} */ (h)) : h;
 };
 export const channelPlaceholder = (/** @type {string} */ type) =>
-	type === 'email' ? 'alice@example.com, bob@example.com' : 'https://…';
-export const channelInputType = (/** @type {string} */ type) => (type === 'email' ? 'text' : 'url');
+	type === 'email' ? 'alice@example.com, bob@example.com' : type === 'kafka' ? 'security-events' : 'https://…';
+export const channelInputType = (/** @type {string} */ type) =>
+	type === 'email' || type === 'kafka' ? 'text' : 'url';
+
+/** Default kafka config for a new channel (brokers is a comma-separated
+ * string in the UI, split into an array before the API call). */
+export const defaultKafka = () => ({
+	brokers: '', key_template: '', tls: false, tls_ca: '',
+	sasl_mechanism: '', sasl_username: '', sasl_password: ''
+});
+
+/** Build the API's "kafka" config object from the UI's comma-separated
+ * brokers string (defaultKafka's shape). sasl_password is sent separately
+ * (createRequest/updateRequest's top-level sasl_password), so it's omitted. */
+export const kafkaPayload = (/** @type {ReturnType<typeof defaultKafka>} */ kafka) => ({
+	brokers: kafka.brokers.split(',').map((b) => b.trim()).filter(Boolean),
+	key_template: kafka.key_template,
+	tls: !!kafka.tls,
+	tls_ca: kafka.tls ? kafka.tls_ca : '',
+	sasl_mechanism: kafka.sasl_mechanism,
+	sasl_username: kafka.sasl_mechanism ? kafka.sasl_username : ''
+});
+
+/** The UI form shape for an existing channel's kafka config (api.js's `ch.kafka`). */
+export const kafkaFromChannel = (/** @type {any} */ ch) => ({
+	...defaultKafka(),
+	...(ch.kafka ?? {}),
+	brokers: (ch.kafka?.brokers ?? []).join(',')
+});
 
 // Event types a channel can subscribe to. Scheduled summaries aren't one: a
 // channel's `summary` setting sends them to that channel alone.

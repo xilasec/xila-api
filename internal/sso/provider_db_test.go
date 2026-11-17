@@ -14,7 +14,7 @@ var rules = sso.Rules{PublicURL: "https://xila.test", CanSeal: true}
 
 func providerRepo(t *testing.T, f fixture) *sso.ProviderRepository {
 	t.Helper()
-	cipher, err := secretbox.New([]byte("sso-provider-test-key-32-bytes!!"))
+	cipher, err := secretbox.NewKeyring([]byte("sso-provider-test-key-32-bytes!!"), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -26,7 +26,7 @@ type KEVCatalogStatus struct {
 }
 
 // Replace swaps one catalog's ids for list, in one transaction.
-func (r *KEVRepository) Replace(ctx context.Context, source string, list []string) error {
+func (r *KEVRepository) Replace(ctx context.Context, source string, list KEVList) error {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return err
@@ -35,18 +35,18 @@ func (r *KEVRepository) Replace(ctx context.Context, source string, list []strin
 	if _, err := tx.Exec(ctx, `DELETE FROM kev_catalog_entries WHERE source = $1`, source); err != nil {
 		return fmt.Errorf("clear %s: %w", source, err)
 	}
-	rows := make([][]any, len(list))
-	for i, id := range list {
-		rows[i] = []any{source, id}
+	rows := make([][]any, len(list.IDs))
+	for i, id := range list.IDs {
+		rows[i] = []any{source, id, list.Ransomware[id]}
 	}
-	if _, err := tx.CopyFrom(ctx, pgx.Identifier{"kev_catalog_entries"}, []string{"source", "vuln_id"},
+	if _, err := tx.CopyFrom(ctx, pgx.Identifier{"kev_catalog_entries"}, []string{"source", "vuln_id", "ransomware"},
 		pgx.CopyFromRows(rows)); err != nil {
 		return fmt.Errorf("store %s: %w", source, err)
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO kev_catalogs (source, entries, synced_at, last_error, failed_at)
 		VALUES ($1, $2, now(), '', NULL)
 		ON CONFLICT (source) DO UPDATE SET entries = $2, synced_at = now(), last_error = '', failed_at = NULL`,
-		source, len(list)); err != nil {
+		source, len(list.IDs)); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
@@ -59,24 +59,36 @@ func (r *KEVRepository) Failed(ctx context.Context, source string, cause error) 
 	return err
 }
 
+// KEVAssertions is what the configured catalogs assert: the catalogs listing
+// each vulnerability id, and the ids any of them marks as used in ransomware
+// campaigns.
+type KEVAssertions struct {
+	Sources    map[string][]string
+	Ransomware map[string]bool
+}
+
 // Assertions maps every stored vulnerability id to the catalogs asserting it,
 // restricted to sources (the configured catalogs: one dropped from
 // KEV_SOURCES stops asserting).
-func (r *KEVRepository) Assertions(ctx context.Context, sources []string) (map[string][]string, error) {
-	rows, err := r.db.Query(ctx, `SELECT vuln_id, array_agg(source ORDER BY source) FROM kev_catalog_entries
-		WHERE source = ANY($1) GROUP BY vuln_id`, sources)
+func (r *KEVRepository) Assertions(ctx context.Context, sources []string) (KEVAssertions, error) {
+	out := KEVAssertions{Sources: map[string][]string{}, Ransomware: map[string]bool{}}
+	rows, err := r.db.Query(ctx, `SELECT vuln_id, array_agg(source ORDER BY source), bool_or(ransomware)
+		FROM kev_catalog_entries WHERE source = ANY($1) GROUP BY vuln_id`, sources)
 	if err != nil {
-		return nil, fmt.Errorf("kev assertions: %w", err)
+		return out, fmt.Errorf("kev assertions: %w", err)
 	}
 	defer rows.Close()
-	out := map[string][]string{}
 	for rows.Next() {
 		var id string
 		var src []string
-		if err := rows.Scan(&id, &src); err != nil {
-			return nil, err
+		var ransomware bool
+		if err := rows.Scan(&id, &src, &ransomware); err != nil {
+			return out, err
 		}
-		out[id] = src
+		out.Sources[id] = src
+		if ransomware {
+			out.Ransomware[id] = true
+		}
 	}
 	return out, rows.Err()
 }

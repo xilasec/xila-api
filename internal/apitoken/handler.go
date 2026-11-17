@@ -15,12 +15,28 @@ import (
 type Handler struct {
 	repo *Repository
 	svc  *Service
+	// reauthWindow is how recently the session must have authenticated to
+	// create a token (0 = no check).
+	reauthWindow time.Duration
 }
 
 // NewHandler constructs an API-token Handler.
 func NewHandler(repo *Repository, svc *Service) *Handler {
 	return &Handler{repo: repo, svc: svc}
 }
+
+// WithReauthWindow makes creating a token require a session that
+// authenticated within d (REAUTH_WINDOW): a stolen or forgotten session
+// can't quietly mint a long-lived credential.
+func (h *Handler) WithReauthWindow(d time.Duration) *Handler {
+	h.reauthWindow = d
+	return h
+}
+
+// ReauthRequired is the error message (and X-Reauth-Required header) of a
+// token request whose session last authenticated too long ago; the client
+// re-authenticates (POST /me/reauth) and retries.
+const ReauthRequired = "re-authentication required: confirm your password (POST /me/reauth) and retry"
 
 // Register mounts token routes.
 func (h *Handler) Register(r fiber.Router) {
@@ -42,10 +58,19 @@ type createResponse struct {
 
 // Create handles POST /tokens.
 func (h *Handler) Create(c *fiber.Ctx) error {
-	if auth.CurrentActor(c).IsServiceAccount {
+	actor := auth.CurrentActor(c)
+	if actor.IsServiceAccount {
 		// Its keys are an admin's to issue, with a capped expiry; minting its
 		// own would sidestep both.
 		return fiber.NewError(fiber.StatusForbidden, "a service account's keys are managed by an admin")
+	}
+	if actor.IsToken {
+		// A token minting tokens would let a leaked one outlive its revocation.
+		return fiber.NewError(fiber.StatusForbidden, "API tokens can't create API tokens; sign in")
+	}
+	if h.reauthWindow > 0 && time.Since(actor.AuthTime) > h.reauthWindow {
+		c.Set("X-Reauth-Required", "true")
+		return fiber.NewError(fiber.StatusForbidden, ReauthRequired)
 	}
 	var body createRequest
 	if err := httpx.Parse(c, &body); err != nil {

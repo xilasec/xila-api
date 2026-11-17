@@ -9,6 +9,7 @@
 	import SeverityDots from '#lib/components/SeverityDots.svelte';
 	import TrendChart from '#lib/components/TrendChart.svelte';
 	import ReportMenu from '#lib/components/ReportMenu.svelte';
+	import IngestQueueCard from '#lib/components/IngestQueueCard.svelte';
 	import { OPEN_BY_SEVERITY, RISK, fmtCount, fmtRisk, windowStats } from '#lib/trends.js';
 	import { flattenTree, parentChoices } from '#lib/projectTree.js';
 
@@ -133,7 +134,7 @@
 		e.preventDefault();
 		saving = true;
 		try {
-			await api.addMember(membersTeamId, newMember.email.trim(), newMember.role);
+			await api.addMember(membersTeamId, { email: newMember.email.trim(), role: newMember.role });
 			newMember = { email: '', role: 'viewer' };
 			await loadMembers();
 		} catch (err) {
@@ -145,7 +146,8 @@
 	/** @param {any} m */
 	async function removeMember(m) {
 		try {
-			await api.removeMember(membersTeamId, m.user_id);
+			if (m.group_id) await api.removeTeamGroup(membersTeamId, m.group_id);
+			else await api.removeMember(membersTeamId, m.user_id);
 			await loadMembers();
 		} catch (err) {
 			notify(errorMessage(err));
@@ -326,6 +328,8 @@
 			</a>
 		{/if}
 	</div>
+
+	{#if $me?.is_admin}<IngestQueueCard />{/if}
 
 	{#if anomalies.length > 0}
 		<div class="alert alert-warning mb-4 items-start" role="status">
@@ -633,11 +637,14 @@
 		{:else}
 			<table class="table table-sm">
 				<tbody>
-					{#each members as m (m.user_id)}
+					{#each members as m (m.group_id || m.user_id)}
 						<tr>
-							<td class="font-medium">{m.email}</td>
+							<td class="font-medium">
+								{#if m.group_id}<span class="badge badge-outline badge-xs mr-1">{$t('proj.grantGroup')}</span>{m.group_name}{:else}{m.email}{/if}
+							</td>
 							<td>
 								<span class="badge badge-ghost badge-sm">{$labelOf('role', m.role)}</span>
+								{#if m.custom_role_name}<span class="badge badge-info badge-outline badge-xs">{m.custom_role_name}</span>{/if}
 								{#if m.source === 'sso'}<span class="badge badge-outline badge-xs" title={$t('home.ssoGrantTitle')}>SSO</span>{/if}
 							</td>
 							<td class="text-right">

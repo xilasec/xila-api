@@ -2,6 +2,7 @@
 package config
 
 import (
+	"context"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -19,6 +20,8 @@ import (
 	"github.com/joho/godotenv"
 
 	"github.com/xilasec/xila-api/internal/domain"
+	"github.com/xilasec/xila-api/internal/netguard"
+	"github.com/xilasec/xila-api/internal/secretref"
 )
 
 // Recognized deployment environments (APP_ENV).
@@ -32,26 +35,31 @@ const insecureDevSecret = "insecure-development-secret-change-me"
 
 // Config is the fully resolved application configuration.
 type Config struct {
-	Env       string
-	HTTP      HTTP
-	DB        DB
-	JWT       JWT
-	OIDC      OIDC
-	SAML      SAML
-	LDAP      LDAP
-	SSO       SSO
-	SMTP      SMTP
-	Otel      Otel
-	Metrics   Metrics
-	Security  Security
-	Policy    Policy
-	Enrich    Enrich
-	Exploit   ExploitIntel
-	CRA       CRA
-	NVD       NVD
-	AI        AI
-	Notify    Notify
-	Ingest    Ingest
+	Env            string
+	HTTP           HTTP
+	DB             DB
+	JWT            JWT
+	OIDC           OIDC
+	SAML           SAML
+	LDAP           LDAP
+	SSO            SSO
+	SMTP           SMTP
+	Otel           Otel
+	Metrics        Metrics
+	Security       Security
+	Policy         Policy
+	VulnPolicy     VulnPolicy
+	ComputedFields ComputedFields
+	Enrich         Enrich
+	Exploit        ExploitIntel
+	CRA            CRA
+	NVD            NVD
+	AI             AI
+	Notify         Notify
+	Ingest         Ingest
+	// S3 is the object-storage connection used when Ingest.PayloadStore is
+	// "s3" (M11 11.8).
+	S3        S3
 	VulnMatch VulnMatch
 	// PSIRT publishes CSAF security advisories about the instance's own
 	// products.
@@ -73,6 +81,10 @@ type Config struct {
 	// rules: created/edited rules stay pending (and never apply) until a
 	// different admin approves them.
 	TriageRulesRequireApproval bool
+	// SBOMStrictValidation (SBOM_STRICT_VALIDATION) makes every SBOM upload
+	// strict CycloneDX schema validation, not only ones that opt in with
+	// ?strict=true (M12 12.14).
+	SBOMStrictValidation bool
 	// AssessmentRequiresApproval turns on the four-eyes workflow for manual
 	// assessments: an analyst's status / severity change on a finding becomes a
 	// pending request until a different project owner (or instance admin)
@@ -92,6 +104,13 @@ type Config struct {
 	// configured. A malformed key fails boot; read the decoded bytes with
 	// IntegrationKey.
 	IntegrationSecretKey string
+	// IntegrationSecretKeyPrevious (INTEGRATION_SECRET_KEY_PREVIOUS) is a
+	// comma-separated list of previously-primary keys (same base64 32-byte
+	// shape), verify-only: a sealed value still opens with one of these while
+	// the background rekey pass re-seals it under the new primary. Decode with
+	// IntegrationPreviousKeys. Remove an entry once secretbox.Status reports 0
+	// rows still sealed with it.
+	IntegrationSecretKeyPrevious string
 	// PublicURL is the externally reachable UI origin (e.g. https://xila.example.com),
 	// used for links back to Xila in outbound content such as issue bodies.
 	// Empty omits the links.
@@ -117,6 +136,10 @@ type Config struct {
 	// MetricsSnapshotInterval is how often today's and yesterday's metric
 	// snapshots are (re)computed for the trend charts (0 = off).
 	MetricsSnapshotInterval time.Duration
+	// PortfolioFromSnapshots (PORTFOLIO_FROM_SNAPSHOTS) serves /portfolio's
+	// finding counts from the latest metric snapshots instead of scanning
+	// findings per request (as of the last snapshot run).
+	PortfolioFromSnapshots bool
 	// PasswordLoginEnabled (PASSWORD_LOGIN_ENABLED, default true) allows email +
 	// password sign-in. When false, registration is closed once the instance has
 	// a user and POST /auth/login only admits the instance owner (break-glass,
@@ -128,6 +151,11 @@ type Config struct {
 	// LegacyLicenseDenylist records that the removed LICENSE_DENYLIST is still
 	// set, so Warnings can say it is ignored.
 	LegacyLicenseDenylist bool
+	// Secrets is the live store of rotatable secret settings (M10 10.2): any
+	// setting read through secretReader.get that came from a reference or a
+	// NAME_FILE. Always non-nil after a successful Load. Consumers should
+	// prefer Secrets.Getter(name) (a func() string) over holding the store.
+	Secrets *Secrets
 }
 
 // IsProduction reports whether the app runs in the production environment.
@@ -135,6 +163,19 @@ func (c Config) IsProduction() bool { return c.Env == EnvProduction }
 
 // IsDevelopment reports whether the app runs in the development environment.
 func (c Config) IsDevelopment() bool { return c.Env == EnvDevelopment }
+
+// SecretGetter returns a func() string for a secret setting: the live,
+// possibly-rotated value tracked in c.Secrets, or fallback when c was built
+// without going through Load (c.Secrets is nil — a test constructing Config
+// as a literal, for instance). fallback is normally the matching struct
+// field (e.g. cfg.Metrics.Token), which already holds whatever Load resolved
+// at startup even when it isn't tracked for refresh.
+func (c Config) SecretGetter(name, fallback string) func() string {
+	if c.Secrets == nil {
+		return func() string { return fallback }
+	}
+	return c.Secrets.Getter(name)
+}
 
 // Security holds hardening settings whose safe defaults follow the environment.
 type Security struct {
@@ -167,6 +208,11 @@ type Retention struct {
 	LogAge     time.Duration // LOG_RETENTION: delivery log + failed ingest jobs (default 90 days)
 	AuditAge   time.Duration // AUDIT_RETENTION: audit log entries (default 365 days)
 	ArchiveAge time.Duration // ARCHIVE_RETENTION: archived records stay restorable this long, then are purged (default 30 days)
+	// FindingArchiveAfter (FINDING_ARCHIVE_AFTER) archives remediated findings
+	// fixed longer ago than this (default off), so live queries stop carrying
+	// them; ARCHIVE_RETENTION then purges them. A fixed finding that comes back
+	// is unarchived by the next upsert.
+	FindingArchiveAfter time.Duration
 }
 
 // Notify governs durable notification delivery (the outbox). The leader's
@@ -186,6 +232,29 @@ type Policy struct {
 	// policies (0 = off; uploads and policy edits still evaluate), catching
 	// KEV/EPSS, outdated and license-data changes.
 	EvalInterval time.Duration
+}
+
+// VulnPolicy holds the vulnerability-policy engine's schedule and optional
+// GitOps bundle sync.
+type VulnPolicy struct {
+	// EvalInterval is how often every project is re-evaluated against the
+	// vulnerability policies (0 = off; ingest and policy edits still
+	// evaluate), catching a validity window's expiry.
+	EvalInterval time.Duration
+	// BundleURL (VULN_POLICY_BUNDLE_URL), if set, is fetched through netguard
+	// on BundleInterval and replaces the whole policy set — a failed fetch
+	// leaves the current set untouched.
+	BundleURL      string
+	BundleInterval time.Duration
+}
+
+// ComputedFields holds the computed-custom-field recompute schedule.
+type ComputedFields struct {
+	// Interval is how often every project, asset and finding's computed
+	// custom fields are recomputed (0 = off; ingest and a definition
+	// change still recompute), catching facts that change without a new
+	// scan (EPSS/KEV, status, exposure).
+	Interval time.Duration
 }
 
 // Enrich holds the exploit-intel enrichment schedule and its KEV catalogs.
@@ -365,6 +434,33 @@ type Ingest struct {
 	// dedup or alert, just a cheap record of the repeat (M11 11.4). A per-upload
 	// force=true always processes in full.
 	SkipUnchanged bool
+	// PayloadStore (INGEST_PAYLOAD_STORE) is where a queued job's raw upload
+	// lives between Enqueue and the worker's ProcessJob: "postgres"
+	// (scan_jobs.payload, the default) or "s3" (any S3-compatible object
+	// storage; scan_jobs keeps only payload_ref). See internal/objectstore
+	// and M11 11.8.
+	PayloadStore string
+}
+
+// S3 is the object-storage connection for Ingest.PayloadStore=s3
+// (internal/objectstore.Config). Any S3-compatible service works: AWS S3,
+// MinIO, Ceph, Cloudflare R2, GCS's S3 interop.
+type S3 struct {
+	// Endpoint overrides AWS's regional endpoint. Required for everything but
+	// AWS S3 itself.
+	Endpoint string
+	Region   string
+	Bucket   string
+	// Prefix is joined under every object key ("" = bucket root).
+	Prefix string
+	// AccessKeyID / SecretAccessKey are static credentials. Leave both unset
+	// to use the standard AWS credential chain instead (environment,
+	// ~/.aws/credentials, EC2/ECS instance credentials, EKS IRSA).
+	AccessKeyID     string
+	SecretAccessKey string
+	// ForcePathStyle addresses buckets as /bucket/key — required by most
+	// non-AWS S3-compatible services.
+	ForcePathStyle bool
 }
 
 // HTTP holds the listener configuration and server timeouts.
@@ -399,7 +495,32 @@ type DB struct {
 	// connection — never via the DSN, which the migration driver also uses and
 	// where a long CREATE INDEX would be killed. Zero disables it.
 	StatementTimeout time.Duration
+
+	// ReadURL (DB_READ_URL, a postgres:// URL; secret, so _FILE works) points
+	// reporting reads (portfolio, trends, reports) at a read replica; empty =
+	// the primary. ReadStatementTimeout (DB_READ_STATEMENT_TIMEOUT) caps those
+	// reads separately (zero = StatementTimeout); setting either gives
+	// reporting its own pool of ReadMaxConns (DB_READ_MAX_CONNS) connections,
+	// so a heavy report can't starve ingest of connections.
+	ReadURL              string
+	ReadStatementTimeout time.Duration
+	ReadMaxConns         int32
+	// JobStatementTimeout (DB_JOB_STATEMENT_TIMEOUT) caps the metric snapshot
+	// job's queries, which make a full pass over the findings and on a large
+	// instance outlast StatementTimeout. They run on a small pool of their own.
+	JobStatementTimeout time.Duration
 }
+
+// ReadDSN is the reporting pool's DSN: the replica, else the primary.
+func (d DB) ReadDSN() string {
+	if d.ReadURL != "" {
+		return d.ReadURL
+	}
+	return d.DSN()
+}
+
+// SeparateReadPool reports whether reporting reads get their own pool.
+func (d DB) SeparateReadPool() bool { return d.ReadURL != "" || d.ReadStatementTimeout > 0 }
 
 // DSN builds a libpq-style connection URL with every part escaped, so a
 // password containing "/", "@", "#" or "?" (as `openssl rand -base64` output
@@ -424,7 +545,16 @@ func (d DB) DSN() string {
 // JWT holds token signing settings.
 type JWT struct {
 	Secret string
-	TTL    time.Duration
+	// Previous (JWT_PREVIOUS_SECRETS) verifies sessions signed before a
+	// rotation; never used to sign a new one. Comma-separated, oldest first.
+	// Lets JWT_SECRET change without ending every existing session: issue
+	// tokens with the new secret while old ones still verify, then drop the
+	// old secret from here once sessions signed with it have expired.
+	Previous []string
+	TTL      time.Duration
+	// ReauthWindow is how recently a session must have authenticated to
+	// create an API token (REAUTH_WINDOW; 0 turns the check off).
+	ReauthWindow time.Duration
 }
 
 // OIDC configures optional Single Sign-On via an OpenID Connect provider
@@ -544,7 +674,7 @@ func Load() (Config, error) {
 	if err := loadDotEnv(); err != nil {
 		return Config{}, err
 	}
-	var sec secretReader
+	sec := secretReader{timeout: getdur("SECRETS_TIMEOUT", 30*time.Second)}
 	env := normalizeEnv(getenv("APP_ENV", EnvDevelopment))
 	prod := env == EnvProduction
 
@@ -574,23 +704,29 @@ func Load() (Config, error) {
 			BodyLimit:    getint("HTTP_BODY_LIMIT_MB", 32) * 1024 * 1024,
 		},
 		DB: DB{
-			Host:              getenv("DB_HOST", "localhost"),
-			Port:              getenv("DB_PORT", "5432"),
-			User:              getenv("DB_USER", "xila"),
-			Password:          sec.get("DB_PASSWORD", "xila"),
-			Name:              getenv("DB_NAME", "xila"),
-			SSLMode:           getenv("DB_SSLMODE", "disable"),
-			MaxConns:          int32(getint("DB_MAX_CONNS", 20)),
-			MinConns:          int32(getint("DB_MIN_CONNS", 2)),
-			MaxConnLifetime:   getdur("DB_MAX_CONN_LIFETIME", time.Hour),
-			MaxConnIdleTime:   getdur("DB_MAX_CONN_IDLE_TIME", 30*time.Minute),
-			HealthCheckPeriod: getdur("DB_HEALTH_CHECK_PERIOD", time.Minute),
-			ConnectTimeout:    getdur("DB_CONNECT_TIMEOUT", 10*time.Second),
-			StatementTimeout:  getdur("DB_STATEMENT_TIMEOUT", 30*time.Second),
+			Host:                 getenv("DB_HOST", "localhost"),
+			Port:                 getenv("DB_PORT", "5432"),
+			User:                 getenv("DB_USER", "xila"),
+			Password:             sec.get("DB_PASSWORD", "xila"),
+			Name:                 getenv("DB_NAME", "xila"),
+			SSLMode:              getenv("DB_SSLMODE", "disable"),
+			MaxConns:             int32(getint("DB_MAX_CONNS", 20)),
+			MinConns:             int32(getint("DB_MIN_CONNS", 2)),
+			MaxConnLifetime:      getdur("DB_MAX_CONN_LIFETIME", time.Hour),
+			MaxConnIdleTime:      getdur("DB_MAX_CONN_IDLE_TIME", 30*time.Minute),
+			HealthCheckPeriod:    getdur("DB_HEALTH_CHECK_PERIOD", time.Minute),
+			ConnectTimeout:       getdur("DB_CONNECT_TIMEOUT", 10*time.Second),
+			StatementTimeout:     getdur("DB_STATEMENT_TIMEOUT", 30*time.Second),
+			ReadURL:              sec.get("DB_READ_URL", ""),
+			ReadStatementTimeout: getdur("DB_READ_STATEMENT_TIMEOUT", 0),
+			ReadMaxConns:         int32(getint("DB_READ_MAX_CONNS", 10)),
+			JobStatementTimeout:  getdur("DB_JOB_STATEMENT_TIMEOUT", 15*time.Minute),
 		},
 		JWT: JWT{
-			Secret: sec.get("JWT_SECRET", ""),
-			TTL:    getdur("JWT_TTL", 24*time.Hour),
+			Secret:       sec.get("JWT_SECRET", ""),
+			Previous:     splitSecretList(sec.get("JWT_PREVIOUS_SECRETS", "")),
+			TTL:          getdur("JWT_TTL", 24*time.Hour),
+			ReauthWindow: getdur("REAUTH_WINDOW", 10*time.Minute),
 		},
 		OIDC: OIDC{
 			Enabled:      getbool("OIDC_ENABLED", false),
@@ -658,6 +794,14 @@ func Load() (Config, error) {
 		},
 		Policy: Policy{
 			EvalInterval: getdur("POLICY_EVAL_INTERVAL", 6*time.Hour),
+		},
+		VulnPolicy: VulnPolicy{
+			EvalInterval:   getdur("VULN_POLICY_EVAL_INTERVAL", 6*time.Hour),
+			BundleURL:      strings.TrimSpace(getenv("VULN_POLICY_BUNDLE_URL", "")),
+			BundleInterval: getdur("VULN_POLICY_BUNDLE_INTERVAL", time.Hour),
+		},
+		ComputedFields: ComputedFields{
+			Interval: getdur("COMPUTED_FIELDS_INTERVAL", 15*time.Minute),
 		},
 		Enrich: Enrich{
 			Enabled:    getbool("ENRICH_ENABLED", true),
@@ -765,24 +909,37 @@ func Load() (Config, error) {
 			MaxQueueDepth:       getint("INGEST_MAX_QUEUE_DEPTH", 10000),
 			QueueSampleInterval: getdur("INGEST_QUEUE_SAMPLE_INTERVAL", 5*time.Second),
 			SkipUnchanged:       getbool("INGEST_SKIP_UNCHANGED", true),
+			PayloadStore:        strings.ToLower(strings.TrimSpace(getenv("INGEST_PAYLOAD_STORE", "postgres"))),
+		},
+		S3: S3{
+			Endpoint:        strings.TrimSpace(getenv("S3_ENDPOINT", "")),
+			Region:          strings.TrimSpace(getenv("S3_REGION", "us-east-1")),
+			Bucket:          strings.TrimSpace(getenv("S3_BUCKET", "")),
+			Prefix:          strings.Trim(strings.TrimSpace(getenv("S3_PREFIX", "")), "/"),
+			AccessKeyID:     strings.TrimSpace(sec.get("S3_ACCESS_KEY_ID", "")),
+			SecretAccessKey: strings.TrimSpace(sec.get("S3_SECRET_ACCESS_KEY", "")),
+			ForcePathStyle:  getbool("S3_FORCE_PATH_STYLE", false),
 		},
 		ExceptionSweepInterval: getdur("EXCEPTION_SWEEP_INTERVAL", time.Hour),
 		SLASweepInterval:       getdur("SLA_SWEEP_INTERVAL", time.Hour),
 		Retention: Retention{
-			BranchAge:  getdur("BRANCH_RETENTION", 90*24*time.Hour),
-			ReleaseAge: getdur("RELEASE_RETENTION", 0),
-			SBOMKeep:   getint("SBOM_RETENTION_KEEP", 0),
-			SBOMAge:    getdur("SBOM_RETENTION_AGE", 0),
-			ScanAge:    getdur("SCAN_RETENTION", 0),
-			LogAge:     getdur("LOG_RETENTION", 90*24*time.Hour),
-			AuditAge:   getdur("AUDIT_RETENTION", 365*24*time.Hour),
-			ArchiveAge: getdur("ARCHIVE_RETENTION", 30*24*time.Hour),
+			BranchAge:           getdur("BRANCH_RETENTION", 90*24*time.Hour),
+			ReleaseAge:          getdur("RELEASE_RETENTION", 0),
+			SBOMKeep:            getint("SBOM_RETENTION_KEEP", 0),
+			SBOMAge:             getdur("SBOM_RETENTION_AGE", 0),
+			ScanAge:             getdur("SCAN_RETENTION", 0),
+			LogAge:              getdur("LOG_RETENTION", 90*24*time.Hour),
+			AuditAge:            getdur("AUDIT_RETENTION", 365*24*time.Hour),
+			ArchiveAge:          getdur("ARCHIVE_RETENTION", 30*24*time.Hour),
+			FindingArchiveAfter: getdur("FINDING_ARCHIVE_AFTER", 0),
 		},
 		TriageRulesRequireApproval:     getbool("TRIAGE_RULES_REQUIRE_APPROVAL", false),
+		SBOMStrictValidation:           getbool("SBOM_STRICT_VALIDATION", false),
 		AssessmentRequiresApproval:     getbool("ASSESSMENT_REQUIRES_APPROVAL", false),
 		RiskAcceptanceRequiresApproval: getbool("RISK_ACCEPTANCE_REQUIRES_APPROVAL", prod),
 		RiskAcceptanceExpiryWarning:    getdur("RISK_ACCEPTANCE_EXPIRY_WARNING", 7*24*time.Hour),
 		IntegrationSecretKey:           strings.TrimSpace(sec.get("INTEGRATION_SECRET_KEY", "")),
+		IntegrationSecretKeyPrevious:   strings.TrimSpace(sec.get("INTEGRATION_SECRET_KEY_PREVIOUS", "")),
 		PublicURL:                      strings.TrimRight(strings.TrimSpace(getenv("PUBLIC_URL", "")), "/"),
 		SourceURL:                      strings.TrimSpace(getenv("SOURCE_URL", DefaultSourceURL)),
 		IssueSyncInterval:              getdur("ISSUE_SYNC_INTERVAL", 15*time.Minute),
@@ -790,6 +947,7 @@ func Load() (Config, error) {
 		RemediationAutoCreate:          getbool("REMEDIATION_AUTO_CREATE", false),
 		ConnectorPullInterval:          getdur("CONNECTOR_PULL_INTERVAL", 6*time.Hour),
 		MetricsSnapshotInterval:        getdur("METRICS_SNAPSHOT_INTERVAL", time.Hour),
+		PortfolioFromSnapshots:         getbool("PORTFOLIO_FROM_SNAPSHOTS", false),
 	}
 	if cfg.SAML.EntityID == "" && cfg.PublicURL != "" {
 		cfg.SAML.EntityID = cfg.PublicURL + "/api/v1/auth/saml/metadata"
@@ -810,6 +968,7 @@ func Load() (Config, error) {
 	if err := cfg.validate(); err != nil {
 		return Config{}, err
 	}
+	cfg.Secrets = newSecrets(sec.tracked, sec.timeout, getdur("SECRETS_REFRESH_INTERVAL", 5*time.Minute))
 	return cfg, nil
 }
 
@@ -837,8 +996,19 @@ func (c Config) validate() error {
 	if c.Env != EnvDevelopment && c.Env != EnvProduction && c.Env != EnvTest {
 		return fmt.Errorf("invalid APP_ENV %q (want development, production or test)", c.Env)
 	}
-	if c.Ingest.Workers < 0 {
-		return fmt.Errorf("INGEST_WORKERS must be 0 or more, got %d", c.Ingest.Workers)
+	if err := c.validateIngest(); err != nil {
+		return err
+	}
+	if c.DB.ReadURL != "" {
+		if u, err := url.Parse(c.DB.ReadURL); err != nil || (u.Scheme != "postgres" && u.Scheme != "postgresql") || u.Host == "" {
+			return fmt.Errorf("DB_READ_URL must be a postgres:// URL")
+		}
+	}
+	if c.DB.ReadStatementTimeout < 0 || c.DB.ReadMaxConns < 1 || c.DB.JobStatementTimeout < 0 {
+		return fmt.Errorf("DB_READ_STATEMENT_TIMEOUT and DB_JOB_STATEMENT_TIMEOUT must be 0 or more and DB_READ_MAX_CONNS at least 1")
+	}
+	if c.JWT.ReauthWindow < 0 {
+		return fmt.Errorf("REAUTH_WINDOW must be 0 or more, got %s", c.JWT.ReauthWindow)
 	}
 	if u, err := url.Parse(c.SourceURL); err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
 		return fmt.Errorf("SOURCE_URL must be an absolute http(s) URL, got %q", c.SourceURL)
@@ -853,6 +1023,9 @@ func (c Config) validate() error {
 		if c.Metrics.Enabled && c.Metrics.Addr == "" && c.Metrics.Token == "" {
 			return errors.New("METRICS_ENABLED on the main port needs METRICS_TOKEN in production (or set METRICS_ADDR to serve /metrics on a separate, internal listener)")
 		}
+	}
+	if err := c.validateJWTKeys(); err != nil {
+		return err
 	}
 	if c.ServiceAccounts.KeyMaxDays < 1 {
 		return errors.New("SERVICE_ACCOUNT_KEY_MAX_DAYS must be ≥ 1")
@@ -872,6 +1045,9 @@ func (c Config) validate() error {
 		return fmt.Errorf("invalid SMTP_TLS %q (want starttls, tls or none)", c.SMTP.TLS)
 	}
 	if _, err := c.IntegrationKey(); err != nil {
+		return err
+	}
+	if _, err := c.IntegrationPreviousKeys(); err != nil {
 		return err
 	}
 	if c.CRA.MemberState != "" && !domain.EUMemberState(c.CRA.MemberState) {
@@ -926,6 +1102,38 @@ func (c Config) validatePSIRT() error {
 
 var psirtPrefixRe = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9-]{0,30}$`)
 
+// validateIngest fails boot on an ingest configuration that cannot run: a
+// negative worker count, an unknown payload store, or
+// INGEST_PAYLOAD_STORE=s3 without the bucket/region it needs. It never
+// reaches the network — main's objectstore.New HeadBucket call is the one
+// place that does, so a wrong bucket name or missing credentials is reported
+// there, at startup, not here.
+func (c Config) validateIngest() error {
+	if c.Ingest.Workers < 0 {
+		return fmt.Errorf("INGEST_WORKERS must be 0 or more, got %d", c.Ingest.Workers)
+	}
+	switch c.Ingest.PayloadStore {
+	case "postgres", "s3":
+	default:
+		return fmt.Errorf("invalid INGEST_PAYLOAD_STORE %q (want postgres or s3)", c.Ingest.PayloadStore)
+	}
+	if c.Ingest.PayloadStore != "s3" {
+		return nil
+	}
+	if c.S3.Bucket == "" {
+		return errors.New("INGEST_PAYLOAD_STORE=s3 requires S3_BUCKET")
+	}
+	if c.S3.Region == "" {
+		return errors.New("INGEST_PAYLOAD_STORE=s3 requires S3_REGION")
+	}
+	if c.S3.Endpoint != "" {
+		if err := netguard.CheckURL(c.S3.Endpoint); err != nil {
+			return fmt.Errorf("S3_ENDPOINT: %w", err)
+		}
+	}
+	return nil
+}
+
 // validateSAML fails boot on a SAML setup that cannot work or would be unsafe.
 // (An unreachable metadata URL is not a config error: main logs it and runs
 // without SAML, like OIDC discovery.)
@@ -947,6 +1155,26 @@ func (c Config) validateSAML() error {
 	}
 	if c.SAML.SPKey == "" && c.IntegrationSecretKey == "" {
 		return errors.New("SAML without SAML_SP_CERT/SAML_SP_KEY needs INTEGRATION_SECRET_KEY to store the generated SP key")
+	}
+	return nil
+}
+
+// validateJWTKeys fails boot on a JWT_PREVIOUS_SECRETS ring that is
+// nonsensical (a repeated or current secret), or, in production, not strong
+// enough — the same rule JWT_SECRET itself is held to.
+func (c Config) validateJWTKeys() error {
+	seen := map[string]bool{c.JWT.Secret: true}
+	for _, p := range c.JWT.Previous {
+		if p == c.JWT.Secret {
+			return errors.New("JWT_PREVIOUS_SECRETS must not repeat JWT_SECRET")
+		}
+		if seen[p] {
+			return errors.New("JWT_PREVIOUS_SECRETS must not list the same secret twice")
+		}
+		seen[p] = true
+		if c.IsProduction() && (p == "" || p == insecureDevSecret) {
+			return errors.New("JWT_PREVIOUS_SECRETS entries must be strong, unique values in production")
+		}
 	}
 	return nil
 }
@@ -988,12 +1216,34 @@ func (c Config) IntegrationKey() ([]byte, error) {
 	if c.IntegrationSecretKey == "" {
 		return nil, nil
 	}
-	key, err := base64.StdEncoding.DecodeString(c.IntegrationSecretKey)
+	return decodeIntegrationKey("INTEGRATION_SECRET_KEY", c.IntegrationSecretKey)
+}
+
+// IntegrationPreviousKeys decodes INTEGRATION_SECRET_KEY_PREVIOUS: zero or
+// more previously-primary keys, oldest first, verify-only for the secretbox
+// key ring.
+func (c Config) IntegrationPreviousKeys() ([][]byte, error) {
+	raw := splitSecretList(c.IntegrationSecretKeyPrevious)
+	keys := make([][]byte, 0, len(raw))
+	for _, v := range raw {
+		key, err := decodeIntegrationKey("INTEGRATION_SECRET_KEY_PREVIOUS", v)
+		if err != nil {
+			return nil, err
+		}
+		keys = append(keys, key)
+	}
+	return keys, nil
+}
+
+// decodeIntegrationKey decodes one base64 32-byte AES-256 key (standard or
+// raw-URL, matching how openssl/Kubernetes secrets emit it).
+func decodeIntegrationKey(setting, v string) ([]byte, error) {
+	key, err := base64.StdEncoding.DecodeString(v)
 	if err != nil {
-		key, err = base64.RawURLEncoding.DecodeString(strings.TrimRight(c.IntegrationSecretKey, "="))
+		key, err = base64.RawURLEncoding.DecodeString(strings.TrimRight(v, "="))
 	}
 	if err != nil || len(key) != 32 {
-		return nil, errors.New("INTEGRATION_SECRET_KEY must be 32 random bytes, base64-encoded (openssl rand -base64 32)")
+		return nil, fmt.Errorf("%s must be 32 random bytes, base64-encoded (openssl rand -base64 32)", setting)
 	}
 	return key, nil
 }
@@ -1059,6 +1309,9 @@ func (c Config) Warnings() []string {
 	if c.IntegrationSecretKey == "" {
 		w = append(w, "INTEGRATION_SECRET_KEY is unset — two-factor sign-in, issue trackers and connectors can't be configured (their secrets are encrypted with it)")
 	}
+	if c.Ingest.PayloadStore == "s3" && strings.HasPrefix(c.S3.Endpoint, "http://") {
+		w = append(w, "S3_ENDPOINT is not https — queued scan reports are uploaded to object storage in cleartext")
+	}
 	return w
 }
 
@@ -1086,23 +1339,85 @@ func loadDotEnv() error {
 // Secrets Store CSI driver and External Secrets Operator all write to. One
 // trailing newline is trimmed. Setting both, or naming a file that can't be
 // read, is an error (kept in err) rather than a silent fallback.
-type secretReader struct{ err error }
+//
+// A value (from NAME or from the file) that is a secretref reference
+// (aws-sm://, gcp-sm://, vault://, azure-kv://) is resolved at load time,
+// with a per-lookup timeout; a failed lookup is a Load error naming the
+// setting and the reference's scheme+path, never a value. Every setting
+// that came from a reference or a NAME_FILE is tracked (see track) so
+// config.Secrets can re-read it later without a restart — a literal NAME
+// value can't change, so it isn't tracked.
+type secretReader struct {
+	err     error
+	timeout time.Duration
+	tracked []trackedSecret
+}
+
+// trackedSecret is one rotatable secret setting: its current value (as
+// loaded) and how to re-read it on a refresh tick.
+type trackedSecret struct {
+	name  string
+	value string
+	read  func(timeout time.Duration) (string, error)
+}
+
+func (r *secretReader) track(name, value string, read func(time.Duration) (string, error)) {
+	r.tracked = append(r.tracked, trackedSecret{name: name, value: value, read: read})
+}
 
 func (r *secretReader) get(key, fallback string) string {
 	path, fromFile := os.LookupEnv(key + "_FILE")
 	if !fromFile {
-		return getenv(key, fallback)
+		v, ok := os.LookupEnv(key)
+		if !ok {
+			return fallback
+		}
+		if !secretref.IsRef(v) {
+			r.track(key, v, nil) // seed Secrets.Get; a literal can't change, so no refresh func
+			return v
+		}
+		resolved, err := resolveSecretRef(v, r.timeout)
+		if err != nil {
+			r.fail(fmt.Errorf("%s: %w", key, err))
+			return fallback
+		}
+		r.track(key, resolved, func(timeout time.Duration) (string, error) { return resolveSecretRef(v, timeout) })
+		return resolved
 	}
 	if _, both := os.LookupEnv(key); both {
 		r.fail(fmt.Errorf("set %s or %s_FILE, not both", key, key))
 		return fallback
 	}
-	b, err := os.ReadFile(filepath.Clean(path))
+	resolved, err := readSecretFile(path, r.timeout)
 	if err != nil {
 		r.fail(fmt.Errorf("%s_FILE: %w", key, err))
 		return fallback
 	}
-	return strings.TrimSuffix(strings.TrimSuffix(string(b), "\n"), "\r")
+	r.track(key, resolved, func(timeout time.Duration) (string, error) { return readSecretFile(path, timeout) })
+	return resolved
+}
+
+// resolveSecretRef resolves a secretref reference with a bounded timeout.
+func resolveSecretRef(v string, timeout time.Duration) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	return secretref.Default.Resolve(ctx, v)
+}
+
+// readSecretFile reads a NAME_FILE's content, resolving it if the file
+// itself holds a reference rather than the final secret value (an operator
+// could point NAME_FILE at something External Secrets Operator rewrites to
+// a reference).
+func readSecretFile(path string, timeout time.Duration) (string, error) {
+	b, err := os.ReadFile(filepath.Clean(path))
+	if err != nil {
+		return "", err
+	}
+	v := strings.TrimSuffix(strings.TrimSuffix(string(b), "\n"), "\r")
+	if secretref.IsRef(v) {
+		return resolveSecretRef(v, timeout)
+	}
+	return v, nil
 }
 
 func (r *secretReader) fail(err error) {
@@ -1124,6 +1439,19 @@ func getlist(key string, fallback []string) []string {
 	if !ok {
 		return fallback
 	}
+	var out []string
+	for _, part := range strings.Split(v, ",") {
+		if p := strings.TrimSpace(part); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// splitSecretList splits a comma-separated secret setting already read via
+// sec.get (so NAME_FILE works), trimming blanks — the secret equivalent of
+// getlist, for JWT_PREVIOUS_SECRETS and INTEGRATION_SECRET_KEY_PREVIOUS.
+func splitSecretList(v string) []string {
 	var out []string
 	for _, part := range strings.Split(v, ",") {
 		if p := strings.TrimSpace(part); p != "" {

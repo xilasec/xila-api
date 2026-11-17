@@ -44,7 +44,7 @@ internal/portfolio/      cross-project rollup (risk, categories, compliance avg)
 internal/export/         CSV + dependency-free XLSX writers for list exports
 internal/report/         printable HTML project / portfolio reports
 internal/metrics/        daily metric snapshots (project/team/org/portfolio) + trends
-internal/notify/         outbound notifications (webhook, Slack, Teams, Mattermost, email)
+internal/notify/         outbound notifications (webhook, Slack, Teams, Mattermost, email, Kafka)
 internal/correlation/    links findings to the SBOM components that introduced them
 internal/license/        SPDX license list + ScanCode categories, expression resolution, license groups
 internal/policy/         component policies (security / license / operational) -> violation findings
@@ -170,6 +170,32 @@ and access can be granted at any level:
   is `editor` (which already includes upload). Recommended for CI service
   accounts and project-scoped tokens that only push reports (see "Break the
   build in CI").
+- User groups: an org admin defines named groups of users in the organization
+  (`/orgs/{id}/groups`, or the Groups & roles page) and grants a group on the
+  org, a team or a project exactly like a person (`group_id` in the members
+  endpoints). Every member gets the role; leaving the group takes it away. A
+  group or custom role can only be granted inside its own organization. The
+  permission audit names the group behind each grant.
+- Custom roles: a base role minus denied capabilities (`/orgs/{id}/custom-roles`),
+  assignable on team and project grants (`custom_role_id`). The capabilities are
+  `triage`, `comment`, `manage_members`, `project_settings`, `upload`, `export` and
+  `risk_acceptance_approve` (`GET /capabilities`; the spec lists what each
+  covers). "Editor without triage" uploads and comments but gets `403` on a
+  status change, in bulk edits too. Grants still only add access: a capability
+  one grant denies is allowed when another grant at the needed level doesn't
+  deny it.
+- SCIM 2.0 provisioning: an instance admin creates an org-scoped SCIM token
+  (`POST /scim-tokens`); the identity provider (Okta, Entra ID, OneLogin,
+  JumpCloud) then manages that organization's users and groups at
+  `/api/v1/scim/v2` (`Users`, `Groups`, `ServiceProviderConfig`, `ResourceTypes`,
+  `Schemas`; `filter=userName eq "…"`, PATCH ops, Entra's string booleans).
+  `userName` is the email. A provisioned user has no password and signs in through
+  SSO. `active: false` or DELETE disables the account and ends its sessions; a
+  user who also belongs to another organization is only removed from this one.
+  The instance owner and service accounts are out of SCIM's reach, SCIM tokens
+  work only on SCIM and other credentials don't work there, and every change is
+  in the audit log with the token as the actor. SCIM groups are ordinary groups:
+  their grants stay with the org admin.
 - Project hierarchy: a project may have a parent project in the same organization
   (`parent_id`, at most 5 levels, no cycles; enforced in the database). A project
   or team grant on a parent applies to every descendant with the same role (the
@@ -245,7 +271,8 @@ roles, and password login can optionally be turned off. See [Single sign-on](#si
 | POST   | `/api/v1/auth/password-reset/request` | Email a reset link (needs `SMTP_*` + `PUBLIC_URL`); always returns `202` |
 | POST   | `/api/v1/auth/password-reset/confirm` | Set a new password with the link's token; signs out every other session and signs you in |
 | GET/POST/DELETE | `/api/v1/teams/{id}/members` | List / add (by email) / remove team members (owner) |
-| POST   | `/api/v1/tokens`                    | Mint an API token (CI); secret shown once |
+| POST   | `/api/v1/tokens`                    | Mint an API token (CI); secret shown once. Needs a session that signed in within `REAUTH_WINDOW` (else `403` + `X-Reauth-Required: true`); API tokens can't mint tokens |
+| POST   | `/api/v1/me/reauth`                 | Confirm your password (`{password, code}`; the TOTP code when two-factor is on) for a session marked freshly authenticated |
 | GET    | `/api/v1/tokens`                    | List your API tokens (no secrets)    |
 | DELETE | `/api/v1/tokens/{id}`               | Revoke an API token                  |
 | POST   | `/api/v1/auth/token`                | Public, rate limited: RFC 8693 token exchange (a CI job's OIDC identity token → a short-lived service-account access token) |
@@ -291,7 +318,8 @@ roles, and password login can optionally be turned off. See [Single sign-on](#si
 | POST   | `/api/v1/findings/{id}/ai-proposals` | Ask the model (`{kind: false_positive\|exploitability\|fix}`; editor; rate-limited per project → `429`; opted-out project → `403`); records a proposal, changes nothing |
 | POST   | `/api/v1/findings/{id}/ai-proposals/{pid}/accept` | Apply it as you (`{note}`; editor): `200` applied, `202` when it became a pending assessment / risk acceptance request |
 | POST   | `/api/v1/findings/{id}/ai-proposals/{pid}/reject` | Reject it (`{note}`; editor) |
-| GET    | `/api/v1/assessments`               | Assessment review queue across visible projects (`?state=pending`, `?project_id=`) |
+| GET    | `/api/v1/assessments`               | Assessment review queue across visible projects (`?state=pending`, `?project_id=`, `?actionable=true` = only what you may decide) |
+| GET    | `/api/v1/ai-proposals`              | Open AI proposals across visible projects (`?mine=true` = asked by you or on findings assigned to you) |
 | POST   | `/api/v1/assessments/{id}/approve`  | Approve + apply a pending assessment (`{note}`; project owner or admin, not the requester) |
 | POST   | `/api/v1/assessments/{id}/reject`   | Reject a pending assessment (`{note}`; same authorization) |
 | GET/POST | `/api/v1/findings/{id}/comments`  | The finding's discussion / add a comment (editor) |
@@ -300,7 +328,7 @@ roles, and password login can optionally be turned off. See [Single sign-on](#si
 | GET/DELETE | `/api/v1/findings/{id}/attachments/{attachmentID}` | Download (always as a file) / delete (uploader or project owner) |
 | GET    | `/api/v1/findings/{id}/exceptions`  | False positive / won't fix exception audit history |
 | GET    | `/api/v1/findings/{id}/risk-acceptances` | The finding's risk-acceptance ledger (every acceptance it was in; when and why it joined / left) |
-| GET    | `/api/v1/risk-acceptances`          | Risk acceptances across visible projects (`?state=requested` = the approval queue) |
+| GET    | `/api/v1/risk-acceptances`          | Risk acceptances across visible projects (`?state=requested` = the approval queue; `?actionable=true` = requests you may approve; `?owner=me&expires_within_days=30` = yours that need renewing) |
 | GET/POST | `/api/v1/projects/{id}/risk-acceptances` | List / request risk acceptances (`title`, `justification`, `owner_id`, `expires_at`, `finding_ids`) |
 | GET/PATCH/DELETE | `/api/v1/projects/{id}/risk-acceptances/{aid}` | One acceptance + its ledger; edit or withdraw while requested |
 | POST   | `/api/v1/projects/{id}/risk-acceptances/{aid}/{approve,reject,revoke}` | Decide (project owner; four-eyes with `RISK_ACCEPTANCE_REQUIRES_APPROVAL`) |
@@ -323,6 +351,12 @@ roles, and password login can optionally be turned off. See [Single sign-on](#si
 | POST   | `/api/v1/policies/preview`          | Dry-run a draft policy: components it would flag (`?project_id=` or all visible) |
 | POST   | `/api/v1/policies/evaluate`         | Re-evaluate policies now (`?project_id=` or all) (admin) |
 | GET    | `/api/v1/projects/{id}/policies`    | Policies in force on a project, with its violation counts |
+| GET/POST | `/api/v1/vuln-policies`           | Vulnerability policies: CEL rules over a component + vulnerability pair (admin) |
+| GET/PATCH/DELETE | `/api/v1/vuln-policies/{id}` | Read / update / delete a vulnerability policy (admin) |
+| POST   | `/api/v1/vuln-policies/preview`     | Dry-run a draft policy: pairs it would act on (`?project_id=` or all) (admin) |
+| POST   | `/api/v1/vuln-policies/{id}/preview` | Dry-run a stored policy (admin) |
+| POST   | `/api/v1/vuln-policies/evaluate`    | Re-evaluate vulnerability policies now (`?project_id=` or all) (admin) |
+| GET/PUT | `/api/v1/vuln-policies/bundle`     | Export / atomically replace the whole policy set (YAML or JSON, `?dry_run=true`) (admin) |
 | POST   | `/api/v1/projects/{id}/gate`        | Evaluate the security gate → 200 pass / 422 fail (optional inline `policy`) |
 | GET/PUT/DELETE | `/api/v1/projects/{id}/gate/policy` | Manage a project's gate policy |
 | GET/PUT | `/api/v1/gate/policy`              | The global default gate policy (admin) |
@@ -346,7 +380,7 @@ roles, and password login can optionally be turned off. See [Single sign-on](#si
 | GET    | `/api/v1/root-causes`               | The same change merged across every project you can see (`?kind=`, `?ecosystem=`, `?q=`, `?kev=`, `?min_severity=`) |
 | GET    | `/api/v1/root-causes/{kind}/{key}`  | One root cause's affected projects (`key` base64url-encoded; findings, priority, live action if any) |
 | POST   | `/api/v1/root-causes/{kind}/{key}/remediation` | Create the missing remediation action everywhere you can edit; skips and reports the rest, idempotent |
-| GET/POST | `/api/v1/projects/{id}/connectors` | The project's Dependency-Track / DefectDojo pull connectors (token write-only); adding needs project owner |
+| GET/POST | `/api/v1/projects/{id}/connectors` | The project's pull connectors (Dependency-Track, DefectDojo, Snyk, GitHub, GitLab, Wiz, Tenable; token write-only); adding needs project owner |
 | PUT/DELETE | `/api/v1/projects/{id}/connectors/{connectorID}` | Change / remove a connector (owner; its imported findings stay) |
 | POST   | `/api/v1/projects/{id}/connectors/{connectorID}/test` | Verify the stored connector credentials (owner; `502` with the remote's error) |
 | POST   | `/api/v1/projects/{id}/connectors/{connectorID}/pull` | Pull now and report imported / new / closed counts (editor; also runs on `CONNECTOR_PULL_INTERVAL`) |
@@ -381,6 +415,7 @@ roles, and password login can optionally be turned off. See [Single sign-on](#si
 | GET    | `/api/v1/projects/{id}/vex/export`  | Export the project's analysis (`?format=openvex\|cyclonedx\|csaf`, `?branch=` / `?version_id=`) |
 | DELETE | `/api/v1/vex/{id}`                  | Remove a VEX statement               |
 | GET    | `/api/v1/ingest/queue`              | Ingest queue depth + oldest wait (admin) |
+| GET/PUT | `/api/v1/ingest/settings`          | Live overrides of the queue limit and workers per worker node (admin; `null` = the env default); every node applies them within one sample interval |
 | POST   | `/api/v1/projects/{id}/sboms`       | Upload a CycloneDX SBOM (snapshot)   |
 | GET    | `/api/v1/projects/{id}/sboms`       | SBOM history for a project           |
 | GET    | `/api/v1/projects/{id}/components`  | Project components (`?latest=true` for current inventory, `?vulnerable=true\|false`, `?license=<SPDX id>`, `?license_category=<ScanCode category>`, `?outdated=true\|false`, `?kind=ai\|model\|dataset\|ai-service\|software`) |
@@ -507,7 +542,14 @@ If no name is given, the default version is used (`main` if none exists yet).
   `repo_url`s. An unrecognized host gets no link rather than a guessed one.
 - Assignee: who owns fixing a finding (`PUT /findings/{id}/assignee`). Only
   people who can see the project can be assigned. `?assignee=me|none|<id>` filters
-  any finding list; the inbox has *Assigned to me*.
+  any finding list (`?active=true` keeps open and confirmed ones); the inbox has *Assigned to me*.
+- My work: one page with everything waiting on you. Findings assigned to you,
+  assessments and risk acceptances you may decide, acceptances you own that
+  expire within 30 days, and AI proposals you asked for or on your findings.
+  Each list is the server's own queue (`?actionable=true`, `?owner=me`,
+  `?mine=true`), so nothing is trimmed in the browser.
+- Links out: CVE ids link to NVD and OSV, GHSA ids to GitHub Advisories and OSV,
+  and a package URL to its deps.dev page (npm, PyPI, Maven, Go, Cargo, NuGet).
 - Comments and attachments: the discussion and the evidence (screenshots,
   PoC output; ≤10 MiB each, stored in Postgres). Downloads are always served as
   files with `nosniff`, and HTML/SVG/scripts as `application/octet-stream`, so an
@@ -527,7 +569,10 @@ If no name is given, the default version is used (`main` if none exists yet).
   rules read them in CEL (`finding.custom.<key>`, `project.custom.<key>`; component
   policies `project.custom.<key>`) and can set one with the `set_custom_field`
   action. Changes to a finding's fields are added to its history (`kind: custom_field`,
-  `field`), whether made by people or rules.
+  `field`), whether made by people or rules. A field can be **computed** instead
+  (`computed: true`, `expression`): its value comes from a [CEL](https://cel.dev)
+  expression over the entity's facts, not a write, `PATCH .../custom` refuses
+  one directly (`400`). See *Computed custom fields* below.
 - History: every status, severity and assignee change, with who made it and
   the reason they gave, plus comments and attachments. It is written by a
   database trigger, so automatic changes (auto-close, reopen on reappearance,
@@ -630,7 +675,7 @@ severity. It uses the same language as triage rules and component policies:
 |---|---|
 | `event` | `type`, `title`, `severity`, `project_id`, `finding_id`, `fields` (the event's key/value details) |
 | `event.project` | `name`, `slug`, `tags`, `criticality` |
-| `event.finding` | `scanner`, `category`, `rule_id`, `title`, `severity`, `status`, `cve`, `cvss`, `epss`, `kev`, `kev_sources`, `package`, `fixed_version`, `file_path`, `tags` |
+| `event.finding` | `scanner`, `category`, `rule_id`, `title`, `severity`, `status`, `cve`, `cvss`, `epss`, `kev`, `kev_sources`, `kev_ransomware`, `package`, `fixed_version`, `file_path`, `tags` |
 
 ```cel
 event.finding.kev && "internet-facing" in event.project.tags
@@ -653,10 +698,19 @@ Channel types. A channel's `url` field is the target, validated per type:
 | `mattermost` | Mattermost incoming-webhook URL     | Slack-compatible `{"text": …, "username": "Xila"}` |
 | `teams`      | Teams incoming-webhook / Workflows URL | Office 365 connector MessageCard (`summary`, `title`, `text`, severity `themeColor`, event fields as `sections[].facts`). Accepted by legacy incoming-webhook connectors and by the Teams Workflows *"When a Teams webhook request is received"* trigger |
 | `email`      | comma-separated recipients, e.g. `alice@example.com, Bob <bob@example.com>` | multipart plain + HTML mail, subject = event title, via `SMTP_*` |
+| `kafka`      | topic name                          | the raw event JSON, produced with a record key (below) |
 
 Email channels need `SMTP_HOST` + `SMTP_FROM`; creating one without them returns
 `400 SMTP is not configured`. `POST /notifications/channels/{id}/test` delivers to
 that one channel synchronously (three quick tries) and returns the result.
+
+Kafka channels carry a `kafka` object: `brokers` (`host:port` list, dialed
+through the server's outbound `OUTBOUND_*` policy), `tls` + optional `tls_ca`
+PEM, an optional `sasl_mechanism` (`PLAIN`, `SCRAM-SHA-256` or
+`SCRAM-SHA-512`) with `sasl_username` and a write-only `sasl_password` (sealed
+with `INTEGRATION_SECRET_KEY`, like a webhook's `signing_secret`), and an
+optional `key_template` for the record key (`{project_id}`, `{finding_id}`,
+`{event_type}`, `{severity}`; empty defaults to the project id).
 
 Signed webhooks. Every generic `webhook` delivery carries `X-Xila-Delivery` (a
 UUID per outbox row, the same on every retry, so drop ones you've seen) and
@@ -763,30 +817,42 @@ re-dates that project's findings. `GET /sla/settings` returns the resulting
 criticality × severity matrix, and a project's `GET …/sla/policy` adds the
 windows it actually gets (`applied`).
 
-Issue trackers (Jira, GitHub Issues, GitLab Issues): each project can have
-one tracker. The project owner configures it: kind, base URL, target (Jira
-project key, GitHub `owner/repo`, or GitLab project id/path), and an API token.
-The token is encrypted at rest (AES-256-GCM with `INTEGRATION_SECRET_KEY`,
-bound to the project) and is not returned; the API only reports `has_token`.
-Without the key configured, trackers can't be created (400). An editor files a
-finding with `POST /findings/{id}/issue`. This is idempotent: a finding has at most one
-issue. With `auto_create` on, every sync also files live, non-duplicate findings
-at or above `min_severity` (at most 50 per tracker per run, most severe first).
-The issue title is `[severity] title`, and the body contains the description, package@version, fixed
-version, CVEs, CVSS / EPSS / KEV and, when `PUBLIC_URL` is set, a link back.
-The sync (`ISSUE_SYNC_INTERVAL`, 15 min, or `POST /issue-trackers/sync`) is
-two-way. A finding leaving the backlog (remediated, risk accepted, false
-positive, won't fix) closes its issue, and one coming back reopens it. An issue
-closed in the tracker marks the finding remediated. If the problem is still
-there, the next scan reopens the finding, and the sync then reopens the issue.
-An issue reopened in the tracker reopens a remediated finding, but does not overturn a
-risk acceptance or false positive; in that case the issue is closed again. Each link stores
-the last state both sides agreed on, so the sync can tell which side changed and
-the two directions don't undo each other. Jira closes and reopens issues via workflow
-transitions matched by name (`done_transition` / `reopen_transition`, default
-`Done` / `To Do`). Jira Cloud authenticates with `jira_email` + API token; Server
-/ Data Center uses a PAT. A failing tracker or issue is logged and counted, and does not
-stop the run.
+Issue trackers (Jira, GitHub Issues, GitLab Issues, Azure DevOps Boards,
+Linear, ServiceNow): each project can have one tracker. The project owner
+configures it: kind, base URL, target (Jira project key, GitHub
+`owner/repo`, GitLab project id/path, Azure DevOps project name, Linear team
+id, or ServiceNow table, default `incident`), and an API token (ServiceNow:
+HTTP Basic user/password via `auth_user`, or an OAuth Bearer access token
+when `auth_user` is blank). The token is encrypted at rest (AES-256-GCM with
+`INTEGRATION_SECRET_KEY`, bound to the project) and is not returned; the API
+only reports `has_token`. Without the key configured, trackers can't be
+created (400). An editor files a finding with `POST /findings/{id}/issue`.
+This is idempotent: a finding has at most one issue. With `auto_create` on,
+every sync also files live, non-duplicate findings at or above
+`min_severity` (at most 50 per tracker per run, most severe first). The
+issue title is `[severity] title`, and the body contains the description,
+package@version, fixed version, CVEs, CVSS / EPSS / KEV and, when
+`PUBLIC_URL` is set, a link back. The sync (`ISSUE_SYNC_INTERVAL`, 15 min, or
+`POST /issue-trackers/sync`) is two-way. A finding leaving the backlog
+(remediated, risk accepted, false positive, won't fix) closes its issue, and
+one coming back reopens it. An issue closed in the tracker marks the finding
+remediated. If the problem is still there, the next scan reopens the
+finding, and the sync then reopens the issue. An issue reopened in the
+tracker reopens a remediated finding, but does not overturn a risk
+acceptance or false positive; in that case the issue is closed again. Each
+link stores the last state both sides agreed on, so the sync can tell which
+side changed and the two directions don't undo each other. GitHub and GitLab
+have a plain open/closed flag; the other four close/reopen by writing a
+state value instead (`done_transition` / `reopen_transition`): Jira a
+workflow transition matched by name (default `Done` / `To Do`), Azure DevOps
+the `System.State` field (default `Closed` / `Active`), Linear a workflow
+state *type* (`completed`/`canceled` vs. `unstarted`, not a per-team state
+name, resolved to a concrete state id on each call), and ServiceNow the
+table's `state` field (default `6` Resolved / `1` New for `incident`). Jira
+Cloud authenticates with `jira_email` + API token; Server / Data Center and
+Azure DevOps use a PAT as the Basic auth password with an empty username;
+Linear sends its API key as-is (no `Bearer` prefix). A failing tracker or
+issue is logged and counted, and does not stop the run.
 
 Remediation actions: open findings grouped by the single change that fixes
 them, tracked as work items with an owner, a due date and a status (`open`,
@@ -836,7 +902,8 @@ alongside remediation actions; the nav has a Root Causes page with the same
 list, an expandable row per change for its affected projects, and a button to
 create the missing actions.
 
-Pull connectors (Dependency-Track, DefectDojo): point a project at a running
+Pull connectors (Dependency-Track, DefectDojo, Snyk, GitHub, GitLab, Wiz,
+Tenable): point a project at a running
 Dependency-Track project (by UUID) or DefectDojo product (`42`) or engagement
 (`engagement:42`) and Xila imports its findings, either on demand (Pull now,
 project editor) or every `CONNECTOR_PULL_INTERVAL` (6 h). A project can have
@@ -863,6 +930,22 @@ overturn Xila's triage. Tokens are encrypted at rest the same way as tracker tok
 requires re-entering the token. Scheduled pulls are serialized across instances
 by a per-connector advisory lock. A failing remote does not stop the others.
 
+The other kinds, each its own scanner name so they never close each other's
+findings. Every one pages through the vendor API, honours `Retry-After` on 429,
+lifts the CVE and maps the vendor's dismissal to remote triage:
+
+| Kind | `remote_project` | API | Remote triage |
+| ---- | ---------------- | --- | ------------- |
+| `snyk-api` | `<org id>` or `<org id>:<project id>` | REST `GET /orgs/{org}/issues` (SCA, Code, IaC, license), `Authorization: token` | ignored issues |
+| `github` | `owner/repo` or `org:<org>` (github.com or GitHub Enterprise Server) | code scanning and Dependabot alerts, Bearer token | dismissed alerts, with the reason |
+| `gitlab` | namespaced project path (gitlab.com or self-managed) | GraphQL `project.vulnerabilities`, `read_api` token | dismissed vulnerabilities, with the reason |
+| `wiz` | comma-separated Wiz project ids, or empty for all | OAuth client credentials at the tenant's token URL (`auth_url`), GraphQL `vulnerabilityFindings` | rejected findings |
+| `tenable` | optional asset tag `<category>=<value>` | Vulnerability Management export (`POST /vulns/export`, poll, download chunks), `X-ApiKeys` | accepted (risk-accepted) vulnerabilities |
+
+Fixed or resolved items aren't fetched, so the next pull auto-closes them. Wiz and
+Tenable take two secrets (client id and secret, access and secret key), stored
+together like any connector token.
+
 Auto-triage rules (noise reduction): persistent rules (*conditions → action*)
 that run automatically on every ingest and across the existing backlog, so
 the same triage decision doesn't have to be made twice. Conditions (all AND-ed, any
@@ -885,7 +968,11 @@ appsec, SCA, and CSPM/KSPM findings.
   `POST /api/v1/triage-rules/{id}/preview` (a stored rule, in any state)
   lists the findings the rule *would* change and how. Evaluation matches a
   backlog apply (live open/confirmed, non-duplicate findings; the rule slotted into
-  the live rules by `sort_order`, first match wins). Results are capped at 200 with a `total`.
+  the live rules by `sort_order`, first match acts, chained rules included). Results are capped at 200 with a `total`.
+- Order and chaining: rules evaluate by `sort_order` (lowest first) and the first
+  match acts. A rule with `continue: true` lets the rules after it evaluate too,
+  against the finding as it left it: raise internet-facing findings to critical,
+  then let a later rule act on every critical.
   `?project_id=` narrows it. Nothing is written.
 - Hit metrics: each rule's `hit_count` grows by the findings it actually
   changed (ingest and backfill; idempotent re-runs add nothing), with `last_hit_at`.
@@ -923,7 +1010,7 @@ matching by title alone is not a sound cross-tool signal.
 Security gates (break the build): a per-project (or global-default) policy
 that CI evaluates to fail a pipeline on unacceptable risk. `POST /projects/{id}/gate`
 checks the deduped, triaged backlog against these thresholds: `max_critical`,
-`max_high`, `block_kev` (optionally only for the catalogs in `kev_sources`),
+`max_high`, `max_medium`, `max_low`, `max_info`, `block_kev` (optionally only for the catalogs in `kev_sources`),
 `max_epss`, `block_license`, `max_risk_score` (the same business-weighted risk
 score the project summary shows, scoped to the gated version). It returns
 200 when it passes and 422 when it fails, both with the full result (violations
@@ -972,6 +1059,16 @@ KEV = 45` outranks a quiet `critical = 15`. Enrichment runs on a schedule and on
 demand via `POST /enrich`. List findings with `?sort=priority` to work the backlog
 exploit-first.
 
+Per-project priority weights: a project owner can override the factors
+(`PUT /projects/{id}/priority-weights`, or the Gate tab): the severity weights,
+the KEV multiplier, the EPSS slope, the exploit floors, the reachability
+discounts and the exposure factors. Fields left out keep their default. The
+override is validated so discounts stay in (0, 1], uplifts stay at 1 or more,
+severities keep their order, and an exploited critical in a transitive dev
+dependency on an isolated asset still outranks a quiet medium on an
+internet-facing one. Saving re-ranks the project's findings at once; `DELETE`
+returns to the defaults.
+
 KEV catalogs. Each enrichment run downloads the catalogs in `KEV_SOURCES`:
 
 | Catalog | Source | Default |
@@ -993,6 +1090,12 @@ a catalog at a mirror with `KEV_CISA_URL` / `KEV_ENISA_URL` / `KEV_VULNCHECK_URL
 Policies (`kev_source in [enisa]`, CEL `"vulncheck" in vulns.kev_sources`), triage
 rules (`"cisa" in finding.kev_sources`) and gates (`kev_sources` limits
 `block_kev` to some catalogs) can all read it.
+
+CISA KEV and VulnCheck KEV also say whether a flaw is known to be used in
+ransomware campaigns (`knownRansomwareCampaignUse`). A finding a catalog marks
+that way has `kev_ransomware: true`, a Ransomware badge, a findings filter
+(`?kev_ransomware=true`) and the `kev_ransomware` fact in triage rule and
+notification expressions. Like the KEV ids, the flag survives a failed download.
 
 ### Engagements, manual findings & templates (DefectDojo workflow)
 
@@ -1027,6 +1130,14 @@ Upload a CycloneDX or SPDX JSON BOM to `POST /projects/{id}/sboms`. The format i
 detected from the content. Each upload is stored as an immutable snapshot
 (`sboms`) with its full component list (`sbom_components`), so history is
 preserved rather than overwritten:
+
+Strict validation (`?strict=true`, or instance-wide `SBOM_STRICT_VALIDATION`)
+checks a CycloneDX upload against the official JSON schema for its own
+`specVersion` (1.2 through 1.7); a failure returns `400` with up to 50 field
+errors, each a JSON Pointer path and message, e.g.
+`{"path": "/components/3/purl", "message": "does not match pattern"}`. Off by
+default, so existing lenient uploads keep working. XML CycloneDX is always
+rejected (upload CycloneDX or SPDX JSON instead), in every mode.
 
 - History: `GET /projects/{id}/sboms` lists snapshots newest-first (filter
   by `?artifact=`), giving the timeline of a project or artifact's dependencies.
@@ -1482,7 +1593,8 @@ Untriaged leftovers that no longer map are closed. Recreate a custom denylist
 as a policy (or edit the seeded one).
 
 Expressions (CEL). When the fixed conditions can't express a rule, a policy
-condition (subject `expression`) and a triage rule (`expression`) take a
+condition (subject `expression`), a triage rule (`expression`) and a
+vulnerability policy (`condition`, its only condition) take a
 [CEL](https://cel.dev) expression. Dependency-Track 5 and Kubernetes use the
 same language for this:
 
@@ -1499,7 +1611,7 @@ max_severity_rank 5–0, kev, kev_sources, epss, cwes), `pkg` (known, latest, ou
 versions_behind, age_days), `model` (suppliers, task, architecture_family,
 datasets; empty / null when unknown) and `project` (name, version, default_version, custom). Triage
 rules see `finding` (scanner, category, rule_id, title, severity, status, cve, cwe,
-cvss, epss, kev, kev_sources, package, version, fixed_version, purl, file_path, url, tags,
+cvss, epss, kev, kev_sources, kev_ransomware, package, version, fixed_version, purl, file_path, url, tags,
 dep_direct, dep_depth, dep_scope, custom) and `project` (criticality, custom). `custom.<key>`
 is a defined custom field. A misspelled or undefined one is refused on save. An unset
 one is absent and does not match; `has(finding.custom.team)` tests for it. An unknown fact is
@@ -1509,7 +1621,109 @@ same "unknown doesn't match" rule as every other condition. Expressions are chec
 on save: a syntax error, a misspelled field, a non-boolean result, or an expression too
 expensive to run per component returns a 400 that explains the problem. The inputs are
 plain JSON-shaped documents, so an external engine (OPA) could later be given the
-same ones. There is one built-in language, not two.
+same ones. There is one built-in language, not three.
+
+### Vulnerability policies
+
+Dependency-Track 5-style policies over a component + vulnerability pair (a
+package finding), managed under Vulnerability Policies in the UI or
+`/api/v1/vuln-policies` (instance admin). Each policy is a CEL `condition`
+(see *Expressions (CEL)* above; same `component`/`vulnerability`/`project`
+facts a vulnerability policy's own schema exposes, `component.name/version/
+purl/group/license/scope/direct`, `vulnerability.id/aliases/severity/cvss/
+epss/kev/cwes/published` (`published` is always unknown, findings carry no
+disclosure date), `project.name/tags/criticality/custom`), plus:
+
+- An `analysis` (optional): `state`: `not_affected`/`false_positive` both set
+  the finding `false_positive` (Dependency-Track keeps them as distinct
+  justifications of the same outcome, like VEX's `not_affected`/`fixed`),
+  `exploitable` sets `confirmed`, `in_triage` sets no status (useful for a
+  rating-only policy, or to flag a pair for review), plus `justification` and
+  `details` recorded on the finding.
+- A `rating` (optional): a `severity` override (`cvss_vector`/`cvss_score` are
+  detail only; a scanner- or NVD-sourced CVSS is never overwritten). A policy
+  needs an `analysis`, a `rating`, or both.
+- `priority`: the highest-priority policy whose condition matches a pair wins
+  when several do.
+- `valid_from`/`valid_until`: outside the window the policy doesn't apply.
+- `scope`: `global`, `projects` (an explicit list) or `tag` (projects carrying
+  it).
+- `mode`: `apply` mutates findings; `log` never does (and never blocks an
+  `apply` policy underneath it), use it to see what a policy *would* do
+  before turning it on, same idea as the triage-rule approval workflow's
+  preview.
+
+A policy's effect is reversible: when it stops matching, is disabled, deleted,
+or falls outside its validity window, the next evaluation reverts exactly what
+it set, the finding goes back to what it was before, the same way an expired
+triage exception reopens one. It never overturns a person's later call: the
+guard compares the finding's *current* state against what the engine itself
+last recorded, not against "is it still open", so once something else moved
+the finding away from that recorded state, the policy abandons its claim
+rather than fighting it.
+
+- Runs as a `scan.Applier` **after VEX** (an authoritative VEX verdict still
+  wins) and **before the generic triage rules**, on every ingest; project-wide
+  on every policy create/update/delete (in the background) and on
+  `VULN_POLICY_EVAL_INTERVAL` (6h default), which is what catches a validity
+  window's expiry between ingests.
+- `POST /vuln-policies/preview` (a draft) or `POST /vuln-policies/{id}/preview`
+  (a stored policy) dry-runs it: the pairs it would act on and how, evaluated
+  on its own (ignoring priority against other live policies), capped at 200
+  with a `total`.
+- GitOps bundle: `GET /vuln-policies/bundle?format=yaml|json` exports the
+  whole set (no database ids, an import always assigns fresh ones);
+  `PUT /vuln-policies/bundle` (`?dry_run=true` to validate without writing)
+  replaces it atomically, every policy is validated before anything is
+  written. `VULN_POLICY_BUNDLE_URL`, if set, is fetched (through netguard) and
+  imported on `VULN_POLICY_BUNDLE_INTERVAL` (1h default); a failed fetch keeps
+  the current set.
+
+### Computed custom fields
+
+A custom field definition can carry a CEL `expression` instead of being set by
+a person (`computed: true` on `POST`/`PATCH /custom-fields`). Its value is
+derived from the entity's facts and read-only through the API: writing it
+with `PATCH /{projects|assets|findings}/{id}/custom` is refused (`400`), and a
+triage rule's `set_custom_field` skips it the same way. The result is stored
+in the entity's `custom` column like any other value, so `?cf.<key>=`,
+exports, history and everyone else's CEL expressions see it unchanged.
+
+Fact documents, by entity:
+
+- **Finding**: exactly what a triage rule evaluates, `finding.*` and
+  `project.*` (see *Triage rules* above), one document builder, not a copy.
+- **Project**: `project.*`: `name`, `slug`, `tags`, `criticality`, `custom`,
+  and `open_findings` (open/confirmed counts by severity, one query, the
+  same the portfolio rollups already run).
+- **Asset**: `asset.*` (`name`, `type`, `identifier`, `exposure`, `custom`)
+  plus the same `project.*` a project's own computed field sees.
+
+A computed field never sees another computed field's value: every computed
+key is dropped from `*.custom` in the document its own expression evaluates
+against (so there is no evaluation order to get wrong, and no cycle is
+possible). Everyone *else*, triage rules, policies, filters, exports, still
+reads a computed field's stored value once it has one.
+
+The result must fit the field's type: `text` accepts a string, or a number /
+bool rendered as text; `number` a double or int; `enum` one of the options;
+`date` a `YYYY-MM-DD` or RFC 3339 string. A result that doesn't fit, an
+evaluation error, or CEL's null (an unknown fact) leaves the field unset,
+never a guess. `expression` is checked the same way a triage rule's is: dry-run
+on save against a document with every fact present, and a result type CEL can
+already prove will never fit the field (e.g. always a boolean for a `number`
+field) is refused there too.
+
+Values are kept fresh three ways: recomputed for a scan's findings on every
+ingest (right after the triage rules); a full recompute of every project,
+asset or finding of that entity when a computed definition is created or its
+expression changes (synchronous, the save's response already reflects it);
+and every `COMPUTED_FIELDS_INTERVAL` (15m default, `0` = off), so facts
+nothing re-ingests, EPSS/KEV, status, exposure, package metadata, still
+reach a computed field within one interval. That interval is therefore how
+stale those facts can be between scans; a KEV flag that just landed, for
+example, is reflected in a computed field within `COMPUTED_FIELDS_INTERVAL`
+even without a new upload.
 
 ### Reachability: why most of a dependency backlog doesn't matter
 
@@ -1941,6 +2155,8 @@ parsers are selected by `?scanner=`:
 | Acunetix / 360 | `acunetix` | XML export or Acunetix 360 JSON | DAST |
 | Invicti / Netsparker | `invicti` | JSON report | DAST |
 | testssl.sh | `testssl` | `testssl.sh --csvfile out.csv $URL` | DAST (TLS) |
+| CryptoLyzer | `cryptolyzer` | `cryptolyze --output-format json tls all $HOST:443` | DAST (TLS, checked against BSI TR-02102-2) |
+| drHEADer | `drheader` | `drheader scan single $URL --output json` (or `scan bulk`) | DAST (HTTP security headers) |
 | SecObserve | `secobserve` | `GET /api/observations/?product=<id>` JSON, or SecObserve import format | any |
 | Nancy | `nancy` | `nancy sleuth --output=json < go.list` | SCA (Go) |
 | CloudSploit | `cloudsploit` | `cloudsploit-scan --json` | cloud (CSPM) |
@@ -1991,6 +2207,12 @@ PURLs, fix versions and CVSS, which dedup and reachability need.
 Adding a tool takes one file. See [docs/PARSERS.md](docs/PARSERS.md). It is a
 good first contribution, and everything downstream (dedup, triage,
 priority, compliance, gates) works on the normalized model without extra work.
+
+No tool worth integrating but no Go file wanted? An instance admin can map a
+CSV, JSON or XML report onto findings from the **Custom Parsers** admin page
+(or `POST /custom-parsers`), with a dry-run preview against a pasted sample.
+Upload with `?scanner=<name>` like any built-in tool once saved. See
+"No-code parsers" in `docs/PARSERS.md`.
 
 ```bash
 semgrep --sarif -o semgrep.sarif .
@@ -2388,19 +2610,90 @@ Azure Key Vault, Vault) hand secrets to the app. It applies to `JWT_SECRET`,
 `NVD_API_KEY`, `VULNCHECK_API_TOKEN`, `VULNMATCH_GITHUB_TOKEN` and
 `VULNMATCH_VULNERABLECODE_API_KEY`.
 
+**Native secrets manager references.** A secret setting's value (NAME or
+NAME_FILE content) can be a reference instead of a literal, resolved once at
+startup:
+
+- `aws-sm://<name-or-ARN>[#json-key]` (optional `?version_stage=` / `?region=`):
+  AWS Secrets Manager, via the official SDK's default credential chain (env,
+  IRSA, ECS/EC2 instance roles). `AWS_ENDPOINT_URL_SECRETS_MANAGER` points it
+  at a non-AWS endpoint (LocalStack, tests).
+- `gcp-sm://projects/<p>/secrets/<s>[/versions/<v>][#json-key]` (version
+  defaults to `latest`): GCP Secret Manager's REST API, with a token from
+  Application Default Credentials (workload identity, the metadata server, or
+  `GOOGLE_APPLICATION_CREDENTIALS`).
+- `vault://<path>[#key]`, e.g. `vault://kv/data/xila#jwt`: HashiCorp/OpenBao
+  Vault's HTTP API (KV v1 and v2). `#key` selects a field; required unless the
+  secret has exactly one. Auth: `VAULT_TOKEN`(`_FILE`), or `VAULT_AUTH=kubernetes`
+  (`VAULT_K8S_ROLE`, `VAULT_K8S_MOUNT` default `kubernetes`) or
+  `VAULT_AUTH=approle` (`VAULT_ROLE_ID`, `VAULT_SECRET_ID`(`_FILE`),
+  `VAULT_APPROLE_MOUNT` default `approle`). `VAULT_ADDR` is required;
+  `VAULT_NAMESPACE` and `VAULT_CACERT` (a PEM file) are optional. The login
+  token is reused and refreshed automatically on a `403`.
+- `azure-kv://<vault-name-or-host>/<secret>[/<version>]`: Azure Key Vault's
+  REST API, with a token from `DefaultAzureCredential` (managed identity,
+  workload identity, env).
+
+A failed lookup is a startup error naming the setting and the reference's
+scheme and path, never the secret's value. A value with no recognized scheme
+is used literally, exactly as today. These backends are resolved before
+`internal/netguard`'s outbound policy exists (they are operator
+infrastructure, like `DB_HOST`), so their calls do not go through it.
+`SECRETS_TIMEOUT` (default `30s`) bounds each lookup.
+
+**Rotation.** Any secret setting that came from a reference or a `NAME_FILE`
+is re-read every `SECRETS_REFRESH_INTERVAL` (default `5m`, `0` disables it) by
+every node, not only the leader. A failed refresh keeps the last good value and
+logs a warning without the value; a changed value is logged by setting name
+only. Every rotated value applies without a restart: `DB_PASSWORD` to new pool
+connections (existing ones keep working), `METRICS_TOKEN`, `SMTP_PASSWORD`,
+`LDAP_BIND_PASSWORD`, `OIDC_CLIENT_SECRET`, `NVD_API_KEY`,
+`VULNCHECK_API_TOKEN`, `VULNMATCH_GITHUB_TOKEN`,
+`VULNMATCH_VULNERABLECODE_API_KEY` and `AI_API_KEY` at their next use, and
+`S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` within a minute. A literal
+environment value can't change, so it needs a restart. `DB_READ_URL` is not
+refreshed (it carries its own credentials, possibly for another host).
+
+`JWT_SECRET` and `INTEGRATION_SECRET_KEY` rotate through key rings, so the
+change ends no session and leaves every stored secret readable:
+
+1. Put the old value into the `_PREVIOUS` list (`JWT_PREVIOUS_SECRETS`,
+   `INTEGRATION_SECRET_KEY_PREVIOUS`, comma-separated) and the new one in place
+   of the current value. Update the previous list first when both come from
+   files or a secrets manager, so no refresh sees the new key without the old.
+2. New tokens are signed with the new secret and carry a `kid`; tokens signed
+   with a previous secret still verify. Values sealed with a previous
+   integration key still open, and the leader re-seals them under the new key
+   in the background. `GET /api/v1/admin/secrets/status` (instance admins)
+   shows per sealed column how many rows are under the current key, a previous
+   key, or none.
+3. Remove the old JWT secret once `JWT_TTL` has passed, and the old integration
+   key once the status shows no row under a previous key.
+
+A rotated value that fails the boot checks (an integration key that isn't 32
+base64 bytes, a previous JWT secret repeating the current one) is refused with
+a warning, and the running keys stay.
+
 | Variable                      | Default              | Notes                                   |
 | ----------------------------- | -------------------- | --------------------------------------- |
 | `APP_ENV`                     | `development`        | `development`, `production`, or `test` (aliases like `prod` accepted); drives hardening defaults and startup validation |
+| `SECRETS_TIMEOUT`             | `30s`                | per-lookup timeout for a secret reference (`aws-sm://`, `gcp-sm://`, `vault://`, `azure-kv://`) |
+| `SECRETS_REFRESH_INTERVAL`    | `5m`                 | how often a secret that came from a reference or `NAME_FILE` is re-read (`0` disables it) |
 | `HTTP_HOST` / `HTTP_PORT`     | `0.0.0.0` / `8080`   |                                         |
 | `DB_*`                        | `xila`               | host, port, user, password, name, sslmode |
 | `DB_MAX_CONNS` / `DB_MIN_CONNS` | `20` / `2`         | pool sizing                             |
 | `DB_MAX_CONN_LIFETIME` / `_IDLE_TIME` | `1h` / `30m` | pool recycling (Go durations)           |
 | `DB_CONNECT_TIMEOUT`          | `10s`                | dial timeout (added to the DSN)         |
 | `DB_STATEMENT_TIMEOUT`        | `30s`                | cap on any single query (`0` disables); set per pooled connection, not in the DSN |
+| `DB_READ_URL`                 | (none)               | `postgres://` URL of a read replica for reporting reads (portfolio, trends, reports); also `DB_READ_URL_FILE` |
+| `DB_READ_STATEMENT_TIMEOUT`   | `0` (= `DB_STATEMENT_TIMEOUT`) | statement cap for reporting reads; set it or `DB_READ_URL` to give reporting its own pool |
+| `DB_READ_MAX_CONNS`           | `10`                 | size of that reporting pool |
+| `DB_JOB_STATEMENT_TIMEOUT`    | `15m`                | statement cap for the metric snapshot job, which runs on a 2-connection pool of its own |
 | `HTTP_READ_TIMEOUT` / `_WRITE_TIMEOUT` / `_IDLE_TIMEOUT` | `15s`/`30s`/`60s` | server timeouts |
 | `HTTP_BODY_LIMIT_MB`          | `32`                 | max upload size (scans/SBOMs)           |
 | `JWT_SECRET`                  | dev-only fallback    | **Must be a strong value in production (boot fails otherwise).** |
 | `JWT_TTL`                     | `24h`                | Go duration                             |
+| `REAUTH_WINDOW`               | `10m`                | how recently a session must have signed in to create an API token (`0` = no check) |
 | `CORS_ALLOWED_ORIGINS`        | `*` dev / none prod  | comma-separated allow-list              |
 | `TRUSTED_PROXIES`             | (none)               | proxy IPs/CIDRs to trust for `X-Forwarded-*` |
 | `COOKIE_SECURE`               | `true` in prod       | `Secure` flag on auth cookies           |
@@ -2465,6 +2758,9 @@ Azure Key Vault, Vault) hand secrets to the app. It applies to `JWT_SECRET`,
 | `METRICS_ADDR`                | *(empty)*            | serve `/metrics` on a separate listener (e.g. `:9090`) instead of the main port |
 | `METRICS_TOKEN`               | *(empty)*            | bearer token scrapers must send. In production, `/metrics` on the main port refuses to boot without one; a separate `METRICS_ADDR` does not need it |
 | `POLICY_EVAL_INTERVAL`        | `6h`                 | re-evaluate component policies on every project (also on upload and policy edits); `0` = off. Replaces the removed `LICENSE_DENYLIST` (ignored, with a startup warning) |
+| `VULN_POLICY_EVAL_INTERVAL`   | `6h`                 | re-evaluate vulnerability policies on every project (also on ingest and policy edits); catches a validity window's expiry; `0` = off |
+| `VULN_POLICY_BUNDLE_URL`      | *(empty)*            | fetch a GitOps vulnerability-policy bundle (YAML or JSON) from this URL and replace the whole set on `VULN_POLICY_BUNDLE_INTERVAL`; a failed fetch keeps the current set |
+| `VULN_POLICY_BUNDLE_INTERVAL` | `1h`                 | how often to re-fetch `VULN_POLICY_BUNDLE_URL` |
 | `ENRICH_ENABLED`              | `true`               | run periodic EPSS/KEV enrichment         |
 | `ENRICH_INTERVAL`             | `6h`                 | how often to refresh exploit intel (and NVD CVSS when enabled) |
 | `KEV_SOURCES`                 | `cisa,enisa` (+`vulncheck` with a token) | KEV catalogs to download on each enrichment run: `cisa`, `enisa` (ENISA EUVD exploited list), `vulncheck` |
@@ -2508,9 +2804,10 @@ Azure Key Vault, Vault) hand secrets to the app. It applies to `JWT_SECRET`,
 | `SBOM_RETENTION_KEEP`         | `0` (keep all)       | keep the newest N SBOM snapshots per artifact and version; older ones (components, matches) are deleted. The current snapshot is not deleted |
 | `SBOM_RETENTION_AGE`          | `0`                  | with or without `_KEEP`: delete snapshots beyond N only once they are older than this |
 | `SCAN_RETENTION`              | `0` (keep)           | delete scan records older than this, except a finding's last scan or the latest scan of a target |
-| `LOG_RETENTION`               | `90d` (`2160h`)      | notification delivery log and failed ingest jobs (which hold the uploaded report) |
+| `LOG_RETENTION`               | `90d` (`2160h`)      | notification delivery log and failed ingest jobs (which hold the uploaded report, or its S3 object with `INGEST_PAYLOAD_STORE=s3`) |
 | `AUDIT_RETENTION`             | `365d` (`8760h`)     | audit log entries older than this are purged (`0` = keep forever); the purge itself is logged |
 | `ARCHIVE_RETENTION`           | `30d` (`720h`)       | archived projects, engagements, scans, and findings stay restorable for this long, then the retention job deletes them (`0` = keep forever) |
+| `FINDING_ARCHIVE_AFTER`       | `0` (off)            | archive findings fixed longer ago than this (e.g. `4320h`), in batches; `ARCHIVE_RETENTION` then purges them, and one reported again comes back open |
 | `ASSESSMENT_REQUIRES_APPROVAL` | `false`             | four-eyes for manual status and severity changes: they become pending assessments until a different project owner (or instance admin) approves them |
 | `RISK_ACCEPTANCE_REQUIRES_APPROVAL` | `true` in production, else `false` | four-eyes for risk acceptances: the requester cannot approve or reject their own; imported acceptances wait as requests |
 | `RISK_ACCEPTANCE_EXPIRY_WARNING` | `168h` | announce approved risk acceptances this long before they expire (`0` = never) |
@@ -2520,11 +2817,20 @@ Azure Key Vault, Vault) hand secrets to the app. It applies to `JWT_SECRET`,
 | `ISSUE_SYNC_INTERVAL`         | `15m`                | how often issue-tracker state is synced in both directions and auto-create runs (`0` = off) |
 | `REMEDIATION_SWEEP_INTERVAL`  | `15m`                | how often open findings are grouped into remediation actions and live actions are refreshed (due date, owner, auto-close) (`0` = off; ingest still runs it per scan) |
 | `REMEDIATION_AUTO_CREATE`     | `false`              | create remediation actions from proposals automatically instead of waiting for a user to accept them |
-| `CONNECTOR_PULL_INTERVAL`     | `6h`                 | how often each enabled Dependency-Track / DefectDojo connector is pulled (`0` = off; Pull now still works) |
+| `CONNECTOR_PULL_INTERVAL`     | `6h`                 | how often each enabled pull connector is pulled (`0` = off; Pull now still works) |
 | `METRICS_SNAPSHOT_INTERVAL`   | `1h`                 | how often today's and yesterday's metric snapshots are recomputed; the first run backfills 90 days (`0` = off) |
+| `PORTFOLIO_FROM_SNAPSHOTS`    | `false`              | serve `/portfolio` (counts, risk, top projects, compliance, SLA) from the latest snapshot run instead of scanning findings per request |
 | `INGEST_MAX_QUEUE_DEPTH`      | `10000`              | pending job count at which uploads are rejected with `429` (`0` = unbounded) |
 | `INGEST_QUEUE_SAMPLE_INTERVAL`| `5s`                 | how often queue depth is measured             |
 | `INGEST_SKIP_UNCHANGED`       | `true`               | skip the pipeline when a report's content hash matches its target's previous completed scan (see "Skip unchanged scans"); a per-upload `force=true` always processes in full |
+| `INGEST_PAYLOAD_STORE`        | `postgres`           | where a queued job's raw upload lives until a worker processes it: `postgres` (`scan_jobs.payload`) or `s3` (any S3-compatible object storage; see "Payload storage") |
+| `SBOM_STRICT_VALIDATION`      | `false`              | validate every CycloneDX SBOM upload against the official JSON schema for its own `specVersion`, not only ones that opt in with `?strict=true` (see "SBOMs") |
+| `S3_ENDPOINT`                 | AWS's regional endpoint | override for a non-AWS S3-compatible service (MinIO, Ceph, R2, GCS interop); validated like every other configured destination (`internal/netguard`) |
+| `S3_REGION`                   | `us-east-1`          | bucket region |
+| `S3_BUCKET`                   | -                    | bucket for queued payloads; required when `INGEST_PAYLOAD_STORE=s3` |
+| `S3_PREFIX`                   | -                    | optional key prefix under the bucket |
+| `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | -     | static credentials; both unset uses the standard AWS credential chain (environment, shared config, EC2/ECS instance credentials, EKS IRSA) |
+| `S3_FORCE_PATH_STYLE`         | `false`              | address objects as `/bucket/key`; needed by most non-AWS S3-compatible services |
 
 ## Scaling ingestion (async)
 
@@ -2587,12 +2893,30 @@ reported reopens, a reset field gets the scanner's value back).
 `force=true` (`xila upload --force`) always processes in full. Works the same
 whether ingestion is sync or async.
 
+Multi-host scans. A network scan (Nessus, OpenVAS, Qualys, Nmap, testssl.sh)
+covers many machines at once. Upload it with `split_assets=true` (`xila upload
+--split-assets`) and each finding is filed under the host asset of the machine
+it names, created on first sight and reused by later scans, so exposure,
+relations and per-asset views work per machine. Findings that name no host stay
+on the project. Auto-close still treats the whole scan as one target: a host's
+finding the next scan no longer reports is closed.
+
 ### Backpressure & queue visibility
 
 Accepting an upload we can't process for an hour is worse than refusing it. The
 client believes it was ingested and gates on a backlog that was never updated.
 Once `INGEST_MAX_QUEUE_DEPTH` pending jobs accumulate, uploads are rejected with
 `429` and `Retry-After` (set it to `0` to accept without limit).
+
+Workers claim jobs fairly. The org with the fewest jobs processing goes first
+(its oldest job wins ties), and a project never has more than one job
+processing: its other uploads wait while workers move on to other projects. So a
+tenant that queues 100,000 reports doesn't hold up another tenant's single
+upload. Admins can change the queue limit and the worker count per worker node
+at runtime (`PUT /api/v1/ingest/settings`, or the Ingest queue card on the
+home page); every node picks the change up on its next queue sample
+(`INGEST_QUEUE_SAMPLE_INTERVAL`). `null` returns to the env value, and web-only
+nodes (`INGEST_WORKERS=0`) never start workers.
 
 `GET /api/v1/ingest/queue` (admin) reports `pending`, `processing`, `failed`,
 and `oldest_wait_seconds`. Alert on the last one, since depth alone is
@@ -2602,9 +2926,41 @@ gauges (`xila.ingest.queue.depth`, `xila.ingest.queue.oldest_wait`) along with
 worker throughput and latency (`xila.ingest.jobs`, `xila.ingest.job.duration`),
 so you can see whether the queue drains faster than it fills.
 
+### Payload storage (S3)
+
+Async ingest holds each queued report's raw bytes in `scan_jobs.payload`
+until a worker processes it. At very high volume (a burst of a million 1 MB
+reports is a terabyte) that is a lot of bytea traffic through Postgres for
+data nothing ever queries. `INGEST_PAYLOAD_STORE=s3` moves it to any
+S3-compatible object storage instead (AWS S3, MinIO, Ceph, Cloudflare R2,
+GCS's S3 interop): the upload handler stores the payload under
+`<S3_PREFIX>/scan-jobs/<scan id>` and `scan_jobs` keeps only that key
+(`payload_ref`), the worker fetches it, and it is deleted once the job
+finishes. A job that exhausts its retries and is parked `failed` keeps its
+object, so it stays inspectable, until the `LOG_RETENTION` sweep deletes it
+alongside the row (the same thing `LOG_RETENTION` already did for
+`scan_jobs.payload`). Requests go through `internal/netguard` like every other
+configured destination. `S3_ACCESS_KEY_ID`/`S3_SECRET_ACCESS_KEY` set static
+credentials; leaving both unset uses the standard AWS credential chain
+(environment, shared config, EC2/ECS instance credentials, EKS IRSA), useful
+when the pods already have workload identity. The bucket is checked
+(`HeadBucket`) at startup, so a missing bucket or bad credentials fails boot
+rather than the first upload. Skip-unchanged and the queue behave identically
+either way; only where the bytes live between upload and processing changes.
+
 Measured ingest throughput and list/portfolio latency at 1M+ findings, the Go
 benchmarks for the dedup/auto-close/priority hot paths, and the harness that
 reproduces both are in [docs/SCALE.md](docs/SCALE.md).
+
+### Past 100M findings
+
+Four settings keep large instances fast. `FINDING_ARCHIVE_AFTER` moves old
+fixed findings out of every live query (they stay restorable until
+`ARCHIVE_RETENTION`). `PORTFOLIO_FROM_SNAPSHOTS` serves the portfolio from the
+hourly snapshot run rather than scanning every finding per request.
+`DB_READ_URL` sends portfolio, trend and report reads to a read replica, and
+`DB_READ_STATEMENT_TIMEOUT` caps them in a pool of their own, so a heavy report
+can't take connections ingest needs. `docs/SCALE.md` has the details.
 
 ## Deploying to production
 

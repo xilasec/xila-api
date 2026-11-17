@@ -28,11 +28,13 @@ import (
 	"github.com/xilasec/xila-api/internal/auth"
 	"github.com/xilasec/xila-api/internal/badge"
 	"github.com/xilasec/xila-api/internal/compliance"
+	"github.com/xilasec/xila-api/internal/computed"
 	"github.com/xilasec/xila-api/internal/config"
 	"github.com/xilasec/xila-api/internal/connector"
 	"github.com/xilasec/xila-api/internal/correlation"
 	"github.com/xilasec/xila-api/internal/cra"
 	"github.com/xilasec/xila-api/internal/customfield"
+	"github.com/xilasec/xila-api/internal/customparser"
 	"github.com/xilasec/xila-api/internal/engagement"
 	"github.com/xilasec/xila-api/internal/enrichment"
 	"github.com/xilasec/xila-api/internal/evidence"
@@ -68,6 +70,7 @@ import (
 	"github.com/xilasec/xila-api/internal/sbom"
 	"github.com/xilasec/xila-api/internal/scan"
 	"github.com/xilasec/xila-api/internal/scanner"
+	"github.com/xilasec/xila-api/internal/scim"
 	"github.com/xilasec/xila-api/internal/secretbox"
 	"github.com/xilasec/xila-api/internal/serviceaccount"
 	"github.com/xilasec/xila-api/internal/sla"
@@ -77,6 +80,7 @@ import (
 	"github.com/xilasec/xila-api/internal/user"
 	"github.com/xilasec/xila-api/internal/vex"
 	"github.com/xilasec/xila-api/internal/vulnmatch"
+	"github.com/xilasec/xila-api/internal/vulnpolicy"
 )
 
 const smokeTrivyReport = `{"Results":[
@@ -106,8 +110,8 @@ func (fakeExploit) Scores(context.Context, []string) (map[string]float64, error)
 	return map[string]float64{"CVE-2020-1": 0.9}, nil
 }
 func (fakeExploit) Name() string { return "cisa" }
-func (fakeExploit) Fetch(context.Context) ([]string, error) {
-	return []string{"CVE-2020-1"}, nil
+func (fakeExploit) Fetch(context.Context) (enrichment.KEVList, error) {
+	return enrichment.KEVList{IDs: []string{"CVE-2020-1"}, Ransomware: map[string]bool{"CVE-2020-1": true}}, nil
 }
 
 // fakeNPM is a deterministic npm registry: express has newer releases (and a
@@ -158,7 +162,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 	findingRepo := finding.NewRepository(pool)
 	scanRepo := scan.NewRepository(pool)
 	projectRepo := project.NewRepository(pool)
-	retentionSvc := retention.NewService(pool, projectRepo, retention.Policy(cfg.Retention))
+	retentionSvc := retention.NewService(pool, projectRepo, retention.Policy(cfg.Retention), nil)
 	auditRepo := audit.NewRepository(pool)
 	sbomRepo := sbom.NewRepository(pool)
 	assetRepo := asset.NewRepository(pool)
@@ -171,6 +175,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 	tokenSvc := apitoken.NewService(tokenRepo)
 	userRepo := user.NewRepository(pool)
 	authSvc := auth.NewService(userRepo, cfg.JWT, cfg.PasswordLoginEnabled)
+	jwtKeys := authSvc.Keys()
 	authSvc.WithFeatures(features)
 	federationRepo := federation.NewRepository(pool)
 	federationSvc := federation.NewService(federationRepo, userRepo, authSvc, cfg.ServiceAccounts.TokenTTL)
@@ -178,19 +183,23 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 	triageRepo := triage.NewRepository(pool)
 	gateRepo := gate.NewRepository(pool)
 	// Custom fields: definitions + validated values; triage rules read and
-	// set them, component policies read the project's.
+	// set them, component policies read the project's. Computed fields
+	// (internal/computed) recompute their own value from a CEL expression.
 	customFieldRepo := customfield.NewRepository(pool)
 	customFieldSvc := customfield.NewService(customFieldRepo, membershipRepo, findingRepo)
 	triageSvc := triage.NewService(triageRepo, findingRepo, findingRepo).WithCustomFields(customFieldSvc)
+	computedSvc := computed.NewService(customFieldRepo, findingRepo, triageRepo, projectRepo, assetRepo)
 	vexRepo := vex.NewRepository(pool)
 	vexSvc := vex.NewService(vexRepo, findingRepo, projectRepo)
+	vulnPolicyRepo := vulnpolicy.NewRepository(pool)
+	vulnPolicySvc := vulnpolicy.NewService(vulnPolicyRepo, findingRepo, findingRepo)
 	orgRepo := org.NewRepository(pool)
 	slaRepo := sla.NewRepository(pool)
-	trackerCipher, err := secretbox.New([]byte("smoke-integration-key-32-bytes!!"))
-	authSvc.EnableMFA(trackerCipher, ratelimit.New(pool, ratelimit.Limits{}))
+	trackerCipher, err := secretbox.NewKeyring([]byte("smoke-integration-key-32-bytes!!"), nil)
 	if err != nil {
 		t.Fatalf("tracker cipher: %v", err)
 	}
+	authSvc.EnableMFA(trackerCipher, ratelimit.New(pool, ratelimit.Limits{}))
 	// SSO: declared here (not where main wires the rest of it, below) so
 	// account.NewHandler, which starts a SAML Single Logout on /me/logout,
 	// can take ssoSvc.
@@ -223,15 +232,20 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		scanner.NewDetectSecrets(), scanner.NewGGShield(),
 		scanner.NewHadolint(), scanner.NewKICS(), scanner.NewESLint(), scanner.NewYarnAudit(), scanner.NewNJSScan(),
 		scanner.NewSonarQube(), scanner.NewCheckmarx(), scanner.NewVeracode(), scanner.NewMend(),
-		scanner.NewNessus(), scanner.NewOpenVAS(), scanner.NewQualys(), scanner.NewAcunetix(), scanner.NewInvicti(), scanner.NewTestSSL(),
+		scanner.NewNessus(), scanner.NewOpenVAS(), scanner.NewQualys(), scanner.NewAcunetix(), scanner.NewInvicti(), scanner.NewTestSSL(), scanner.NewCryptoLyzer(), scanner.NewDrHeader(),
 		scanner.NewBearer(), scanner.NewMobSF(), scanner.NewJFrogXray(), scanner.NewAWSInspector2(), scanner.NewAWSSecurityHub(),
 		scanner.NewNancy(), scanner.NewCloudSploit(), scanner.NewArachni(), scanner.NewSpotBugs(), scanner.NewFortify(), scanner.NewSteampipe(),
 	)
 	connectorRepo := connector.NewRepository(pool)
+	// No-code parsers (M12 12.4): admin-defined CSV/JSON/XML mappings the
+	// upload path falls back to when ?scanner= names no built-in parser.
+	customParserRepo := customparser.NewRepository(pool)
+	customParserSvc := customparser.NewService(customParserRepo, parsers)
 	ingestSvc := scan.NewService(scanRepo, findingRepo, projectRepo, parsers, notifySvc,
-		[]scan.Applier{correlation.NewReacher(findingRepo, findingRepo), exploitSvc, vexSvc, triageSvc, assetSvc,
+		[]scan.Applier{correlation.NewReacher(findingRepo, findingRepo), exploitSvc, vexSvc, vulnPolicySvc, triageSvc, computedSvc, assetSvc,
 			connector.NewRemoteTriage(connectorRepo, findingRepo).WithApproval(cfg.RiskAcceptanceRequiresApproval),
-			enrichment.NewNVD(findingRepo, nil)}, scanRepo).WithFollowUps(remediationSvc).WithSkipUnchanged(true)
+			enrichment.NewNVD(findingRepo, nil)}, scanRepo).WithFollowUps(remediationSvc).WithSkipUnchanged(true).WithHostAssets(assetRepo).
+		WithCustomParsers(customParserSvc)
 	// Advisory sources without network: the local OSV mirror + private advisories.
 	osvMirrorRepo := vulnmatch.NewOSVRepository(pool)
 	advisoryRepo := vulnmatch.NewAdvisoryRepository(pool, "")
@@ -264,7 +278,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 	// AI triage as main wires it; tests point AI_BASE_URL at a fake model server.
 	var aiProvider aitriage.Provider
 	if cfg.AI.Enabled {
-		if aiProvider, err = aitriage.NewProvider(cfg.AI); err != nil {
+		if aiProvider, err = aitriage.NewProvider(cfg.AI, nil); err != nil {
 			t.Fatalf("AI provider: %v", err)
 		}
 	}
@@ -282,36 +296,38 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		Project: project.NewHandler(projectRepo, findingRepo, membershipRepo).WithTagsChanged(func(id string) {
 			policySvc.Reevaluate([]string{id}, false) // tag-scoped policies may now (not) apply
 		}),
-		Scan: scan.NewHandler(scanRepo, ingestSvc, false, nil),
+		Scan: scan.NewHandler(scanRepo, ingestSvc, false, nil, nil),
 		Finding: finding.NewHandler(findingRepo, notifySvc, membershipRepo, cfg.AssessmentRequiresApproval).
 			WithRiskAcceptanceApproval(cfg.RiskAcceptanceRequiresApproval).WithCustomFields(customFieldRepo),
 		AITriage: aitriage.NewHandler(aitriage.NewService(aitriage.NewRepository(pool), findingRepo, aiProvider,
 			ratelimit.New(pool, ratelimit.Limits{}), notifySvc,
 			aitriage.Options{RequireApproval: cfg.AssessmentRequiresApproval, RateLimit: cfg.AI.RateLimit})),
 		Sbom: sbom.NewHandler(sbomRepo, sbom.NewService(sbomRepo, projectRepo, policySvc,
-			correlation.NewReacher(findingRepo, findingRepo)).WithLicenses(license.Resolve)),
+			correlation.NewReacher(findingRepo, findingRepo)).WithLicenses(license.Resolve).WithStrictValidation(cfg.SBOMStrictValidation)),
 		Asset:      asset.NewHandler(assetRepo, assetSvc, membershipRepo),
 		Compliance: compliance.NewHandler(complianceRepo),
 		Portfolio:  portfolio.NewHandler(portfolio.NewRepository(pool)),
-		Metrics:    metrics.NewHandler(metrics.NewRepository(pool)),
+		Metrics:    metrics.NewHandler(metrics.NewRepository(pool)).WithSnapshotter(metrics.NewRepository(pool), portfolio.NewRepository(pool).SnapshotParts),
 		Report: report.NewHandler(report.NewService(portfolio.NewRepository(pool), findingRepo, complianceRepo,
 			projectRepo, report.NewRepository(pool)).WithEngagements(engagementRepo), reportTemplates),
-		Engagement:   engagement.NewHandler(engagementRepo, ingestSvc, findingRepo, findingTemplates),
-		Badge:        badge.NewHandler(badge.NewRepository(pool), portfolio.NewRepository(pool), gateRepo, findingRepo),
-		FixPlan:      fixplan.NewHandler(findingRepo),
-		Remediation:  remediation.NewHandler(remediationRepo, remediationSvc, membershipRepo),
-		RootCauses:   rootcause.NewHandler(rootcause.NewService(findingRepo, remediationRepo, remediationSvc, membershipRepo)),
-		Exploits:     exploitintel.NewHandler(exploitRepo, exploitSvc, findingRepo),
-		Evidence:     evidence.NewHandler(evidence.NewRepository(pool), projectRepo, complianceRepo, portfolio.NewRepository(pool), craRepo),
-		CRACases:     cra.NewCaseHandler(craSvc),
-		FindingTmpl:  findingtemplate.NewHandler(findingTemplates),
-		ReportTmpl:   report.NewTemplateHandler(reportTemplates),
-		CustomFields: customfield.NewHandler(customFieldRepo, customFieldSvc),
+		Engagement:  engagement.NewHandler(engagementRepo, ingestSvc, findingRepo, findingTemplates),
+		Badge:       badge.NewHandler(badge.NewRepository(pool), portfolio.NewRepository(pool), gateRepo, findingRepo),
+		FixPlan:     fixplan.NewHandler(findingRepo),
+		Remediation: remediation.NewHandler(remediationRepo, remediationSvc, membershipRepo),
+		RootCauses:  rootcause.NewHandler(rootcause.NewService(findingRepo, remediationRepo, remediationSvc, membershipRepo)),
+		Exploits:    exploitintel.NewHandler(exploitRepo, exploitSvc, findingRepo),
+		Evidence:    evidence.NewHandler(evidence.NewRepository(pool), projectRepo, complianceRepo, portfolio.NewRepository(pool), craRepo),
+		CRACases:    cra.NewCaseHandler(craSvc),
+		FindingTmpl: findingtemplate.NewHandler(findingTemplates),
+		ReportTmpl:  report.NewTemplateHandler(reportTemplates),
+		CustomFields: customfield.NewHandler(customFieldRepo, customFieldSvc).
+			WithComputedValidator(computedSvc).WithComputedChanged(computedSvc.OnDefinitionChanged),
+		CustomParser: customparser.NewHandler(customParserSvc),
 		Notify:       notify.NewHandler(notifyRepo, notifySvc),
 		Retention:    retention.NewHandler(retentionSvc),
 		Archive:      archive.NewHandler(archive.NewRepository(pool), findingRepo, cfg.Retention.ArchiveAge),
 		Audit:        audit.NewHandler(auditRepo),
-		AuditLog:     audit.NewRecorder(auditRepo, membershipRepo, cfg.JWT.Secret),
+		AuditLog:     audit.NewRecorder(auditRepo, membershipRepo, jwtKeys),
 		IngestHealth: ingesthealth.NewHandler(ingesthealth.NewRepository(pool)),
 		Triage:       triage.NewHandler(triageRepo, triageSvc, false).WithCustomFields(customFieldRepo),
 		Gate:         gate.NewHandler(gateRepo, findingRepo, projectRepo),
@@ -320,9 +336,10 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		IssueTracker: issuetracker.NewHandler(issueSvc),
 		Connector:    connector.NewHandler(connector.NewService(connectorRepo, ingestSvc, trackerCipher)),
 		Correlation:  correlation.NewHandler(correlation.NewService(findingRepo, sbomRepo)),
-		ApiToken:     apitoken.NewHandler(tokenRepo, tokenSvc),
+		ApiToken:     apitoken.NewHandler(tokenRepo, tokenSvc).WithReauthWindow(cfg.JWT.ReauthWindow),
 		SvcAccount:   serviceaccount.NewHandler(serviceaccount.NewRepository(pool), tokenSvc, tokenRepo, cfg.ServiceAccounts.KeyMaxDays),
 		Federation:   federation.NewHandler(federationRepo, federationSvc, !cfg.IsProduction()),
+		SCIM:         scim.NewHandler(scim.NewStore(pool), auditRepo),
 		TokenAuth:    tokenSvc,
 		Sessions:     userRepo,
 		// Throttling only when a test asks for it (cfg.AuthRateLimit): the other
@@ -330,13 +347,16 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		AuthLimiter: authLimiterFor(pool, cfg),
 		Enrichment: enrichment.NewHandler(enrichment.NewService(findingRepo, fakeExploit{},
 			[]enrichment.KEVCatalog{fakeExploit{}}, enrichment.NewKEVRepository(pool), notifySvc).WithCRA(craSvc)),
-		VulnMatch: vulnmatch.NewHandler(vulnSvc, vulnSources.Names(), osvMirrorRepo, nil),
-		Advisory:  vulnmatch.NewAdvisoryHandler(advisoryRepo, nil),
-		FeedRules: vulnmatch.NewFeedRuleHandler(feedRuleRepo, nil),
-		PSIRT:     psirt.NewHandler(psirtSvc, psirtRepo),
-		PkgMeta:   pkgmeta.NewHandler(pkgmetaRepo, pkgmetaSvc),
-		License:   license.NewHandler(licenseGroups),
-		Policy:    policy.NewHandler(policyRepo, policySvc, findingRepo),
+		VulnMatch:  vulnmatch.NewHandler(vulnSvc, vulnSources.Names(), osvMirrorRepo, nil),
+		Advisory:   vulnmatch.NewAdvisoryHandler(advisoryRepo, nil),
+		FeedRules:  vulnmatch.NewFeedRuleHandler(feedRuleRepo, nil),
+		PSIRT:      psirt.NewHandler(psirtSvc, psirtRepo),
+		PkgMeta:    pkgmeta.NewHandler(pkgmetaRepo, pkgmetaSvc),
+		License:    license.NewHandler(licenseGroups),
+		Policy:     policy.NewHandler(policyRepo, policySvc, findingRepo),
+		VulnPolicy: vulnpolicy.NewHandler(vulnPolicyRepo, vulnPolicySvc).WithCustomFields(customFieldRepo),
+		Secrets:    secretbox.NewHandler(pool, trackerCipher),
+		JWTKeys:    jwtKeys,
 	}
 	// SSO exactly as main wires it; protocol clients reach in-process IdPs over
 	// loopback, the SP key pair is the shared generated one. (ssoRepo/ssoSvc
@@ -362,7 +382,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 			t.Fatal(err)
 		}
 		t.Cleanup(func() { _ = tel.Shutdown(context.Background()) })
-		handlers.PromMetrics = observability.GuardMetrics(tel.Metrics, cfg.Metrics.Token)
+		handlers.PromMetrics = observability.GuardMetrics(tel.Metrics, cfg.SecretGetter("METRICS_TOKEN", cfg.Metrics.Token))
 	}
 	return New(cfg, handlers).App()
 }
@@ -762,6 +782,12 @@ func TestSmokeFullFlow(t *testing.T) {
 	if src, _ := top["kev_sources"].([]any); len(src) != 1 || src[0] != "cisa" {
 		t.Errorf("top finding kev_sources = %v, want [cisa]", top["kev_sources"])
 	}
+	if top["kev_ransomware"] != true {
+		t.Errorf("top finding kev_ransomware = %v, want true (the catalog marks CVE-2020-1)", top["kev_ransomware"])
+	}
+	if _, rw := req(t, app, http.MethodGet, "/api/v1/projects/"+projectID+"/findings?kev_ransomware=true", token, ""); len(rw["findings"].([]any)) != 1 {
+		t.Errorf("kev_ransomware filter = %v, want just the CVE-2020-1 finding", rw["findings"])
+	}
 	if top["priority"] != float64(45) { // critical(15) × KEV(3)
 		t.Errorf("top priority = %v, want 45", top["priority"])
 	}
@@ -1127,5 +1153,142 @@ func TestSmokeIssueTracker(t *testing.T) {
 	}
 	if resp, _ := req(t, app, http.MethodGet, issuePath, token, ""); resp.StatusCode != http.StatusNotFound {
 		t.Errorf("link after tracker delete = %d, want 404", resp.StatusCode)
+	}
+}
+
+// TestSmokeCustomParser exercises the no-code parser management + upload
+// path end to end (M12 12.4): an instance admin defines a CSV mapping, a
+// dry-run previews it against a pasted sample, a name colliding with a
+// built-in scanner is refused, a non-admin is refused management, an upload
+// through ?scanner=<custom> creates findings with the mapped fields, and
+// re-uploading the identical report keeps the same fingerprints (no
+// duplicates).
+func TestSmokeCustomParser(t *testing.T) {
+	app := newTestApp(t)
+
+	// First user bootstraps as the instance admin.
+	adminCreds := `{"email":"admin@xila.io","password":"supersecret"}`
+	req(t, app, http.MethodPost, "/api/v1/auth/register", "", adminCreds)
+	_, loginBody := req(t, app, http.MethodPost, "/api/v1/auth/login", "", adminCreds)
+	adminToken, _ := loginBody["token"].(string)
+	if adminToken == "" {
+		t.Fatal("admin login returned no token")
+	}
+
+	// A second account is a regular (non-admin) user.
+	userCreds := `{"email":"analyst@xila.io","password":"supersecret"}`
+	req(t, app, http.MethodPost, "/api/v1/auth/register", "", userCreds)
+	_, userLogin := req(t, app, http.MethodPost, "/api/v1/auth/login", "", userCreds)
+	userToken, _ := userLogin["token"].(string)
+	if userToken == "" {
+		t.Fatal("analyst login returned no token")
+	}
+
+	def := `{"name":"acme-scanner","category":"sca","format":"csv",
+		"fields":{"title":{"path":"Name"},"severity":{"path":"Sev","value_map":{"4":"critical"}},"cve":{"path":"Notes"}}}`
+	sample := "Name,Sev,Notes\nOutdated libfoo,4,see CVE-2021-44228\n"
+
+	// Management is instance-admin only.
+	if resp, _ := req(t, app, http.MethodPost, "/api/v1/custom-parsers", userToken, def); resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("non-admin create = %d, want 403", resp.StatusCode)
+	}
+
+	// A name colliding with a built-in parser is refused.
+	collide := `{"name":"trivy","category":"sca","format":"csv","fields":{"title":{"path":"Name"}}}`
+	if resp, _ := req(t, app, http.MethodPost, "/api/v1/custom-parsers", adminToken, collide); resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("collide with built-in = %d, want 400", resp.StatusCode)
+	}
+
+	// Dry-run previews the mapping against a pasted sample without persisting.
+	dryRunBody := `{"name":"acme-scanner","category":"sca","format":"csv",
+		"fields":{"title":{"path":"Name"},"severity":{"path":"Sev","value_map":{"4":"critical"}},"cve":{"path":"Notes"}},
+		"sample":"Name,Sev,Notes\nOutdated libfoo,4,see CVE-2021-44228\n"}`
+	resp, dryRun := req(t, app, http.MethodPost, "/api/v1/custom-parsers/dry-run", adminToken, dryRunBody)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("dry-run = %d", resp.StatusCode)
+	}
+	dryFindings, _ := dryRun["findings"].([]any)
+	if len(dryFindings) != 1 {
+		t.Fatalf("dry-run findings = %d, want 1: %v", len(dryFindings), dryRun)
+	}
+	first, _ := dryFindings[0].(map[string]any)
+	if first["title"] != "Outdated libfoo" || first["severity"] != "critical" {
+		t.Errorf("dry-run finding = %v, want title/severity mapped", first)
+	}
+	if _, listNoParsers := req(t, app, http.MethodGet, "/api/v1/custom-parsers", adminToken, ""); listNoParsers["custom_parsers"] == nil {
+		t.Fatal("list custom parsers returned no body")
+	}
+
+	// Create the parser for real.
+	resp, created := req(t, app, http.MethodPost, "/api/v1/custom-parsers", adminToken, def)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("create custom parser = %d: %v", resp.StatusCode, created)
+	}
+	parserID, _ := created["id"].(string)
+	if parserID == "" {
+		t.Fatal("create custom parser returned no id")
+	}
+
+	// A second attempt at the same name is refused (unique constraint).
+	if resp, _ := req(t, app, http.MethodPost, "/api/v1/custom-parsers", adminToken, def); resp.StatusCode != http.StatusConflict {
+		t.Fatalf("duplicate name = %d, want 409", resp.StatusCode)
+	}
+
+	// Set up a project to upload against.
+	_, orgBody := req(t, app, http.MethodPost, "/api/v1/orgs", adminToken, `{"slug":"acme","name":"Acme"}`)
+	orgID, _ := orgBody["id"].(string)
+	_, teamBody := req(t, app, http.MethodPost, "/api/v1/orgs/"+orgID+"/teams", adminToken, `{"slug":"platform","name":"Platform"}`)
+	teamID, _ := teamBody["id"].(string)
+	_, projBody := req(t, app, http.MethodPost, "/api/v1/teams/"+teamID+"/projects", adminToken, `{"slug":"web","name":"Web"}`)
+	projectID, _ := projBody["id"].(string)
+	if projectID == "" {
+		t.Fatal("project creation returned no id")
+	}
+
+	// Upload through the custom parser's scanner name.
+	scanPath := "/api/v1/projects/" + projectID + "/scans?scanner=acme-scanner"
+	resp, scanBody := req(t, app, http.MethodPost, scanPath, adminToken, sample)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("custom parser upload = %d: %v", resp.StatusCode, scanBody)
+	}
+	if scanBody["status"] != "completed" {
+		t.Errorf("scan status = %v, want completed", scanBody["status"])
+	}
+
+	_, listBody := req(t, app, http.MethodGet, "/api/v1/projects/"+projectID+"/findings", adminToken, "")
+	findings, _ := listBody["findings"].([]any)
+	if len(findings) != 1 {
+		t.Fatalf("findings = %d, want 1", len(findings))
+	}
+	f, _ := findings[0].(map[string]any)
+	if f["title"] != "Outdated libfoo" || f["severity"] != "critical" {
+		t.Errorf("finding = %v, want mapped title/severity", f)
+	}
+	if cves, _ := f["cve"].([]any); len(cves) != 1 || cves[0] != "CVE-2021-44228" {
+		t.Errorf("finding cve = %v, want [CVE-2021-44228]", f["cve"])
+	}
+
+	// Re-uploading the identical report keeps the same fingerprint: no
+	// duplicate finding.
+	req(t, app, http.MethodPost, scanPath, adminToken, sample)
+	_, listAgain := req(t, app, http.MethodGet, "/api/v1/projects/"+projectID+"/findings", adminToken, "")
+	findingsAgain, _ := listAgain["findings"].([]any)
+	if len(findingsAgain) != 1 {
+		t.Errorf("after re-upload got %d findings, want 1 (deduplicated)", len(findingsAgain))
+	}
+
+	// Deleting the definition keeps its findings (they stay under the
+	// "acme-scanner" scanner name as history), but the upload path no longer
+	// accepts it.
+	if resp, _ := req(t, app, http.MethodDelete, "/api/v1/custom-parsers/"+parserID, adminToken, ""); resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("delete custom parser = %d", resp.StatusCode)
+	}
+	_, listAfterDelete := req(t, app, http.MethodGet, "/api/v1/projects/"+projectID+"/findings", adminToken, "")
+	findingsAfterDelete, _ := listAfterDelete["findings"].([]any)
+	if len(findingsAfterDelete) != 1 {
+		t.Errorf("after deleting the parser, findings = %d, want 1 (history kept)", len(findingsAfterDelete))
+	}
+	if resp, _ := req(t, app, http.MethodPost, scanPath, adminToken, sample); resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("upload after deleting the parser = %d, want 400 (unknown scanner)", resp.StatusCode)
 	}
 }

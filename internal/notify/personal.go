@@ -134,7 +134,7 @@ func (s *Service) preparePersonal(ctx context.Context, ch *Channel, e Event) err
 		ch.URL = email
 		return nil
 	}
-	if len(ch.urlEnc) == 0 || s.cipher == nil {
+	if len(ch.urlEnc) == 0 || !s.cipher.Configured() {
 		return errors.New("no webhook URL is set (or INTEGRATION_SECRET_KEY is missing)")
 	}
 	url, err := s.cipher.Open(ch.urlEnc, ch.ID)
@@ -356,7 +356,7 @@ func (h *PersonalHandler) put(c *fiber.Ctx) error {
 			if err := ValidateTarget(t, *m.URL); err != nil {
 				return fiber.NewError(fiber.StatusBadRequest, err.Error())
 			}
-			if h.svc.cipher == nil {
+			if !h.svc.cipher.Configured() {
 				return fiber.NewError(fiber.StatusBadRequest, "personal webhooks need INTEGRATION_SECRET_KEY on the server")
 			}
 		}

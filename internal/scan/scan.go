@@ -62,6 +62,9 @@ type Scan struct {
 	// previous completed scan: the pipeline was skipped and this scan merely
 	// carried the earlier findings forward (see scan.Service.runPipeline).
 	UnchangedOf *string `json:"unchanged_of"`
+	// SplitAssets attributes each finding to the asset of the host it names
+	// (one host asset per scanned machine) instead of to AssetID.
+	SplitAssets bool `json:"split_assets"`
 }
 
 // Repository provides access to the scans table.
@@ -76,27 +79,27 @@ func NewRepository(db *pgxpool.Pool) *Repository {
 
 const scanColumns = `id, project_id, asset_id, scanner, category, status, commit_sha,
 	branch, summary, error, started_at, finished_at, created_at, version_id, engagement_id, archived_at, archived_by,
-	content_hash, unchanged_of`
+	content_hash, unchanged_of, split_assets`
 
 func scanScan(row pgx.Row) (Scan, error) {
 	var s Scan
 	err := row.Scan(&s.ID, &s.ProjectID, &s.AssetID, &s.Scanner, &s.Category, &s.Status, &s.CommitSHA,
 		&s.Branch, &s.Summary, &s.Error, &s.StartedAt, &s.FinishedAt, &s.CreatedAt, &s.VersionID, &s.EngagementID, &s.ArchivedAt, &s.ArchivedBy,
-		&s.ContentHash, &s.UnchangedOf)
+		&s.ContentHash, &s.UnchangedOf, &s.SplitAssets)
 	return s, err
 }
 
 // Create records a new scan in the "processing" state with started_at set.
 func (r *Repository) Create(ctx context.Context, s Scan) (Scan, error) {
 	const q = `
-		INSERT INTO scans (project_id, asset_id, scanner, category, status, commit_sha, branch, started_at, version_id, engagement_id)
-		VALUES ($1, $2, $3, $4, 'processing', $5, $6, now(), COALESCE($7::uuid, project_version($1, $6, $8)), $9)
+		INSERT INTO scans (project_id, asset_id, scanner, category, status, commit_sha, branch, started_at, version_id, engagement_id, split_assets)
+		VALUES ($1, $2, $3, $4, 'processing', $5, $6, now(), COALESCE($7::uuid, project_version($1, $6, $8)), $9, $10)
 		RETURNING ` + scanColumns
 	var version *string
 	if s.VersionID != "" {
 		version = &s.VersionID
 	}
-	out, err := scanScan(r.db.QueryRow(ctx, q, s.ProjectID, s.AssetID, s.Scanner, s.Category, s.CommitSHA, s.Branch, version, s.Kind, s.EngagementID))
+	out, err := scanScan(r.db.QueryRow(ctx, q, s.ProjectID, s.AssetID, s.Scanner, s.Category, s.CommitSHA, s.Branch, version, s.Kind, s.EngagementID, s.SplitAssets))
 	// The FK is (engagement_id, project_id): another project's engagement fails it.
 	if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok && pgErr.ConstraintName == "scans_engagement_fk" {
 		return Scan{}, ErrUnknownEngagement

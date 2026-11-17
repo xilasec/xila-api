@@ -39,6 +39,8 @@ func (h *Handler) markDecidable(c *fiber.Ctx, as []Assessment) error {
 
 // ListAssessments handles GET /assessments?state=pending — the review queue
 // across every project the caller can see (?project_id= narrows it).
+// ?actionable=true keeps only what the caller may decide: pending
+// assessments of projects they own that someone else requested.
 func (h *Handler) ListAssessments(c *fiber.Ctx) error {
 	filter := AssessmentFilter{State: AssessmentState(c.Query("state")), ProjectID: c.Query("project_id")}
 	if filter.State != "" && !filter.State.Valid() {
@@ -52,6 +54,14 @@ func (h *Handler) ListAssessments(c *fiber.Ctx) error {
 		if filter.ProjectIDs == nil {
 			filter.ProjectIDs = []string{}
 		}
+	}
+	if c.QueryBool("actionable") {
+		uid := auth.UserID(c)
+		ids, err := h.decidableProjects(c, uid, filter.ProjectIDs, domain.CapTriage)
+		if err != nil {
+			return err
+		}
+		filter.State, filter.ExcludeRequester, filter.ProjectIDs = AssessmentPending, uid, ids
 	}
 	page := httpx.ParsePage(c)
 	filter.Limit, filter.Offset = page.Limit+1, page.Offset

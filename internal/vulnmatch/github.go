@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/xilasec/xila-api/internal/netguard"
+	"github.com/xilasec/xila-api/internal/secretref"
 )
 
 // DefaultGitHubURL is GitHub's REST API.
@@ -61,7 +62,7 @@ const (
 // Link headers. A token (optional) lifts the anonymous 60 requests/hour.
 type GitHubSource struct {
 	base  string
-	token string
+	token secretref.Value
 	hc    *http.Client
 	now   func() time.Time
 	sleep func(context.Context, time.Duration) error
@@ -78,7 +79,7 @@ type ghCached struct {
 
 // NewGitHubSource constructs the client. An empty baseURL uses api.github.com
 // (set it for GitHub Enterprise Server: https://<host>/api/v3).
-func NewGitHubSource(baseURL, token string) *GitHubSource {
+func NewGitHubSource(baseURL string, token secretref.Value) *GitHubSource {
 	if baseURL == "" {
 		baseURL = DefaultGitHubURL
 	}
@@ -412,8 +413,8 @@ func (g *GitHubSource) get(ctx context.Context, u string, out any) (string, erro
 		req.Header.Set("Accept", "application/vnd.github+json")
 		req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 		req.Header.Set("User-Agent", "xila-vulnmatch")
-		if g.token != "" {
-			req.Header.Set("Authorization", "Bearer "+g.token)
+		if token := g.token.Get(); token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
 		}
 		resp, err := g.hc.Do(req)
 		if err != nil {

@@ -12,6 +12,7 @@ import (
 
 	"github.com/xilasec/xila-api/internal/domain"
 	"github.com/xilasec/xila-api/internal/finding"
+	"github.com/xilasec/xila-api/internal/secretref"
 )
 
 func open(t *testing.T, name string) *os.File {
@@ -26,14 +27,19 @@ func open(t *testing.T, name string) *os.File {
 
 // Real CISA catalog excerpt (known_exploited_vulnerabilities.json).
 func TestParseCISAKEV(t *testing.T) {
-	ids, err := ParseCISAKEV(open(t, "cisa_kev.json"))
+	list, err := ParseCISAKEV(open(t, "cisa_kev.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	slices.Sort(ids)
+	ids := slices.Sorted(slices.Values(list.IDs))
 	want := []string{"CVE-2021-44228", "CVE-2024-27348", "CVE-2024-4577"}
 	if !slices.Equal(ids, want) {
 		t.Errorf("ids = %v, want %v", ids, want)
+	}
+	// knownRansomwareCampaignUse: Known for Log4Shell and the PHP-CGI flaw,
+	// Unknown for the Apache HugeGraph one.
+	if !list.Ransomware["CVE-2021-44228"] || !list.Ransomware["CVE-2024-4577"] || list.Ransomware["CVE-2024-27348"] {
+		t.Errorf("ransomware = %v, want CVE-2021-44228 and CVE-2024-4577 only", list.Ransomware)
 	}
 }
 
@@ -63,12 +69,15 @@ func TestParseVulnCheckKEVPage(t *testing.T) {
 	if !slices.Equal(p.IDs, []string{"CVE-2024-4577"}) || p.NextCursor == "" {
 		t.Errorf("page 1 = %+v, want CVE-2024-4577 and a next cursor", p)
 	}
+	if !slices.Equal(p.Ransomware, []string{"CVE-2024-4577"}) {
+		t.Errorf("page 1 ransomware = %v, want CVE-2024-4577", p.Ransomware)
+	}
 	p, err = ParseVulnCheckKEVPage(open(t, "vulncheck_kev_page2.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(p.IDs, []string{"CVE-2024-27348"}) || p.NextCursor != "" {
-		t.Errorf("page 2 = %+v, want CVE-2024-27348 and no cursor", p)
+	if !slices.Equal(p.IDs, []string{"CVE-2024-27348"}) || p.NextCursor != "" || len(p.Ransomware) != 0 {
+		t.Errorf("page 2 = %+v, want CVE-2024-27348, no ransomware use and no cursor", p)
 	}
 }
 
@@ -105,30 +114,34 @@ func TestKEVCatalogPaging(t *testing.T) {
 	defer srv.Close()
 
 	euvd := &euvdCatalog{url: srv.URL + "/euvd?exploited=true", pageSize: 2, client: srv.Client()}
-	ids, err := euvd.Fetch(context.Background())
+	list, err := euvd.Fetch(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
+	ids := list.IDs
 	if len(ids) != 12 || !slices.Contains(ids, "GHSA-9W8J-FG77-WHW7") || !slices.Contains(ids, "CVE-2026-8398") {
 		t.Errorf("euvd ids = %v, want both pages' 4 items × 3 ids", ids)
 	}
 
-	cats, err := KEVCatalogs([]string{"vulncheck"}, map[string]string{"vulncheck": srv.URL + "/vc"}, "tok", srv.Client())
+	cats, err := KEVCatalogs([]string{"vulncheck"}, map[string]string{"vulncheck": srv.URL + "/vc"}, secretref.Static("tok"), srv.Client())
 	if err != nil {
 		t.Fatal(err)
 	}
-	ids, err = cats[0].Fetch(context.Background())
+	list, err = cats[0].Fetch(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(ids, []string{"CVE-2024-4577", "CVE-2024-27348"}) {
-		t.Errorf("vulncheck ids = %v", ids)
+	if !slices.Equal(list.IDs, []string{"CVE-2024-4577", "CVE-2024-27348"}) {
+		t.Errorf("vulncheck ids = %v", list.IDs)
+	}
+	if len(list.Ransomware) != 1 || !list.Ransomware["CVE-2024-4577"] {
+		t.Errorf("vulncheck ransomware = %v, want only CVE-2024-4577 (across pages)", list.Ransomware)
 	}
 
-	if _, err := KEVCatalogs([]string{"vulncheck"}, nil, "", srv.Client()); err == nil {
+	if _, err := KEVCatalogs([]string{"vulncheck"}, nil, nil, srv.Client()); err == nil {
 		t.Error("vulncheck without a token must be a configuration error")
 	}
-	if _, err := KEVCatalogs([]string{"cisa", "nvd"}, nil, "", srv.Client()); err == nil {
+	if _, err := KEVCatalogs([]string{"cisa", "nvd"}, nil, nil, srv.Client()); err == nil {
 		t.Error("an unknown catalog must be a configuration error")
 	}
 }
@@ -184,5 +197,24 @@ func TestEnrichFailedCatalogKeepsAssertions(t *testing.T) {
 	}
 	if a := store.set["a"]; !a.kev || !slices.Equal(a.sources, []string{"enisa"}) {
 		t.Errorf("after enisa outage a = %+v, want still KEV via enisa", a)
+	}
+}
+
+// A finding is flagged as ransomware-used when a catalog asserting any of its
+// ids (aliases included) marks that id; other findings on KEV are not.
+func TestEnrichRansomwareFlag(t *testing.T) {
+	store := &fakeStore{items: []finding.Enrichable{
+		{ID: "used", Severity: domain.SeverityHigh, CVE: []string{"CVE-1"}, IDs: []string{"GHSA-xxxx", "CVE-1"}},
+		{ID: "kev-only", Severity: domain.SeverityHigh, CVE: []string{"CVE-2"}, IDs: []string{"CVE-2"}},
+		{ID: "none", Severity: domain.SeverityHigh, CVE: []string{"CVE-3"}, IDs: []string{"CVE-3"}},
+	}}
+	cats := []KEVCatalog{fakeCatalog{name: "cisa", ids: []string{"CVE-1", "CVE-2"}, ransomware: []string{"CVE-1"}}}
+	if _, err := NewService(store, fakeEPSS{}, cats, &fakeKEVStore{}, nil).Enrich(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	for id, want := range map[string]bool{"used": true, "kev-only": false, "none": false} {
+		if got := store.set[id].ransomware; got != want {
+			t.Errorf("%s ransomware = %v, want %v", id, got, want)
+		}
 	}
 }

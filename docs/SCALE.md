@@ -180,9 +180,11 @@ What this means for bursts (a scan of about 1,000 findings each):
   1,000 requests would wait minutes for a connection and many CI clients would
   time out.
 - 1,000,000 repositories at once is about 1B findings: roughly 30 node-hours at
-  this rate, and about 1 TB of raw reports waiting in the queue. That needs the
-  work in milestone M11 (horizontal workers, reports outside Postgres, skipping
-  unchanged scans, fair queueing per tenant).
+  this rate, and about 1 TB of raw reports that would otherwise sit in the
+  queue. `INGEST_PAYLOAD_STORE=s3` (M11 11.8) moves that out of Postgres
+  (`scan_jobs` keeps only an object-store reference, not the bytes), and the
+  remaining M11 work (horizontal workers, skipping unchanged scans, fair
+  queueing per tenant) covers the rest.
 
 ## Web and worker nodes
 
@@ -203,4 +205,120 @@ the same in depth but not in how long uploads wait.
 Connections: each node opens up to `DB_MAX_CONNS` (default 20). Past about 5
 nodes, put PgBouncer (transaction pooling) in front of Postgres and lower
 `DB_MAX_CONNS` per node, so the total stays below Postgres `max_connections`.
+
+## Queue storage (S3)
+
+`scan_jobs.payload` holds the raw upload until a worker processes it. That is fine at
+moderate volume, but a terabyte of bytea traffic through Postgres at the
+1,000,000-repository scale above. `INGEST_PAYLOAD_STORE=s3` moves the bytes to
+any S3-compatible object storage and leaves only a key (`payload_ref`) in the
+row; the worker fetches the object, and it is deleted once the job finishes
+(or, for a job that exhausted its retries, once `LOG_RETENTION` purges the
+parked row). This is a storage-location change, not a pipeline change:
+skip-unchanged, dedup, and the queue's fair claim, retries and backpressure
+behave identically with either store. README.md "Payload storage (S3)" has
+the settings.
+
+## Fair queueing and live tuning
+
+The claim picks, in one statement, the org with the fewest jobs processing
+and that org's oldest job whose project has nothing processing; a partial
+unique index allows one processing job per project, so a burst against one
+project uses one worker and the others move on. Orgs with pending work are
+found by a loose index scan (one probe per org), and each org is looked into
+at most 64 jobs deep, so the cost depends on the number of orgs with work
+queued, not on queue depth. With 100,000 pending jobs in 20 orgs the claim
+runs in a few milliseconds (`TestClaimQueryScalesToDeepQueue`); 2,000 jobs of
+one org don't delay another org's single upload past the second claim
+(`TestClaimFairUnderDeepBacklog`).
+
+`PUT /ingest/settings` changes the 429 threshold and the workers per worker
+node at runtime; each node applies it on its next queue sample. If the
+settings can't be read, a node keeps what it has rather than falling back to
+the env values.
+
+## Past 100M findings
+
+Live queries carry every finding they can match, so the lever is fewer live
+rows and fewer per-request scans:
+
+- `FINDING_ARCHIVE_AFTER` archives findings fixed longer ago than the window,
+  5,000 per statement, through a partial index on live fixed findings. Every
+  list, count, gate and dedup query already skips archived rows. A finding a
+  later scan reports again is unarchived by the upsert and reopens.
+- `PORTFOLIO_FROM_SNAPSHOTS` reads the portfolio from what the snapshot job
+  stored per project instead of grouping every open finding: the counts from
+  `metric_snapshots`, compliance scores and SLA parts from `portfolio_parts`.
+  Every part is summable, so the live path combines the same per-project
+  parts and a test checks the two views are equal. Numbers are as of the last
+  `METRICS_SNAPSHOT_INTERVAL` run (the response says `source` and `as_of`).
+  The job's full passes run on a pool of their own capped by
+  `DB_JOB_STATEMENT_TIMEOUT`, not by the request timeout.
+- `DB_READ_URL` points portfolio, trend and report reads at a replica (replica
+  lag applies to them), and `DB_READ_STATEMENT_TIMEOUT` caps them in their own
+  pool of `DB_READ_MAX_CONNS`, so ingest keeps its connections.
+
+Partitioning `findings` was considered and not done: dedup, auto-close and the
+upsert all key on `(version_id, fingerprint)` across statuses, so a
+status-partitioned table would move rows between partitions on every
+transition; archiving gets the same effect for live queries without that.
+
+## Three nodes, 10M findings (M11 11.10)
+
+Same machine, Postgres on stock settings (`shared_buffers` 128 MB) with a 13 GB
+database: 10,100,000 findings across 6,010 projects (10 at 500,000, 6,000 at
+850), 30 orgs, 150 teams, 300,500 components. Seeding took 56 minutes.
+Three API nodes on one database, `INGEST_ASYNC=true`, 4 workers each, the
+load generator spreading uploaders over the nodes (`--base-url a,b,c`).
+
+Reads (one node, `http-bench`, one of the big projects):
+
+| Endpoint | p50 | p95 |
+|---|---|---|
+| Findings list (default, priority, severity+scanner, all projects) | 3.7 to 4.9 ms | 4.8 to 6.3 ms |
+| Findings search | 14 ms | 16 ms |
+| Components (project / search) | 450 / 227 ms | 486 / 245 ms |
+| Project summary | 897 ms | 2,354 ms |
+| Portfolio, live | 12,555 ms | 13,472 ms |
+| Portfolio, `PORTFOLIO_FROM_SNAPSHOTS` | 162 ms | 177 ms |
+
+Keyset lists stay flat at 10× the data. The live portfolio is the cost 11.9
+targets: compliance alone took 13.6 s. Served from the snapshot run it is
+about 80× faster and equal to the live view apart from SLA deadlines that
+passed in between. The snapshot run itself (two days plus the parts) takes
+57 s on the job pool; the first run's 90-day backfill took 9.5 minutes.
+
+Ingest, a burst of 1,000 scans of 1,000 findings (100 uploaders × 10 scans,
+100 projects, 3 nodes):
+
+| | Findings/s | Burst drained in | Per-scan p50 (queue wait included) | 429s |
+|---|---|---|---|---|
+| Before migration 000108 | 896 | 18 min 36 s | 111 s | 0 |
+| With it, 12 workers | 6,486 | 2 min 34 s | 15 s | 0 |
+| With it, 24 workers (set live) | 5,757 | 2 min 54 s | 17 s | 0 |
+
+What the run found and fixed:
+
+- No index on `findings.last_scan_id`. Every scan-scoped pass that looks up a
+  scan's findings by it alone (exposure evidence, reprioritize, feed tags,
+  the skip-unchanged carry-forward, archive, retention) was a full table
+  scan, invisible at 1M findings where the table stays cached. At 10M each
+  read about 800,000 pages, 17 s cold, and a 1,000-finding scan took 13 s.
+  Migration 000108 adds the index (built in 10.6 s, 67 MB at 10M): the pass
+  takes 0.04 ms and throughput went up 7.2×.
+- The snapshot day query's per-project category count, written as a scalar
+  subquery, was planned as a rescan of the whole finding set per project:
+  minutes at 10M. Joined outside the aggregate it takes 15 s.
+- The snapshot's full passes ran into the 30 s request statement timeout.
+  They now run on a 2-connection pool capped by `DB_JOB_STATEMENT_TIMEOUT`.
+- Compliance (13.6 s) and SLA (4.6 s) were still live in snapshot mode;
+  they are now snapshotted per project too.
+
+Twelve workers saturate this machine (three API nodes, Postgres and the
+load generator share 16 cores and 16 GB): doubling them through
+`PUT /ingest/settings`, which all three nodes picked up without a restart,
+didn't add throughput. On separate database hardware the workers are the
+knob to turn; per project, ingest still serializes on the dedup lock by
+design. The fair claim kept every uploader's scans moving: the slowest
+scan of the burst finished within 1.3× of the median.
 

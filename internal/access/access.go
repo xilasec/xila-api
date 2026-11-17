@@ -35,6 +35,14 @@ type Grant struct {
 	// the ancestor project (parent_project).
 	ViaID   *string `json:"via_id"`
 	ViaName *string `json:"via_name"`
+	// GroupID / GroupName name the user group the grant reached the user
+	// through (nil for a grant on the user directly).
+	GroupID   *string `json:"group_id"`
+	GroupName *string `json:"group_name"`
+	// CustomRole names the custom role narrowing the grant, with the
+	// capabilities it denies (nil = the plain base role).
+	CustomRole         *string  `json:"custom_role"`
+	DeniedCapabilities []string `json:"denied_capabilities"`
 	// SSOMappings are the IdP group mappings that produce exactly this grant
 	// ("provider:group"): an sso-sourced grant was made by at least one of them.
 	SSOMappings []string `json:"sso_mappings"`
@@ -103,6 +111,10 @@ pairs AS (
 	           'via_name', CASE g.kind WHEN 'team' THEN (SELECT name FROM teams WHERE id = g.via_id)
 	                                   WHEN 'org_admin' THEN (SELECT name FROM organizations WHERE id = g.via_id)
 	                                   WHEN 'parent_project' THEN (SELECT name FROM projects WHERE id = g.via_id) END,
+	           'group_id', g.group_id,
+	           'group_name', (SELECT name FROM user_groups WHERE id = g.group_id),
+	           'custom_role', (SELECT name FROM custom_roles WHERE id = g.custom_role_id),
+	           'denied_capabilities', COALESCE((SELECT to_jsonb(denied_capabilities) FROM custom_roles WHERE id = g.custom_role_id), '[]'::jsonb),
 	           'sso_mappings', ` + ssoMappingsSQL + `)
 	         ORDER BY CASE g.kind WHEN 'org_admin' THEN 1 WHEN 'team' THEN 2 WHEN 'project' THEN 3 ELSE 4 END) AS grants
 	FROM g GROUP BY g.user_id, g.project_id

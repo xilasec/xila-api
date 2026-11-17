@@ -72,10 +72,14 @@ const (
 // Rule is a match-condition → action policy. Empty conditions match anything;
 // all set conditions are AND-ed. ProjectID nil applies to every project.
 type Rule struct {
-	ID        string  `json:"id"`
-	Name      string  `json:"name"`
-	Enabled   bool    `json:"enabled"`
-	SortOrder int     `json:"sort_order"`
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Enabled   bool   `json:"enabled"`
+	SortOrder int    `json:"sort_order"`
+	// Continue chains the rule: after it acts on a finding, the rules after
+	// it (in sort order) still evaluate, against the finding as it left it.
+	// Without it the first matching rule is the only one that acts.
+	Continue  bool    `json:"continue"`
 	ProjectID *string `json:"project_id"`
 
 	// Conditions.
@@ -102,7 +106,7 @@ type Rule struct {
 	KEV                bool                 `json:"kev"`
 	ProjectCriticality []domain.Criticality `json:"project_criticality"`
 	// Expression is an optional CEL condition over the finding's facts
-	// (findingDoc), for what the fixed conditions can't say:
+	// (FindingDoc), for what the fixed conditions can't say:
 	// `finding.cvss >= 9 && finding.tags.exists(t, t == "internet-facing")`.
 	Expression string `json:"expression"`
 
@@ -262,7 +266,7 @@ func (r *Rule) Matches(f finding.Finding, p ProjectFacts) bool {
 	if len(r.ProjectCriticality) > 0 && !slices.Contains(r.ProjectCriticality, crit) {
 		return false
 	}
-	if r.expr != nil && !r.expr.Match(context.Background(), findingDoc(f, p)) {
+	if r.expr != nil && !r.expr.Match(context.Background(), FindingDoc(f, p)) {
 		return false
 	}
 	return true
@@ -307,7 +311,7 @@ const ruleColumns = `id, name, enabled, sort_order, project_id, scanner, categor
 	min_epss, kev, project_criticality, expression,
 	action, new_severity, reason, custom_field, custom_value, hit_count, last_hit_at,
 	approval_status, created_by, updated_by, approved_by, approved_at, rejected_by, rejected_at,
-	created_at, updated_at`
+	created_at, updated_at, continue_matching`
 
 func scanRule(row pgx.Row) (Rule, error) {
 	var r Rule
@@ -316,7 +320,7 @@ func scanRule(row pgx.Row) (Rule, error) {
 		&r.DepScope, &r.DepTransitive, &r.MinEPSS, &r.KEV, &r.ProjectCriticality, &r.Expression,
 		&r.Action, &r.NewSeverity, &r.Reason, &r.CustomField, &r.CustomValue, &r.HitCount, &r.LastHitAt,
 		&r.ApprovalStatus, &r.CreatedBy, &r.UpdatedBy, &r.ApprovedBy, &r.ApprovedAt,
-		&r.RejectedBy, &r.RejectedAt, &r.CreatedAt, &r.UpdatedAt)
+		&r.RejectedBy, &r.RejectedAt, &r.CreatedAt, &r.UpdatedAt, &r.Continue)
 	if err != nil {
 		return Rule{}, err
 	}
@@ -347,9 +351,9 @@ func (r *Repository) Create(ctx context.Context, rule Rule, actor string, requir
 		rule_id, cve_in, path_regex, package_regex, dep_scope, dep_transitive,
 		min_epss, kev, project_criticality,
 		action, new_severity, reason, approval_status, created_by, updated_by, approved_at, expression,
-		custom_field, custom_value
+		custom_field, custom_value, continue_matching
 	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
-		$21, $22::uuid, $22::uuid, CASE WHEN $21 = 'approved' THEN now() END, $23, $24, $25)
+		$21, $22::uuid, $22::uuid, CASE WHEN $21 = 'approved' THEN now() END, $23, $24, $25, $26)
 	RETURNING ` + ruleColumns
 	out, err := scanRule(r.db.QueryRow(ctx, q,
 		rule.Name, rule.Enabled, rule.SortOrder, rule.ProjectID, rule.Scanner, rule.Category,
@@ -357,7 +361,7 @@ func (r *Repository) Create(ctx context.Context, rule Rule, actor string, requir
 		rule.PathRegex, rule.PackageRegex, rule.DepScope, rule.DepTransitive,
 		rule.MinEPSS, rule.KEV, coalesceCrit(rule.ProjectCriticality),
 		rule.Action, rule.NewSeverity, rule.Reason, approvalFor(requireApproval), nilIfEmpty(actor), rule.Expression,
-		rule.CustomField, customValueArg(rule)))
+		rule.CustomField, customValueArg(rule), rule.Continue))
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23503" {
 		return Rule{}, ErrNoProject
@@ -426,6 +430,7 @@ func (r *Repository) Update(ctx context.Context, rule Rule, actor string, requir
 		dep_scope=$14, dep_transitive=$15, min_epss=$16, kev=$17, project_criticality=$18,
 		action=$19, new_severity=$20, reason=$21,
 		approval_status=$22, updated_by=$23::uuid, expression=$24, custom_field=$25, custom_value=$26,
+		continue_matching=$27,
 		approved_by = CASE WHEN $22 = 'approved' AND approval_status = 'approved' THEN approved_by END,
 		approved_at = CASE WHEN $22 = 'approved' THEN COALESCE(approved_at, now()) END,
 		rejected_by = NULL, rejected_at = NULL,
@@ -437,7 +442,7 @@ func (r *Repository) Update(ctx context.Context, rule Rule, actor string, requir
 		rule.PathRegex, rule.PackageRegex, rule.DepScope, rule.DepTransitive,
 		rule.MinEPSS, rule.KEV, coalesceCrit(rule.ProjectCriticality),
 		rule.Action, rule.NewSeverity, rule.Reason, approvalFor(requireApproval), nilIfEmpty(actor), rule.Expression,
-		rule.CustomField, customValueArg(rule)))
+		rule.CustomField, customValueArg(rule), rule.Continue))
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23503" {
 		return Rule{}, ErrNoProject

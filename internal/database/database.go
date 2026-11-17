@@ -42,6 +42,14 @@ type PoolConfig struct {
 	// both restarted together) delays boot instead of crash-looping the process.
 	// Zero fails on the first attempt.
 	StartupWait time.Duration
+
+	// PasswordGetter, if set, returns the current password for every new
+	// connection the pool opens (pgxpool's BeforeConnect, M10 10.2:
+	// DB_PASSWORD rotation). Connections already open keep working with the
+	// password they authenticated with; only later connections (pool growth,
+	// recycling, a dropped connection) pick up a rotated password. nil keeps
+	// the password baked into dsn, as before.
+	PasswordGetter func() string
 }
 
 // DefaultPoolConfig is the tuning for a typical API workload (also used by tests).
@@ -82,6 +90,14 @@ func Connect(ctx context.Context, dsn string, pc PoolConfig) (*pgxpool.Pool, err
 			_, err := conn.Exec(ctx, fmt.Sprintf(
 				"SET statement_timeout = %d; SET idle_in_transaction_session_timeout = %d", ms, 2*ms))
 			return err
+		}
+	}
+
+	if pc.PasswordGetter != nil {
+		getPassword := pc.PasswordGetter
+		poolCfg.BeforeConnect = func(ctx context.Context, cc *pgx.ConnConfig) error {
+			cc.Password = getPassword()
+			return nil
 		}
 	}
 

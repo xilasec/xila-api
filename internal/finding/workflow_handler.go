@@ -30,6 +30,61 @@ import (
 type accessChecker interface {
 	RoleOnProject(ctx context.Context, userID, projectID string) (domain.TeamRole, bool, error)
 	AdminStatus(ctx context.Context, userID string) (isAdmin, isOwner bool, err error)
+	OwnedProjectIDs(ctx context.Context, userID string) ([]string, error)
+	ProjectCapabilityAllowed(ctx context.Context, userID, projectID string, min domain.TeamRole, cap domain.Capability) (bool, error)
+}
+
+// decidableProjects narrows a cross-project queue to the projects whose
+// requests the caller may decide: those they own, within visible (the
+// caller's visible scope; nil = every project). Instance admins decide
+// everywhere. A project-scoped token never decides outside its project.
+// The result follows the same convention: nil = every project.
+//
+// cap is the custom-role capability deciding needs: a project where every
+// owner-level grant of the caller denies it is left out.
+func (h *Handler) decidableProjects(c *fiber.Ctx, uid string, visible []string, cap domain.Capability) ([]string, error) {
+	isAdmin, _, err := h.access.AdminStatus(c.UserContext(), uid)
+	if err != nil {
+		return nil, err
+	}
+	var mine []string // nil = every project
+	if !isAdmin {
+		owned, err := h.access.OwnedProjectIDs(c.UserContext(), uid)
+		if err != nil {
+			return nil, err
+		}
+		mine = []string{}
+		for _, pid := range owned {
+			ok, err := h.access.ProjectCapabilityAllowed(c.UserContext(), uid, pid, domain.TeamOwner, cap)
+			if err != nil {
+				return nil, err
+			}
+			if ok {
+				mine = append(mine, pid)
+			}
+		}
+	}
+	if a := auth.CurrentActor(c); a.ProjectID != "" && a.UserID == uid {
+		mine = intersectIDs(mine, []string{a.ProjectID})
+	}
+	return intersectIDs(mine, visible), nil
+}
+
+// intersectIDs intersects two id sets where nil means "every id".
+func intersectIDs(a, b []string) []string {
+	switch {
+	case a == nil:
+		return b
+	case b == nil:
+		return a
+	}
+	out := []string{}
+	for _, id := range a {
+		if slices.Contains(b, id) {
+			out = append(out, id)
+		}
+	}
+	return out
 }
 
 // MaxAttachmentBytes caps one evidence file.
@@ -53,6 +108,20 @@ func (h *Handler) can(c *fiber.Ctx, userID, projectID string, min domain.TeamRol
 		return false, err
 	}
 	return role.AtLeast(min), nil
+}
+
+// canDo is can plus a custom role's deny-list: some grant meeting min must
+// not deny cap (the middleware's rule, for the cross-project bulk edit it
+// can't authorize).
+func (h *Handler) canDo(c *fiber.Ctx, userID, projectID string, min domain.TeamRole, cap domain.Capability) (bool, error) {
+	ok, err := h.can(c, userID, projectID, min)
+	if err != nil || !ok {
+		return false, err
+	}
+	if isAdmin, _, err := h.access.AdminStatus(c.UserContext(), userID); err != nil || isAdmin {
+		return isAdmin, err
+	}
+	return h.access.ProjectCapabilityAllowed(c.UserContext(), userID, projectID, min, cap)
 }
 
 // assignable checks a would-be assignee can see every project involved.
@@ -332,7 +401,7 @@ func (h *Handler) Bulk(c *fiber.Ctx) error {
 		}
 		ok, seen := allowed[pid]
 		if !seen {
-			if ok, err = h.can(c, auth.UserID(c), pid, domain.TeamEditor); err != nil {
+			if ok, err = h.canDo(c, auth.UserID(c), pid, domain.TeamEditor, domain.CapTriage); err != nil {
 				return err
 			}
 			allowed[pid] = ok

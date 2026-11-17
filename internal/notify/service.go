@@ -16,6 +16,7 @@ import (
 
 	"github.com/xilasec/xila-api/internal/netguard"
 	"github.com/xilasec/xila-api/internal/secretbox"
+	"github.com/xilasec/xila-api/internal/secretref"
 )
 
 // channelLister is the slice of the repository the dispatcher needs.
@@ -40,10 +41,11 @@ type Service struct {
 	wake        chan struct{} // nudges this process's dispatcher after an enqueue
 	client      *http.Client
 	smtp        SMTPConfig
-	maxAttempts int               // SendTo's in-request retries
-	backoff     time.Duration     // SendTo's first retry wait
-	cipher      *secretbox.Cipher // webhook signing secrets (nil: none can be stored or used)
-	features    Features          // optional; nil = every feature on
+	smtpPass    secretref.Value    // the live SMTP_PASSWORD; nil = smtp.Password
+	maxAttempts int                // SendTo's in-request retries
+	backoff     time.Duration      // SendTo's first retry wait
+	cipher      *secretbox.Keyring // webhook signing secrets (unconfigured: none can be stored or used)
+	features    Features           // optional; nil = every feature on
 }
 
 // NewService wires the dispatcher against the repository. smtp may be the zero
@@ -63,12 +65,19 @@ func NewService(repo *Repository, smtp SMTPConfig) *Service {
 	}
 }
 
+// WithSMTPPassword reads the SMTP password per message instead of the
+// startup value, so a rotated SMTP_PASSWORD applies to the next email.
+func (s *Service) WithSMTPPassword(v secretref.Value) *Service {
+	s.smtpPass = v
+	return s
+}
+
 // SetDeliveryPolicy sets the outbox retry/retention policy (NOTIFY_*).
 func (s *Service) SetDeliveryPolicy(p DeliveryPolicy) { s.policy = p }
 
-// SetSecretCipher sets the cipher sealing webhook signing secrets
+// SetSecretCipher sets the ring sealing webhook signing secrets
 // (INTEGRATION_SECRET_KEY). Without one, channels can't carry a secret.
-func (s *Service) SetSecretCipher(c *secretbox.Cipher) { s.cipher = c }
+func (s *Service) SetSecretCipher(c *secretbox.Keyring) { s.cipher = c }
 
 // SealSecret encrypts a channel's signing secret, bound to its id.
 func (s *Service) SealSecret(channelID, secret string) ([]byte, error) {
@@ -152,13 +161,31 @@ func (s *Service) SMTPConfigured() bool { return s.smtp.Configured() }
 // none, and always 0 for SMTP), and the final error.
 func (s *Service) deliver(ctx context.Context, ch Channel, e Event, deliveryID string, maxAttempts int) (int, int, error) {
 	var sendOnce func() (int, error)
-	if ch.Type == TypeEmail {
+	switch {
+	case ch.Type == TypeEmail:
 		msg, rcpts, err := s.emailMessage(ch, e)
 		if err != nil {
 			return 0, 0, err
 		}
 		sendOnce = func() (int, error) { return 0, s.sendMail(ctx, rcpts, msg) }
-	} else {
+	case ch.Type == TypeKafka:
+		if ch.Kafka == nil {
+			return 0, 0, fmt.Errorf("kafka channel %q has no config", ch.Name)
+		}
+		cfg := *ch.Kafka
+		var password string
+		if cfg.SASLMechanism != "" && ch.HasSecret {
+			var err error
+			// A password that can't be opened (key rotated away) fails the
+			// delivery rather than connecting unauthenticated.
+			if password, err = s.cipher.Open(ch.secretEnc, ch.ID); err != nil {
+				return 0, 0, fmt.Errorf("kafka SASL password: %w", err)
+			}
+		}
+		body := s.payload(ch, e)
+		key := kafkaKey(cfg.KeyTemplate, e)
+		sendOnce = func() (int, error) { return 0, s.sendKafka(ctx, ch, cfg, password, key, body) }
+	default:
 		body := s.payload(ch, e)
 		var secret string
 		if ch.Type == TypeWebhook && ch.HasSecret {

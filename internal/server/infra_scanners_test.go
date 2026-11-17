@@ -48,6 +48,8 @@ func TestSmokeInfraScanners(t *testing.T) {
 		{"acunetix", "acunetix_example.xml", 7, "/Crawler/12-Crawler_Form_NO_CSRF.js"},
 		{"invicti", "invicti_issue_10311.json", 3, "CookieNotMarkedAsSecure"},
 		{"testssl", "testssl_many_vuln.csv", 4, "cipherlist_AVERAGE"},
+		{"cryptolyzer", "cryptolyzer_tls10.json", 6, "weak-protocols"},
+		{"drheader", "drheader_multiple_urls.json", 4, "X-Frame-Options"},
 		{"aws-inspector2", "aws-inspector2_many_vul.json", 8, "CVE-2024-37021"},
 		{"aws-security-hub", "aws-security-hub_config_multiple_resources.json", 5, "aws-foundational-security-best-practices/v/1.0.0/EC2.2"},
 		{"aws-security-hub", "aws-security-hub_guardduty.json", 4, "TTPs/Defense Evasion/DefenseEvasion:EC2-UnusualDNSResolver"},

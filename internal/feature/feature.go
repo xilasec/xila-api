@@ -65,7 +65,7 @@ var Defs = []Def{
 	{Key: MFA, OwnerOnly: true, Routes: []string{`^/api/v1/(me/mfa|users/[^/]+/mfa)(/|$)`}, Public: []string{`^/api/v1/auth/mfa/?$`}},
 	{Key: CRA, Routes: []string{`^/api/v1/(cra|projects/[^/]+/cra)(/|$)`}},
 	{Key: PSIRT, Routes: []string{`^/api/v1/psirt(/|$)`}, Public: []string{`^/\.well-known/csaf(/|$)`, `^/csaf(/|$)`}},
-	{Key: AITriage, Routes: []string{`^/api/v1/findings/[^/]+/ai-proposals(/|$)`}},
+	{Key: AITriage, Routes: []string{`^/api/v1/findings/[^/]+/ai-proposals(/|$)`, `^/api/v1/ai-proposals$`}},
 	{Key: MCP, Routes: []string{`^/api/v1/mcp/?$`}},
 	{Key: Badges, Routes: []string{`^/api/v1/projects/[^/]+/badge-token(/|$)`}, Public: []string{`^/api/v1/badges(/|$)`}},
 	{Key: CustomFields, Routes: []string{`^/api/v1/(custom-fields|(assets|findings|projects)/[^/]+/custom)(/|$)`}},

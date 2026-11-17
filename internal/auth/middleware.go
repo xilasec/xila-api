@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -19,9 +20,12 @@ const (
 type Actor struct {
 	UserID    string
 	ProjectID string // non-empty when a token is scoped to a single project
-	IsToken   bool
-	TokenID   string // the API token's id when IsToken (named in the audit log)
-	IsAdmin   bool   // global instance admin (bypasses team authorization)
+	// AuthTime is when a session's user last authenticated (zero for API
+	// tokens and sessions issued before auth_time existed).
+	AuthTime time.Time
+	IsToken  bool
+	TokenID  string // the API token's id when IsToken (named in the audit log)
+	IsAdmin  bool   // global instance admin (bypasses team authorization)
 	// IsServiceAccount marks a service account (users.kind='service'); set by
 	// its keys and federated sessions.
 	IsServiceAccount bool
@@ -45,7 +49,7 @@ type SessionValidator interface {
 // With sessions set, a JWT is also checked against the user's current token
 // version, so a password change, "sign out everywhere" or deactivation takes
 // effect immediately instead of when the token expires.
-func Middleware(secret string, tokens TokenValidator, sessions SessionValidator) fiber.Handler {
+func Middleware(keys *Keys, tokens TokenValidator, sessions SessionValidator) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		raw, ok := strings.CutPrefix(c.Get(fiber.HeaderAuthorization), "Bearer ")
 		if !ok || raw == "" {
@@ -64,7 +68,7 @@ func Middleware(secret string, tokens TokenValidator, sessions SessionValidator)
 			return c.Next()
 		}
 
-		claims, err := ParseToken(secret, raw)
+		claims, err := ParseToken(keys, raw)
 		if err != nil || claims.Purpose != "" {
 			// A two-factor challenge is not a session.
 			return fiber.NewError(fiber.StatusUnauthorized, "invalid or expired token")
@@ -80,6 +84,9 @@ func Middleware(secret string, tokens TokenValidator, sessions SessionValidator)
 		}
 		actor := Actor{UserID: claims.Subject, IsAdmin: claims.IsAdmin,
 			IsServiceAccount: claims.ServiceAccount, ProjectID: claims.ProjectID}
+		if claims.AuthTime > 0 {
+			actor.AuthTime = time.Unix(claims.AuthTime, 0)
+		}
 		if err := checkProjectScope(c, actor); err != nil {
 			return err
 		}

@@ -30,20 +30,7 @@ func SeveritiesAtLeast(floor Severity) []Severity {
 }
 
 // Weight is the base risk contribution of a single finding at this severity.
-func (s Severity) Weight() float64 {
-	switch s {
-	case SeverityLow:
-		return 1
-	case SeverityMedium:
-		return 3
-	case SeverityHigh:
-		return 7
-	case SeverityCritical:
-		return 15
-	default: // info
-		return 0
-	}
-}
+func (s Severity) Weight() float64 { return DefaultWeights.SeverityWeight(s) }
 
 // Category is the class of security testing that produced a finding.
 type Category string
@@ -303,19 +290,7 @@ type Reachability struct {
 //	transitive + runtime  0.8 × 1.0  = 0.8
 //	direct + optional     1.0 × 0.5  = 0.5
 //	transitive + dev      0.8 × 0.25 = 0.2   (the noise)
-func (r Reachability) Multiplier() float64 {
-	m := 1.0
-	if r.Direct != nil && !*r.Direct {
-		m = 0.8 // transitive: we depend on it, but not on purpose
-	}
-	switch r.Scope {
-	case DepScopeDev:
-		m *= 0.25 // never ships to production
-	case DepScopeOptional:
-		m *= 0.5
-	}
-	return m
-}
+func (r Reachability) Multiplier() float64 { return DefaultWeights.Reachability(r) }
 
 // ExploitMaturity is the best public exploit known for a finding's CVEs
 // (internal/exploitintel): a proof of concept (ExploitDB, a Nuclei template)
@@ -362,19 +337,7 @@ type Exploitability struct {
 // stack: EPSS scales 1 + 2×p; a weaponized exploit counts like EPSS 0.75
 // (2.5×: point-and-shoot, on par with a high EPSS) and a public PoC like EPSS
 // 0.25 (1.5×). No evidence leaves the weight as it is.
-func (x Exploitability) Multiplier() float64 {
-	if x.KEV {
-		return 3.0
-	}
-	m := 1.0 + 2.0*x.EPSS
-	switch x.Maturity {
-	case ExploitWeaponized:
-		m = max(m, 2.5)
-	case ExploitPoC:
-		m = max(m, 1.5)
-	}
-	return m
-}
+func (x Exploitability) Multiplier() float64 { return DefaultWeights.Exploitability(x) }
 
 // Exposure is where an asset can be reached from (internal/asset): the network
 // position of the thing a finding sits on. Empty means nobody knows — which is
@@ -423,15 +386,7 @@ func (e Exposure) Rank() int {
 // on an isolated host (15 × 3 × 0.2 × 0.75 = 6.75) outranks a quiet shipped
 // medium even on an internet-facing asset (3 × 1 × 1 × 1.25 = 3.75). Both
 // factors are exact binary fractions, so priorities stay exact numbers.
-func (e Exposure) Multiplier() float64 {
-	switch e {
-	case ExposureInternet:
-		return 1.25
-	case ExposureIsolated:
-		return 0.75
-	}
-	return 1.0
-}
+func (e Exposure) Multiplier() float64 { return DefaultWeights.Exposure(e) }
 
 // Priority ranks a finding for the working backlog. Severity is the base weight;
 // exploitability scales it up (KEV triples it; EPSS or a public exploit scale it
@@ -450,8 +405,12 @@ func (e Exposure) Multiplier() float64 {
 // Note what the sixth line means: an exploited critical buried in a build-only
 // dependency on an isolated asset still outranks a quiet medium. Reachability
 // and exposure discount noise; they never bury a real emergency.
+//
+// These are the default weights; a project can override them (Weights,
+// projects.priority_weights), so every writer of a stored priority uses the
+// finding's project weights rather than this.
 func Priority(sev Severity, x Exploitability, reach Reachability, exp Exposure) float64 {
-	return sev.Weight() * x.Multiplier() * reach.Multiplier() * exp.Multiplier()
+	return DefaultWeights.Priority(sev, x, reach, exp)
 }
 
 // MaxTeamRole returns the highest of the given roles — a user's effective role
@@ -470,4 +429,42 @@ func MaxTeamRole(roles ...TeamRole) (TeamRole, bool) {
 		}
 	}
 	return best, found
+}
+
+// Capability is a fine-grained action a custom role can deny on top of its
+// base TeamRole (viewer/uploader/editor/owner). A custom role is always a
+// base role minus a subset of these; the ladder rank used everywhere else
+// (RoleOnProject, RoleOnTeam, authz's minRole) stays the base role — a
+// capability only narrows specific route classes within it, it never changes
+// what role a grant ranks as.
+type Capability string
+
+// Capabilities a custom role may deny.
+const (
+	CapTriage                Capability = "triage"                  // finding status / assignee / severity changes
+	CapComment               Capability = "comment"                 // finding comments
+	CapManageMembers         Capability = "manage_members"          // team/org/project member + group management
+	CapProjectSettings       Capability = "project_settings"        // gate policy, SLA, issue tracker, connectors
+	CapUpload                Capability = "upload"                  // pushing scans/SBOMs/VEX, running the gate
+	CapExport                Capability = "export"                  // CSV/XLSX exports of findings/components/VEX
+	CapRiskAcceptanceApprove Capability = "risk_acceptance_approve" // approve/reject/revoke a risk acceptance
+)
+
+// Capabilities lists every capability a custom role may deny, in the order
+// they are presented to admins.
+var Capabilities = []Capability{
+	CapTriage, CapComment, CapManageMembers, CapProjectSettings, CapUpload, CapExport, CapRiskAcceptanceApprove,
+}
+
+// Valid reports whether c is a known capability.
+func (c Capability) Valid() bool { return slices.Contains(Capabilities, c) }
+
+// ValidCapabilities reports whether every capability in cs is known.
+func ValidCapabilities(cs []Capability) bool {
+	for _, c := range cs {
+		if !c.Valid() {
+			return false
+		}
+	}
+	return true
 }

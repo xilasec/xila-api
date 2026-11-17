@@ -88,6 +88,15 @@ type IngestRequest struct {
 	// Force bypasses skip-unchanged: always run the full pipeline even if this
 	// report's content hash matches the target's previous scan.
 	Force bool
+	// SplitAssets attributes each finding to the host asset of the machine it
+	// names (multi-host infrastructure scans); exclusive with AssetID.
+	SplitAssets bool
+}
+
+// hostResolver finds or creates a project's host assets by name
+// (asset.Repository satisfies it).
+type hostResolver interface {
+	ResolveHosts(ctx context.Context, projectID string, hosts []string) (map[string]string, error)
 }
 
 // parserKey selects the parser: an explicit format wins, else the scanner name.
@@ -109,11 +118,23 @@ type Service struct {
 	// followUps run after dedup, on the scan's final findings (see WithFollowUps).
 	followUps []Applier
 	jobs      jobStore // optional (required for async Enqueue)
+	// hosts resolves split-assets scans' host assets (optional; without it a
+	// split scan keeps every finding on its own target).
+	hosts hostResolver
+	// payloads is where a queued job's raw upload lives between Enqueue and
+	// ProcessJob when INGEST_PAYLOAD_STORE=s3 (see WithPayloadStore). Nil
+	// keeps payloads in scan_jobs.payload (the default).
+	payloads PayloadStore
 	// skipUnchanged short-circuits the pipeline when a report's content hash
 	// matches its target's previous completed scan (INGEST_SKIP_UNCHANGED; see
 	// WithSkipUnchanged and runPipeline). Off by default: callers that want it
 	// opt in explicitly.
 	skipUnchanged bool
+	// customParsers resolves a scanner name to an admin-defined no-code parser
+	// (internal/customparser.Service) when the static registry has no built-in
+	// match (see WithCustomParsers and resolveParser). Optional: nil skips the
+	// fallback entirely.
+	customParsers customParserResolver
 }
 
 // Applier is a post-ingest pass over the findings a scan just reported: auto-
@@ -130,7 +151,18 @@ type Applier interface {
 // jobStore persists queued ingest jobs (scan.Repository satisfies it). Only used
 // by the async Enqueue path.
 type jobStore interface {
-	EnqueueJob(ctx context.Context, scanID string, payload []byte, format string, closeMissing, force bool) error
+	EnqueueJob(ctx context.Context, scanID string, payload []byte, payloadRef, format string, closeMissing, force bool) error
+}
+
+// PayloadStore is where a queued job's raw upload lives between Enqueue and
+// ProcessJob when INGEST_PAYLOAD_STORE=s3 (internal/objectstore.Client
+// satisfies it structurally; M11 11.8). Keys are store-relative
+// ("scan-jobs/<scan id>"). Nil (the default) keeps payloads in
+// scan_jobs.payload instead.
+type PayloadStore interface {
+	Put(ctx context.Context, key string, payload []byte) error
+	Get(ctx context.Context, key string) ([]byte, error)
+	Delete(ctx context.Context, key string) error
 }
 
 // NewService wires the ingestion dependencies. notifier, appliers and jobs may be nil.
@@ -147,6 +179,31 @@ func (s *Service) WithFollowUps(p ...Applier) *Service {
 	return s
 }
 
+// WithPayloadStore moves queued jobs' raw uploads out of scan_jobs.payload and
+// into store (INGEST_PAYLOAD_STORE=s3): Enqueue uploads the payload and keeps
+// only a reference, ProcessJob fetches it, and it is deleted once the job
+// completes. A job that fails and exhausts its retries keeps its object so
+// it stays inspectable — the failed-job retention sweep (LOG_RETENTION)
+// deletes it alongside the row.
+func (s *Service) WithPayloadStore(store PayloadStore) *Service {
+	s.payloads = store
+	return s
+}
+
+// customParserResolver resolves a scanner name to an admin-defined no-code
+// parser (customparser.Service satisfies it structurally).
+type customParserResolver interface {
+	Resolve(ctx context.Context, name string) (scanner.Parser, bool, error)
+}
+
+// WithCustomParsers lets uploads for a name the static registry doesn't know
+// fall back to an admin-defined no-code parser (M12 12.4). Optional: nil (the
+// default) means ?scanner=<name> must always match a built-in parser.
+func (s *Service) WithCustomParsers(r customParserResolver) *Service {
+	s.customParsers = r
+	return s
+}
+
 // WithSkipUnchanged enables the skip-unchanged short-circuit (see
 // runPipeline): a report whose content hash matches its target's previous
 // completed scan records the repeat cheaply instead of re-running the whole
@@ -154,6 +211,19 @@ func (s *Service) WithFollowUps(p ...Applier) *Service {
 func (s *Service) WithSkipUnchanged(enabled bool) *Service {
 	s.skipUnchanged = enabled
 	return s
+}
+
+// resolveParser looks up key in the static registry, falling back to an
+// admin-defined no-code parser (WithCustomParsers) when configured and the
+// registry has no match.
+func (s *Service) resolveParser(ctx context.Context, key string) (scanner.Parser, bool, error) {
+	if p, ok := s.parsers.Get(key); ok {
+		return p, true, nil
+	}
+	if s.customParsers == nil {
+		return nil, false, nil
+	}
+	return s.customParsers.Resolve(ctx, key)
 }
 
 // Ingest synchronously parses + processes a scan and returns the finalized scan.
@@ -165,22 +235,45 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest, raw io.Reader) 
 	return s.runPipeline(ctx, sc, raw, req.Format, req.CloseMissing, s.skipUnchanged && !req.Force)
 }
 
-// Enqueue persists the raw payload + a scan row and returns immediately; a worker
-// processes it later via ProcessJob. Used when async ingestion is enabled so
-// uploads don't hold a request (or a DB connection) for the whole pipeline.
+// payloadKey is the PayloadStore key Enqueue/ProcessJob use for a scan's
+// queued payload.
+func payloadKey(scanID string) string { return "scan-jobs/" + scanID }
+
+// Enqueue persists the raw payload + a scan row and returns immediately; a
+// worker processes it later via ProcessJob. Used when async ingestion is
+// enabled so uploads don't hold a request (or a DB connection) for the whole
+// pipeline. With WithPayloadStore configured, the payload is uploaded there
+// instead of scan_jobs.payload and only its key is persisted.
 func (s *Service) Enqueue(ctx context.Context, req IngestRequest, payload []byte) (Scan, error) {
 	sc, err := s.createScan(ctx, req)
 	if err != nil {
 		return Scan{}, err
 	}
-	if err := s.jobs.EnqueueJob(ctx, sc.ID, payload, req.Format, req.CloseMissing, req.Force); err != nil {
+	dbPayload, ref := payload, ""
+	if s.payloads != nil {
+		ref = payloadKey(sc.ID)
+		if err := s.payloads.Put(ctx, ref, payload); err != nil {
+			err = fmt.Errorf("store queued payload: %w", err)
+			_, _ = s.scans.Finalize(ctx, sc.ID, domain.ScanFailed, nil, err.Error(), "")
+			return Scan{}, err
+		}
+		dbPayload = nil
+	}
+	if err := s.jobs.EnqueueJob(ctx, sc.ID, dbPayload, ref, req.Format, req.CloseMissing, req.Force); err != nil {
+		if ref != "" {
+			_ = s.payloads.Delete(ctx, ref) // best-effort: don't orphan the object
+		}
 		_, _ = s.scans.Finalize(ctx, sc.ID, domain.ScanFailed, nil, err.Error(), "")
 		return Scan{}, err
 	}
 	return sc, nil
 }
 
-// ProcessJob runs a queued job through the pipeline. Called by worker goroutines.
+// ProcessJob runs a queued job through the pipeline. Called by worker
+// goroutines. A job's PayloadRef (when set) is fetched from the configured
+// PayloadStore and deleted once the pipeline completes successfully; on
+// failure the object is left in place for the retry, or — once retries are
+// exhausted — for the failed-job retention sweep to remove alongside the row.
 func (s *Service) ProcessJob(ctx context.Context, job Job) (err error) {
 	defer func(start time.Time) { observeJob(ctx, start, err) }(time.Now())
 
@@ -188,13 +281,32 @@ func (s *Service) ProcessJob(ctx context.Context, job Job) (err error) {
 	if err != nil {
 		return err
 	}
-	_, err = s.runPipeline(ctx, sc, bytes.NewReader(job.Payload), job.Format, job.CloseMissing, s.skipUnchanged && !job.Force)
-	return err
+	payload := job.Payload
+	if job.PayloadRef != "" {
+		if s.payloads == nil {
+			return fmt.Errorf("scan job %s references payload %q but no payload store is configured", job.ID, job.PayloadRef)
+		}
+		if payload, err = s.payloads.Get(ctx, job.PayloadRef); err != nil {
+			return fmt.Errorf("fetch queued payload: %w", err)
+		}
+	}
+	if _, err = s.runPipeline(ctx, sc, bytes.NewReader(payload), job.Format, job.CloseMissing, s.skipUnchanged && !job.Force); err != nil {
+		return err
+	}
+	if job.PayloadRef != "" {
+		if derr := s.payloads.Delete(ctx, job.PayloadRef); derr != nil {
+			slog.WarnContext(ctx, "delete queued payload", "ref", job.PayloadRef, "error", derr)
+		}
+	}
+	return nil
 }
 
 // createScan validates the scanner + project and inserts the scan row.
 func (s *Service) createScan(ctx context.Context, req IngestRequest) (Scan, error) {
-	parser, ok := s.parsers.Get(req.parserKey())
+	parser, ok, err := s.resolveParser(ctx, req.parserKey())
+	if err != nil {
+		return Scan{}, err
+	}
 	if !ok {
 		return Scan{}, fmt.Errorf("%w: %q", ErrUnknownScanner, req.parserKey())
 	}
@@ -226,6 +338,7 @@ func (s *Service) createScan(ctx context.Context, req IngestRequest) (Scan, erro
 		Branch:       name,
 		Kind:         kind,
 		EngagementID: engagementID,
+		SplitAssets:  req.SplitAssets,
 	})
 }
 
@@ -240,10 +353,13 @@ func (s *Service) createScan(ctx context.Context, req IngestRequest) (Scan, erro
 // live findings are carried onto it (see findingWriter.CarryForward) so they
 // look seen by this scan without counting as newly introduced by it.
 func (s *Service) runPipeline(ctx context.Context, sc Scan, raw io.Reader, format string, closeMissing, trySkip bool) (Scan, error) {
-	parser, ok := s.parsers.Get(IngestRequest{Scanner: sc.Scanner, Format: format}.parserKey())
-	if !ok {
+	parser, ok, perr := s.resolveParser(ctx, IngestRequest{Scanner: sc.Scanner, Format: format}.parserKey())
+	if perr == nil && !ok {
+		perr = fmt.Errorf("%w: %q", ErrUnknownScanner, sc.Scanner)
+	}
+	if perr != nil {
 		_, _ = s.scans.Finalize(ctx, sc.ID, domain.ScanFailed, nil, "unknown scanner", "")
-		return Scan{}, fmt.Errorf("%w: %q", ErrUnknownScanner, sc.Scanner)
+		return Scan{}, perr
 	}
 
 	parsed, err := parser.Parse(raw)
@@ -254,10 +370,21 @@ func (s *Service) runPipeline(ctx context.Context, sc Scan, raw io.Reader, forma
 		return Scan{}, fmt.Errorf("parse scan: %w", err)
 	}
 
+	hostAsset, err := s.hostAssets(ctx, sc, parsed)
+	if err != nil {
+		if _, ferr := s.scans.Finalize(ctx, sc.ID, domain.ScanFailed, nil, err.Error(), ""); ferr != nil {
+			return Scan{}, errors.Join(err, ferr)
+		}
+		return Scan{}, err
+	}
 	summary := map[string]int{}
 	findings := make([]finding.Finding, 0, len(parsed))
 	for _, pf := range parsed {
-		findings = append(findings, toFinding(sc.ProjectID, sc.Scanner, sc.ID, sc.AssetID, pf))
+		assetID := sc.AssetID
+		if id, ok := hostAsset[scanner.HostOf(pf)]; ok {
+			assetID = &id
+		}
+		findings = append(findings, toFinding(sc.ProjectID, sc.Scanner, sc.ID, assetID, pf))
 		summary[string(pf.Severity)]++
 	}
 
@@ -607,4 +734,35 @@ func contentHash(scannerName string, parsed []scanner.ParsedFinding, closeMissin
 	}
 	sum := sha256.Sum256(b)
 	return hex.EncodeToString(sum[:]), nil
+}
+
+// hostAssets resolves the host asset of every machine a split-assets scan's
+// findings name (scanner.HostOf), creating the missing ones. Findings that name
+// no host stay on the scan's own target. nil when the scan isn't split.
+func (s *Service) hostAssets(ctx context.Context, sc Scan, parsed []scanner.ParsedFinding) (map[string]string, error) {
+	if !sc.SplitAssets || s.hosts == nil {
+		return nil, nil
+	}
+	seen := map[string]bool{}
+	var hosts []string
+	for _, pf := range parsed {
+		if h := scanner.HostOf(pf); h != "" && !seen[h] {
+			seen[h] = true
+			hosts = append(hosts, h)
+		}
+	}
+	if len(hosts) == 0 {
+		return nil, nil
+	}
+	ids, err := s.hosts.ResolveHosts(ctx, sc.ProjectID, hosts)
+	if err != nil {
+		return nil, fmt.Errorf("host assets: %w", err)
+	}
+	return ids, nil
+}
+
+// WithHostAssets lets split-assets scans find and create host assets.
+func (s *Service) WithHostAssets(h hostResolver) *Service {
+	s.hosts = h
+	return s
 }

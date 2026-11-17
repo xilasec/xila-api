@@ -147,6 +147,7 @@ func cmdUpload(args []string, out, errw io.Writer) int {
 	artifact := fs.String("artifact", "", "artifact name")
 	engagement := fs.String("engagement", "", "engagement id: file the scan as one of its tests")
 	force := fs.Bool("force", false, "process in full even if this report's content hash matches the previous scan (bypasses skip-unchanged)")
+	splitAssets := fs.Bool("split-assets", false, "file each finding under the host asset of the machine it names (multi-host infrastructure scans)")
 	gate := fs.Bool("gate", false, "run the gate after upload; non-zero exit on failure")
 	newOnly := fs.Bool("new", false, "with --gate: evaluate only newly-introduced findings")
 	baseline := fs.String("baseline", "", "with --gate: compare against this baseline branch for new-only (overrides the stored policy's baseline_branch)")
@@ -180,6 +181,9 @@ func cmdUpload(args []string, out, errw io.Writer) int {
 	}
 	if *force {
 		q.Set("force", "true")
+	}
+	if *splitAssets {
+		q.Set("split_assets", "true")
 	}
 	bearer, err := resolveToken(*url, *token, *oidcToken, out)
 	if err != nil {
@@ -325,6 +329,9 @@ func cmdGate(args []string, out, errw io.Writer) int {
 	project := fs.String("project", "", "project id (required)")
 	maxCritical := fs.Int("max-critical", -1, "fail if open criticals exceed this")
 	maxHigh := fs.Int("max-high", -1, "fail if open highs exceed this")
+	maxMedium := fs.Int("max-medium", -1, "fail if open mediums exceed this")
+	maxLow := fs.Int("max-low", -1, "fail if open lows exceed this")
+	maxInfo := fs.Int("max-info", -1, "fail if open info findings exceed this")
 	blockKEV := fs.Bool("block-kev", false, "fail on any open CISA-KEV finding")
 	maxEPSS := fs.Float64("max-epss", -1, "fail if any open finding EPSS ≥ this")
 	blockLicense := fs.Bool("block-license", false, "fail on any open license violation")
@@ -361,6 +368,11 @@ func cmdGate(args []string, out, errw io.Writer) int {
 	}
 	if *maxHigh >= 0 {
 		set("max_high", *maxHigh)
+	}
+	for k, v := range map[string]int{"max_medium": *maxMedium, "max_low": *maxLow, "max_info": *maxInfo} {
+		if v >= 0 {
+			set(k, v)
+		}
 	}
 	if *blockKEV {
 		set("block_kev", true)

@@ -10,7 +10,7 @@ func intp(n int) *int         { return &n }
 func f64p(f float64) *float64 { return &f }
 
 func TestEvaluate(t *testing.T) {
-	stats := finding.GateStats{OpenCritical: 2, OpenHigh: 5, OpenKEV: 1, OpenLicense: 1, MaxEPSS: 0.7, SLABreached: 3, RiskScore: 50}
+	stats := finding.GateStats{OpenCritical: 2, OpenHigh: 5, OpenMedium: 4, OpenLow: 5, OpenInfo: 2, OpenKEV: 1, OpenLicense: 1, MaxEPSS: 0.7, SLABreached: 3, RiskScore: 50}
 
 	cases := []struct {
 		name      string
@@ -22,6 +22,9 @@ func TestEvaluate(t *testing.T) {
 		{"max_critical exceeded", Policy{MaxCritical: intp(0)}, false, []string{"max_critical"}},
 		{"max_critical within limit", Policy{MaxCritical: intp(5)}, true, nil},
 		{"max_high exceeded", Policy{MaxHigh: intp(3)}, false, []string{"max_high"}},
+		{"max_medium exceeded", Policy{MaxMedium: intp(1)}, false, []string{"max_medium"}},
+		{"max_low at the limit", Policy{MaxLow: intp(5)}, true, nil},
+		{"max_info exceeded", Policy{MaxInfo: intp(0)}, false, []string{"max_info"}},
 		{"block_kev fails", Policy{BlockKEV: true}, false, []string{"block_kev"}},
 		{"epss over threshold", Policy{MaxEPSS: f64p(0.5)}, false, []string{"max_epss"}},
 		{"epss boundary is inclusive", Policy{MaxEPSS: f64p(0.7)}, false, []string{"max_epss"}},

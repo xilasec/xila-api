@@ -187,6 +187,8 @@ func filterFrom(params map[string]string, userID string) (Filter, error) {
 		Scanner:           get("scanner"),
 		RuleID:            get("rule_id"),
 		KEVOnly:           flag("kev"),
+		RansomwareOnly:    flag("kev_ransomware"),
+		OpenOnly:          flag("active"),
 		ScanID:            get("scan_id"),
 		EngagementID:      get("engagement_id"),
 		Exploit:           get("exploit"),

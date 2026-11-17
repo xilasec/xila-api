@@ -5,6 +5,7 @@
 	import { fmtDate } from '#lib/format.js';
 	import { t } from '#lib/i18n.js';
 	import State from '#lib/components/State.svelte';
+	import { advisoryLinks } from '#lib/links.js';
 
 	const vulnId = $derived(decodeURIComponent(page.params.id ?? ''));
 	let artifacts = $state(/** @type {any[]} */ ([]));
@@ -37,7 +38,7 @@
 	<h1 class="text-2xl font-bold mt-2">{vulnId}</h1>
 	<p class="text-sm text-base-content/60">
 		{$t('vulntl.subtitle')}
-		<a class="link" href={`https://osv.dev/vulnerability/${encodeURIComponent(vulnId)}`} target="_blank" rel="noreferrer">OSV ↗</a>
+		{#each advisoryLinks(vulnId) as l (l.label)}<a class="link ml-1" href={l.href} target="_blank" rel="noopener noreferrer">{l.label} ↗</a>{:else}<a class="link" href={`https://osv.dev/vulnerability/${encodeURIComponent(vulnId)}`} target="_blank" rel="noopener noreferrer">OSV ↗</a>{/each}
 	</p>
 </div>
 

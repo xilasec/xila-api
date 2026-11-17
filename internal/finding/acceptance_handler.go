@@ -117,7 +117,9 @@ func (h *Handler) respondAcceptances(c *fiber.Ctx, f AcceptanceFilter) error {
 }
 
 // ListAllAcceptances handles GET /risk-acceptances?state=requested — the
-// approval queue across every project the caller can see.
+// approval queue across every project the caller can see. ?actionable=true
+// keeps only the requests the caller may approve; ?owner=me and
+// ?expires_within_days=N find the acceptances someone has to renew.
 func (h *Handler) ListAllAcceptances(c *fiber.Ctx) error {
 	state, err := acceptanceState(c)
 	if err != nil {
@@ -131,6 +133,35 @@ func (h *Handler) ListAllAcceptances(c *fiber.Ctx) error {
 		f.ProjectIDs = scope.ProjectIDs
 		if f.ProjectIDs == nil {
 			f.ProjectIDs = []string{}
+		}
+	}
+	uid := auth.UserID(c)
+	switch o := c.Query("owner"); o {
+	case "":
+	case "me":
+		f.OwnerID = uid
+	default:
+		if uuid.Validate(o) != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "owner must be me or a user id")
+		}
+		f.OwnerID = o
+	}
+	if d := c.Query("expires_within_days"); d != "" {
+		n, err := strconv.Atoi(d)
+		if err != nil || n < 1 || n > 3650 {
+			return fiber.NewError(fiber.StatusBadRequest, "expires_within_days must be 1 to 3650")
+		}
+		before := time.Now().Add(time.Duration(n) * 24 * time.Hour)
+		f.ExpiresBefore = &before
+	}
+	if c.QueryBool("actionable") {
+		ids, err := h.decidableProjects(c, uid, f.ProjectIDs, domain.CapRiskAcceptanceApprove)
+		if err != nil {
+			return err
+		}
+		f.State, f.ProjectIDs = AcceptanceRequested, ids
+		if h.acceptanceApproval {
+			f.ExcludeRequester = uid
 		}
 	}
 	return h.respondAcceptances(c, f)

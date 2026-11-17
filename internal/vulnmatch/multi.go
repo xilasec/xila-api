@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/xilasec/xila-api/internal/domain"
+	"github.com/xilasec/xila-api/internal/secretref"
 )
 
 // Source names accepted by VULNMATCH_SOURCES.
@@ -103,14 +104,14 @@ func (m *MultiSource) QueryCPE(ctx context.Context, cpes []string) (map[string][
 type SourceDeps struct {
 	OSVURL      string
 	GitHubURL   string
-	GitHubToken string
+	GitHubToken secretref.Value
 	Mirror      *OSVRepository
 	Private     *AdvisoryRepository
 	NVD         cpeMatcher // the shared NVD client (one rate-limit budget with CVSS enrichment)
 	// VulnerableCode base URL (public.vulnerablecode.io or self-hosted) and
 	// optional API key.
 	VulnerableCodeURL    string
-	VulnerableCodeAPIKey string
+	VulnerableCodeAPIKey secretref.Value
 	JVN                  *JVNRepository
 }
 

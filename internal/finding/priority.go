@@ -13,6 +13,7 @@ import (
 type PriorityScope struct {
 	ScanID     string
 	AssetID    string
+	ProjectID  string // every finding of a project (its priority weights changed)
 	FindingIDs []string
 }
 
@@ -26,29 +27,33 @@ type PriorityScope struct {
 // also how a severity reset by a triage rule regains its other factors.
 func (r *Repository) Reprioritize(ctx context.Context, s PriorityScope) ([]string, int, error) {
 	set := 0
-	for _, ok := range []bool{s.ScanID != "", s.AssetID != "", s.FindingIDs != nil} {
+	for _, ok := range []bool{s.ScanID != "", s.AssetID != "", s.ProjectID != "", s.FindingIDs != nil} {
 		if ok {
 			set++
 		}
 	}
 	if set != 1 {
-		return nil, 0, fmt.Errorf("reprioritize: exactly one of scan, asset or findings is required")
+		return nil, 0, fmt.Errorf("reprioritize: exactly one of scan, asset, project or findings is required")
 	}
 	if s.FindingIDs != nil && len(s.FindingIDs) == 0 {
 		return nil, 0, nil
 	}
-	var scan, asset *string
+	var scan, asset, project *string
 	if s.ScanID != "" {
 		scan = &s.ScanID
+	}
+	if s.ProjectID != "" {
+		project = &s.ProjectID
 	}
 	if s.AssetID != "" {
 		asset = &s.AssetID
 	}
 	rows, err := r.db.Query(ctx, `
-		SELECT id, severity, epss, kev, COALESCE(exploit_maturity, ''), dep_direct, dep_scope, `+assetExposureSQL+`
+		SELECT id, severity, epss, kev, COALESCE(exploit_maturity, ''), dep_direct, dep_scope, `+assetExposureSQL+`,
+			(SELECT priority_weights FROM projects pw WHERE pw.id = findings.project_id)
 		FROM findings
 		WHERE ($1::uuid IS NULL OR last_scan_id = $1) AND ($2::uuid IS NULL OR asset_id = $2)
-		  AND ($3::uuid[] IS NULL OR id = ANY($3))`, scan, asset, s.FindingIDs)
+		  AND ($3::uuid[] IS NULL OR id = ANY($3)) AND ($4::uuid IS NULL OR project_id = $4)`, scan, asset, s.FindingIDs, project)
 	if err != nil {
 		return nil, 0, fmt.Errorf("priority inputs: %w", err)
 	}
@@ -64,8 +69,9 @@ func (r *Repository) Reprioritize(ctx context.Context, s PriorityScope) ([]strin
 			direct   *bool
 			scope    domain.DepScope
 			exposure domain.Exposure
+			weights  []byte
 		)
-		if err := rows.Scan(&id, &sev, &epss, &kev, &maturity, &direct, &scope, &exposure); err != nil {
+		if err := rows.Scan(&id, &sev, &epss, &kev, &maturity, &direct, &scope, &exposure, &weights); err != nil {
 			rows.Close()
 			return nil, 0, fmt.Errorf("scan priority inputs: %w", err)
 		}
@@ -74,7 +80,7 @@ func (r *Repository) Reprioritize(ctx context.Context, s PriorityScope) ([]strin
 			x.EPSS = *epss
 		}
 		ids = append(ids, id)
-		prios = append(prios, domain.Priority(sev, x, domain.Reachability{Direct: direct, Scope: scope}, exposure))
+		prios = append(prios, domain.WeightsFromJSON(weights).Priority(sev, x, domain.Reachability{Direct: direct, Scope: scope}, exposure))
 	}
 	rows.Close()
 	if err := rows.Err(); err != nil {

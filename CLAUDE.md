@@ -187,6 +187,30 @@ before the triage rules in the applier list, because a VEX verdict is
 authoritative and must win over a generic rule. **Unknown statuses are dropped, not
 guessed: a misread verdict silently suppresses a real finding.**
 
+Vulnerability policies (Dependency-Track 5 parity): `internal/vulnpolicy` is
+admin-managed CEL rules over a component + vulnerability pair (a package
+finding) that set an analysis state (`not_affected`/`false_positive` →
+`false_positive`, `exploitable` → `confirmed`, `in_triage` → no status) and/or
+a severity rating atomically when they match, with a priority (`Elect` picks
+the highest-priority match, ties oldest-first), a validity window, a
+global/project/tag scope and an apply/log-only mode. It runs as a
+`scan.Applier` **after VEX** (an authoritative VEX verdict must still win) and
+**before the generic triage rules** (so a rule can condition on what a policy
+already set), keep that order if the applier slice changes. Every effect is
+tracked (`vuln_policy_matches`: what was applied, and what it was before), so
+a later evaluation (`ApplyToProject`/`EvaluateAll`, on `VULN_POLICY_EVAL_INTERVAL`
+and after every policy write) can revert exactly what it set when the policy
+stops matching, is disabled or deleted, or falls outside its validity window,
+the same way an expired triage exception reopens a finding. The overturn guard
+compares the finding's *current* state against what the engine itself last
+recorded, never against "is it still open": once something else (a person, a
+different mechanism) moves a finding away from that recorded state, the policy
+abandons its claim rather than fighting it. GitOps bundle: `GET`/`PUT
+/vuln-policies/bundle` (YAML or JSON, `?dry_run=true` validates without
+writing) replaces the whole set atomically; `VULN_POLICY_BUNDLE_URL`
+optionally syncs one on an interval through netguard, and a failed fetch keeps
+the current set.
+
 Add an SBOM format: write a parser in `internal/sbom/` that returns a `Document`
 (components with `BomRef`, plus `RootRef` + `Edges` for the dependency graph),
 and wire it into `sbom.Parse` (content sniffing). See `spdx.go`.
@@ -242,7 +266,16 @@ in `org_members` (`admin`/`member`, `domain.OrgRole`), a per-team role in
 highest, computed in `membership.RoleOnProject`. Its grant rows are one SQL constant,
 `membership.ProjectGrantsSQL`, which the permission audit (`internal/access`) and
 `UsersWithProjectAccess` also read. A new kind of grant goes there, or the audit
-and authorization disagree (`TestAuditAgreesWithAuthorization` checks a random matrix). Roles only add access. A lower grant does not
+and authorization disagree (`TestAuditAgreesWithAuthorization` checks a random matrix).
+User groups are such a grant: a grant row has `user_id` or `group_id` (exactly one),
+and `ProjectGrantsSQL` expands group members, so every reader agrees. The
+`grant_same_org` trigger refuses a group or custom role from another org. Custom
+roles (`custom_role_id`) never change a grant's rank; they deny capabilities
+(`domain.Capability`) per route class, mapped in `authz.capabilityFor`. A new
+mutating route that a custom role should be able to deny goes there, and a
+cross-project path the middleware can't see (like `/findings/bulk`) checks
+`ProjectCapabilityAllowed` in its handler. SCIM (`internal/scim`) has its own
+tokens and mounts before the secured group; it never grants roles. Roles only add access. A lower grant does not
 demote a higher one. `is_admin` is read from the DB on every request
 (`membership.AdminStatus`), not from the JWT claim. Trusting the claim would
 mean a demotion takes effect only when the token expires. Any new portfolio-wide list
@@ -403,6 +436,27 @@ Rules are admin-managed (`/triage-rules` is in `authz` `adminOnly`). Keep `apply
 idempotent. It re-runs on every ingest, so skip findings already in the target
 state.
 
+**Computed custom fields**: `internal/computed` evaluates a custom field
+definition's CEL `expression` (`customfield.Definition.Computed`) and writes
+the result into the entity's `custom` column, the only writer: a person's
+`PATCH .../custom` and a triage rule's `set_custom_field` both refuse a
+computed key (`customfield.Service.Prepare`). It runs as a `scan.Applier`
+(`ApplyToScan`, right after the triage rules), as a full backfill of one
+entity type when a definition is created or its expression changes
+(`customfield.Handler.WithComputedChanged`, synchronous), and on the leader's
+`COMPUTED_FIELDS_INTERVAL` sweep (`RunSweep`). The finding document is
+`triage.FindingDoc`/`ProjectFacts`: exported so this package reuses it
+rather than building a second one; a new fact belongs in that builder, not
+copied here. The project (`internal/computed.projectDoc`) and asset
+(`assetDoc`) documents are this package's own, built once and reused for
+both the entity's own computed fields and, for an asset, its `project.*`
+section. `customfield.FilterComputed` drops every computed key from a
+document's `*.custom` before it is built, so a computed field can never read
+another's value (no evaluation order, no cycle). `expr.CompileValue`/
+`LoadValue` are `Compile`/`Load` without the boolean-result requirement;
+`customfield.Definition.Fit` is the lenient counterpart to `Normalize`: it
+never errors, just leaves the field unset when the result doesn't fit.
+
 CRA Article 14 cases: `internal/cra` (`cases.go`, `service.go`). "Actively
 exploited" has one definition, `exploitedSQL` (open/confirmed, default version,
 `duplicate_of IS NULL`, `kev OR exploit_maturity='weaponized'`, project
@@ -438,12 +492,15 @@ seconds). Adding a `days` interval to a `timestamptz` is calendar arithmetic and
 drifts an hour across DST. A policy change must re-date existing findings
 (`sla.reapply`, per project, inside the policy transaction).
 
-Exploit intel / priority inputs: `domain.Priority(sev, Exploitability{EPSS,
+Exploit intel / priority inputs: `Weights.Priority(sev, Exploitability{EPSS,
 KEV, Maturity}, reach, exposure)`: every writer of `priority` (enrichment, `Reacher`,
-`exploitintel.Repository.Apply`, `finding.Reprioritize`) must pass the finding's
-current other signals (`Enrichable` / `ReachTarget` carry `ExploitMaturity` and
-`AssetExposure`, read through `asset_id`). Otherwise one pass silently
-undoes another's uplift. `exploit_maturity` is an enrichment-written read column
+`exploitintel.Repository.Apply`, `finding.Reprioritize`, and the upsert's initial
+severity weight) must pass the finding's current other signals (`Enrichable` /
+`ReachTarget` carry `ExploitMaturity` and `AssetExposure`, read through `asset_id`)
+and its project's weights (`projects.priority_weights` through
+`domain.WeightsFromJSON`; the zero `Weights` means the defaults). Otherwise one pass
+silently undoes another's uplift, or a project's override. `domain.Priority` is the
+default-weights shorthand for code with no project. `exploit_maturity` is an enrichment-written read column
 (not in the upsert). A failed feed does not delete its rows (`Replace` runs only on
 success, and an empty parse counts as a failure).
 
@@ -547,6 +604,24 @@ words (response body, dial error) are shown to instance admins only: keep
 them in a `RemoteError` detail and store only the public message (e.g. connector
 `last_error`).
 
+Secrets backends (M10 10.1): a secret setting (any `sec.get(...)` call in
+`internal/config`) may hold a reference instead of a literal value:
+`aws-sm://`, `gcp-sm://`, `vault://`, `azure-kv://`, resolved by
+`internal/secretref` at load time, with a per-lookup timeout
+(`SECRETS_TIMEOUT`). These are operator infrastructure (like `DB_HOST`),
+resolved before the outbound policy exists (`config.Load` runs first), so
+backend calls deliberately do NOT go through `internal/netguard`. A failed
+lookup is a `config.Load` error naming the setting and the reference's
+scheme+path, never a value. Rotation (M10 10.2): any setting that came from
+a reference or a `NAME_FILE` is re-read on `SECRETS_REFRESH_INTERVAL` by
+`config.Secrets` (every node, not only the leader); a failed refresh keeps
+the last good value. Consumers read the current value at use time: hold a
+`secretref.Value` (`cfg.SecretGetter(name, fallback)`), never the string
+captured at startup, so a new secret consumer rotates for free. The key
+rings (`auth.Keys`, `secretbox.Keyring`) and the environment SSO provider are
+updated by `wireKeyRotation` (`cmd/api/rotation.go`) through
+`Config.Refreshed`, which re-runs boot's checks and refuses a bad value.
+
 Accounts and sessions: JWTs carry `tv` (the user's `token_version`).
 `auth.Middleware` rejects stale or deactivated sessions via `user.SessionValid` on
 every request. Anything that should end a user's sessions bumps the version
@@ -554,6 +629,12 @@ every request. Anything that should end a user's sessions bumps the version
 deactivated user is refused everywhere: password login, SSO (`sso.Service.Login`),
 API tokens (`apitoken.GetByHash`). Reset tokens are stored hashed, single use,
 newest-only. Account-security actions refuse API tokens (`sessionOnly`).
+Sessions also carry `auth_time`, when the user last proved who they are.
+`auth.Service.TokenFor` stamps it now, so call it only right after a real
+authentication (sign-in, MFA, SSO, password change/reset, `Reauthenticate`);
+reissuing a session without credentials (`RevokeSessions`) must use `reissue`,
+which keeps the old one. Creating an API token requires a recent `auth_time`
+(`REAUTH_WINDOW`).
 Password/reset endpoints go behind `throttle` (`ratelimit`; reset-request uses
 `ResetMiddleware`, whose bucket a 202 never clears).
 
@@ -565,9 +646,26 @@ notifier.Notify(...)`, but it no longer sends anything itself. Tests that need
 the send call `DispatchDue`; payload tests use `SendTo` (the synchronous Test
 button path).
 
-Secrets at rest: integration credentials (issue trackers, connectors) are
-encrypted with `internal/secretbox` (AES-GCM, key `INTEGRATION_SECRET_KEY`, the
-project id as AAD) and are write-only in the API (`has_token`). Reuse it.
+Secrets at rest: integration credentials (issue trackers, connectors), SSO
+provider secrets, the generated SAML SP key, personal/signed-webhook secrets,
+and two-factor secrets are encrypted with `internal/secretbox` (AES-GCM, key
+`INTEGRATION_SECRET_KEY`, an AAD specific to each row, project id, channel
+id, `"mfa:" + user id`, a fixed constant, or provider id + column) and are
+write-only in the API (`has_token`). Every seal/open goes through a
+`secretbox.Keyring` (`Seal` with the primary key; `Open` with the primary,
+then each `INTEGRATION_SECRET_KEY_PREVIOUS` key, so rotating the primary never
+makes a stored value unreadable). A new sealed column must be added to
+`secretbox.Registry` (table, PK column, sealed column, and the exact SQL
+expression reproducing its AAD) or the leader's `Rekey` pass and
+`TestSealedColumnsRegistered` won't know about it, the drift test only
+catches one that follows the `*_enc`/`sealed_*`/`*_sealed` naming convention;
+anything else needs adding to the registry by hand. `GET
+/admin/secrets/status` reports each column's primary/previous/unreadable
+counts. JWT signing has the same shape: `auth.Keys` signs with `JWT_SECRET`
+and verifies against it or any `JWT_PREVIOUS_SECRETS` entry by a `kid` header
+(a kid-less token predates key rings and is tried against every configured
+secret). Both rings expose `Update(...)` for a live secret-manager refresh to
+swap keys without a restart.
 
 Audit log: `internal/audit` records every mutating request on `secured`
 (middleware between auth and authz, so refusals are logged) and the public
@@ -701,7 +799,21 @@ and `internal/server/smoke_test.go` (missing smoke wiring causes a nil panic in 
   on an interval (one query per tick, not per request) and feeds both the OTel
   gauges and the upload handler's `429` shed at `INGEST_MAX_QUEUE_DEPTH`. A failed
   sample keeps the last good snapshot. Reporting an empty queue when the DB is
-  down would disable backpressure when it's needed most.
+  down would disable backpressure when it's needed most. The same sample applies
+  the live `ingest_settings` (limit, workers per worker node) and keeps the
+  current values when they can't be read; web-only nodes never take workers.
+- The queue claim is fair (`fairClaimSQL`): least-loaded org first, one
+  processing job per project (a unique index; a lost race retries). Keep it
+  independent of queue depth: no global look-ahead window, which would let one
+  org's backlog hide everyone else.
+- Queued payloads can live outside Postgres (`INGEST_PAYLOAD_STORE=s3`, M11
+  11.8, `internal/objectstore`): `scan.Service.Enqueue` uploads to the object
+  store and leaves only `scan_jobs.payload_ref`; `ProcessJob` fetches it and
+  deletes it on success. A job that exhausts its retries keeps its object,
+  deliberately, so it stays inspectable, until `LOG_RETENTION` purges the
+  parked row and the object together (`retention.pruneFailedJobs`). Anything
+  that reads `scan_jobs.payload` directly must handle it being `NULL` when
+  `payload_ref` is set (the migration's xor `CHECK`).
 - The ingest tail is scan-scoped and must stay that way. `scan.finish` runs
   `triage.ApplyToScan` + `finding.DeduplicateScan`, both scoped to the findings
   *this scan* reported, so ingest cost tracks the scan's size, not the project's
@@ -804,7 +916,8 @@ deploy/helm/xila           Helm chart (bundled or external Postgres; see its REA
 cmd/xila                   stdlib CI client (upload + gate); repo is also a GitHub Action (action.yml)
 internal/{team,project,asset}          ownership hierarchy (CRUD)
 internal/{scan,scanner}                ingestion + parser registry (60+ native parsers + SARIF; see docs/PARSERS.md)
-                                       scan/queue.go = durable SKIP-LOCKED job queue for async ingest (INGEST_ASYNC)
+                                       scan/queue.go = durable SKIP-LOCKED job queue for async ingest (INGEST_ASYNC);
+                                       queued payloads optionally live in internal/objectstore (INGEST_PAYLOAD_STORE=s3)
 internal/finding                       dedup store, triage, exceptions, enrichment fields, priority
 internal/triage                        auto-triage rules (conditions→action) applied on ingest + backlog
 internal/{sbom,correlation,license}    SBOM history/search (+ CycloneDX services), finding↔component link, SPDX license data
@@ -812,11 +925,13 @@ internal/vulnmatch                     advisory matcher (OSV online/local mirror
                                        SBOM inventory → findings (scanner "osv"), new CVEs appear, upgraded deps auto-close
 internal/pkgmeta                       registry metadata (npm/PyPI/Maven/Go/Cargo/NuGet/Gems/Composer) → outdated
 internal/policy                        component policy engine (security / license / operational) → "policy" findings
+internal/vulnpolicy                    vulnerability policies (component + vulnerability pair CEL rules) → analysis/rating, GitOps bundles
 internal/{compliance,portfolio}        framework posture, cross-project rollup
 internal/metrics                       daily metric snapshots (90-day backfill) + trends API
 internal/{export,report}               CSV/XLSX export of any list filter; printable HTML project/portfolio reports
-internal/connector                     pull findings from Dependency-Track / DefectDojo (+ RemoteTriage applier)
+internal/connector                     pull findings from Dependency-Track, DefectDojo, Snyk, GitHub, GitLab, Wiz, Tenable (+ RemoteTriage applier)
 internal/issuetracker                  Jira / GitHub / GitLab issues, two-way sync
+internal/objectstore                   S3-compatible object storage client for queued ingest payloads (M11 11.8)
 internal/secretbox                     AES-GCM for integration tokens at rest
 internal/engagement                    DefectDojo-style engagements (scans as tests) + manual findings
 internal/findingtemplate               reusable write-ups for manual findings

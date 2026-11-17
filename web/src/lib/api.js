@@ -28,6 +28,12 @@ export class ApiError extends Error {
 	constructor(status, message) {
 		super(message);
 		this.status = status;
+		// Set when the server wants a fresh sign-in first (X-Reauth-Required):
+		// confirm the password with api.reauth and retry.
+		this.reauth = false;
+		// The parsed error body, when the server sent one beyond `error`
+		// (e.g. a strict SBOM upload's `fields: [{path, message}]`).
+		this.data = /** @type {any} */ (null);
 	}
 }
 
@@ -70,7 +76,10 @@ async function parse(res) {
 	}
 	if (!res.ok) {
 		const msg = (data && data.error) || res.statusText || 'request failed';
-		throw new ApiError(res.status, msg);
+		const err = new ApiError(res.status, msg);
+		err.reauth = res.headers.get('X-Reauth-Required') === 'true';
+		err.data = data;
+		throw err;
 	}
 	return data;
 }
@@ -107,6 +116,17 @@ async function upload(path, rawText, query) {
 	const t = getToken();
 	if (t) headers['Authorization'] = 'Bearer ' + t;
 	const res = await fetch(buildURL(path, query), { method: 'POST', headers, body: rawText });
+	return parse(res);
+}
+
+// rawPut sends a raw text body (a YAML/JSON GitOps bundle) with PUT.
+/** @param {string} path @param {string} rawText @param {Query} [query] @returns {Promise<any>} */
+async function rawPut(path, rawText, query) {
+	/** @type {Record<string, string>} */
+	const headers = { 'Content-Type': 'application/yaml' };
+	const t = getToken();
+	if (t) headers['Authorization'] = 'Bearer ' + t;
+	const res = await fetch(buildURL(path, query), { method: 'PUT', headers, body: rawText });
 	return parse(res);
 }
 
@@ -388,19 +408,56 @@ export const api = {
 	/** @param {string} teamId */
 	listMembers: (teamId) =>
 		request('GET', `/teams/${teamId}/members`).then((d) => d.members ?? []),
-	/** @param {string} teamId @param {string} email @param {string} role */
-	addMember: (teamId, email, role) =>
-		request('POST', `/teams/${teamId}/members`, { body: { email, role } }),
+	// A grant: a user ({ email }) or a user group ({ group_id }) with a role,
+	// optionally narrowed by a custom role (custom_role_id).
+	/** @param {string} teamId @param {{ email?: string, group_id?: string, role: string, custom_role_id?: string }} grant */
+	addMember: (teamId, grant) => request('POST', `/teams/${teamId}/members`, { body: grant }),
 	/** @param {string} teamId @param {string} userId */
 	removeMember: (teamId, userId) => request('DELETE', `/teams/${teamId}/members/${userId}`),
+	/** @param {string} teamId @param {string} groupId */
+	removeTeamGroup: (teamId, groupId) => request('DELETE', `/teams/${teamId}/groups/${groupId}`),
+
+	// --- user groups and custom roles (org admin) ---
+	/** @param {string} orgId */
+	listGroups: (orgId) => request('GET', `/orgs/${orgId}/groups`).then((d) => d.groups ?? []),
+	/** @param {string} orgId @param {string} name */
+	createGroup: (orgId, name) => request('POST', `/orgs/${orgId}/groups`, { body: { name } }),
+	/** @param {string} orgId @param {string} groupId */
+	getGroup: (orgId, groupId) => request('GET', `/orgs/${orgId}/groups/${groupId}`),
+	/** @param {string} orgId @param {string} groupId @param {string} name */
+	renameGroup: (orgId, groupId, name) => request('PUT', `/orgs/${orgId}/groups/${groupId}`, { body: { name } }),
+	/** @param {string} orgId @param {string} groupId */
+	deleteGroup: (orgId, groupId) => request('DELETE', `/orgs/${orgId}/groups/${groupId}`),
+	/** @param {string} orgId @param {string} groupId @param {string} email */
+	addGroupMember: (orgId, groupId, email) =>
+		request('POST', `/orgs/${orgId}/groups/${groupId}/members`, { body: { email } }),
+	/** @param {string} orgId @param {string} groupId @param {string} userId */
+	removeGroupMember: (orgId, groupId, userId) =>
+		request('DELETE', `/orgs/${orgId}/groups/${groupId}/members/${userId}`),
+	/** @param {string} orgId */
+	listCustomRoles: (orgId) => request('GET', `/orgs/${orgId}/custom-roles`).then((d) => d.custom_roles ?? []),
+	/** @param {string} orgId @param {{ name: string, base_role: string, denied_capabilities: string[] }} role */
+	createCustomRole: (orgId, role) => request('POST', `/orgs/${orgId}/custom-roles`, { body: role }),
+	/** @param {string} orgId @param {string} roleId @param {{ name: string, base_role: string, denied_capabilities: string[] }} role */
+	updateCustomRole: (orgId, roleId, role) => request('PUT', `/orgs/${orgId}/custom-roles/${roleId}`, { body: role }),
+	/** @param {string} orgId @param {string} roleId */
+	deleteCustomRole: (orgId, roleId) => request('DELETE', `/orgs/${orgId}/custom-roles/${roleId}`),
+	capabilities: () => request('GET', '/capabilities').then((d) => d.capabilities ?? []),
+	// SCIM provisioning tokens (instance admin); the secret is returned once.
+	listSCIMTokens: () => request('GET', '/scim-tokens').then((d) => d.tokens ?? []),
+	/** @param {string} name @param {string} orgId */
+	createSCIMToken: (name, orgId) => request('POST', '/scim-tokens', { body: { name, org_id: orgId } }),
+	/** @param {string} id */
+	revokeSCIMToken: (id) => request('DELETE', `/scim-tokens/${id}`),
 
 	// --- project members (access to one project, without joining its team) ---
 	/** @param {string} projectId */
 	listProjectMembers: (projectId) =>
 		request('GET', `/projects/${projectId}/members`).then((d) => d.members ?? []),
-	/** @param {string} projectId @param {string} email @param {string} role */
-	addProjectMember: (projectId, email, role) =>
-		request('POST', `/projects/${projectId}/members`, { body: { email, role } }),
+	/** @param {string} projectId @param {{ email?: string, group_id?: string, role: string, custom_role_id?: string }} grant */
+	addProjectMember: (projectId, grant) => request('POST', `/projects/${projectId}/members`, { body: grant }),
+	/** @param {string} projectId @param {string} groupId */
+	removeProjectGroup: (projectId, groupId) => request('DELETE', `/projects/${projectId}/groups/${groupId}`),
 	/** @param {string} projectId @param {string} userId */
 	removeProjectMember: (projectId, userId) =>
 		request('DELETE', `/projects/${projectId}/members/${userId}`),
@@ -539,6 +596,17 @@ export const api = {
 	setCustomValues: (kind, id, values) =>
 		request('PATCH', `/${kind}/${id}/custom`, { body: values }).then((d) => d.custom ?? {}),
 
+	// --- custom parsers (no-code: map a CSV/JSON/XML report's fields to findings; admin) ---
+	listCustomParsers: () => request('GET', '/custom-parsers').then((d) => d.custom_parsers ?? []),
+	/** @param {object} def */
+	createCustomParser: (def) => request('POST', '/custom-parsers', { body: def }),
+	/** @param {string} id @param {object} def */
+	updateCustomParser: (id, def) => request('PUT', `/custom-parsers/${id}`, { body: def }),
+	/** @param {string} id */
+	deleteCustomParser: (id) => request('DELETE', `/custom-parsers/${id}`),
+	/** @param {object} def @param {string} sample */
+	dryRunCustomParser: (def, sample) => request('POST', '/custom-parsers/dry-run', { body: { ...def, sample } }),
+
 	// --- finding templates (read: everyone; write: admin) ---
 	listFindingTemplates: () => request('GET', '/finding-templates').then((d) => d.templates ?? []),
 	/** @param {object} data */
@@ -565,7 +633,22 @@ export const api = {
 	/** @param {string} projectId */
 	revokeBadgeToken: (projectId) => request('DELETE', `/projects/${projectId}/badge-token`),
 
+	// Async ingest queue (admin): depth, and the live tuning every node applies
+	// on its next sample (null = the env default).
+	ingestQueue: () => request('GET', '/ingest/queue'),
+	ingestSettings: () => request('GET', '/ingest/settings'),
+	/** @param {{ max_queue_depth: number | null, workers: number | null }} body */
+	setIngestSettings: (body) => request('PUT', '/ingest/settings', { body }),
+
 	// --- findings ---
+	// Per-project priority weights ({ weights, custom, defaults }); PUT takes
+	// only the factors to override.
+	/** @param {string} projectId */
+	priorityWeights: (projectId) => request('GET', `/projects/${projectId}/priority-weights`),
+	/** @param {string} projectId @param {Record<string, number>} weights */
+	setPriorityWeights: (projectId, weights) => request('PUT', `/projects/${projectId}/priority-weights`, { body: weights }),
+	/** @param {string} projectId */
+	resetPriorityWeights: (projectId) => request('DELETE', `/projects/${projectId}/priority-weights`),
 	/** @param {string} projectId @param {Record<string, any>} [filters] */
 	listFindings: (projectId, filters = {}) =>
 		request('GET', `/projects/${projectId}/findings`, { query: filters }),
@@ -691,6 +774,9 @@ export const api = {
 	// model output: render as text only. Nothing applies until accepted.
 	/** @param {string} id */
 	aiProposals: (id) => request('GET', `/findings/${id}/ai-proposals`),
+	// Open proposals across visible projects (mine: asked by / assigned to me).
+	/** @param {Record<string, any>} [filters] */
+	listAIProposals: (filters = {}) => request('GET', '/ai-proposals', { query: filters }),
 	/** @param {string} id @param {string} kind */
 	aiPrompt: (id, kind) => request('GET', `/findings/${id}/ai-proposals/prompt`, { query: { kind } }),
 	/** @param {string} id @param {string} kind */
@@ -811,6 +897,32 @@ export const api = {
 	projectPolicies: (projectId, query = {}) =>
 		request('GET', `/projects/${projectId}/policies`, { query }).then((d) => d.policies ?? []),
 
+	// --- vulnerability policies (admin) ---
+	listVulnPolicies: () => request('GET', '/vuln-policies').then((d) => d.policies ?? []),
+	/** @param {string} id */
+	getVulnPolicy: (id) => request('GET', `/vuln-policies/${id}`),
+	/** @param {Record<string, any>} data */
+	createVulnPolicy: (data) => request('POST', '/vuln-policies', { body: data }),
+	/** @param {string} id @param {Record<string, any>} data */
+	updateVulnPolicy: (id, data) => request('PATCH', `/vuln-policies/${id}`, { body: data }),
+	/** @param {string} id */
+	deleteVulnPolicy: (id) => request('DELETE', `/vuln-policies/${id}`),
+	// { total, findings }
+	/** @param {Record<string, any>} data @param {string} [projectId] */
+	previewVulnPolicy: (data, projectId) =>
+		request('POST', '/vuln-policies/preview', { body: data, query: { project_id: projectId } }),
+	/** @param {string} id @param {string} [projectId] */
+	previewStoredVulnPolicy: (id, projectId) =>
+		request('POST', `/vuln-policies/${id}/preview`, { query: { project_id: projectId } }),
+	/** @param {string} [projectId] */
+	evaluateVulnPolicies: (projectId) =>
+		request('POST', '/vuln-policies/evaluate', { query: { project_id: projectId } }),
+	/** @param {string} [filename] */
+	exportVulnPolicyBundle: (filename = 'vuln-policies.yaml') => download('/vuln-policies/bundle?format=yaml', filename),
+	// { policies, dry_run }
+	/** @param {string} rawText @param {boolean} [dryRun] */
+	importVulnPolicyBundle: (rawText, dryRun = false) => rawPut('/vuln-policies/bundle', rawText, { dry_run: dryRun }),
+
 	// --- assets ---
 	/** @param {string} projectId */
 	listAssets: (projectId) =>
@@ -921,6 +1033,10 @@ export const api = {
 	listTokens: () => request('GET', '/tokens').then((d) => d.tokens ?? []),
 	/** @param {Record<string, any>} data */
 	createToken: (data) => request('POST', '/tokens', { body: data }),
+	// Confirms the password (+ two-factor code) and returns a freshly
+	// authenticated session ({ token, user }); store the token before retrying.
+	/** @param {string} password @param {string} [code] */
+	reauth: (password, code = '') => request('POST', '/me/reauth', { body: { password, code } }),
 	/** @param {string} tokenId */
 	deleteToken: (tokenId) => request('DELETE', `/tokens/${tokenId}`),
 

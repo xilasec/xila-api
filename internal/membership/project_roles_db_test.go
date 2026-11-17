@@ -34,7 +34,7 @@ func TestProjectRoleGrantsOneProjectOnly(t *testing.T) {
 	}
 
 	// Dana is in no team. She gets viewer on project A only.
-	if err := repo.AddToProject(ctx, projectA, dana, domain.TeamViewer); err != nil {
+	if err := repo.AddToProject(ctx, projectA, dana, domain.TeamViewer, ""); err != nil {
 		t.Fatalf("grant: %v", err)
 	}
 
@@ -97,10 +97,10 @@ func TestEffectiveRoleIsTheHighestGrant(t *testing.T) {
 
 	// Editor on the team, viewer on this project. The team grant is higher, so it
 	// wins — the project grant cannot demote her.
-	if err := repo.Add(ctx, teamID, u, domain.TeamEditor); err != nil {
+	if err := repo.Add(ctx, teamID, u, domain.TeamEditor, ""); err != nil {
 		t.Fatal(err)
 	}
-	if err := repo.AddToProject(ctx, projectID, u, domain.TeamViewer); err != nil {
+	if err := repo.AddToProject(ctx, projectID, u, domain.TeamViewer, ""); err != nil {
 		t.Fatal(err)
 	}
 	role, ok, err := repo.RoleOnProject(ctx, u, projectID)
@@ -112,7 +112,7 @@ func TestEffectiveRoleIsTheHighestGrant(t *testing.T) {
 	}
 
 	// Now owner on the project: the higher grant wins the other way round.
-	if err := repo.AddToProject(ctx, projectID, u, domain.TeamOwner); err != nil {
+	if err := repo.AddToProject(ctx, projectID, u, domain.TeamOwner, ""); err != nil {
 		t.Fatal(err)
 	}
 	if role, _, _ := repo.RoleOnProject(ctx, u, projectID); role != domain.TeamOwner {

@@ -36,6 +36,7 @@ import (
 	"github.com/xilasec/xila-api/internal/correlation"
 	"github.com/xilasec/xila-api/internal/cra"
 	"github.com/xilasec/xila-api/internal/customfield"
+	"github.com/xilasec/xila-api/internal/customparser"
 	"github.com/xilasec/xila-api/internal/engagement"
 	"github.com/xilasec/xila-api/internal/enrichment"
 	"github.com/xilasec/xila-api/internal/evidence"
@@ -68,6 +69,8 @@ import (
 	"github.com/xilasec/xila-api/internal/saml"
 	"github.com/xilasec/xila-api/internal/sbom"
 	"github.com/xilasec/xila-api/internal/scan"
+	"github.com/xilasec/xila-api/internal/scim"
+	"github.com/xilasec/xila-api/internal/secretbox"
 	"github.com/xilasec/xila-api/internal/serviceaccount"
 	"github.com/xilasec/xila-api/internal/sla"
 	"github.com/xilasec/xila-api/internal/sso"
@@ -75,6 +78,7 @@ import (
 	"github.com/xilasec/xila-api/internal/triage"
 	"github.com/xilasec/xila-api/internal/vex"
 	"github.com/xilasec/xila-api/internal/vulnmatch"
+	"github.com/xilasec/xila-api/internal/vulnpolicy"
 )
 
 // Handlers bundles the HTTP handlers the server mounts.
@@ -102,6 +106,7 @@ type Handlers struct {
 	ApiToken     *apitoken.Handler
 	SvcAccount   *serviceaccount.Handler
 	Federation   *federation.Handler
+	SCIM         *scim.Handler
 	Enrichment   *enrichment.Handler
 	Notify       *notify.Handler
 	Retention    *retention.Handler
@@ -119,6 +124,7 @@ type Handlers struct {
 	FindingTmpl  *findingtemplate.Handler
 	ReportTmpl   *report.TemplateHandler
 	CustomFields *customfield.Handler
+	CustomParser *customparser.Handler
 	Triage       *triage.Handler
 	Gate         *gate.Handler
 	SLA          *sla.Handler
@@ -130,11 +136,12 @@ type Handlers struct {
 	FeedRules    *vulnmatch.FeedRuleHandler
 	// PSIRT serves CSAF advisory publishing (admin) and the public CSAF
 	// provider directory (404 unless PSIRT_PUBLIC).
-	PSIRT   *psirt.Handler
-	PkgMeta *pkgmeta.Handler
-	License *license.Handler
-	Policy  *policy.Handler
-	SSO     *sso.Handler
+	PSIRT      *psirt.Handler
+	PkgMeta    *pkgmeta.Handler
+	License    *license.Handler
+	Policy     *policy.Handler
+	VulnPolicy *vulnpolicy.Handler
+	SSO        *sso.Handler
 	// OIDC and SAML serve every provider's public login routes under
 	// /api/v1/auth (environment ones at the bare paths, admin-managed ones by
 	// slug); always mounted, 404 for an unknown or disabled provider.
@@ -146,6 +153,15 @@ type Handlers struct {
 
 	// Membership backs the RBAC authorization middleware.
 	Membership *membership.Repository
+
+	// JWTKeys signs and verifies session JWTs (and MFA challenge tokens);
+	// shared with AuditLog and auth.Service so a rotation (Keys.Update)
+	// applies to every signer and verifier at once.
+	JWTKeys *auth.Keys
+
+	// Secrets serves the INTEGRATION_SECRET_KEY ring's rotation status
+	// (GET /admin/secrets/status).
+	Secrets *secretbox.Handler
 
 	// TokenAuth, if set, lets the auth middleware accept API tokens (CI) in
 	// addition to JWTs. Nil means JWT-only.
@@ -278,12 +294,16 @@ func New(cfg config.Config, h Handlers) *Server {
 	h.SAML.Register(authGroup)
 	// README badges: public, resolved by an unguessable per-project token.
 	h.Badge.RegisterPublic(v1)
+	// SCIM provisioning: its own bearer tokens, never a session or API token,
+	// so it is mounted before the secured group. Changes are audited by the
+	// handler (actor kind scim).
+	h.SCIM.RegisterSCIM(v1)
 	// CSAF provider directory at the site root (PSIRT_PUBLIC; 404 otherwise).
 	h.PSIRT.RegisterPublic(app)
 
 	// Everything else requires a valid access token (JWT or API token). Every
 	// mutation is audited — before authorization, so a refused one is too.
-	secured := v1.Group("", auth.Middleware(cfg.JWT.Secret, h.TokenAuth, h.Sessions),
+	secured := v1.Group("", auth.Middleware(h.JWTKeys, h.TokenAuth, h.Sessions),
 		h.AuditLog.Middleware(), h.Features.Middleware(), authz.Middleware(h.Membership))
 	h.Account.Register(secured)
 	h.Features.Register(secured)
@@ -307,6 +327,7 @@ func New(cfg config.Config, h Handlers) *Server {
 	h.Correlation.Register(secured)
 	h.ApiToken.Register(secured)
 	h.SvcAccount.Register(secured)
+	h.SCIM.RegisterAdmin(secured)
 	h.Federation.Register(secured)
 	h.Notify.Register(secured)
 	h.Retention.Register(secured)
@@ -324,6 +345,7 @@ func New(cfg config.Config, h Handlers) *Server {
 	h.FindingTmpl.Register(secured)
 	h.ReportTmpl.Register(secured)
 	h.CustomFields.Register(secured)
+	h.CustomParser.Register(secured)
 	h.Triage.Register(secured)
 	h.Gate.Register(secured)
 	h.SLA.Register(secured)
@@ -333,6 +355,7 @@ func New(cfg config.Config, h Handlers) *Server {
 	h.Report.Register(secured)
 	h.License.Register(secured)
 	h.Policy.Register(secured)
+	h.VulnPolicy.Register(secured)
 	h.PkgMeta.Register(secured)
 	h.SSO.Register(secured)
 	if h.Enrichment != nil {
@@ -346,6 +369,7 @@ func New(cfg config.Config, h Handlers) *Server {
 	}
 	h.FeedRules.Register(secured)
 	h.PSIRT.Register(secured)
+	h.Secrets.Register(secured)
 
 	return &Server{
 		app:  app,

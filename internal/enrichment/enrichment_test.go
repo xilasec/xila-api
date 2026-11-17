@@ -156,27 +156,32 @@ func (f fakeEPSS) Scores(context.Context, []string) (map[string]float64, error) 
 
 // fakeCatalog is a KEV catalog listing ids (or failing with err).
 type fakeCatalog struct {
-	name string
-	ids  []string
-	err  error
+	name       string
+	ids        []string
+	ransomware []string
+	err        error
 }
 
 func (f fakeCatalog) Name() string { return f.name }
-func (f fakeCatalog) Fetch(context.Context) ([]string, error) {
-	return f.ids, f.err
+func (f fakeCatalog) Fetch(context.Context) (KEVList, error) {
+	l := KEVList{IDs: f.ids, Ransomware: map[string]bool{}}
+	for _, id := range f.ransomware {
+		l.Ransomware[id] = true
+	}
+	return l, f.err
 }
 
 // fakeKEVStore keeps catalogs' lists in memory like KEVRepository.
 type fakeKEVStore struct {
-	lists  map[string][]string
+	lists  map[string]KEVList
 	failed map[string]string
 }
 
-func (s *fakeKEVStore) Replace(_ context.Context, source string, ids []string) error {
+func (s *fakeKEVStore) Replace(_ context.Context, source string, list KEVList) error {
 	if s.lists == nil {
-		s.lists = map[string][]string{}
+		s.lists = map[string]KEVList{}
 	}
-	s.lists[source] = ids
+	s.lists[source] = list
 	return nil
 }
 func (s *fakeKEVStore) Failed(_ context.Context, source string, cause error) error {
@@ -186,11 +191,14 @@ func (s *fakeKEVStore) Failed(_ context.Context, source string, cause error) err
 	s.failed[source] = cause.Error()
 	return nil
 }
-func (s *fakeKEVStore) Assertions(_ context.Context, sources []string) (map[string][]string, error) {
-	out := map[string][]string{}
+func (s *fakeKEVStore) Assertions(_ context.Context, sources []string) (KEVAssertions, error) {
+	out := KEVAssertions{Sources: map[string][]string{}, Ransomware: map[string]bool{}}
 	for _, src := range sources {
-		for _, id := range s.lists[src] {
-			out[id] = append(out[id], src)
+		for _, id := range s.lists[src].IDs {
+			out.Sources[id] = append(out.Sources[id], src)
+			if s.lists[src].Ransomware[id] {
+				out.Ransomware[id] = true
+			}
 		}
 	}
 	return out, nil
@@ -203,31 +211,34 @@ func cisa(ids ...string) []KEVCatalog { return []KEVCatalog{fakeCatalog{name: "c
 type fakeStore struct {
 	items []finding.Enrichable
 	set   map[string]struct {
-		epss     *float64
-		kev      bool
-		sources  []string
-		priority float64
+		epss       *float64
+		kev        bool
+		sources    []string
+		ransomware bool
+		priority   float64
 	}
 }
 
 func (s *fakeStore) ListEnrichable(context.Context) ([]finding.Enrichable, error) {
 	return s.items, nil
 }
-func (s *fakeStore) SetEnrichment(_ context.Context, id string, epss *float64, kevSources []string, priority float64) error {
+func (s *fakeStore) SetEnrichment(_ context.Context, id string, epss *float64, kevSources []string, ransomware bool, priority float64) error {
 	if s.set == nil {
 		s.set = map[string]struct {
-			epss     *float64
-			kev      bool
-			sources  []string
-			priority float64
+			epss       *float64
+			kev        bool
+			sources    []string
+			ransomware bool
+			priority   float64
 		}{}
 	}
 	s.set[id] = struct {
-		epss     *float64
-		kev      bool
-		sources  []string
-		priority float64
-	}{epss, len(kevSources) > 0, kevSources, priority}
+		epss       *float64
+		kev        bool
+		sources    []string
+		ransomware bool
+		priority   float64
+	}{epss, len(kevSources) > 0, kevSources, ransomware, priority}
 	return nil
 }
 

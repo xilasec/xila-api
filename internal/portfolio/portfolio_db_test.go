@@ -3,11 +3,14 @@ package portfolio_test
 import (
 	"context"
 	"math"
+	"reflect"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/xilasec/xila-api/internal/compliance"
+	"github.com/xilasec/xila-api/internal/metrics"
 	"github.com/xilasec/xila-api/internal/pgtest"
 	"github.com/xilasec/xila-api/internal/portfolio"
 )
@@ -157,6 +160,89 @@ func TestPortfolioComplianceMatchesEvaluate(t *testing.T) {
 		}
 		if fa.ProjectsAssessed != 3 {
 			t.Errorf("%s: %d projects assessed, want 3", fa.Framework, fa.ProjectsAssessed)
+		}
+	}
+}
+
+// PORTFOLIO_FROM_SNAPSHOTS: after a snapshot run, the overview served from the
+// snapshot rows equals the live one (same rules), says where it came from,
+// and narrows to the caller's projects. Before any snapshot exists it falls
+// back to live.
+func TestPortfolioFromSnapshotsMatchesLive(t *testing.T) {
+	pool := pgtest.Pool(t)
+	ctx := context.Background()
+	pHigh := seedProject(t, pool, "web", "high")
+	pLow := seedProject(t, pool, "batch", "low")
+	addFinding(t, pool, pHigh, "a", "trivy", "sca", "critical", "open")
+	addFinding(t, pool, pHigh, "b", "trivy", "secret", "high", "confirmed")
+	addFinding(t, pool, pLow, "c", "prowler", "cloud", "medium", "open")
+	addFinding(t, pool, pLow, "d", "prowler", "cloud", "high", "remediated")
+	if _, err := pool.Exec(ctx, `UPDATE findings SET kev = true WHERE fingerprint = 'a'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE findings SET epss = 0.7 WHERE fingerprint = 'c'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `
+		WITH f AS (
+			INSERT INTO findings (project_id, fingerprint, scanner, category, title, severity, status)
+			VALUES ($1, 'e', 'trivy', 'sca', 't', 'low', 'risk_accepted') RETURNING id
+		), ra AS (
+			INSERT INTO risk_acceptances (project_id, title, state, expires_at)
+			VALUES ($1, 'accepted', 'approved', now() + interval '10 days') RETURNING id
+		)
+		INSERT INTO risk_acceptance_findings (acceptance_id, finding_id) SELECT ra.id, f.id FROM ra, f`, pLow); err != nil {
+		t.Fatalf("insert accepted finding: %v", err)
+	}
+
+	snap := portfolio.NewRepository(pool).WithSnapshots(true)
+	if ov, err := snap.Overview(ctx, nil); err != nil || ov.Source != "live" {
+		t.Fatalf("before any snapshot: source %q, %v; want live", ov.Source, err)
+	}
+	if _, err := metrics.NewRepository(pool).Run(ctx, time.Now()); err != nil {
+		t.Fatalf("snapshot run: %v", err)
+	}
+	if err := portfolio.NewRepository(pool).SnapshotParts(ctx); err != nil {
+		t.Fatalf("snapshot parts: %v", err)
+	}
+	frozen := map[int]portfolio.Overview{}
+	for i, pids := range [][]string{nil, {pLow}} {
+		live, err := portfolio.NewRepository(pool).Overview(ctx, pids)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := snap.Overview(ctx, pids)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.Source != "snapshots" || got.AsOf == nil {
+			t.Errorf("source = %q (as of %v), want snapshots", got.Source, got.AsOf)
+		}
+		got.Source, got.AsOf = live.Source, live.AsOf
+		if !reflect.DeepEqual(got, live) {
+			t.Errorf("projects %v:\n snapshots %+v\n live      %+v", pids, got, live)
+		}
+		if len(got.Compliance) == 0 || got.SLA.OnTrack+got.SLA.DueSoon+got.SLA.Breached == 0 {
+			t.Errorf("projects %v: compliance %v / SLA %+v empty, the comparison proves nothing", pids, got.Compliance, got.SLA)
+		}
+		frozen[i] = got
+	}
+
+	// Every part is served from the snapshot run: a finding added since
+	// moves the live view but not the snapshot one, SLA included.
+	addFinding(t, pool, pLow, "f", "trivy", "sca", "critical", "open")
+	for i, pids := range [][]string{nil, {pLow}} {
+		live, _ := portfolio.NewRepository(pool).Overview(ctx, pids)
+		got, err := snap.Overview(ctx, pids)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got.Source, got.AsOf = frozen[i].Source, frozen[i].AsOf
+		if !reflect.DeepEqual(got, frozen[i]) {
+			t.Errorf("projects %v: snapshot view moved with live data:\n now    %+v\n before %+v", pids, got, frozen[i])
+		}
+		if reflect.DeepEqual(live.SLA, got.SLA) && live.TotalOpen == got.TotalOpen {
+			t.Errorf("projects %v: live view didn't change either; the check proves nothing", pids)
 		}
 	}
 }

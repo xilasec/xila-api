@@ -7,6 +7,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/xilasec/xila-api/internal/httpx"
 )
@@ -17,13 +18,15 @@ type Handler struct {
 	ingest *Service
 	async  bool          // enqueue uploads for background processing instead of blocking
 	queue  *QueueMonitor // optional: queue depth for /ingest/queue + backpressure
+	pool   *WorkerPool   // optional: this node's worker count, for /ingest/settings
 }
 
 // NewHandler constructs a scan Handler. When async is true, uploads are queued
 // and return 202 Accepted; a worker pool processes them off the request path.
-// queue may be nil (no queue reporting, no backpressure).
-func NewHandler(repo *Repository, ingest *Service, async bool, queue *QueueMonitor) *Handler {
-	return &Handler{repo: repo, ingest: ingest, async: async, queue: queue}
+// queue and pool may be nil (no queue reporting/backpressure, no local worker
+// pool to report/resize — e.g. a node that only ever runs synchronously).
+func NewHandler(repo *Repository, ingest *Service, async bool, queue *QueueMonitor, pool *WorkerPool) *Handler {
+	return &Handler{repo: repo, ingest: ingest, async: async, queue: queue, pool: pool}
 }
 
 // Register mounts scan routes.
@@ -32,6 +35,8 @@ func (h *Handler) Register(r fiber.Router) {
 	r.Get("/projects/:projectID/scans", h.List)
 	r.Get("/scans/:scanID", h.Get)
 	r.Get("/ingest/queue", h.Queue)
+	r.Get("/ingest/settings", h.GetSettings)
+	r.Put("/ingest/settings", h.PutSettings)
 }
 
 // Queue handles GET /ingest/queue — how far behind ingestion is (admin).
@@ -48,6 +53,55 @@ func (h *Handler) Queue(c *fiber.Ctx) error {
 		"oldest_wait_seconds": s.OldestWaitSeconds,
 		"saturated":           h.queue.Saturated(),
 	})
+}
+
+// settingsResponse reports the stored override alongside what each is
+// resolving to right now, so an admin can tell "no override, using the env
+// default" apart from "override matches the env default".
+func (h *Handler) settingsResponse(s IngestSettings) fiber.Map {
+	m := fiber.Map{
+		"max_queue_depth": s.MaxQueueDepth,
+		"workers":         s.Workers,
+		"updated_at":      s.UpdatedAt,
+	}
+	if h.queue != nil {
+		m["effective_max_queue_depth"] = h.queue.EffectiveMaxDepth()
+	}
+	if h.pool != nil {
+		m["effective_workers"] = h.pool.Count()
+	}
+	return m
+}
+
+// GetSettings handles GET /ingest/settings (admin): the live overrides for
+// the queue-depth backpressure threshold and the worker count per node, plus
+// what's actually in effect on this node right now.
+func (h *Handler) GetSettings(c *fiber.Ctx) error {
+	s, err := h.repo.GetIngestSettings(c.UserContext())
+	if err != nil {
+		return err
+	}
+	return c.JSON(h.settingsResponse(s))
+}
+
+// PutSettings handles PUT /ingest/settings (admin). Every node watching the
+// queue picks up the change on its next sample (M11 11.7): the backpressure
+// threshold and that node's worker count change within one sample interval,
+// no restart. A null field reverts that setting to its env default.
+func (h *Handler) PutSettings(c *fiber.Ctx) error {
+	var s IngestSettings
+	if err := httpx.Parse(c, &s); err != nil {
+		return err
+	}
+	out, err := h.repo.PutIngestSettings(c.UserContext(), s)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23514" {
+			return fiber.NewError(fiber.StatusBadRequest, "max_queue_depth and workers must be 0 or more")
+		}
+		return err
+	}
+	return c.JSON(h.settingsResponse(out))
 }
 
 // Ingest handles POST /projects/{id}/scans.
@@ -86,6 +140,10 @@ func (h *Handler) Ingest(c *fiber.Ctx) error {
 		EngagementID: c.Query("engagement_id"),
 		CloseMissing: c.QueryBool("close_missing", true),
 		Force:        c.QueryBool("force", false),
+		SplitAssets:  c.QueryBool("split_assets", false),
+	}
+	if req.SplitAssets && req.AssetID != "" {
+		return fiber.NewError(fiber.StatusBadRequest, "give split_assets or asset_id, not both")
 	}
 	if req.EngagementID != "" {
 		if uuid.Validate(req.EngagementID) != nil {

@@ -29,6 +29,21 @@ func invalid(format string, args ...any) error {
 	return ValidationError{msg: fmt.Sprintf(format, args...)}
 }
 
+// validateToken checks any token shape a kind requires beyond "present" —
+// Wiz and Tenable pack two secrets into one JSON token — so a malformed
+// secret is rejected at save time rather than at the next pull.
+func validateToken(kind Kind, token string) error {
+	switch kind {
+	case KindWiz:
+		_, err := parseWizCredentials(token)
+		return err
+	case KindTenable:
+		_, err := parseTenableCredentials(token)
+		return err
+	}
+	return nil
+}
+
 // Store is the persistence the service needs (implemented by *Repository).
 type Store interface {
 	List(ctx context.Context, projectID string) ([]Connector, error)
@@ -54,32 +69,55 @@ type Applier interface {
 type Service struct {
 	store  Store
 	apply  Applier
-	cipher *secretbox.Cipher
+	cipher *secretbox.Keyring
 	hc     *http.Client
 }
 
-// NewService constructs a Service. cipher may be nil (no INTEGRATION_SECRET_KEY):
-// connectors can then not be configured or pulled.
-func NewService(store Store, apply Applier, cipher *secretbox.Cipher) *Service {
+// NewService constructs a Service. cipher may be unconfigured (no
+// INTEGRATION_SECRET_KEY): connectors can then not be configured or pulled.
+func NewService(store Store, apply Applier, cipher *secretbox.Keyring) *Service {
 	return &Service{store: store, apply: apply, cipher: cipher, hc: netguard.NewClient(2 * time.Minute)}
 }
 
 // Input is a connector config as written by POST / PUT. Token is write-only:
-// on update an empty one keeps the stored token.
+// on update an empty one keeps the stored token. For Wiz and Tenable, whose
+// auth is two secrets, Token carries both as a JSON object (so both are
+// sealed together): `{"client_id":"...","client_secret":"..."}` for Wiz,
+// `{"access_key":"...","secret_key":"..."}` for Tenable.
 type Input struct {
 	Kind          Kind   `json:"kind"`
 	Name          string `json:"name"`
 	BaseURL       string `json:"base_url"`
 	RemoteProject string `json:"remote_project"`
 	Token         string `json:"token"`
-	Version       string `json:"version"`
-	Enabled       *bool  `json:"enabled"`
+	// AuthURL is the Wiz OAuth token endpoint; every other kind ignores it.
+	AuthURL string `json:"auth_url"`
+	Version string `json:"version"`
+	Enabled *bool  `json:"enabled"`
 }
 
 var (
-	ddProduct    = regexp.MustCompile(`^(?:product:)?([1-9][0-9]*)$`)
-	ddEngagement = regexp.MustCompile(`^engagement:([1-9][0-9]*)$`)
+	ddProduct      = regexp.MustCompile(`^(?:product:)?([1-9][0-9]*)$`)
+	ddEngagement   = regexp.MustCompile(`^engagement:([1-9][0-9]*)$`)
+	githubOrgScope = regexp.MustCompile(`^org:[\w.-]+$`)
+	githubRepo     = regexp.MustCompile(`^[\w.-]+/[\w.-]+$`)
+	wizProjectList = regexp.MustCompile(`^[0-9a-f-]{36}(,[0-9a-f-]{36})*$`)
 )
+
+// validateURL checks raw is an http(s) URL with no query/fragment/userinfo
+// and an allowed outbound destination (netguard), returning it with its
+// trailing slash trimmed.
+func validateURL(field, raw string) (string, error) {
+	raw = strings.TrimRight(strings.TrimSpace(raw), "/")
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.RawQuery != "" || u.Fragment != "" || u.User != nil {
+		return "", invalid("%s must be an http(s) URL", field)
+	}
+	if err := netguard.CheckURL(raw); err != nil {
+		return "", invalid("%s is not an allowed destination: %v", field, err)
+	}
+	return raw, nil
+}
 
 // Normalize validates the input and applies defaults, returning the config it
 // describes (without the token).
@@ -88,13 +126,12 @@ func (in Input) Normalize(projectID string) (Connector, error) {
 		ProjectID:     projectID,
 		Kind:          Kind(strings.ToLower(strings.TrimSpace(string(in.Kind)))),
 		Name:          strings.TrimSpace(in.Name),
-		BaseURL:       strings.TrimRight(strings.TrimSpace(in.BaseURL), "/"),
-		RemoteProject: strings.ToLower(strings.TrimSpace(in.RemoteProject)),
+		RemoteProject: strings.TrimSpace(in.RemoteProject),
 		Version:       strings.TrimSpace(in.Version),
 		Enabled:       in.Enabled == nil || *in.Enabled,
 	}
 	if !c.Kind.Valid() {
-		return Connector{}, invalid("kind must be dependency-track or defectdojo")
+		return Connector{}, invalid("kind must be one of dependency-track, defectdojo, snyk-api, github, gitlab, wiz, tenable")
 	}
 	if len(c.Name) > 100 {
 		return Connector{}, invalid("name must be at most 100 characters")
@@ -102,26 +139,63 @@ func (in Input) Normalize(projectID string) (Connector, error) {
 	if len(c.Version) > 255 {
 		return Connector{}, invalid("version must be at most 255 characters")
 	}
-	u, err := url.Parse(c.BaseURL)
-	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.RawQuery != "" || u.Fragment != "" || u.User != nil {
-		return Connector{}, invalid("base_url must be an http(s) URL")
+	baseURL, err := validateURL("base_url", in.BaseURL)
+	if err != nil {
+		return Connector{}, err
 	}
-	if err := netguard.CheckURL(c.BaseURL); err != nil {
-		return Connector{}, invalid("base_url is not an allowed destination: %v", err)
-	}
+	c.BaseURL = baseURL
 	// The API prefix is ours to add; accept the URL as copied from the docs too.
 	switch c.Kind {
 	case KindDependencyTrack:
 		c.BaseURL = strings.TrimSuffix(strings.TrimSuffix(c.BaseURL, "/api/v1"), "/api")
+		c.RemoteProject = strings.ToLower(c.RemoteProject)
 		if _, err := uuid.Parse(c.RemoteProject); err != nil {
 			return Connector{}, invalid("remote_project must be the Dependency-Track project UUID")
 		}
 	case KindDefectDojo:
 		c.BaseURL = strings.TrimSuffix(strings.TrimSuffix(c.BaseURL, "/api/v2"), "/api")
+		c.RemoteProject = strings.ToLower(c.RemoteProject)
 		if m := ddProduct.FindStringSubmatch(c.RemoteProject); m != nil {
 			c.RemoteProject = m[1]
 		} else if !ddEngagement.MatchString(c.RemoteProject) {
 			return Connector{}, invalid("remote_project must be a DefectDojo product id (42) or engagement id (engagement:42)")
+		}
+	case KindSnyk:
+		c.BaseURL = strings.TrimSuffix(c.BaseURL, "/rest")
+		if err := snykProjectFilter(c.RemoteProject); err != nil {
+			return Connector{}, err
+		}
+	case KindGitHub:
+		c.RemoteProject = strings.ToLower(c.RemoteProject)
+		if !githubOrgScope.MatchString(c.RemoteProject) && !githubRepo.MatchString(c.RemoteProject) {
+			return Connector{}, invalid(`remote_project must be "owner/repo" or "org:<org>"`)
+		}
+		u, _ := url.Parse(c.BaseURL)
+		if host := strings.ToLower(u.Hostname()); host == "github.com" || host == "www.github.com" {
+			c.BaseURL = "https://api.github.com"
+		} else {
+			c.BaseURL = strings.TrimSuffix(c.BaseURL, "/api/v3") + "/api/v3"
+		}
+	case KindGitLab:
+		c.BaseURL = strings.TrimSuffix(strings.TrimSuffix(c.BaseURL, "/api/graphql"), "/api/v4")
+		if !gitlabValidProject(c.RemoteProject) {
+			return Connector{}, invalid(`remote_project must be the GitLab project path, e.g. "group/project"`)
+		}
+	case KindWiz:
+		if !strings.HasSuffix(c.BaseURL, "/graphql") {
+			c.BaseURL += "/graphql"
+		}
+		if c.RemoteProject != "" && !wizProjectList.MatchString(strings.ToLower(c.RemoteProject)) {
+			return Connector{}, invalid("remote_project must be empty or a comma-separated list of Wiz project UUIDs")
+		}
+		authURL, err := validateURL("auth_url", in.AuthURL)
+		if err != nil {
+			return Connector{}, err
+		}
+		c.AuthURL = authURL
+	case KindTenable:
+		if cat, val, ok := strings.Cut(c.RemoteProject, "="); c.RemoteProject != "" && (!ok || cat == "" || val == "") {
+			return Connector{}, invalid(`remote_project must be empty or a "category=value" asset tag filter`)
 		}
 	}
 	return c, nil
@@ -134,7 +208,7 @@ func (s *Service) List(ctx context.Context, projectID string) ([]Connector, erro
 
 // Create adds a connector. A token is required.
 func (s *Service) Create(ctx context.Context, projectID string, in Input) (Connector, error) {
-	if s.cipher == nil {
+	if !s.cipher.Configured() {
 		return Connector{}, secretbox.ErrNoKey
 	}
 	c, err := in.Normalize(projectID)
@@ -144,6 +218,9 @@ func (s *Service) Create(ctx context.Context, projectID string, in Input) (Conne
 	tok := strings.TrimSpace(in.Token)
 	if tok == "" {
 		return Connector{}, invalid("token is required")
+	}
+	if err := validateToken(c.Kind, tok); err != nil {
+		return Connector{}, err
 	}
 	sealed, err := s.cipher.Seal(tok, projectID)
 	if err != nil {
@@ -158,7 +235,7 @@ func (s *Service) Create(ctx context.Context, projectID string, in Input) (Conne
 // otherwise anyone allowed to edit the URL could send the stored credential to
 // a host of their choosing.
 func (s *Service) Update(ctx context.Context, projectID, id string, in Input) (Connector, error) {
-	if s.cipher == nil {
+	if !s.cipher.Configured() {
 		return Connector{}, secretbox.ErrNoKey
 	}
 	cur, err := s.store.Get(ctx, projectID, id)
@@ -178,11 +255,14 @@ func (s *Service) Update(ctx context.Context, projectID, id string, in Input) (C
 	c.ID = id
 	var sealed []byte
 	if tok := strings.TrimSpace(in.Token); tok != "" {
+		if err := validateToken(c.Kind, tok); err != nil {
+			return Connector{}, err
+		}
 		if sealed, err = s.cipher.Seal(tok, projectID); err != nil {
 			return Connector{}, err
 		}
-	} else if c.BaseURL != cur.BaseURL {
-		return Connector{}, invalid("token is required when base_url changes")
+	} else if c.BaseURL != cur.BaseURL || c.AuthURL != cur.AuthURL {
+		return Connector{}, invalid("token is required when base_url or auth_url changes")
 	}
 	return s.store.Update(ctx, c, sealed)
 }
@@ -307,7 +387,7 @@ type RunResult struct {
 // connector another instance is pulling (or just pulled) is skipped.
 func (s *Service) PullDue(ctx context.Context, every time.Duration) (RunResult, error) {
 	var res RunResult
-	if s.cipher == nil {
+	if !s.cipher.Configured() {
 		return res, nil
 	}
 	due, err := s.store.ListDue(ctx, every)

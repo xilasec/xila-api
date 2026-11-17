@@ -73,16 +73,16 @@ type LinkSyncer interface {
 type Service struct {
 	store     Store
 	findings  Findings
-	cipher    *secretbox.Cipher
+	cipher    *secretbox.Keyring
 	publicURL string
 	hc        *http.Client
 	syncers   []LinkSyncer
 }
 
-// NewService constructs a Service. cipher may be nil (no INTEGRATION_SECRET_KEY):
-// trackers can then not be configured or used. publicURL, when set, is the UI
-// origin issues link back to.
-func NewService(store Store, findings Findings, cipher *secretbox.Cipher, publicURL string) *Service {
+// NewService constructs a Service. cipher may be unconfigured (no
+// INTEGRATION_SECRET_KEY): trackers can then not be configured or used.
+// publicURL, when set, is the UI origin issues link back to.
+func NewService(store Store, findings Findings, cipher *secretbox.Keyring, publicURL string) *Service {
 	return &Service{
 		store: store, findings: findings, cipher: cipher,
 		publicURL: strings.TrimRight(publicURL, "/"),
@@ -118,6 +118,7 @@ type Input struct {
 	Target           string          `json:"target"`
 	Token            string          `json:"token"`
 	JiraEmail        string          `json:"jira_email"`
+	AuthUser         string          `json:"auth_user"`
 	IssueType        string          `json:"issue_type"`
 	DoneTransition   string          `json:"done_transition"`
 	ReopenTransition string          `json:"reopen_transition"`
@@ -127,30 +128,44 @@ type Input struct {
 	Enabled          *bool           `json:"enabled"`
 }
 
+// baseURLExample is the hint shown when a kind with no DefaultBaseURL is
+// missing one.
+func baseURLExample(k Kind) string {
+	switch k {
+	case KindAzureDevOps:
+		return "https://dev.azure.com/your-org"
+	case KindServiceNow:
+		return "https://your-instance.service-now.com"
+	}
+	return "https://your-site.atlassian.net"
+}
+
 // Normalize validates the input and applies defaults, returning the tracker
 // config it describes (without the token).
 func (in Input) Normalize(projectID string) (Tracker, error) {
+	kind := Kind(strings.ToLower(strings.TrimSpace(string(in.Kind))))
+	defDone, defReopen := kind.DefaultTransitions()
 	t := Tracker{
 		ProjectID:        projectID,
-		Kind:             Kind(strings.ToLower(strings.TrimSpace(string(in.Kind)))),
+		Kind:             kind,
 		BaseURL:          strings.TrimRight(strings.TrimSpace(in.BaseURL), "/"),
 		Target:           strings.Trim(strings.TrimSpace(in.Target), "/"),
 		MinSeverity:      in.MinSeverity,
 		AutoCreate:       in.AutoCreate,
 		Enabled:          in.Enabled == nil || *in.Enabled,
 		IssueType:        cmpOr(in.IssueType, "Bug"),
-		DoneTransition:   cmpOr(in.DoneTransition, "Done"),
-		ReopenTransition: cmpOr(in.ReopenTransition, "To Do"),
+		DoneTransition:   cmpOr(in.DoneTransition, defDone),
+		ReopenTransition: cmpOr(in.ReopenTransition, defReopen),
 		Labels:           []string{},
 	}
 	if !t.Kind.Valid() {
-		return Tracker{}, invalid("kind must be jira, github or gitlab")
+		return Tracker{}, invalid("kind must be jira, github, gitlab, azure-devops, linear or servicenow")
 	}
 	if t.BaseURL == "" {
 		t.BaseURL = t.Kind.DefaultBaseURL()
 	}
 	if t.BaseURL == "" {
-		return Tracker{}, invalid("base_url is required for jira (e.g. https://your-site.atlassian.net)")
+		return Tracker{}, invalid("base_url is required for %s (e.g. %s)", t.Kind, baseURLExample(t.Kind))
 	}
 	u, err := url.Parse(t.BaseURL)
 	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.RawQuery != "" || u.Fragment != "" {
@@ -158,6 +173,9 @@ func (in Input) Normalize(projectID string) (Tracker, error) {
 	}
 	if err := netguard.CheckURL(t.BaseURL); err != nil {
 		return Tracker{}, invalid("base_url is not an allowed destination: %v", err)
+	}
+	if t.Target == "" && t.Kind == KindServiceNow {
+		t.Target = "incident" // the table every instance ships with
 	}
 	if t.Target == "" {
 		return Tracker{}, invalid("target is required")
@@ -172,6 +190,19 @@ func (in Input) Normalize(projectID string) (Tracker, error) {
 			return Tracker{}, invalid("target must be a Jira project key (e.g. SEC)")
 		}
 		t.JiraEmail = strings.TrimSpace(in.JiraEmail)
+	case KindAzureDevOps:
+		if strings.Contains(t.Target, "/") {
+			return Tracker{}, invalid("target must be the Azure DevOps project name")
+		}
+	case KindLinear:
+		if strings.ContainsAny(t.Target, "/ ") {
+			return Tracker{}, invalid("target must be the Linear team id or key")
+		}
+	case KindServiceNow:
+		if strings.ContainsAny(t.Target, "/ ") {
+			return Tracker{}, invalid("target must be a ServiceNow table name (e.g. incident)")
+		}
+		t.AuthUser = strings.TrimSpace(in.AuthUser)
 	}
 	if t.MinSeverity == "" {
 		t.MinSeverity = domain.SeverityHigh
@@ -210,7 +241,7 @@ func (s *Service) Get(ctx context.Context, projectID string) (Tracker, error) {
 // Put creates or replaces the project's tracker. A token is required when
 // creating; on update an empty one keeps the stored token.
 func (s *Service) Put(ctx context.Context, projectID string, in Input) (Tracker, error) {
-	if s.cipher == nil {
+	if !s.cipher.Configured() {
 		return Tracker{}, secretbox.ErrNoKey
 	}
 	t, err := in.Normalize(projectID)

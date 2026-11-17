@@ -26,6 +26,7 @@ const (
 	TypeTeams      = "teams"
 	TypeMattermost = "mattermost"
 	TypeEmail      = "email"
+	TypeKafka      = "kafka"
 )
 
 // ErrSMTPNotConfigured is returned when an email channel is used without SMTP.
@@ -45,7 +46,8 @@ type SMTPConfig struct {
 func (c SMTPConfig) Configured() bool { return c.Host != "" && c.From != "" }
 
 // ValidateTarget checks a channel's url field for its type: an http(s) URL for
-// the webhook-style types, a comma-separated list of addresses for email.
+// the webhook-style types, a comma-separated list of addresses for email, a
+// topic name for kafka.
 func ValidateTarget(typ, target string) error {
 	switch typ {
 	case TypeWebhook, TypeSlack, TypeTeams, TypeMattermost:
@@ -57,8 +59,13 @@ func ValidateTarget(typ, target string) error {
 	case TypeEmail:
 		_, err := ParseRecipients(target)
 		return err
+	case TypeKafka:
+		if !kafkaTopicRe.MatchString(target) {
+			return errors.New("topic must be 1–249 characters of letters, numbers, '.', '_' or '-'")
+		}
+		return nil
 	default:
-		return errors.New("type must be one of webhook, slack, teams, mattermost, email")
+		return errors.New("type must be one of webhook, slack, teams, mattermost, email, kafka")
 	}
 }
 
@@ -154,6 +161,9 @@ func (s *Service) emailMessage(ch Channel, e Event) ([]byte, []string, error) {
 // sendMail performs one SMTP transaction (STARTTLS, implicit TLS or plain).
 func (s *Service) sendMail(ctx context.Context, rcpts []string, msg []byte) error {
 	cfg := s.smtp
+	if s.smtpPass != nil {
+		cfg.Password = s.smtpPass.Get()
+	}
 	port := cfg.Port
 	if port == 0 {
 		port = 587

@@ -84,7 +84,7 @@ func (r *Reacher) apply(ctx context.Context, projectID, scanID string) (int, err
 		if t.EPSS != nil {
 			epss = *t.EPSS
 		}
-		priorities[i] = domain.Priority(t.Severity, domain.Exploitability{EPSS: epss, KEV: t.KEV, Maturity: t.ExploitMaturity},
+		priorities[i] = t.Weights.Priority(t.Severity, domain.Exploitability{EPSS: epss, KEV: t.KEV, Maturity: t.ExploitMaturity},
 			t.Reachability(), t.AssetExposure)
 	}
 	return r.findings.SetReachability(ctx, targets, priorities)

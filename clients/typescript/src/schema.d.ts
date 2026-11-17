@@ -766,6 +766,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/reauth": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm your password for a sensitive action
+         * @description Proves you are still at the keyboard: your password, plus your current
+         *     two-factor code when two-factor is on. Returns a session marked as
+         *     freshly authenticated, which creating an API token requires
+         *     (`REAUTH_WINDOW`, default 10 minutes). Accounts without a local password
+         *     sign in again through their identity provider instead (400). API tokens
+         *     can't call it.
+         */
+        post: operations["reauthenticateMe"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/mfa": {
         parameters: {
             query?: never;
@@ -1156,6 +1181,9 @@ export interface paths {
          * Mint an API token for CI
          * @description The secret is shown **once**, in this response. Scope it to a project
          *     (`project_id`) so a repo's CI can only touch its own project.
+         *     Needs a session that signed in within `REAUTH_WINDOW` (default 10 minutes):
+         *     otherwise 403 with header `X-Reauth-Required: true`; confirm your password
+         *     with `POST /me/reauth` and retry. API tokens can't create tokens.
          */
         post: operations["createToken"];
         delete?: never;
@@ -1557,6 +1585,366 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/orgs/{orgID}/member-groups/{groupID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a user group's grant on the organization
+         * @description Requires org `admin`.
+         */
+        delete: operations["deleteOrgMemberGroup"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orgs/{orgID}/groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The organization's user groups */
+        get: operations["listOrgGroups"];
+        put?: never;
+        /**
+         * Create a user group
+         * @description Requires org `admin`. A group is grantable on the organization, a team or a
+         *     project exactly like a user (`group_id` in the members endpoints); every
+         *     member gets the role. SCIM clients can provision groups too.
+         */
+        post: operations["createOrgGroup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orgs/{orgID}/groups/{groupID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A user group and its members */
+        get: operations["getOrgGroup"];
+        /** Rename a user group */
+        put: operations["putOrgGroup"];
+        post?: never;
+        /** Delete a user group (its grants go with it) */
+        delete: operations["deleteOrgGroup"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orgs/{orgID}/groups/{groupID}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a user to a group */
+        post: operations["createOrgGroupMember"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orgs/{orgID}/groups/{groupID}/members/{userID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a user from a group */
+        delete: operations["deleteOrgGroupMember"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orgs/{orgID}/custom-roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The organization's custom roles */
+        get: operations["listOrgCustomRoles"];
+        put?: never;
+        /**
+         * Create a custom role
+         * @description Requires org `admin`. A custom role is a base role minus denied capabilities,
+         *     assignable on team and project grants (`custom_role_id`). Several grants
+         *     combine by union: a capability one grant denies is allowed when another
+         *     grant at the needed level doesn't deny it.
+         */
+        post: operations["createOrgCustomRole"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orgs/{orgID}/custom-roles/{roleID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change a custom role */
+        put: operations["putOrgCustomRole"];
+        post?: never;
+        /** Delete a custom role (grants using it fall back to their base role) */
+        delete: operations["deleteOrgCustomRole"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teams/{teamID}/groups/{groupID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a user group's grant on the team */
+        delete: operations["deleteTeamGroup"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectID}/groups/{groupID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a user group's grant on the project */
+        delete: operations["deleteProjectGroup"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/capabilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What a custom role can deny */
+        get: operations["listCapabilities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scim-tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** SCIM tokens (instance admin) */
+        get: operations["listScimTokens"];
+        put?: never;
+        /**
+         * Create a SCIM token for an organization (instance admin)
+         * @description The secret is shown once. It authenticates `/scim/v2` only, and only for this organization.
+         */
+        post: operations["createScimToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scim-tokens/{tokenID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke a SCIM token */
+        delete: operations["deleteScimToken"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scim/v2/ServiceProviderConfig": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** SCIM service provider configuration */
+        get: operations["getScimV2ServiceProviderConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scim/v2/ResourceTypes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** SCIM resource types */
+        get: operations["listScimV2ResourceTypes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scim/v2/Schemas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** SCIM schemas */
+        get: operations["listScimV2Schemas"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scim/v2/Users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Users
+         * @description `filter` supports `attr eq "value"` only. Paged by `startIndex` (1-based) and `count` (max 200).
+         */
+        get: operations["listScimV2Users"];
+        put?: never;
+        /** Create a User */
+        post: operations["createScimV2User"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scim/v2/Users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a User */
+        get: operations["getScimV2User"];
+        /** Replace a User */
+        put: operations["putScimV2User"];
+        post?: never;
+        /** Delete a User */
+        delete: operations["deleteScimV2User"];
+        options?: never;
+        head?: never;
+        /** Change a User (PatchOp) */
+        patch: operations["updateScimV2User"];
+        trace?: never;
+    };
+    "/scim/v2/Groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Groups
+         * @description `filter` supports `attr eq "value"` only. Paged by `startIndex` (1-based) and `count` (max 200).
+         */
+        get: operations["listScimV2Groups"];
+        put?: never;
+        /** Create a Group */
+        post: operations["createScimV2Group"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scim/v2/Groups/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a Group */
+        get: operations["getScimV2Group"];
+        /** Replace a Group */
+        put: operations["putScimV2Group"];
+        post?: never;
+        /** Delete a Group */
+        delete: operations["deleteScimV2Group"];
+        options?: never;
+        head?: never;
+        /** Change a Group (PatchOp) */
+        patch: operations["updateScimV2Group"];
+        trace?: never;
+    };
     "/teams/{teamID}/members/{userID}": {
         parameters: {
             query?: never;
@@ -1689,6 +2077,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{projectID}/priority-weights": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The project's priority weights
+         * @description What the project's priorities are computed with, whether that's its own override (`custom`), and the defaults.
+         */
+        get: operations["listProjectPriorityWeights"];
+        /**
+         * Override the project's priority weights
+         * @description Owner. Fields left out keep their default. Discounts (`transitive`, `dev`,
+         *     `optional`, `isolated`) stay in (0, 1]; uplifts (`kev`, `weaponized`, `poc`,
+         *     `internet`) stay at 1 or more; severities keep their order; and an exploited
+         *     critical in a transitive dev dependency on an isolated asset must still
+         *     outrank a quiet medium on an internet-facing one. The project's priorities
+         *     are recomputed at once (`reprioritized`) and its findings regrouped.
+         */
+        put: operations["putProjectPriorityWeights"];
+        post?: never;
+        /** Back to the default priority weights */
+        delete: operations["deleteProjectPriorityWeights"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{projectID}/summary": {
         parameters: {
             query?: never;
@@ -1814,6 +2232,39 @@ export interface paths {
          */
         get: operations["getIngestQueue"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ingest/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Live ingest tuning overrides
+         * @description Instance admin (M11 11.7). The queue-depth backpressure threshold
+         *     (`INGEST_MAX_QUEUE_DEPTH`) and the worker count per node
+         *     (`INGEST_WORKERS`) as instance-wide overrides, applied by every node on
+         *     its next queue sample — no restart. A null field means "use the env
+         *     default"; `effective_*` is what's actually in force on the node that
+         *     answered this request right now.
+         */
+        get: operations["getIngestSettings"];
+        /**
+         * Change live ingest tuning overrides
+         * @description Instance admin. Every node watching the queue picks up the change on
+         *     its next sample (`INGEST_QUEUE_SAMPLE_INTERVAL`): the backpressure
+         *     threshold and that node's worker count change within one sample
+         *     interval. Set a field to `null` to revert it to its env default.
+         *     `workers: 0` is valid (a web-only node).
+         */
+        put: operations["putIngestSettings"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2008,7 +2459,10 @@ export interface paths {
         put?: never;
         /**
          * Define a custom field
-         * @description Instance admin. `key` is unique per entity and becomes `custom.<key>` in the API, CEL and filters.
+         * @description Instance admin. `key` is unique per entity and becomes `custom.<key>` in the
+         *     API, CEL and filters. With `computed` true, `expression` (CEL over the
+         *     entity's facts) replaces a person's write; every entity of this type is
+         *     computed before this call returns.
          */
         post: operations["createCustomField"];
         delete?: never;
@@ -2037,11 +2491,91 @@ export interface paths {
         head?: never;
         /**
          * Edit a custom-field definition
-         * @description Instance admin. Label, options, required and organization scope are editable;
-         *     entity, key and type are fixed. Removing an enum option leaves stored values as
-         *     they are (the next edit of that entity must pick a current option).
+         * @description Instance admin. Label, options, required, organization scope, computed and
+         *     expression are editable; entity, key and type are fixed. Removing an enum
+         *     option leaves stored values as they are (the next edit of that entity must
+         *     pick a current option). Turning a field computed (or changing its
+         *     expression) recomputes every entity of that type before this call returns;
+         *     turning it back off leaves its last computed value in place until a person
+         *     edits it.
          */
         patch: operations["updateCustomField"];
+        trace?: never;
+    };
+    "/custom-parsers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List no-code parser definitions
+         * @description Instance admin.
+         */
+        get: operations["listCustomParsers"];
+        put?: never;
+        /**
+         * Define a no-code parser
+         * @description Instance admin. `name` becomes the scanner identifier for uploads
+         *     (`?scanner=<name>`); it must be a lowercase slug and must not collide with a
+         *     built-in parser's name. `fields.title` is required; every other field is
+         *     optional. See `CustomParser` for the mapping shape.
+         */
+        post: operations["createCustomParser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/custom-parsers/dry-run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview a definition against a pasted sample
+         * @description Instance admin. Body is a definition (saved or not) plus `sample`, the raw
+         *     report text. Parses `sample` and returns the findings it would create, with
+         *     per-record errors; writes nothing.
+         */
+        post: operations["dryRunCustomParser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/custom-parsers/{parserID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read a no-code parser definition */
+        get: operations["getCustomParser"];
+        /**
+         * Replace a no-code parser's mapping
+         * @description Instance admin. A full replacement, same id, so findings it already created
+         *     keep referencing this scanner name. Picked up by the next upload on every
+         *     node (re-read by `updated_at`), no restart needed.
+         */
+        put: operations["updateCustomParser"];
+        post?: never;
+        /**
+         * Delete a no-code parser definition
+         * @description Instance admin. Its findings keep this scanner name as history; new uploads with this name are refused.
+         */
+        delete: operations["deleteCustomParser"];
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/finding-templates": {
@@ -2757,6 +3291,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ai-proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Open AI triage proposals across projects
+         * @description Proposals still waiting for a decision (`state: proposed`) across every
+         *     project you can see, newest first, with their finding's title and
+         *     severity. `mine=true` keeps the ones you asked for or whose finding is
+         *     assigned to you. 404 while AI triage is off.
+         */
+        get: operations["listAiProposals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/findings/{findingID}/ai-proposals": {
         parameters: {
             query?: never;
@@ -3431,6 +3988,13 @@ export interface paths {
          *     The dependency graph in the document matters: it's where `dep_direct`,
          *     `dep_depth` and `dep_scope` on findings come from, and uploading a new SBOM
          *     re-scores the project's existing backlog against it.
+         *
+         *     `strict=true` (or the instance-wide `SBOM_STRICT_VALIDATION` setting)
+         *     validates a CycloneDX upload against the official JSON schema for its
+         *     own `specVersion` (1.2 through 1.7) before storing it; a failure
+         *     returns 400 with up to 50 field-level errors, each with a JSON
+         *     Pointer path. XML CycloneDX is always rejected — upload CycloneDX or
+         *     SPDX JSON instead.
          */
         post: operations["createProjectSbom"];
         delete?: never;
@@ -4964,13 +5528,18 @@ export interface paths {
         get: operations["listProjectConnectors"];
         put?: never;
         /**
-         * Add a Dependency-Track or DefectDojo connector
+         * Add a pull connector
          * @description Project `owner` — the connector holds a credential for another system.
-         *     `token` is required and write-only (a Dependency-Track API key with
-         *     VIEW_PORTFOLIO + VIEW_VULNERABILITY, or a DefectDojo API v2 key), encrypted
-         *     at rest with `INTEGRATION_SECRET_KEY` (AES-256-GCM); without that key this
-         *     returns 400. One connector per kind per project version (409 otherwise):
-         *     two would auto-close each other's findings.
+         *     `token` is required and write-only, encrypted at rest with
+         *     `INTEGRATION_SECRET_KEY` (AES-256-GCM); without that key this returns 400.
+         *     For `dependency-track`, `defectdojo`, `snyk-api`, `github` and `gitlab` it
+         *     is the remote's API token; for `wiz` and `tenable`, whose auth is two
+         *     secrets, it is a JSON object carrying both, so both are sealed together
+         *     (`{"client_id":"...","client_secret":"..."}` for Wiz,
+         *     `{"access_key":"...","secret_key":"..."}` for Tenable). `auth_url` is the
+         *     Wiz OAuth token endpoint (required for `wiz` only; not a secret). One
+         *     connector per kind per project version (409 otherwise): two would
+         *     auto-close each other's findings.
          */
         post: operations["createProjectConnector"];
         delete?: never;
@@ -5039,15 +5608,18 @@ export interface paths {
          * Pull now
          * @description Project `editor`. Also runs every `CONNECTOR_PULL_INTERVAL` for enabled
          *     connectors. Fetches every finding the remote reports and records them as
-         *     one scan by scanner `dependency-track` / `defectdojo` on the connector's
-         *     version, through the normal ingest pipeline — so findings no longer
-         *     reported are auto-closed. A failed or incomplete fetch applies nothing
-         *     (502, recorded in `last_error`); findings are never closed because the
-         *     remote was unreachable. A remote triage verdict (Dependency-Track analysis
-         *     NOT_AFFECTED / FALSE_POSITIVE → false positive, EXPLOITABLE → confirmed;
-         *     DefectDojo false positive / risk accepted / verified) is kept in the
-         *     finding's metadata and applied only to newly imported, untriaged findings —
-         *     it never overturns Xila's triage. 409 while a pull of this connector runs.
+         *     one scan by the connector's scanner (its `kind`, except `snyk-api`, whose
+         *     pull API is kept distinct from the file-upload Snyk parser's `snyk`
+         *     scanner) on the connector's version, through the normal ingest pipeline
+         *     — so findings no longer reported are auto-closed. A failed or incomplete
+         *     fetch applies nothing (502, recorded in `last_error`); findings are never
+         *     closed because the remote was unreachable. Each kind's dismissed/ignored/
+         *     rejected verdict (Dependency-Track analysis, DefectDojo flags, a Snyk
+         *     ignore, a dismissed GitHub code scanning/Dependabot alert, a dismissed
+         *     GitLab vulnerability, a rejected Wiz finding, a Tenable severity
+         *     acceptance) is kept in the finding's metadata and applied only to newly
+         *     imported, untriaged findings — it never overturns Xila's triage. 409
+         *     while a pull of this connector runs.
          */
         post: operations["pullProjectConnector"];
         delete?: never;
@@ -5602,6 +6174,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/secrets/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Secret key-ring rotation status
+         * @description Instance admin. Per sealed column (issue-tracker and connector tokens, the
+         *     SAML SP key, SSO provider secrets, personal and signed-webhook secrets, and
+         *     two-factor secrets): how many rows the current `INTEGRATION_SECRET_KEY`
+         *     ring opened with the primary key, how many still open only with a previous
+         *     key (not yet rekeyed), and how many open with no configured key at all (a
+         *     wrong key, or data this instance never sealed). `previous` reaching zero
+         *     everywhere means `INTEGRATION_SECRET_KEY_PREVIOUS` can be dropped.
+         */
+        get: operations["getAdminSecretsStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/audit-log": {
         parameters: {
             query?: never;
@@ -6050,7 +6648,8 @@ export interface paths {
          * @description Instance admin. A channel with a `project_id` receives that project's events;
          *     one without receives everything. `url` is validated per `type` (400 on an
          *     invalid URL or recipient); creating an `email` channel without SMTP configured
-         *     returns 400 `SMTP is not configured`.
+         *     returns 400 `SMTP is not configured`. A `kafka` channel requires `kafka.brokers`
+         *     and, with `kafka.sasl_mechanism` set, `kafka.sasl_username` and `sasl_password`.
          */
         post: operations["createNotificationChannel"];
         delete?: never;
@@ -6296,6 +6895,149 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/vuln-policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List vulnerability policies
+         * @description Instance admin. Highest `priority` first; the highest-priority matching policy wins when several match the same pair.
+         */
+        get: operations["listVulnPolicies"];
+        put?: never;
+        /**
+         * Create a vulnerability policy
+         * @description A CEL condition over a component + vulnerability pair (package findings) that
+         *     sets an analysis and/or a rating override atomically when it matches. Takes
+         *     effect immediately: matching findings in scope are claimed in the background.
+         */
+        post: operations["createVulnPolicy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vuln-policies/{policyID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read a vulnerability policy */
+        get: operations["getVulnPolicy"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a vulnerability policy
+         * @description Findings it was holding revert to what they were before it ever matched, on the evaluation that follows.
+         */
+        delete: operations["deleteVulnPolicy"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a vulnerability policy
+         * @description Full replacement. Re-evaluates in the background — a condition or priority change may immediately claim or release findings.
+         */
+        patch: operations["updateVulnPolicy"];
+        trace?: never;
+    };
+    "/vuln-policies/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dry-run an unsaved policy
+         * @description Body is a policy exactly as for create; nothing is stored or changed. Returns
+         *     the findings the policy **would** act on and how — evaluated on its own
+         *     (ignoring priority against other live policies), so you can see its effect
+         *     before saving it.
+         */
+        post: operations["previewVulnPolicies"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vuln-policies/{policyID}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dry-run a stored policy
+         * @description As `POST /vuln-policies/preview`, for a stored policy — whatever its enabled state.
+         */
+        post: operations["previewVulnPolicy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vuln-policies/evaluate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Re-evaluate the backlog now
+         * @description Ingest and every policy edit already evaluate immediately; this is for
+         *     catching a validity window's expiry without waiting for
+         *     `VULN_POLICY_EVAL_INTERVAL`.
+         */
+        post: operations["evaluateVulnPolicies"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vuln-policies/bundle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export every policy as a GitOps bundle
+         * @description The whole policy set, without database ids, so it can live in git and be reapplied verbatim with `PUT`.
+         */
+        get: operations["exportVulnPolicyBundle"];
+        /**
+         * Replace the whole policy set from a bundle
+         * @description Every policy in the body is validated (unique names, compilable condition)
+         *     before anything is written; on success the whole stored set is atomically
+         *     replaced (fresh ids) and re-evaluated. A policy the old set had applying that
+         *     the new set drops is reverted like any other removed policy.
+         */
+        put: operations["importVulnPolicyBundle"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -6437,6 +7179,15 @@ export interface components {
                  */
                 via_id?: string | null;
                 via_name?: string | null;
+                /**
+                 * Format: uuid
+                 * @description The user group the grant reaches the user through.
+                 */
+                group_id?: string | null;
+                group_name?: string | null;
+                /** @description The custom role narrowing the grant. */
+                custom_role?: string | null;
+                denied_capabilities?: string[];
                 /** @description "provider:group" of the SSO mappings that produce this grant. */
                 sso_mappings?: string[];
             }[];
@@ -6873,6 +7624,118 @@ export interface components {
              * @enum {string}
              */
             source?: "manual" | "sso";
+            /**
+             * Format: uuid
+             * @description Set instead of user_id for a grant on a user group.
+             */
+            group_id?: string;
+            group_name?: string;
+            /**
+             * Format: uuid
+             * @description The custom role narrowing `role`, if any.
+             */
+            custom_role_id?: string;
+            custom_role_name?: string;
+        };
+        UserGroup: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            org_id?: string;
+            name?: string;
+            /** @description Set when a SCIM client provisioned it. */
+            external_id?: string;
+            member_count?: number;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        CustomRole: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            org_id?: string;
+            name?: string;
+            /** @enum {string} */
+            base_role?: "owner" | "editor" | "viewer" | "uploader";
+            denied_capabilities?: components["schemas"]["Capability"][];
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        /**
+         * @description What a custom role can deny: `triage` (status, severity, assignee, accepting AI
+         *     proposals, deciding assessments, bulk edits), `comment` (comments and
+         *     attachments), `manage_members` (team and project members and groups),
+         *     `project_settings` (gate policy, SLA, issue tracker, connectors, versions,
+         *     badge token), `upload` (scans, SBOMs, VEX, gate runs, connector pulls), `export`
+         *     (CSV/XLSX and VEX exports), `risk_acceptance_approve` (approving, rejecting,
+         *     revoking risk acceptances).
+         * @enum {string}
+         */
+        Capability: "triage" | "comment" | "manage_members" | "project_settings" | "upload" | "export" | "risk_acceptance_approve";
+        SCIMToken: {
+            /** Format: uuid */
+            id?: string;
+            name?: string;
+            /** Format: uuid */
+            org_id?: string;
+            org_name?: string;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            last_used_at?: string | null;
+            /** Format: date-time */
+            revoked_at?: string | null;
+        };
+        /** @description A SCIM 2.0 User or Group (RFC 7643), `application/scim+json`. */
+        SCIMResource: {
+            [key: string]: unknown;
+        };
+        /** @description The factors of a finding's priority (severity weight × exploitability × reachability × exposure). */
+        PriorityWeights: {
+            /** @default 15 */
+            critical: number;
+            /** @default 7 */
+            high: number;
+            /** @default 3 */
+            medium: number;
+            /** @default 1 */
+            low: number;
+            /** @default 0 */
+            info: number;
+            /**
+             * @description Multiplier of a finding on a KEV catalog.
+             * @default 3
+             */
+            kev: number;
+            /**
+             * @description The EPSS factor is 1 + epss_slope × EPSS.
+             * @default 2
+             */
+            epss_slope: number;
+            /**
+             * @description Floor set by a weaponized exploit (Metasploit).
+             * @default 2.5
+             */
+            weaponized: number;
+            /**
+             * @description Floor set by a public proof of concept.
+             * @default 1.5
+             */
+            poc: number;
+            /** @default 0.8 */
+            transitive: number;
+            /** @default 0.25 */
+            dev: number;
+            /** @default 0.5 */
+            optional: number;
+            /** @default 1.25 */
+            internet: number;
+            /** @default 0.75 */
+            isolated: number;
         };
         /**
          * @description Business importance. Multiplies the project's risk score in the portfolio rollup.
@@ -7002,13 +7865,17 @@ export interface components {
             type: "text" | "number" | "date" | "enum" | "user";
             /** @description The allowed values of an `enum` field (required for it */
             options?: string[];
-            /** @description Every edit of the entity must leave the field set. */
+            /** @description Every edit of the entity must leave the field set. Never true on a computed field. */
             required?: boolean;
             /**
              * Format: uuid
              * @description Only this organization's entities have the field; null = all.
              */
             org_id?: string | null;
+            /** @description The value comes from `expression`, not a person's write; writing it directly is refused (400). */
+            computed?: boolean;
+            /** @description A CEL expression over the entity's facts (`finding.*`/`project.*`, `project.*`, or `asset.*`/`project.*`), required when `computed` is true. A result that doesn't fit the field type, an evaluation error, or null leaves the field unset. */
+            expression?: string;
             /** Format: date-time */
             readonly created_at?: string;
             /** Format: date-time */
@@ -7017,6 +7884,85 @@ export interface components {
         /** @description Custom-field values by key — text, a number, a `YYYY-MM-DD` date, an enum option or a user id. Unset fields are absent. */
         CustomValues: {
             [key: string]: string | number | null;
+        };
+        /**
+         * @description One ParsedFinding field's mapping. Resolution order: `template` (its
+         *     `{path}` placeholders are other paths/columns in the same record), else
+         *     `path` (falling back to `value` if absent or empty), else the static
+         *     `value` alone. `value_map` is only valid on the `severity` field: maps
+         *     the raw mapped text (e.g. a tool's numeric or custom severity code) to
+         *     critical/high/medium/low/info; unmapped text falls back to the same
+         *     normalization every built-in parser uses.
+         */
+        CustomParserFieldMap: {
+            /**
+             * @description A record path/column: a CSV header, a dotted JSON path
+             *     ("vulnerability.id", "aliases.0"), or an XML element/attribute path
+             *     relative to the record element ("name", "@severity").
+             */
+            path?: string;
+            /** @description A "{path} in {path2}" template over other paths/columns in the same record, e.g. "{rule} in {component}". */
+            template?: string;
+            /** @description A static value, used when no path/template is set or the path is absent/empty. */
+            value?: string;
+            /** @description severity only: raw mapped text -> critical/high/medium/low/info, e.g. {"4": "critical", "Sev3": "medium"}. */
+            value_map?: {
+                [key: string]: string;
+            };
+        };
+        /**
+         * @description A no-code parser (M12 12.4): maps the fields of a CSV, JSON or XML
+         *     report onto findings without a Go parser. `name` is the scanner
+         *     identifier used in uploads (`?scanner=<name>`); it must be a lowercase
+         *     slug and must not collide with a built-in parser's name.
+         */
+        CustomParser: {
+            /** Format: uuid */
+            readonly id?: string;
+            /** @example acme-scanner */
+            name: string;
+            category: components["schemas"]["Category"];
+            /** @enum {string} */
+            format: "csv" | "json" | "xml";
+            /**
+             * @description Where the repeated records live. json: a dotted path to the array
+             *     ("results", "runs.0.results"), or "$" for a top-level array. xml: a
+             *     "/"-separated element path from the document root ("report/item").
+             *     csv: unused — the header row already defines each record's fields.
+             */
+            record_selector?: string;
+            /**
+             * @description ParsedFinding field -> mapping. Keys: title (required), severity,
+             *     rule_id, description, cve, cwe, file_path, line, package,
+             *     package_version, fixed_version, url, cvss.
+             */
+            fields: {
+                [key: string]: components["schemas"]["CustomParserFieldMap"];
+            };
+            /** Format: uuid */
+            readonly created_by?: string | null;
+            /** Format: date-time */
+            readonly created_at?: string;
+            /** Format: date-time */
+            readonly updated_at?: string;
+        };
+        /** @description One finding a parser (built-in or no-code) would create. Returned only by the custom-parser dry-run preview. */
+        ParsedFinding: {
+            category?: components["schemas"]["Category"];
+            rule_id?: string;
+            title?: string;
+            description?: string;
+            severity?: components["schemas"]["Severity"];
+            cwe?: number | null;
+            cve?: string[];
+            file_path?: string;
+            line?: number | null;
+            package?: string;
+            package_version?: string;
+            fixed_version?: string;
+            purl?: string;
+            url?: string;
+            cvss?: number | null;
         };
         /** @description A branch or release of a project. */
         ProjectVersion: {
@@ -7141,19 +8087,21 @@ export interface components {
             /** Format: uuid */
             project_id?: string;
             /** @enum {string} */
-            kind?: "jira" | "github" | "gitlab";
-            /** @description Jira site, GitHub API (https://api.github.com, or https://host/api/v3 for Enterprise), or GitLab instance (https://gitlab.com). */
+            kind?: "jira" | "github" | "gitlab" | "azure-devops" | "linear" | "servicenow";
+            /** @description Jira site, GitHub API (https://api.github.com, or https://host/api/v3 for Enterprise), GitLab instance (https://gitlab.com), Azure DevOps organization/collection (https://dev.azure.com/your-org), Linear API (https://api.linear.app), or ServiceNow instance (https://your-instance.service-now.com). */
             base_url?: string;
-            /** @description Jira project key, GitHub owner/repo, or GitLab project id or full path. */
+            /** @description Jira project key, GitHub owner/repo, GitLab project id or full path, Azure DevOps project name, Linear team id, or ServiceNow table name (default incident). */
             target?: string;
             has_token?: boolean;
             /** @description Jira Cloud account email (basic auth with the API token); empty sends the token as a Bearer PAT. */
             jira_email?: string;
-            /** @description Jira issue type. */
+            /** @description ServiceNow HTTP Basic auth username; empty sends the token as an OAuth Bearer access token instead. */
+            auth_user?: string;
+            /** @description Jira issue type */
             issue_type?: string;
-            /** @description Jira transition (or target status) used to close. */
+            /** @description Jira transition (or target status), Azure DevOps System.State value, Linear workflow state type, or ServiceNow state value used to close. */
             done_transition?: string;
-            /** @description Jira transition (or target status) used to reopen. */
+            /** @description Jira transition (or target status), Azure DevOps System.State value, Linear workflow state type, or ServiceNow state value used to reopen. */
             reopen_transition?: string;
             min_severity?: components["schemas"]["Severity"];
             auto_create?: boolean;
@@ -7166,13 +8114,15 @@ export interface components {
         };
         IssueTrackerInput: {
             /** @enum {string} */
-            kind: "jira" | "github" | "gitlab";
-            /** @description Defaults to https://api.github.com / https://gitlab.com; required for Jira. */
+            kind: "jira" | "github" | "gitlab" | "azure-devops" | "linear" | "servicenow";
+            /** @description Defaults to https://api.github.com / https://gitlab.com / https://api.linear.app; required for Jira, Azure DevOps and ServiceNow. */
             base_url?: string;
             target: string;
             /** @description Required when creating; omit to keep the stored token. */
             token?: string;
             jira_email?: string;
+            /** @description ServiceNow only; empty uses OAuth Bearer auth. */
+            auth_user?: string;
             /** @default Bug */
             issue_type: string;
             /** @default Done */
@@ -7195,7 +8145,7 @@ export interface components {
             /** Format: uuid */
             tracker_id?: string;
             /** @enum {string} */
-            kind?: "jira" | "github" | "gitlab";
+            kind?: "jira" | "github" | "gitlab" | "azure-devops" | "linear" | "servicenow";
             /** @description Jira key, GitHub issue number or GitLab iid. */
             external_id?: string;
             url?: string;
@@ -7218,13 +8168,15 @@ export interface components {
             /** Format: uuid */
             project_id?: string;
             /** @enum {string} */
-            kind?: "dependency-track" | "defectdojo";
+            kind?: "dependency-track" | "defectdojo" | "snyk-api" | "github" | "gitlab" | "wiz" | "tenable";
             name?: string;
-            /** @description Server root, e.g. https://dtrack.example.com or https://defectdojo.example.com (no /api suffix). */
+            /** @description Server/API root; normalized per kind (e.g. the /api/v1, /api/v2, /api/v3, /api/v4 or /rest suffix is added or stripped as needed). */
             base_url?: string;
-            /** @description Dependency-Track project UUID; DefectDojo product id (42) or engagement id (engagement:42). */
+            /** @description Dependency-Track project UUID; DefectDojo product id (42) or engagement id (engagement:42); Snyk org id, optionally ":<project id>"; GitHub "owner/repo" or "org:<org>"; GitLab project path ("group/project"); comma-separated Wiz project UUIDs (empty = every project); or a Tenable "category=value" asset tag filter (empty = the whole instance). */
             remote_project?: string;
             has_token?: boolean;
+            /** @description Wiz OAuth token endpoint; empty for every other kind. */
+            auth_url?: string;
             /** @description Project version (branch) the findings land in; empty = the default version. */
             version?: string;
             /** @description Pulled on the schedule. */
@@ -7252,12 +8204,14 @@ export interface components {
              * @description Required when creating; can't change.
              * @enum {string}
              */
-            kind?: "dependency-track" | "defectdojo";
+            kind?: "dependency-track" | "defectdojo" | "snyk-api" | "github" | "gitlab" | "wiz" | "tenable";
             name?: string;
             base_url: string;
             remote_project: string;
-            /** @description Required when creating or changing base_url; omit to keep the stored token. */
+            /** @description Required when creating, or when changing base_url or auth_url; omit to keep the stored token. The remote's API token for every kind except wiz and tenable, whose two secrets are sealed together as one JSON object: {"client_id":"...","client_secret":"..."} for wiz, {"access_key":"...","secret_key":"..."} for tenable. */
             token?: string;
+            /** @description Wiz OAuth token endpoint; required for kind wiz, ignored otherwise. */
+            auth_url?: string;
             version?: string;
             /** @default true */
             enabled: boolean;
@@ -7384,7 +8338,7 @@ export interface components {
             /** Format: uuid */
             tracker_id?: string;
             /** @enum {string} */
-            kind?: "jira" | "github" | "gitlab";
+            kind?: "jira" | "github" | "gitlab" | "azure-devops" | "linear" | "servicenow";
             external_id?: string;
             url?: string;
             /** @enum {string} */
@@ -7750,6 +8704,8 @@ export interface components {
              *     matcher) or where hashing failed. See `unchanged_of`.
              */
             readonly content_hash?: string | null;
+            /** @description The upload filed its findings under one host asset per machine. */
+            readonly split_assets?: boolean;
             /**
              * Format: uuid
              * @description Set when this scan's content hash matched its target's previous
@@ -8005,6 +8961,11 @@ export interface components {
              */
             kev_sources?: ("cisa" | "enisa" | "vulncheck")[];
             /**
+             * @description A KEV catalog asserting the finding says the flaw is known to be used in
+             *     ransomware campaigns (`knownRansomwareCampaignUse` in CISA KEV and VulnCheck KEV).
+             */
+            kev_ransomware?: boolean;
+            /**
              * @description severity × exploitability × reachability × asset exposure. A KEV
              *     listing triples the weight; EPSS or a public exploit raise it up to
              *     2.5× (Metasploit module) / 1.5× (proof of concept); a dev-only
@@ -8253,6 +9214,12 @@ export interface components {
             created_at?: string;
             /** @description The dependency graph's root node (CycloneDX metadata.component bom-ref / SPDX described package). */
             root_ref?: string;
+        };
+        /** @description One CycloneDX schema violation from a strict upload. */
+        SbomFieldError: {
+            /** @description JSON Pointer to the offending value, e.g. /components/3/purl */
+            path?: string;
+            message?: string;
         };
         /**
          * @description Model-card essentials of an AI component, from the CycloneDX ML-BOM
@@ -8974,24 +9941,46 @@ export interface components {
         };
         Portfolio: {
             projects?: number;
-            open_findings?: number;
+            total_open?: number;
             risk_score?: number;
             kev_open?: number;
+            /** @description Open findings on a KEV list or with EPSS of 0.5 or more. */
             exploitable_open?: number;
-            by_category?: {
+            /** @description Exceptions and risk acceptances lapsing within 30 days. */
+            expiring_soon?: number;
+            open_by_severity?: {
+                [key: string]: number;
+            };
+            open_by_category?: {
                 [key: string]: number;
             };
             compliance?: {
                 framework?: string;
-                average_score?: number;
+                name?: string;
+                avg_score?: number;
+                projects_assessed?: number;
             }[];
             top_projects?: {
                 /** Format: uuid */
                 id?: string;
                 name?: string;
+                slug?: string;
                 risk_score?: number;
+                total_open?: number;
+                critical?: number;
             }[];
             sla?: components["schemas"]["SLAStats"];
+            /**
+             * @description `snapshots` when the whole overview comes from the latest snapshot
+             *     run (`PORTFOLIO_FROM_SNAPSHOTS`) rather than from findings now.
+             * @enum {string}
+             */
+            source?: "live" | "snapshots";
+            /**
+             * Format: date-time
+             * @description When the oldest part of that snapshot run was taken (snapshots only).
+             */
+            as_of?: string;
         };
         /**
          * @description One UTC day. Open counts are as of the end of the day (today: now);
@@ -9042,6 +10031,12 @@ export interface components {
             /** @description Fail if open criticals exceed this. */
             max_critical?: number;
             max_high?: number;
+            /** @description Fail if open mediums exceed this. */
+            max_medium?: number;
+            /** @description Fail if open lows exceed this. */
+            max_low?: number;
+            /** @description Fail if open info findings exceed this. */
+            max_info?: number;
             /** @description Fail on any open KEV finding. */
             block_kev?: boolean;
             /** @description Limit `block_kev` to findings these catalogs assert; empty = any catalog. */
@@ -9100,6 +10095,7 @@ export interface components {
                 open_high?: number;
                 open_medium?: number;
                 open_low?: number;
+                open_info?: number;
                 open_kev?: number;
                 /** @description Open KEV findings by the exact catalog set asserting them, e.g. `cisa,enisa` → 2. */
                 open_kev_sources?: {
@@ -9118,8 +10114,14 @@ export interface components {
             id?: string;
             name?: string;
             enabled?: boolean;
-            /** @description Evaluation order. First match wins. */
+            /** @description Evaluation order (lowest first). The first match acts. */
             sort_order?: number;
+            /**
+             * @description Chain this rule: after it acts, the rules after it still evaluate, against the
+             *     finding as it left it (raise a severity, then act on the raised severity).
+             *     Without it the first matching rule is the only one that acts.
+             */
+            continue?: boolean;
             /**
              * Format: uuid
              * @description Null = applies to every project.
@@ -9336,6 +10338,103 @@ export interface components {
                 }[];
             }[];
         };
+        /**
+         * @description A CEL condition over `component` (`name`, `version`, `purl`, `group`, `license`,
+         *     `scope`, `direct`), `vulnerability` (`id`, `aliases`, `severity`, `cvss`, `epss`,
+         *     `kev`, `cwes`, `published` — always unknown, findings carry no disclosure date)
+         *     and `project` (`name`, `tags`, `criticality`, `custom.<key>`), e.g.
+         *     `vulnerability.kev == true && component.scope == "dev"`. Unknown facts are null
+         *     and never match; syntax errors, misspelled fields and non-boolean results are
+         *     rejected when saving.
+         */
+        VulnPolicy: {
+            /** Format: uuid */
+            readonly id?: string;
+            name: string;
+            description?: string;
+            /** @default true */
+            enabled: boolean;
+            condition: string;
+            /**
+             * @description The highest-priority policy whose condition matches a pair wins when several do. Ties break oldest-first.
+             * @default 0
+             */
+            priority: number;
+            /** @description The verdict to record; omit (null) for a rating-only policy. */
+            analysis?: {
+                /**
+                 * @description `not_affected` and `false_positive` both set the finding `false_positive`
+                 *     (Dependency-Track distinguishes them as justifications of the same
+                 *     outcome); `exploitable` sets `confirmed`; `in_triage` sets no status (use
+                 *     it to flag a pair for review without moving it).
+                 * @enum {string}
+                 */
+                state?: "not_affected" | "false_positive" | "exploitable" | "in_triage";
+                justification?: string;
+                details?: string;
+            } | null;
+            /** @description A severity override to apply; omit (null) for an analysis-only policy. */
+            rating?: {
+                severity?: components["schemas"]["Severity"];
+                /** @description Detail only (display/bundle); never overwrites a scanner- or NVD-sourced CVSS. */
+                cvss_vector?: string;
+                cvss_score?: number | null;
+            } | null;
+            /**
+             * Format: date-time
+             * @description Null = unbounded.
+             */
+            valid_from?: string | null;
+            /**
+             * Format: date-time
+             * @description Null = unbounded. Outside the window the policy doesn't apply
+             */
+            valid_until?: string | null;
+            /**
+             * @default global
+             * @enum {string}
+             */
+            scope: "global" | "projects" | "tag";
+            /** @description Required (non-empty) when `scope` is `projects`. */
+            project_ids?: string[];
+            /** @description Required when `scope` is `tag`. */
+            tag?: string;
+            /**
+             * @description `log`: the condition is still evaluated (see preview) but never mutates a finding and never wins election over an `apply` policy.
+             * @default apply
+             * @enum {string}
+             */
+            mode: "apply" | "log";
+            /** Format: uuid */
+            readonly created_by?: string | null;
+            /** Format: date-time */
+            readonly created_at?: string;
+            /** Format: date-time */
+            readonly updated_at?: string;
+        };
+        VulnPolicyPreview: {
+            /** @description Every pair the policy would act on (the list is capped at 200). */
+            total?: number;
+            findings?: {
+                /** Format: uuid */
+                finding_id?: string;
+                /** Format: uuid */
+                project_id?: string;
+                title?: string;
+                package_name?: string;
+                package_version?: string;
+                purl?: string;
+                vulnerability_id?: string;
+                current_status?: components["schemas"]["FindingStatus"];
+                set_status?: components["schemas"]["FindingStatus"];
+                current_severity?: components["schemas"]["Severity"];
+                set_severity?: components["schemas"]["Severity"];
+            }[];
+        };
+        /** @description The GitOps-portable policy set — every policy, without database ids (an import always assigns fresh ones). */
+        VulnPolicyBundle: {
+            policies?: components["schemas"]["VulnPolicy"][];
+        };
         Channel: {
             /** Format: uuid */
             id?: string;
@@ -9347,13 +10446,15 @@ export interface components {
              *     `{"text": …}` (Mattermost adds `"username": "Xila"`); `teams` posts an Office 365
              *     connector MessageCard (legacy incoming webhooks and the Teams Workflows
              *     "When a Teams webhook request is received" trigger); `email` sends a
-             *     multipart (plain + HTML) mail via the configured SMTP server.
+             *     multipart (plain + HTML) mail via the configured SMTP server; `kafka`
+             *     produces the raw event JSON to a topic (`url`) over brokers from `kafka`.
              * @enum {string}
              */
-            type?: "webhook" | "slack" | "teams" | "mattermost" | "email";
+            type?: "webhook" | "slack" | "teams" | "mattermost" | "email" | "kafka";
             /**
              * @description For `webhook`, `slack`, `teams`, `mattermost`: the http(s) webhook URL.
              *     For `email`: a comma-separated recipient list, e.g. `alice@example.com, Bob <bob@example.com>`.
+             *     For `kafka`: the topic name.
              */
             url?: string;
             /**
@@ -9413,8 +10514,38 @@ export interface components {
              *     rotates it, `""` removes it, omitted keeps it.
              */
             signing_secret?: string;
-            /** @description The channel signs its deliveries. */
+            /** @description The channel signs its deliveries */
             readonly has_secret?: boolean;
+            kafka?: components["schemas"]["KafkaConfig"];
+            /**
+             * @description `kafka` only, with `kafka.sasl_mechanism` set. Encrypted at rest
+             *     (`INTEGRATION_SECRET_KEY` required) and never returned. On PATCH a
+             *     value rotates it, `""` removes it, omitted keeps it.
+             */
+            sasl_password?: string;
+        };
+        /** @description A `kafka` channel's broker and security settings. The topic is the channel's `url`. */
+        KafkaConfig: {
+            /** @description `host:port` addresses, dialed through the server's outbound (OUTBOUND_*) policy. */
+            brokers: string[];
+            /**
+             * @description Record key template with `{project_id}`, `{finding_id}`, `{event_type}`
+             *     and `{severity}` placeholders. Empty defaults to the project id (or no
+             *     key for a global event), so a consumer can partition or compact by
+             *     project without configuring anything.
+             */
+            key_template?: string;
+            /** @default false */
+            tls: boolean;
+            /** @description Optional PEM CA certificate; empty uses the system trust store. Ignored unless `tls` is set. */
+            tls_ca?: string;
+            /**
+             * @description Empty = no SASL.
+             * @enum {string}
+             */
+            sasl_mechanism?: "" | "PLAIN" | "SCRAM-SHA-256" | "SCRAM-SHA-512";
+            /** @description Required with a `sasl_mechanism`. */
+            sasl_username?: string;
         };
         IngestionAnomaly: {
             /** @enum {string} */
@@ -9446,6 +10577,22 @@ export interface components {
         };
     };
     responses: {
+        /** @description The weights in force */
+        PriorityWeightsResult: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": {
+                    weights?: components["schemas"]["PriorityWeights"];
+                    /** @description Whether the project overrides the defaults. */
+                    custom?: boolean;
+                    defaults?: components["schemas"]["PriorityWeights"];
+                    /** @description Findings whose priority changed (PUT / DELETE). */
+                    reprioritized?: number;
+                };
+            };
+        };
         /** @description Whether you watch the project. */
         Watching: {
             headers: {
@@ -9454,6 +10601,26 @@ export interface components {
             content: {
                 "application/json": {
                     watching?: boolean;
+                };
+            };
+        };
+        /** @description OK */
+        IngestSettings: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": {
+                    /** @description Override; null = use INGEST_MAX_QUEUE_DEPTH */
+                    max_queue_depth?: number | null;
+                    /** @description Override; null = use INGEST_WORKERS */
+                    workers?: number | null;
+                    /** Format: date-time */
+                    updated_at?: string;
+                    /** @description What's actually in force on the responding node right now */
+                    effective_max_queue_depth?: number;
+                    /** @description Workers actually running on the responding node right now */
+                    effective_workers?: number;
                 };
             };
         };
@@ -9477,6 +10644,22 @@ export interface components {
             content: {
                 "application/json": {
                     error?: string;
+                };
+            };
+        };
+        /**
+         * @description A strict (`?strict=true` or SBOM_STRICT_VALIDATION) CycloneDX upload
+         *     failed its own specVersion's official JSON schema. Up to 50 field
+         *     errors, each with a JSON Pointer path (e.g. `/components/3/purl`).
+         */
+        SbomStrictError: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": {
+                    error?: string;
+                    fields?: components["schemas"]["SbomFieldError"][];
                 };
             };
         };
@@ -9593,6 +10776,7 @@ export interface components {
         ScanID: string;
         FindingID: string;
         CustomFieldID: string;
+        CustomParserID: string;
         /** @description The finding's updated_at as last read (quoted RFC 3339); a stale value answers 412. */
         IfMatch: string;
         RiskAcceptanceID: string;
@@ -9628,6 +10812,9 @@ export interface components {
         AssetID: string;
         UserID: string;
         TokenID: string;
+        GroupID: string;
+        RoleID: string;
+        SCIMID: string;
         AccountID: string;
         KeyID: string;
         IssuerID: string;
@@ -10688,6 +11875,41 @@ export interface operations {
             403: components["responses"]["Error"];
         };
     };
+    reauthenticateMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: password */
+                    password: string;
+                    /** @description TOTP or recovery code (required with two-factor on). */
+                    code?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Re-authenticated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description A JWT whose authentication time is now. */
+                        token?: string;
+                        user?: components["schemas"]["User"];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
     getMeMfa: {
         parameters: {
             query?: never;
@@ -11144,7 +12366,17 @@ export interface operations {
             content: {
                 "application/json": {
                     /** Format: email */
-                    email: string;
+                    email?: string;
+                    /**
+                     * Format: uuid
+                     * @description A user group of the same organization; every member gets the role.
+                     */
+                    group_id?: string;
+                    /**
+                     * Format: uuid
+                     * @description A custom role of the same organization: `role` minus its denied capabilities.
+                     */
+                    custom_role_id?: string;
                     /**
                      * @description `viewer` is strictly read-only; `editor` can upload and triage; `owner` can also grant access; `uploader` is viewer plus uploads — it reads everything a viewer does and may also upload scans/SBOMs/VEX and run the gate, for CI tokens.
                      * @enum {string}
@@ -11268,8 +12500,8 @@ export interface operations {
                      * @description Restrict the token to one project
                      */
                     project_id?: string;
-                    /** Format: date-time */
-                    expires_at?: string;
+                    /** @description Days until it expires (0 = never). */
+                    expires_in_days?: number;
                 };
             };
         };
@@ -11287,6 +12519,18 @@ export interface operations {
                          * @example xila_9f3c…
                          */
                         secret?: string;
+                    };
+                };
+            };
+            /** @description An API token or service account asked, or the session needs re-authentication (`X-Reauth-Required`). */
+            403: {
+                headers: {
+                    "X-Reauth-Required"?: "true";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error?: string;
                     };
                 };
             };
@@ -11949,7 +13193,9 @@ export interface operations {
             content: {
                 "application/json": {
                     /** Format: email */
-                    email: string;
+                    email?: string;
+                    /** Format: uuid */
+                    group_id?: string;
                     /** @enum {string} */
                     role: "admin" | "member";
                 };
@@ -12151,7 +13397,17 @@ export interface operations {
             content: {
                 "application/json": {
                     /** Format: email */
-                    email: string;
+                    email?: string;
+                    /**
+                     * Format: uuid
+                     * @description A user group of the same organization; every member gets the role.
+                     */
+                    group_id?: string;
+                    /**
+                     * Format: uuid
+                     * @description A custom role of the same organization: `role` minus its denied capabilities.
+                     */
+                    custom_role_id?: string;
                     /**
                      * @description `viewer` is strictly read-only; `editor` can triage and upload; `owner` manages the team; `uploader` is viewer plus uploads — it reads everything a viewer does and may also upload scans/SBOMs/VEX and run the gate, for CI tokens.
                      * @enum {string}
@@ -12169,6 +13425,863 @@ export interface operations {
                 content?: never;
             };
             403: components["responses"]["Error"];
+        };
+    };
+    deleteOrgMemberGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: components["parameters"]["OrgID"];
+                groupID: components["parameters"]["GroupID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    listOrgGroups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        groups?: components["schemas"]["UserGroup"][];
+                    };
+                };
+            };
+        };
+    };
+    createOrgGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserGroup"];
+                };
+            };
+            400: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    getOrgGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: components["parameters"]["OrgID"];
+                groupID: components["parameters"]["GroupID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        group?: components["schemas"]["UserGroup"];
+                        members?: {
+                            /** Format: uuid */
+                            user_id?: string;
+                            /** Format: email */
+                            email?: string;
+                        }[];
+                    };
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    putOrgGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: components["parameters"]["OrgID"];
+                groupID: components["parameters"]["GroupID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Renamed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserGroup"];
+                };
+            };
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    deleteOrgGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: components["parameters"]["OrgID"];
+                groupID: components["parameters"]["GroupID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    createOrgGroupMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: components["parameters"]["OrgID"];
+                groupID: components["parameters"]["GroupID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: email */
+                    email: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Added */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    deleteOrgGroupMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: components["parameters"]["OrgID"];
+                groupID: components["parameters"]["GroupID"];
+                userID: components["parameters"]["UserID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    listOrgCustomRoles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        custom_roles?: components["schemas"]["CustomRole"][];
+                    };
+                };
+            };
+        };
+    };
+    createOrgCustomRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    /** @enum {string} */
+                    base_role: "owner" | "editor" | "viewer" | "uploader";
+                    denied_capabilities?: components["schemas"]["Capability"][];
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomRole"];
+                };
+            };
+            400: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    putOrgCustomRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: components["parameters"]["OrgID"];
+                roleID: components["parameters"]["RoleID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    /** @enum {string} */
+                    base_role: "owner" | "editor" | "viewer" | "uploader";
+                    denied_capabilities?: components["schemas"]["Capability"][];
+                };
+            };
+        };
+        responses: {
+            /** @description Changed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomRole"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    deleteOrgCustomRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: components["parameters"]["OrgID"];
+                roleID: components["parameters"]["RoleID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    deleteTeamGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                groupID: components["parameters"]["GroupID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    deleteProjectGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+                groupID: components["parameters"]["GroupID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    listCapabilities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        capabilities?: components["schemas"]["Capability"][];
+                    };
+                };
+            };
+        };
+    };
+    listScimTokens: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        tokens?: components["schemas"]["SCIMToken"][];
+                    };
+                };
+            };
+        };
+    };
+    createScimToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    /** Format: uuid */
+                    org_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        token?: components["schemas"]["SCIMToken"];
+                        secret?: string;
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    deleteScimToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tokenID: components["parameters"]["TokenID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revoked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    getScimV2ServiceProviderConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["SCIMResource"];
+                };
+            };
+        };
+    };
+    listScimV2ResourceTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["SCIMResource"];
+                };
+            };
+        };
+    };
+    listScimV2Schemas: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["SCIMResource"];
+                };
+            };
+        };
+    };
+    listScimV2Users: {
+        parameters: {
+            query?: {
+                filter?: string;
+                startIndex?: number;
+                count?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A SCIM ListResponse */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["SCIMResource"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+        };
+    };
+    createScimV2User: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/scim+json": components["schemas"]["SCIMResource"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["SCIMResource"];
+                };
+            };
+            400: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    getScimV2User: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["SCIMID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["SCIMResource"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    putScimV2User: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["SCIMID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/scim+json": components["schemas"]["SCIMResource"];
+            };
+        };
+        responses: {
+            /** @description Replaced */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["SCIMResource"];
+                };
+            };
+            /** @description The user left this organization (it also belongs to another one) */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    deleteScimV2User: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["SCIMID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    updateScimV2User: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["SCIMID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/scim+json": components["schemas"]["SCIMResource"];
+            };
+        };
+        responses: {
+            /** @description Changed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["SCIMResource"];
+                };
+            };
+            /** @description Changed (members excluded */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    listScimV2Groups: {
+        parameters: {
+            query?: {
+                filter?: string;
+                startIndex?: number;
+                count?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A SCIM ListResponse */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["SCIMResource"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+        };
+    };
+    createScimV2Group: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/scim+json": components["schemas"]["SCIMResource"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["SCIMResource"];
+                };
+            };
+            400: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    getScimV2Group: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["SCIMID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["SCIMResource"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    putScimV2Group: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["SCIMID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/scim+json": components["schemas"]["SCIMResource"];
+            };
+        };
+        responses: {
+            /** @description Replaced */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["SCIMResource"];
+                };
+            };
+            /** @description The user left this organization (it also belongs to another one) */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    deleteScimV2Group: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["SCIMID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    updateScimV2Group: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["SCIMID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/scim+json": components["schemas"]["SCIMResource"];
+            };
+        };
+        responses: {
+            /** @description Changed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": components["schemas"]["SCIMResource"];
+                };
+            };
+            /** @description Changed (members excluded */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
         };
     };
     deleteTeamMember: {
@@ -12403,6 +14516,56 @@ export interface operations {
             };
         };
     };
+    listProjectPriorityWeights: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["PriorityWeightsResult"];
+            404: components["responses"]["Error"];
+        };
+    };
+    putProjectPriorityWeights: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriorityWeights"];
+            };
+        };
+        responses: {
+            200: components["responses"]["PriorityWeightsResult"];
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    deleteProjectPriorityWeights: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["PriorityWeightsResult"];
+            403: components["responses"]["Error"];
+        };
+    };
     getProjectSummary: {
         parameters: {
             query?: {
@@ -12506,6 +14669,13 @@ export interface operations {
                  *     `INGEST_SKIP_UNCHANGED`).
                  */
                 force?: boolean;
+                /**
+                 * @description File each finding under the host asset of the machine it names (Nessus,
+                 *     OpenVAS, Qualys, Nmap, testssl.sh and other infrastructure scanners
+                 *     record the host), creating missing host assets. For multi-host network
+                 *     scans; not together with `asset_id`.
+                 */
+                split_assets?: boolean;
             };
             header?: never;
             path: {
@@ -12648,6 +14818,38 @@ export interface operations {
             };
         };
     };
+    getIngestSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["IngestSettings"];
+        };
+    };
+    putIngestSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    max_queue_depth?: number | null;
+                    workers?: number | null;
+                };
+            };
+        };
+        responses: {
+            200: components["responses"]["IngestSettings"];
+            400: components["responses"]["Error"];
+        };
+    };
     listFindings: {
         parameters: {
             query?: {
@@ -12661,6 +14863,10 @@ export interface operations {
                 rule_id?: string;
                 /** @description Only findings a KEV catalog (CISA, ENISA EUVD, VulnCheck) lists as known-exploited. */
                 kev?: boolean;
+                /** @description Only findings a KEV catalog marks as known to be used in ransomware campaigns. */
+                kev_ransomware?: boolean;
+                /** @description Only findings still awaiting a fix (open or confirmed). */
+                active?: boolean;
                 /**
                  * @description Only findings whose dependency ships (not dev-only) **and** was depended
                  *     on directly. Findings with no SBOM data are kept — unknown is never
@@ -13195,6 +15401,8 @@ export interface operations {
                     org_id?: string;
                     /** @description Apply to every organization again. */
                     clear_org?: boolean;
+                    computed?: boolean;
+                    expression?: string;
                 };
             };
         };
@@ -13209,6 +15417,163 @@ export interface operations {
                 };
             };
             400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    listCustomParsers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        custom_parsers?: components["schemas"]["CustomParser"][];
+                    };
+                };
+            };
+        };
+    };
+    createCustomParser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomParser"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomParser"];
+                };
+            };
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    dryRunCustomParser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomParser"] & {
+                    /** @description The raw report text (CSV */
+                    sample: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        findings?: components["schemas"]["ParsedFinding"][];
+                        record_errors?: {
+                            /** @description 0-based position of the record that failed to map. */
+                            index?: number;
+                            error?: string;
+                        }[];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    getCustomParser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                parserID: components["parameters"]["CustomParserID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomParser"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    updateCustomParser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                parserID: components["parameters"]["CustomParserID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomParser"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomParser"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    deleteCustomParser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                parserID: components["parameters"]["CustomParserID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             404: components["responses"]["Error"];
         };
     };
@@ -14381,6 +16746,39 @@ export interface operations {
             };
         };
     };
+    listAiProposals: {
+        parameters: {
+            query?: {
+                mine?: boolean;
+                /** @description Page size (max 200). */
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        proposals?: (components["schemas"]["AIProposal"] & {
+                            finding_title?: string;
+                            finding_severity?: string;
+                            project_name?: string;
+                        })[];
+                        pagination?: components["schemas"]["Pagination"];
+                    };
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
     listFindingAiProposals: {
         parameters: {
             query?: never;
@@ -15475,6 +17873,8 @@ export interface operations {
                 branch?: string;
                 /** @description Instead of a branch */
                 release?: string;
+                /** @description Reject a CycloneDX document that fails the official JSON schema for its specVersion. */
+                strict?: boolean;
             };
             header?: never;
             path: {
@@ -15497,6 +17897,7 @@ export interface operations {
                     "application/json": components["schemas"]["Sbom"];
                 };
             };
+            400: components["responses"]["SbomStrictError"];
             /** @description The project is a collection, which holds no SBOMs of its own */
             409: components["responses"]["Error"];
             422: components["responses"]["Error"];
@@ -18524,6 +20925,12 @@ export interface operations {
             query?: {
                 state?: "requested" | "approved" | "expired" | "revoked" | "rejected";
                 project_id?: string;
+                /** @description Only the requests you may approve (projects you own; with four-eyes, not your own requests). */
+                actionable?: boolean;
+                /** @description `me` or a user id: acceptances with that owner. */
+                owner?: string;
+                /** @description Only acceptances expiring within this many days (soonest first). */
+                expires_within_days?: number;
                 /** @description Page size (max 200). */
                 limit?: components["parameters"]["Limit"];
                 offset?: components["parameters"]["Offset"];
@@ -18874,6 +21281,8 @@ export interface operations {
             query?: {
                 state?: "pending" | "approved" | "rejected";
                 project_id?: string;
+                /** @description Only what you may decide - pending assessments of projects you own that someone else requested. */
+                actionable?: boolean;
                 /** @description Page size (max 200). */
                 limit?: components["parameters"]["Limit"];
                 offset?: components["parameters"]["Offset"];
@@ -19033,6 +21442,9 @@ export interface operations {
                         scan_days?: number;
                         log_days?: number;
                         audit_days?: number;
+                        archive_days?: number;
+                        /** @description FINDING_ARCHIVE_AFTER: findings fixed longer ago are archived. */
+                        finding_archive_days?: number;
                     };
                 };
             };
@@ -19062,6 +21474,41 @@ export interface operations {
                         deliveries?: number;
                         failed_jobs?: number;
                         audit_entries?: number;
+                        fixed_findings_archived?: number;
+                        archived_projects?: number;
+                        archived_engagements?: number;
+                        archived_scans?: number;
+                        archived_findings?: number;
+                    };
+                };
+            };
+            403: components["responses"]["Error"];
+        };
+    };
+    getAdminSecretsStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        columns?: {
+                            table?: string;
+                            column?: string;
+                            total?: number;
+                            primary?: number;
+                            previous?: number;
+                            unreadable?: number;
+                        }[];
                     };
                 };
             };
@@ -20292,6 +22739,259 @@ export interface operations {
                     };
                 };
             };
+        };
+    };
+    listVulnPolicies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        policies?: components["schemas"]["VulnPolicy"][];
+                    };
+                };
+            };
+        };
+    };
+    createVulnPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VulnPolicy"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VulnPolicy"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    getVulnPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                policyID: components["parameters"]["PolicyID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VulnPolicy"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    deleteVulnPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                policyID: components["parameters"]["PolicyID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    updateVulnPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                policyID: components["parameters"]["PolicyID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VulnPolicy"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VulnPolicy"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    previewVulnPolicies: {
+        parameters: {
+            query?: {
+                /** @description Narrow the preview to one project; omit to cover every project the policy's scope reaches. */
+                project_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VulnPolicy"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VulnPolicyPreview"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    previewVulnPolicy: {
+        parameters: {
+            query?: {
+                project_id?: string;
+            };
+            header?: never;
+            path: {
+                policyID: components["parameters"]["PolicyID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VulnPolicyPreview"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    evaluateVulnPolicies: {
+        parameters: {
+            query?: {
+                /** @description Omit to evaluate every project. */
+                project_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Findings changed. */
+                        applied?: number;
+                    };
+                };
+            };
+        };
+    };
+    exportVulnPolicyBundle: {
+        parameters: {
+            query?: {
+                format?: "yaml" | "json";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The bundle, as an attachment. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/yaml": components["schemas"]["VulnPolicyBundle"];
+                    "application/json": components["schemas"]["VulnPolicyBundle"];
+                };
+            };
+        };
+    };
+    importVulnPolicyBundle: {
+        parameters: {
+            query?: {
+                /** @description Validate and report the resulting set without writing it. */
+                dry_run?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/yaml": components["schemas"]["VulnPolicyBundle"];
+                "application/json": components["schemas"]["VulnPolicyBundle"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        policies?: components["schemas"]["VulnPolicy"][];
+                        dry_run?: boolean;
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
         };
     };
 }

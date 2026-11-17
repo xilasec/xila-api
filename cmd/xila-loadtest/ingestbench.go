@@ -23,7 +23,7 @@ import (
 // and counted.
 func runIngestBench(args []string) error {
 	fs := flag.NewFlagSet("ingest-bench", flag.ExitOnError)
-	baseURL := fs.String("base-url", "", "running api server base URL (required)")
+	baseURL := fs.String("base-url", "", "running api server base URL, or a comma-separated list: uploader i uses node i mod len (required)")
 	email := fs.String("email", "loadtest-admin@xila.local", "admin email (from seed)")
 	password := fs.String("password", "loadtest-password-CHANGE-ME-123", "admin password (from seed)")
 	project := fs.String("project", "", "project id to upload scans to (this or --projects is required)")
@@ -39,14 +39,15 @@ func runIngestBench(args []string) error {
 	if len(targets) == 0 && *project != "" {
 		targets = []string{*project}
 	}
-	if *baseURL == "" || len(targets) == 0 {
+	nodes := splitIDs(*baseURL)
+	if len(nodes) == 0 || len(targets) == 0 {
 		return fmt.Errorf("--base-url and --project (or --projects) are required")
 	}
 	if *concurrency < 1 {
 		return fmt.Errorf("--concurrency must be at least 1")
 	}
 
-	token, err := login(*baseURL, *email, *password)
+	token, err := login(nodes[0], *email, *password)
 	if err != nil {
 		return fmt.Errorf("login: %w", err)
 	}
@@ -65,11 +66,12 @@ func runIngestBench(args []string) error {
 			if *concurrency > 1 {
 				br = fmt.Sprintf("%s-%d", *branch, u)
 			}
-			url := fmt.Sprintf("%s/api/v1/projects/%s/scans?scanner=trivy&branch=%s", *baseURL, targets[u%len(targets)], br)
+			node := nodes[u%len(nodes)]
+			url := fmt.Sprintf("%s/api/v1/projects/%s/scans?scanner=trivy&branch=%s", node, targets[u%len(targets)], br)
 			var r result
 			for i := range *scans {
 				start := time.Now()
-				n, err := uploadOnce(client, url, token, *baseURL, trivyReport(*findingsPerScan, u*100000+i))
+				n, err := uploadOnce(client, url, token, node, trivyReport(*findingsPerScan, u*100000+i))
 				r.retries += n
 				if err != nil {
 					r.err = fmt.Errorf("uploader %d, scan %d: %w", u, i, err)
@@ -98,8 +100,8 @@ func runIngestBench(args []string) error {
 
 	totalFindings := len(lat) * *findingsPerScan
 	p50, p95, p99, max := percentiles(lat)
-	fmt.Printf("uploaded %d scans (%d uploaders x %d), %d findings total, in %s\n",
-		len(lat), *concurrency, *scans, totalFindings, elapsed.Round(time.Millisecond))
+	fmt.Printf("uploaded %d scans (%d uploaders x %d, %d node(s)), %d findings total, in %s\n",
+		len(lat), *concurrency, *scans, len(nodes), totalFindings, elapsed.Round(time.Millisecond))
 	fmt.Printf("throughput: %.0f findings/sec (wall clock, all uploaders)\n", float64(totalFindings)/elapsed.Seconds())
 	fmt.Printf("per-scan latency: p50=%.0fms p95=%.0fms p99=%.0fms max=%.0fms\n", p50, p95, p99, max)
 	fmt.Printf("429 retries: %d\n", retries)

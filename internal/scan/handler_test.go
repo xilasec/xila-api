@@ -14,7 +14,7 @@ import (
 // fakeJobs accepts enqueues without a database.
 type fakeJobs struct{ enqueued int }
 
-func (f *fakeJobs) EnqueueJob(context.Context, string, []byte, string, bool, bool) error {
+func (f *fakeJobs) EnqueueJob(context.Context, string, []byte, string, string, bool, bool) error {
 	f.enqueued++
 	return nil
 }
@@ -45,7 +45,7 @@ func TestUploadShedsLoadWhenQueueSaturated(t *testing.T) {
 	mon.sample(t.Context())
 
 	app := fiber.New()
-	NewHandler(nil, svc, true, mon).Register(app)
+	NewHandler(nil, svc, true, mon, nil).Register(app)
 
 	resp := upload(t, app)
 	if resp.StatusCode != http.StatusTooManyRequests {
@@ -69,7 +69,7 @@ func TestUploadAcceptedBelowLimit(t *testing.T) {
 	mon.sample(t.Context())
 
 	app := fiber.New()
-	NewHandler(nil, svc, true, mon).Register(app)
+	NewHandler(nil, svc, true, mon, nil).Register(app)
 
 	resp := upload(t, app)
 	if resp.StatusCode != http.StatusAccepted {

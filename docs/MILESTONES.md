@@ -654,16 +654,20 @@ Today secrets come from the environment, a `.env` file, or `NAME_FILE` (mounted
 files from Docker/Kubernetes secrets, Vault Agent, the Secrets Store CSI driver
 or External Secrets Operator).
 
-- ⬜ 10.1 Native secrets managers: let any secret setting be a reference that Xila
-  resolves at startup, for example `aws-sm://name#key`, `gcp-sm://projects/p/secrets/s`,
-  `vault://kv/data/xila#jwt` and `azure-kv://vault/secret`. Each backend uses its
-  platform's credential chain (IAM role / IRSA, workload identity, Vault
-  Kubernetes or AppRole auth, managed identity). Decide per backend whether to use
-  the official SDK or plain HTTP (the GCP client pulls in gRPC), test against
-  emulators or `httptest` fakes, and keep a failed lookup a startup error.
-- ⬜ 10.2 Rotation: re-read rotatable secrets (database password, API tokens)
-  without a restart; `JWT_SECRET` and `INTEGRATION_SECRET_KEY` need a key ring
-  first, since rotating them today ends sessions or makes stored secrets unreadable.
+- ✅ 10.1 Native secrets managers: any secret setting may be a reference resolved
+  at startup: `aws-sm://` (SDK, default credential chain incl. IRSA),
+  `gcp-sm://` (REST with Application Default Credentials, no gRPC client),
+  `vault://` (token, Kubernetes or AppRole auth; KV v1 and v2) and
+  `azure-kv://` (azidentity: managed or workload identity). A failed lookup
+  fails startup without printing the value. Tested against `httptest` fakes.
+- ✅ 10.2 Rotation: every secret setting from a reference or a `NAME_FILE` is
+  re-read on `SECRETS_REFRESH_INTERVAL` by every node and read at use time
+  (`secretref.Value`), so a rotated database password, SMTP/LDAP/OIDC/API
+  credential or S3 key applies without a restart. `JWT_SECRET` and
+  `INTEGRATION_SECRET_KEY` rotate through key rings (`JWT_PREVIOUS_SECRETS`,
+  `INTEGRATION_SECRET_KEY_PREVIOUS`): tokens carry a `kid`, old sessions keep
+  working, the leader re-seals every stored secret under the new key, and
+  `GET /admin/secrets/status` says when the old key can go.
 
 ## M11: Ingest at scale (1,000 to 1,000,000 repositories at once)
 
@@ -706,21 +710,44 @@ For 100,000 and more (several nodes):
   chart's `ingest.workerDeployment` runs a separate worker Deployment, with an
   optional KEDA `ScaledObject` on `xila_ingest_queue_oldest_wait_seconds`.
   `docs/SCALE.md` covers the split and PgBouncer past about 5 nodes.
-- ⬜ 11.6 Fair queueing: claim jobs round-robin per organization (and at most one
-  in flight per project), so one tenant's burst can't starve the others.
-- ⬜ 11.7 Live tuning: change the queue depth limit and worker count without a
-  restart (Dependency-Track 5 has this).
+- ✅ 11.6 Fair queueing: the claim prefers the org with the fewest jobs
+  processing, then its oldest job whose project is idle; a partial unique index
+  keeps one processing job per project. Orgs are walked by a loose index scan,
+  so the cost doesn't grow with queue depth. `scan_jobs` carries `project_id` and
+  `org_id`. Migration 000092.
+- ✅ 11.7 Live tuning: `GET/PUT /ingest/settings` (admin) and the home page's
+  Ingest queue card override `INGEST_MAX_QUEUE_DEPTH` and `INGEST_WORKERS` per
+  worker node; every node applies them on its next queue sample through a
+  resizable worker pool that stops workers only between jobs.
 
 For 1,000,000 (bursts of a billion findings):
 
-- ⬜ 11.8 Reports outside Postgres: store raw uploads in S3-compatible object
-  storage and queue only a reference. A million 1 MB reports is a terabyte of
-  queue traffic in the database today.
-- ⬜ 11.9 Data lifecycle past 100M findings: serve the portfolio from metric
-  snapshots, archive or partition closed findings, cap read queries with a
-  statement timeout, move reporting to a read replica.
-- ⬜ 11.10 Multi-node load test: 10M findings, 3 API nodes, 1,000-scan bursts;
-  record the results in `docs/SCALE.md`.
+- ✅ 11.8 Reports outside Postgres: `INGEST_PAYLOAD_STORE=s3` moves a queued
+  job's raw upload to any S3-compatible object storage (AWS S3, MinIO, Ceph,
+  Cloudflare R2, GCS interop) via `internal/objectstore` (aws-sdk-go-v2),
+  behind `internal/netguard` like every other configured destination.
+  `scan_jobs` keeps only a `payload_ref` key (`payload` is nullable, with an
+  xor `CHECK`); `scan.Service.Enqueue` uploads it, `ProcessJob` fetches and
+  deletes it on success, and a job parked `failed` keeps its object until
+  `LOG_RETENTION` purges the row (and the object with it), inspectable in
+  the meantime. Static credentials or the standard AWS credential chain
+  (env/EC2/ECS/EKS IRSA); the bucket is `HeadBucket`-checked at startup, so a
+  bad bucket or missing credentials fails boot. Skip-unchanged and the queue
+  behave identically for both stores.
+- ✅ 11.9 Data lifecycle past 100M findings: `PORTFOLIO_FROM_SNAPSHOTS` serves
+  the portfolio's counts from the metric snapshots (which now also store KEV,
+  exploitable, per-category and expiring counts, plus per-project compliance
+  scores and SLA parts; a test checks they equal the live view), `FINDING_ARCHIVE_AFTER` archives old fixed findings in batches (the
+  upsert brings back one reported again), and `DB_READ_URL` /
+  `DB_READ_STATEMENT_TIMEOUT` give reporting reads a replica and a capped pool of
+  their own. Migrations 000106 and 000107.
+- ✅ 11.10 Multi-node load test: 10.1M findings, 3 API nodes on one
+  database, 1,000-scan bursts of 1M findings absorbed with no `429` and drained
+  in 2.5 minutes (6,486 findings/s); the snapshot-served portfolio answers in
+  162 ms against 12.6 s live. The run found a missing `last_scan_id` index
+  (full scans on every ingest, 7.2× throughput once added, migration 000108)
+  and two snapshot-job problems at that size (a per-project rescan, the
+  request statement timeout), all fixed. Numbers in `docs/SCALE.md`.
 
 ## M12: Parity review 3 (November 2026)
 
@@ -760,32 +787,106 @@ Tier 1:
   project you can edit, idempotently. The grouping stays in `fixplan`
   (`fixplan.RootCauses`, pure). A Root Causes page in the UI (EN, DE), gated by
   the `remediation` feature switch.
-- ⬜ 12.4 No-code parser (DefectDojo Pro "Universal Parser"): map fields of any
-  CSV, JSON or XML report to findings from the UI.
-- ⬜ 12.5 Vulnerability policies (Dependency-Track 5): CEL rules on a component and
-  vulnerability pair that set an analysis or rating atomically at ingest, with a
-  validity window, priority, and GitOps policy bundles.
-- ⬜ 12.6 More pull connectors: Snyk, GitHub code scanning and Dependabot alerts,
-  GitLab vulnerability reports, Wiz, Tenable (DefectDojo Pro has 140+; Xila pulls
-  from Dependency-Track and DefectDojo only).
+- ✅ 12.4 No-code parser (DefectDojo Pro "Universal Parser"): an instance admin
+  defines a `custom_parsers` row (scanner name, category, CSV/JSON/XML format,
+  a record selector, and field mappings (path/column, static value, a
+  `{path}` template, or a severity value map)) via `POST /custom-parsers` + a
+  `/custom-parsers/dry-run` preview and a Custom Parsers admin page. The upload
+  path (`?scanner=<name>`) falls back to a compiled definition when no
+  built-in parser matches (`internal/scanner.CustomParser`, reusing
+  `normalizeSeverity`/`cweFrom`/`cvesInText`/`mergeSameLocation`), cached and
+  re-read by `updated_at` so an edit applies on every replica's next upload.
+  Migration 000100.
+- ✅ 12.5 Vulnerability policies (Dependency-Track 5): CEL rules on a component and
+  vulnerability pair (`internal/vulnpolicy`) that set an analysis state
+  (`not_affected`/`false_positive`/`exploitable`/`in_triage`) and/or a severity
+  rating atomically, with priority (highest wins), a validity window (expiry
+  reverts exactly what the policy set, never a person's later call), a
+  global/project/tag scope, and an apply/log-only mode. Runs as a `scan.Applier`
+  after VEX and before the generic triage rules, and on
+  `VULN_POLICY_EVAL_INTERVAL`. GitOps bundle (`GET`/`PUT /vuln-policies/bundle`,
+  dry-run) plus an optional synced `VULN_POLICY_BUNDLE_URL`. Migration 000103.
+- ✅ 12.6 More pull connectors: Snyk (`snyk-api`, REST issues), GitHub (code
+  scanning and Dependabot alerts, per repository or org, GHES too), GitLab
+  (GraphQL vulnerabilities), Wiz (OAuth client credentials, GraphQL
+  `vulnerabilityFindings`) and Tenable Vulnerability Management (vulns export).
+  Same framework as Dependency-Track and DefectDojo: tokens sealed, requests
+  through netguard, complete fetches only, dismissals as remote triage, each kind
+  its own scanner name. Migration 000095 (kinds, Wiz `auth_url`).
 
 Tier 2:
 
-- ⬜ 12.7 More issue trackers: Azure DevOps, Linear, ServiceNow.
-- ⬜ 12.8 Custom roles and user groups, and SCIM provisioning.
-- ⬜ 12.9 Security gate caps for every severity (medium, low, unknown), not only
-  critical and high.
-- ⬜ 12.10 Links out to NVD, GitHub Advisories and deps.dev from findings and
-  components.
-- ⬜ 12.11 KEV ransomware-use flag (`knownRansomwareCampaignUse`) on findings.
-- ⬜ 12.12 A "My work" page: assigned findings, approvals, expiring acceptances
-  and AI proposals in one queue.
-- ⬜ 12.13 Kafka notification publisher.
-- ⬜ 12.14 Strict CycloneDX schema validation on upload, with field paths in errors.
-- ⬜ 12.15 Per-project priority weights.
-- ⬜ 12.16 Smaller items: computed custom fields, triage rule chaining, splitting
+- ✅ 12.7 More issue trackers: Azure DevOps Boards (work items, PAT; Azure
+  DevOps Server through the base URL), Linear (GraphQL, API key, workflow state
+  types resolved to the team's state) and ServiceNow (Table API, basic auth or
+  bearer token, `sys_id` as the key) next to Jira, GitHub and GitLab, with the
+  same create, two-way status sync and test-connection. Migration 000101.
+- ✅ 12.8 User groups (granted on org, team or project like a person, expanded
+  in `ProjectGrantsSQL`), custom roles (a base role minus capabilities, enforced
+  per route class and in bulk edits, union across grants) and SCIM 2.0
+  provisioning of one organization's users and groups with org-scoped tokens.
+  A trigger keeps groups and custom roles inside their org. Groups & roles page
+  in the UI. Migration 000094.
+- ✅ 12.9 Security gate caps for every severity: `max_medium`, `max_low` and
+  `max_info` beside `max_critical` / `max_high` (Xila's "unknown" is `info`), in
+  the gate policy, the inline CLI policy (`--max-medium` …) and the project's
+  gate form. Migration 000096.
+- ✅ 12.10 Links out: CVE ids link to NVD and OSV, GHSA ids to GitHub Advisories
+  (canonical form) and OSV, package URLs to deps.dev (npm, PyPI, Maven, Go,
+  Cargo, NuGet), on the finding page, the vulnerability timeline and the SBOM
+  component panel. One pure helper, `web/src/lib/links.js`.
+- ✅ 12.11 KEV ransomware flag: CISA and VulnCheck entries with
+  `knownRansomwareCampaignUse: Known` mark their ids; findings get
+  `kev_ransomware`, a badge, a list filter and the fact in triage and
+  notification expressions. Stored per catalog entry, so an outage keeps it.
+  Migration 000097.
+- ✅ 12.12 My work page: findings assigned to you (`?assignee=me&active=true`),
+  assessments and risk acceptances you may decide (`?actionable=true`, filtered
+  on the server to projects you own, minus your own requests under four-eyes),
+  your acceptances expiring within 30 days (`?owner=me&expires_within_days=`)
+  and AI proposals you asked for or on your findings (new `GET /ai-proposals`).
+- ✅ 12.13 Kafka notification publisher: a `kafka` channel type (brokers, TLS,
+  optional SASL PLAIN/SCRAM-SHA-256/SCRAM-SHA-512 with a sealed password,
+  optional message-key template) alongside webhook/Slack/Teams/Mattermost/
+  email, delivered through the same durable outbox (retries, backoff,
+  delivery log) and Test button, over `github.com/twmb/franz-go` dialed
+  through `internal/netguard`.
+- ✅ 12.14 Strict CycloneDX schema validation on upload: embedded official
+  CycloneDX JSON schemas (1.2 to 1.7, plus spdx/jsf/cryptography-defs), picked by
+  `specVersion` and checked with `santhosh-tekuri/jsonschema/v6`; opt-in per
+  upload (`?strict=true`) or instance-wide (`SBOM_STRICT_VALIDATION`), 400
+  with up to 50 field errors (JSON Pointer path + message) on failure. XML
+  CycloneDX is rejected with a clear message in every mode.
+- ✅ 12.15 Per-project priority weights: `projects.priority_weights` overrides any
+  factor of the priority formula (`domain.Weights`), validated so discounts only
+  discount, uplifts only raise, severities keep their order and an exploited
+  critical can't be buried under a quiet medium. Every priority writer and the
+  upsert read the project's weights; saving re-ranks and regroups the project.
+  Gate tab in the UI. Migration 000099.
+- ✅ 12.16 Smaller items: computed custom fields, triage rule chaining, splitting
   a multi-host infrastructure scan per asset, re-authentication before creating
-  API tokens, CryptoLyzer and DrHeader parsers.
+  API tokens, CryptoLyzer and DrHeader parsers:
+  - Triage rule chaining: `continue` on a rule lets the rules after it evaluate
+    against the finding as it left it; preview simulates the same chain.
+    Migration 000098.
+  - Re-authentication: creating an API token needs a session that signed in
+    within `REAUTH_WINDOW` (10m). Sessions carry `auth_time`; "sign out
+    everywhere" keeps it, `POST /me/reauth` (password + two-factor code)
+    refreshes it. API tokens can't mint tokens.
+  - CryptoLyzer (checked against BSI TR-02102-2, plus its attack verdicts with
+    CVEs) and drHEADer parsers.
+  - Splitting a multi-host scan per asset: `split_assets=true` files each
+    finding under its machine's host asset (`scanner.HostOf`). Migration 000105.
+  - Computed custom fields: a definition may carry a CEL `expression` instead
+    of a person's write; read-only through the API (400 on a direct write),
+    recomputed from the entity's facts for findings (`finding.*`/`project.*`,
+    the same document triage rules evaluate), projects (`project.*`: name,
+    slug, tags, criticality, custom, open finding counts by severity) and
+    assets (`asset.*` plus `project.*`). Recomputed on every ingest (after the
+    triage rules), on save when a definition is created or its expression
+    changes, and every `COMPUTED_FIELDS_INTERVAL` (15m default). A computed
+    field never sees another's value (cycle-free by construction). Migration
+    000104.
 
 Deliberately not pursued: FedRAMP POA&M and OSCAL export (US federal niche),
 threat modeling, AI-generated fix pull requests, active cloud scanning (Xila

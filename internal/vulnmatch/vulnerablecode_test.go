@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/xilasec/xila-api/internal/domain"
+	"github.com/xilasec/xila-api/internal/secretref"
 )
 
 // testdata/vulnerablecode/bulk_search_lodash.json is hand-written to
@@ -46,7 +47,7 @@ func TestVulnerableCodeBulkSearch(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	src := NewVulnerableCodeSource(srv.URL+"/", "k")
+	src := NewVulnerableCodeSource(srv.URL+"/", secretref.Static("k"))
 	got, err := src.Query(context.Background(), []string{
 		"pkg:npm/lodash@4.17.20", "pkg:npm/lodash@4.17.20?arch=x", "pkg:npm/@babel/core@7.0.0", "pkg:npm/left-pad",
 	})
@@ -81,7 +82,7 @@ func TestVulnerableCodeFailureIsAnError(t *testing.T) {
 		http.Error(w, `{"detail":"Unauthorized client."}`, http.StatusForbidden)
 	}))
 	defer srv.Close()
-	if _, err := NewVulnerableCodeSource(srv.URL, "").Query(context.Background(), []string{"pkg:npm/a@1.0.0"}); err == nil {
+	if _, err := NewVulnerableCodeSource(srv.URL, nil).Query(context.Background(), []string{"pkg:npm/a@1.0.0"}); err == nil {
 		t.Fatal("a refused lookup must fail the source (so the run is partial), not report no advisories")
 	}
 }

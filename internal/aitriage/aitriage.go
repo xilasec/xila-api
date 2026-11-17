@@ -9,12 +9,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/xilasec/xila-api/internal/archive"
 	"github.com/xilasec/xila-api/internal/domain"
 )
 
@@ -178,6 +180,65 @@ func (r *Repository) List(ctx context.Context, findingID string, limit, offset i
 			return nil, fmt.Errorf("scan proposal: %w", err)
 		}
 		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+// OpenProposal is an open proposal in a cross-project queue, with what a
+// reviewer needs to recognise its finding.
+type OpenProposal struct {
+	Proposal
+	FindingTitle    string          `json:"finding_title"`
+	FindingSeverity domain.Severity `json:"finding_severity"`
+	ProjectName     string          `json:"project_name"`
+}
+
+// OpenFilter narrows ListOpen.
+type OpenFilter struct {
+	// ProjectIDs restricts to these projects (nil = every project; an empty
+	// non-nil slice matches nothing).
+	ProjectIDs []string
+	// Mine keeps the proposals this user asked for or whose finding is
+	// assigned to them.
+	Mine   string
+	Limit  int
+	Offset int
+}
+
+// ListOpen returns open proposals (state proposed) across projects, newest
+// first, skipping archived findings.
+func (r *Repository) ListOpen(ctx context.Context, f OpenFilter) ([]OpenProposal, error) {
+	q := `SELECT ` + proposalColumns + `, fd.title, fd.severity, pr.name` + proposalFrom + `
+		JOIN findings fd ON fd.id = p.finding_id
+		JOIN projects pr ON pr.id = p.project_id
+		WHERE p.state = 'proposed' AND ` + strings.TrimSpace(archive.Finding("fd"))
+	var args []any
+	if f.ProjectIDs != nil {
+		args = append(args, f.ProjectIDs)
+		q += fmt.Sprintf(" AND p.project_id = ANY($%d)", len(args))
+	}
+	if f.Mine != "" {
+		args = append(args, f.Mine)
+		q += fmt.Sprintf(" AND (p.created_by = $%d OR fd.assignee_id = $%d)", len(args), len(args))
+	}
+	args = append(args, f.Limit, f.Offset)
+	q += fmt.Sprintf(" ORDER BY p.created_at DESC, p.id LIMIT $%d OFFSET $%d", len(args)-1, len(args))
+	rows, err := r.db.Query(ctx, q, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list open proposals: %w", err)
+	}
+	defer rows.Close()
+	out := []OpenProposal{}
+	for rows.Next() {
+		var o OpenProposal
+		p := &o.Proposal
+		if err := rows.Scan(&p.ID, &p.FindingID, &p.ProjectID, &p.Kind, &p.Provider, &p.Model, &p.PromptHash, &p.Response,
+			&p.Verdict, &p.Rationale, &p.Fix, &p.ProposedStatus, &p.ProposedSeverity, &p.Confidence, &p.State, &p.InvalidReason,
+			&p.CreatedBy, &p.CreatedByEmail, &p.CreatedAt, &p.DecidedBy, &p.DecidedByEmail, &p.DecidedAt,
+			&p.DecisionNote, &p.Outcome, &p.OutcomeRef, &o.FindingTitle, &o.FindingSeverity, &o.ProjectName); err != nil {
+			return nil, fmt.Errorf("scan open proposal: %w", err)
+		}
+		out = append(out, o)
 	}
 	return out, rows.Err()
 }

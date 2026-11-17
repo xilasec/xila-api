@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -23,45 +24,80 @@ type Claims struct {
 	// ProjectID confines the session to one project, like a project-scoped
 	// API token (a federation binding's project).
 	ProjectID string `json:"prj,omitempty"`
+	// AuthTime is when the user last proved who they are (a sign-in, MFA,
+	// SSO, a password change or reset, re-authentication), as Unix seconds.
+	// Reissuing a session ("sign out everywhere") carries it over unchanged,
+	// so a fresh token never counts as a fresh sign-in by itself.
+	AuthTime int64 `json:"auth_time,omitempty"`
 	jwt.RegisteredClaims
 }
 
 // PurposeMFA marks a two-factor sign-in challenge token.
 const PurposeMFA = "mfa"
 
-// generateToken signs a short-lived HS256 access token for the given user.
-func generateToken(secret, userID string, isAdmin bool, tokenVersion int, ttl time.Duration) (string, error) {
-	return signClaims(secret, Claims{IsAdmin: isAdmin, TokenVersion: tokenVersion}, userID, ttl)
+// generateToken signs a short-lived HS256 access token for the given user,
+// who last authenticated at authTime.
+func generateToken(keys *Keys, userID string, isAdmin bool, tokenVersion int, ttl time.Duration, authTime time.Time) (string, error) {
+	return signClaims(keys, Claims{IsAdmin: isAdmin, TokenVersion: tokenVersion, AuthTime: authTime.Unix()}, userID, ttl)
 }
 
-// signClaims stamps subject, issue and expiry times onto claims and signs them.
-func signClaims(secret string, claims Claims, userID string, ttl time.Duration) (string, error) {
+// signClaims stamps subject, issue and expiry times onto claims and signs
+// them with the ring's current secret (a `kid` header names it).
+func signClaims(keys *Keys, claims Claims, userID string, ttl time.Duration) (string, error) {
 	now := time.Now()
 	claims.RegisteredClaims = jwt.RegisteredClaims{
 		Subject:   userID,
 		IssuedAt:  jwt.NewNumericDate(now),
 		ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
 	}
+	current, currentID, _, _ := keys.snapshot()
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	signed, err := token.SignedString([]byte(secret))
+	token.Header["kid"] = currentID
+	signed, err := token.SignedString([]byte(current))
 	if err != nil {
 		return "", fmt.Errorf("sign token: %w", err)
 	}
 	return signed, nil
 }
 
-// ParseToken validates a token's signature and expiry and returns its claims.
-// Provided for use by an auth middleware on protected routes.
-func ParseToken(secret, tokenString string) (*Claims, error) {
-	claims := &Claims{}
-	_, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (any, error) {
-		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
-		}
-		return []byte(secret), nil
-	})
+// ParseToken validates a token's signature and expiry and returns its
+// claims. The secret is picked from keys by the token's `kid` header; a
+// token with no kid (issued before key rings existed) is tried against the
+// current secret, then every previous one, oldest first. Provided for use by
+// an auth middleware on protected routes.
+func ParseToken(keys *Keys, tokenString string) (*Claims, error) {
+	peeked, _, err := jwt.NewParser().ParseUnverified(tokenString, &Claims{})
 	if err != nil {
 		return nil, fmt.Errorf("parse token: %w", err)
 	}
-	return claims, nil
+	current, currentID, previous, legacy := keys.snapshot()
+	kid, _ := peeked.Header["kid"].(string)
+	var candidates []string
+	switch {
+	case kid == "":
+		candidates = append([]string{current}, legacy...)
+	case kid == currentID:
+		candidates = []string{current}
+	default:
+		secret, ok := previous[kid]
+		if !ok {
+			return nil, errors.New("parse token: unknown signing key")
+		}
+		candidates = []string{secret}
+	}
+	var lastErr error
+	for _, secret := range candidates {
+		claims := &Claims{}
+		_, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (any, error) {
+			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+			}
+			return []byte(secret), nil
+		})
+		if err == nil {
+			return claims, nil
+		}
+		lastErr = err
+	}
+	return nil, fmt.Errorf("parse token: %w", lastErr)
 }

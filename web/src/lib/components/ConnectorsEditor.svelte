@@ -1,8 +1,10 @@
 <script>
-	// A project's pull connectors (Dependency-Track / DefectDojo). Tokens are
-	// write-only: the API only says whether one is stored, and leaving the field
-	// blank on save keeps it (changing the URL needs a new one). Adding, editing,
-	// testing and removing need project owner; "Pull now" needs editor.
+	// A project's pull connectors (Dependency-Track, DefectDojo, Snyk, GitHub,
+	// GitLab, Wiz, Tenable). Tokens are write-only: the API only says whether
+	// one is stored, and leaving the field(s) blank on save keeps it (changing
+	// base_url, or auth_url for Wiz, needs a new one). Wiz and Tenable pack two
+	// secrets into the one `token` the API accepts, as a JSON object. Adding,
+	// editing, testing and removing need project owner; "Pull now" needs editor.
 	import { api, ApiError, errorMessage } from '#lib/api.js';
 	import { notify } from '#lib/stores.js';
 	import { fmtDate } from '#lib/format.js';
@@ -14,7 +16,10 @@
 	let { projectId, onpulled = () => {} } = $props();
 
 	/** @typedef {import('#lib/i18n.js').MessageKey} MessageKey */
-	/** @type {{ id: string, label: string, url: string, remote: MessageKey, remoteHint: MessageKey, tokenHint: MessageKey }[]} */
+	/** @typedef {{ key: string, label: MessageKey, hint: MessageKey }} SecretField */
+	/** @type {{ id: string, label: string, url: string, remote: MessageKey, remoteHint: MessageKey,
+	  tokenHint?: MessageKey, secrets?: [SecretField, SecretField],
+	  authUrl?: { label: MessageKey, hint: MessageKey, placeholder: string } }[]} */
 	const KINDS = [
 		{
 			id: 'dependency-track',
@@ -31,11 +36,70 @@
 			remote: 'conn.ddRemoteLabel',
 			remoteHint: 'conn.ddRemoteHint',
 			tokenHint: 'conn.ddTokenHint'
+		},
+		{
+			id: 'snyk-api',
+			label: 'Snyk',
+			url: 'https://api.snyk.io',
+			remote: 'conn.snykRemoteLabel',
+			remoteHint: 'conn.snykRemoteHint',
+			tokenHint: 'conn.snykTokenHint'
+		},
+		{
+			id: 'github',
+			label: 'GitHub',
+			url: 'https://api.github.com',
+			remote: 'conn.githubRemoteLabel',
+			remoteHint: 'conn.githubRemoteHint',
+			tokenHint: 'conn.githubTokenHint'
+		},
+		{
+			id: 'gitlab',
+			label: 'GitLab',
+			url: 'https://gitlab.com',
+			remote: 'conn.gitlabRemoteLabel',
+			remoteHint: 'conn.gitlabRemoteHint',
+			tokenHint: 'conn.gitlabTokenHint'
+		},
+		{
+			id: 'wiz',
+			label: 'Wiz',
+			url: 'https://api.us1.app.wiz.io',
+			remote: 'conn.wizRemoteLabel',
+			remoteHint: 'conn.wizRemoteHint',
+			authUrl: { label: 'conn.wizAuthUrlLabel', hint: 'conn.wizAuthUrlHint', placeholder: 'https://auth.app.wiz.io/oauth/token' },
+			secrets: [
+				{ key: 'client_id', label: 'conn.wizClientIdLabel', hint: 'conn.wizClientIdHint' },
+				{ key: 'client_secret', label: 'conn.wizClientSecretLabel', hint: 'conn.wizClientSecretHint' }
+			]
+		},
+		{
+			id: 'tenable',
+			label: 'Tenable',
+			url: 'https://cloud.tenable.com',
+			remote: 'conn.tenableRemoteLabel',
+			remoteHint: 'conn.tenableRemoteHint',
+			secrets: [
+				{ key: 'access_key', label: 'conn.tenableAccessKeyLabel', hint: 'conn.tenableAccessKeyHint' },
+				{ key: 'secret_key', label: 'conn.tenableSecretKeyLabel', hint: 'conn.tenableSecretKeyHint' }
+			]
 		}
 	];
 
-	/** @returns {{ kind: string, name: string, base_url: string, remote_project: string, token?: string, version: string, enabled: boolean }} */
-	const blank = () => ({ kind: 'dependency-track', name: '', base_url: '', remote_project: '', token: '', version: '', enabled: true });
+	/** @returns {{ kind: string, name: string, base_url: string, remote_project: string, token?: string,
+	  auth_url: string, secret1: string, secret2: string, version: string, enabled: boolean }} */
+	const blank = () => ({
+		kind: 'dependency-track',
+		name: '',
+		base_url: '',
+		remote_project: '',
+		token: '',
+		auth_url: '',
+		secret1: '',
+		secret2: '',
+		version: '',
+		enabled: true
+	});
 
 	let connectors = $state(/** @type {any[]} */ ([]));
 	let loading = $state(true);
@@ -45,6 +109,11 @@
 
 	const kind = $derived(KINDS.find((k) => k.id === form.kind) ?? KINDS[0]);
 	const current = $derived(connectors.find((c) => c.id === editing));
+	// A new token (or pair of secrets) is required the first time, and again
+	// whenever a destination the stored credential would be sent to changes.
+	const tokenRequired = $derived(
+		!current?.has_token || form.base_url !== current?.base_url || (!!kind.authUrl && form.auth_url !== current?.auth_url)
+	);
 	/** @param {string} id */
 	const kindLabel = (id) => KINDS.find((k) => k.id === id)?.label ?? id;
 
@@ -74,7 +143,18 @@
 
 	/** @param {any} c */
 	function openEdit(c) {
-		form = { kind: c.kind, name: c.name, base_url: c.base_url, remote_project: c.remote_project, token: '', version: c.version, enabled: c.enabled };
+		form = {
+			kind: c.kind,
+			name: c.name,
+			base_url: c.base_url,
+			remote_project: c.remote_project,
+			token: '',
+			auth_url: c.auth_url ?? '',
+			secret1: '',
+			secret2: '',
+			version: c.version,
+			enabled: c.enabled
+		};
 		editing = c.id;
 	}
 
@@ -88,8 +168,21 @@
 		e.preventDefault();
 		busy = 'save';
 		try {
-			const body = { ...form };
-			if (!body.token) delete body.token; // keep the stored one
+			/** @type {Record<string, any>} */
+			const body = {
+				kind: form.kind,
+				name: form.name,
+				base_url: form.base_url,
+				remote_project: form.remote_project,
+				version: form.version,
+				enabled: form.enabled
+			};
+			if (kind.authUrl) body.auth_url = form.auth_url;
+			if (kind.secrets) {
+				if (form.secret1 || form.secret2) body.token = JSON.stringify({ [kind.secrets[0].key]: form.secret1, [kind.secrets[1].key]: form.secret2 });
+			} else if (form.token) {
+				body.token = form.token;
+			}
 			if (editing === 'new') {
 				connectors = [...connectors, await api.createConnector(projectId, body)];
 			} else if (editing) {
@@ -221,20 +314,44 @@
 					<Field label={$t(kind.remote)} required hint={$t(kind.remoteHint)}>
 						<input bind:value={form.remote_project} required class="input input-bordered input-sm font-mono" />
 					</Field>
-					<Field
-						label={$t('conn.fieldToken')}
-						required={!current?.has_token || form.base_url !== current?.base_url}
-						hint={$t('conn.tokenHintSuffix', { hint: $t(kind.tokenHint) })}
-					>
-						<input
-							bind:value={form.token}
-							type="password"
-							autocomplete="new-password"
-							required={!current?.has_token || form.base_url !== current?.base_url}
-							placeholder={current?.has_token ? $t('it.storedKeep') : ''}
-							class="input input-bordered input-sm"
-						/>
-					</Field>
+					{#if kind.authUrl}
+						<Field label={$t(kind.authUrl.label)} required hint={$t(kind.authUrl.hint)}>
+							<input bind:value={form.auth_url} type="url" required placeholder={kind.authUrl.placeholder} class="input input-bordered input-sm" />
+						</Field>
+					{/if}
+					{#if kind.secrets}
+						<Field label={$t(kind.secrets[0].label)} required={tokenRequired} hint={$t('conn.tokenHintSuffix', { hint: $t(kind.secrets[0].hint) })}>
+							<input
+								bind:value={form.secret1}
+								type="password"
+								autocomplete="new-password"
+								required={tokenRequired}
+								placeholder={current?.has_token ? $t('it.storedKeep') : ''}
+								class="input input-bordered input-sm"
+							/>
+						</Field>
+						<Field label={$t(kind.secrets[1].label)} required={tokenRequired} hint={$t('conn.tokenHintSuffix', { hint: $t(kind.secrets[1].hint) })}>
+							<input
+								bind:value={form.secret2}
+								type="password"
+								autocomplete="new-password"
+								required={tokenRequired}
+								placeholder={current?.has_token ? $t('it.storedKeep') : ''}
+								class="input input-bordered input-sm"
+							/>
+						</Field>
+					{:else}
+						<Field label={$t('conn.fieldToken')} required={tokenRequired} hint={$t('conn.tokenHintSuffix', { hint: $t(kind.tokenHint ?? 'conn.dtTokenHint') })}>
+							<input
+								bind:value={form.token}
+								type="password"
+								autocomplete="new-password"
+								required={tokenRequired}
+								placeholder={current?.has_token ? $t('it.storedKeep') : ''}
+								class="input input-bordered input-sm"
+							/>
+						</Field>
+					{/if}
 					<Field label={$t('conn.fieldImportVersion')} hint={$t('conn.importVersionHint')}>
 						<input bind:value={form.version} placeholder={$t('conn.importVersionPlaceholder')} class="input input-bordered input-sm" />
 					</Field>

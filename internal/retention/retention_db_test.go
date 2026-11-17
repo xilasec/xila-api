@@ -6,6 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/xilasec/xila-api/internal/finding"
 	"github.com/xilasec/xila-api/internal/pgtest"
 	"github.com/xilasec/xila-api/internal/project"
 	"github.com/xilasec/xila-api/internal/retention"
@@ -77,7 +80,7 @@ func TestRetentionKeepsWhatMatters(t *testing.T) {
 	projects := project.NewRepository(pool)
 
 	// Nothing configured: nothing deleted.
-	if res, err := retention.NewService(pool, projects, retention.Policy{}).Run(ctx); err != nil || res != (retention.Result{}) {
+	if res, err := retention.NewService(pool, projects, retention.Policy{}, nil).Run(ctx); err != nil || res != (retention.Result{}) {
 		t.Fatalf("empty policy deleted %+v (%v)", res, err)
 	}
 
@@ -86,7 +89,7 @@ func TestRetentionKeepsWhatMatters(t *testing.T) {
 		SBOMKeep:   2, SBOMAge: 150 * 24 * time.Hour, // keep 2 newest; older go once 150+ days old
 		ScanAge: 90 * 24 * time.Hour,
 		LogAge:  90 * 24 * time.Hour,
-	}).Run(ctx)
+	}, nil).Run(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,4 +119,138 @@ func TestRetentionKeepsWhatMatters(t *testing.T) {
 	if n(`SELECT count(*) FROM project_versions WHERE id = $1`, oldRelease) != 0 || n(`SELECT count(*) FROM project_versions WHERE id = $1`, mainV) != 1 {
 		t.Error("release pruning got the wrong version")
 	}
+}
+
+// fakePayloads records what the retention sweep asked it to delete — a
+// stand-in for internal/objectstore.Client (M11 11.8: payload storage
+// outside Postgres).
+type fakePayloads struct{ deleted []string }
+
+func (f *fakePayloads) Delete(_ context.Context, key string) error {
+	f.deleted = append(f.deleted, key)
+	return nil
+}
+
+// With INGEST_PAYLOAD_STORE=s3, a purged failed job's object-store payload
+// must be deleted too, or it outlives the row that was its only pointer. A
+// pending job's object (still needed) must never be touched, matching the
+// row-retention rule above.
+func TestRetentionDeletesS3PayloadsForPurgedFailedJobs(t *testing.T) {
+	pool := pgtest.Pool(t)
+	ctx := context.Background()
+	q := func(sql string, args ...any) string {
+		t.Helper()
+		var id string
+		if err := pool.QueryRow(ctx, sql, args...).Scan(&id); err != nil {
+			t.Fatalf("%s: %v", sql, err)
+		}
+		return id
+	}
+	n := func(sql string, args ...any) int {
+		t.Helper()
+		var c int
+		if err := pool.QueryRow(ctx, sql, args...).Scan(&c); err != nil {
+			t.Fatalf("%s: %v", sql, err)
+		}
+		return c
+	}
+	projectID := q(`WITH o AS (INSERT INTO organizations (slug,name) VALUES ('o-s3','o') RETURNING id),
+		tm AS (INSERT INTO teams (org_id,slug,name) SELECT id,'t','t' FROM o RETURNING id)
+		INSERT INTO projects (team_id, slug, name) SELECT id,'p','p' FROM tm RETURNING id`)
+	versionID := q(`SELECT project_version($1, '', 'branch')`, projectID)
+	scanID := q(`INSERT INTO scans (project_id, version_id, scanner, category, status, created_at)
+		VALUES ($1, $2, 'trivy', 'sca', 'completed', now()) RETURNING id`, projectID, versionID)
+
+	job := func(ref, status, ago string) string {
+		return q(`INSERT INTO scan_jobs (scan_id, payload_ref, status, created_at)
+			VALUES ($1, $2, $3, now() - $4::interval) RETURNING id`, scanID, ref, status, ago)
+	}
+	oldFailed := job("scan-jobs/old-failed", "failed", "200 days")
+	newFailed := job("scan-jobs/new-failed", "failed", "1 day")
+	oldPending := job("scan-jobs/old-pending", "pending", "200 days")
+
+	payloads := &fakePayloads{}
+	res, err := retention.NewService(pool, nil, retention.Policy{LogAge: 90 * 24 * time.Hour}, payloads).Run(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.FailedJobs != 1 {
+		t.Errorf("FailedJobs = %d, want 1", res.FailedJobs)
+	}
+	if len(payloads.deleted) != 1 || payloads.deleted[0] != "scan-jobs/old-failed" {
+		t.Errorf("deleted payloads = %v, want exactly [scan-jobs/old-failed]", payloads.deleted)
+	}
+	if n(`SELECT count(*) FROM scan_jobs WHERE id = $1`, oldFailed) != 0 {
+		t.Error("the old failed job row should be purged")
+	}
+	if n(`SELECT count(*) FROM scan_jobs WHERE id = ANY($1)`, []string{newFailed, oldPending}) != 2 {
+		t.Error("a recent failed job and a pending job must survive, with their payloads untouched")
+	}
+}
+
+// FINDING_ARCHIVE_AFTER archives findings fixed longer ago than the window
+// (only those: open, recently fixed and accepted ones stay live), and one
+// that is reported again comes back through the upsert.
+func TestRetentionArchivesOldFixedFindings(t *testing.T) {
+	pool := pgtest.Pool(t)
+	ctx := context.Background()
+	var projectID string
+	if err := pool.QueryRow(ctx, `WITH o AS (INSERT INTO organizations (slug,name) VALUES ('o-fix','o') RETURNING id),
+		tm AS (INSERT INTO teams (org_id,slug,name) SELECT id,'t','t' FROM o RETURNING id)
+		INSERT INTO projects (team_id, slug, name) SELECT id,'web','web' FROM tm RETURNING id`).Scan(&projectID); err != nil {
+		t.Fatal(err)
+	}
+	add := func(fp, status, resolvedAgo string) {
+		t.Helper()
+		if _, err := pool.Exec(ctx, `INSERT INTO findings (project_id, fingerprint, scanner, category, title, severity, status, resolved_at)
+			VALUES ($1, $2, 'trivy', 'sca', $2, 'high', $3, CASE WHEN $4 = '' THEN NULL ELSE now() - $4::interval END)`,
+			projectID, fp, status, resolvedAgo); err != nil {
+			t.Fatal(err)
+		}
+	}
+	add("old-fixed", "remediated", "200 days")
+	add("new-fixed", "remediated", "10 days")
+	add("open", "open", "")
+	add("old-fp", "false_positive", "200 days")
+
+	svc := retention.NewService(pool, project.NewRepository(pool), retention.Policy{FindingArchiveAfter: 90 * 24 * time.Hour}, nil)
+	res, err := svc.Run(ctx)
+	if err != nil || res.FixedFindingsArchived != 1 {
+		t.Fatalf("run = %+v, %v; want 1 fixed finding archived", res, err)
+	}
+	archived := func(fp string) bool {
+		var a bool
+		if err := pool.QueryRow(ctx, `SELECT archived_at IS NOT NULL FROM findings WHERE fingerprint = $1`, fp).Scan(&a); err != nil {
+			t.Fatal(err)
+		}
+		return a
+	}
+	for fp, want := range map[string]bool{"old-fixed": true, "new-fixed": false, "open": false, "old-fp": false} {
+		if got := archived(fp); got != want {
+			t.Errorf("%s archived = %v, want %v", fp, got, want)
+		}
+	}
+	// Reported again: the upsert brings it back, open.
+	f, err := finding.NewRepository(pool).Get(ctx, findingID(t, pool, "old-fixed"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := finding.NewRepository(pool).Upsert(ctx, f); err != nil {
+		t.Fatal(err)
+	}
+	if archived("old-fixed") {
+		t.Error("a reported-again finding stayed archived")
+	}
+	if res, _ := svc.Run(ctx); res.FixedFindingsArchived != 0 {
+		t.Errorf("second run archived %d, want 0 (reopened, nothing else old)", res.FixedFindingsArchived)
+	}
+}
+
+func findingID(t *testing.T, pool *pgxpool.Pool, fp string) string {
+	t.Helper()
+	var id string
+	if err := pool.QueryRow(context.Background(), `SELECT id FROM findings WHERE fingerprint = $1`, fp).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	return id
 }

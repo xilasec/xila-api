@@ -64,6 +64,9 @@ type Finding struct {
 	// KEVSources names the catalogs asserting the finding is known-exploited
 	// (cisa, enisa, vulncheck; sorted). KEV is true when any does.
 	KEVSources []string `json:"kev_sources"`
+	// KEVRansomware is true when a KEV catalog asserting the finding says the
+	// flaw is known to be used in ransomware campaigns.
+	KEVRansomware bool `json:"kev_ransomware"`
 	// ExploitMaturity is the strongest public exploit known for the finding's
 	// CVEs (internal/exploitintel): "", "poc" or "weaponized".
 	ExploitMaturity domain.ExploitMaturity `json:"exploit_maturity"`
@@ -156,7 +159,7 @@ const findingColumns = `id, project_id, version_id, fingerprint, scanner, catego
 	title, description, severity, cwe, cve, file_path, line, package_name,
 	package_version, fixed_version, purl, url, metadata, status, first_seen_at,
 	last_seen_at, first_scan_id, last_scan_id, resolved_at, created_at, updated_at,
-	cvss, epss, kev, kev_sources, priority, asset_id, cvss_vector, cvss_version, cvss_source,
+	cvss, epss, kev, kev_sources, kev_ransomware, priority, asset_id, cvss_vector, cvss_version, cvss_source,
 	exception_reason, exception_by, exception_expires_at,
 	correlation_key, duplicate_of, dep_direct, dep_depth, dep_scope,
 	sla_days, sla_due_at, tags, custom, COALESCE(exploit_maturity, ''),
@@ -176,7 +179,7 @@ func scanFinding(row pgx.Row, extra ...any) (Finding, error) {
 		&f.Title, &f.Description, &f.Severity, &f.CWE, &f.CVE, &f.FilePath, &f.Line, &f.PackageName,
 		&f.PackageVersion, &f.FixedVersion, &f.Purl, &f.URL, &f.Metadata, &f.Status, &f.FirstSeenAt,
 		&f.LastSeenAt, &f.FirstScanID, &f.LastScanID, &f.ResolvedAt, &f.CreatedAt, &f.UpdatedAt,
-		&f.CVSS, &f.EPSS, &f.KEV, &f.KEVSources, &f.Priority, &f.AssetID, &f.CVSSVector, &f.CVSSVersion, &f.CVSSSource,
+		&f.CVSS, &f.EPSS, &f.KEV, &f.KEVSources, &f.KEVRansomware, &f.Priority, &f.AssetID, &f.CVSSVector, &f.CVSSVersion, &f.CVSSSource,
 		&f.ExceptionReason, &f.ExceptionBy, &f.ExceptionExpiresAt,
 		&f.CorrelationKey, &f.DuplicateOf, &f.DepDirect, &f.DepDepth, &f.DepScope,
 		&f.SLADays, &f.SLADueAt, &f.Tags, &f.Custom, &f.ExploitMaturity,
@@ -250,7 +253,12 @@ const upsertSQL = `
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
 			$15, $16, $17, $18, $20, $19, $19, now(),
-			CASE $8 WHEN 'critical' THEN 15 WHEN 'high' THEN 7 WHEN 'medium' THEN 3 WHEN 'low' THEN 1 ELSE 0 END,
+			-- The severity's base weight, the project's own when it set priority
+			-- weights (their JSON keys are the severities); the other factors
+			-- come from the passes that run after the upsert, which read the
+			-- same weights.
+			COALESCE((SELECT (priority_weights ->> $8::text)::float8 FROM projects WHERE id = $1),
+			         CASE $8 WHEN 'critical' THEN 15 WHEN 'high' THEN 7 WHEN 'medium' THEN 3 WHEN 'low' THEN 1 ELSE 0 END),
 			$21,
 			COALESCE($22::uuid, (SELECT version_id FROM scans WHERE id = $19), project_version($1, NULL, NULL))
 		)
@@ -317,6 +325,9 @@ type Filter struct {
 	// RuleID narrows to one rule — e.g. a policy's violations (scanner policy).
 	RuleID  string
 	KEVOnly bool
+	// RansomwareOnly narrows to findings a KEV catalog marks as used in
+	// ransomware campaigns.
+	RansomwareOnly bool
 	// Reachable narrows to findings that plausibly matter: the dependency ships
 	// (not dev-only) and the project asked for it (not transitive). Findings with
 	// no reachability data are kept — unknown is never treated as safe.
@@ -468,6 +479,9 @@ func listQuery(f Filter, cols string) (string, []any) {
 	}
 	if f.KEVOnly {
 		q += ` AND kev`
+	}
+	if f.RansomwareOnly {
+		q += ` AND kev_ransomware`
 	}
 	switch f.Exploit {
 	case "any":
@@ -631,16 +645,92 @@ type SLAStats struct {
 	WindowDays int                         `json:"window_days"`
 }
 
-// SLAStats computes SLA posture. projectIDs nil means every project.
+// SLAParts is one project's share of SLAStats, in summable form (counts, and
+// remediation days as a sum and a count), so a portfolio can be combined from
+// per-project parts, live or from snapshots, with the same result.
+type SLAParts struct {
+	Breached  map[domain.Severity]int     `json:"breached"`
+	DueSoon   int                         `json:"due_soon"`
+	OnTrack   int                         `json:"on_track"`
+	Paused    int                         `json:"paused"`
+	Met       int                         `json:"met"`
+	Missed    int                         `json:"missed"`
+	DaysSum   map[domain.Severity]float64 `json:"days_sum"`
+	DaysCount map[domain.Severity]int     `json:"days_count"`
+}
+
+func newSLAParts() *SLAParts {
+	return &SLAParts{Breached: map[domain.Severity]int{}, DaysSum: map[domain.Severity]float64{}, DaysCount: map[domain.Severity]int{}}
+}
+
+// SLAStats is the SLA posture of projectIDs (nil = every project): the
+// combination of their SLAParts.
 func (r *Repository) SLAStats(ctx context.Context, projectIDs []string) (SLAStats, error) {
+	parts, err := r.SLAPartsByProject(ctx, projectIDs)
+	if err != nil {
+		return SLAStats{}, err
+	}
+	list := make([]SLAParts, 0, len(parts))
+	for _, p := range parts {
+		list = append(list, p)
+	}
+	return CombineSLA(list), nil
+}
+
+// CombineSLA adds up per-project SLAParts into SLAStats.
+func CombineSLA(parts []SLAParts) SLAStats {
 	out := SLAStats{
 		BreachedBySeverity: map[domain.Severity]int{},
 		MTTRDays:           map[domain.Severity]float64{},
 		WindowDays:         SLAResolvedWindowDays,
 	}
+	sum := map[domain.Severity]float64{}
+	cnt := map[domain.Severity]int{}
+	for _, p := range parts {
+		for sev, n := range p.Breached {
+			out.Breached += n
+			if n > 0 {
+				out.BreachedBySeverity[sev] += n
+			}
+		}
+		out.DueSoon += p.DueSoon
+		out.OnTrack += p.OnTrack
+		out.Paused += p.Paused
+		out.Met += p.Met
+		out.Missed += p.Missed
+		for sev, v := range p.DaysSum {
+			sum[sev] += v
+		}
+		for sev, n := range p.DaysCount {
+			cnt[sev] += n
+		}
+	}
+	for sev, n := range cnt {
+		if n > 0 {
+			out.MTTRDays[sev] = sum[sev] / float64(n)
+		}
+	}
+	if total := out.Met + out.Missed; total > 0 {
+		c := float64(out.Met) / float64(total)
+		out.Compliance = &c
+	}
+	return out
+}
 
+// SLAPartsByProject computes each project's SLAParts (projects with no
+// finding under an SLA are absent).
+func (r *Repository) SLAPartsByProject(ctx context.Context, projectIDs []string) (map[string]SLAParts, error) {
+	out := map[string]*SLAParts{}
+	get := func(pid string) *SLAParts {
+		p := out[pid]
+		if p == nil {
+			p = newSLAParts()
+			out[pid] = p
+		}
+		return p
+	}
 	live := `
-		SELECT severity,
+		SELECT project_id, severity,
 			count(*) FILTER (WHERE ` + slaLiveStatuses + ` AND sla_due_at < now()),
 			count(*) FILTER (WHERE ` + slaLiveStatuses + ` AND sla_due_at >= now()
 			                   AND sla_due_at - now() <= make_interval(days => sla_days) * $2),
@@ -649,65 +739,70 @@ func (r *Repository) SLAStats(ctx context.Context, projectIDs []string) (SLAStat
 		FROM findings
 		WHERE duplicate_of IS NULL AND sla_due_at IS NOT NULL AND` + onDefaultVersion + ` AND` + archive.Finding("") + `
 		  AND ($1::uuid[] IS NULL OR project_id = ANY($1))
-		GROUP BY severity`
+		GROUP BY project_id, severity`
 	rows, err := r.db.Query(ctx, live, projectIDs, domain.SLADueSoonFraction)
 	if err != nil {
-		return SLAStats{}, fmt.Errorf("sla live stats: %w", err)
+		return nil, fmt.Errorf("sla live stats: %w", err)
 	}
 	for rows.Next() {
+		var pid string
 		var sev domain.Severity
 		var breached, dueSoon, onTrack, paused int
-		if err := rows.Scan(&sev, &breached, &dueSoon, &onTrack, &paused); err != nil {
+		if err := rows.Scan(&pid, &sev, &breached, &dueSoon, &onTrack, &paused); err != nil {
 			rows.Close()
-			return SLAStats{}, fmt.Errorf("scan sla live stats: %w", err)
+			return nil, fmt.Errorf("scan sla live stats: %w", err)
 		}
-		out.Breached += breached
-		out.DueSoon += dueSoon
-		out.OnTrack += onTrack
-		out.Paused += paused
+		p := get(pid)
 		if breached > 0 {
-			out.BreachedBySeverity[sev] = breached
+			p.Breached[sev] += breached
 		}
+		p.DueSoon += dueSoon
+		p.OnTrack += onTrack
+		p.Paused += paused
 	}
 	rows.Close()
 	if err := rows.Err(); err != nil {
-		return SLAStats{}, fmt.Errorf("sla live stats: %w", err)
+		return nil, fmt.Errorf("sla live stats: %w", err)
 	}
 
 	resolved := `
-		SELECT severity,
+		SELECT project_id, severity,
 			count(*) FILTER (WHERE resolved_at <= sla_due_at),
 			count(*) FILTER (WHERE resolved_at > sla_due_at),
-			avg(extract(epoch FROM resolved_at - first_seen_at)) / 86400
+			COALESCE(sum(extract(epoch FROM resolved_at - first_seen_at)) / 86400, 0)::float8,
+			count(*)
 		FROM findings
 		WHERE status = 'remediated' AND duplicate_of IS NULL AND` + onDefaultVersion + ` AND` + archive.Finding("") + `
 		  AND resolved_at > now() - make_interval(days => $2)
 		  AND ($1::uuid[] IS NULL OR project_id = ANY($1))
-		GROUP BY severity`
+		GROUP BY project_id, severity`
 	rows, err = r.db.Query(ctx, resolved, projectIDs, SLAResolvedWindowDays)
 	if err != nil {
-		return SLAStats{}, fmt.Errorf("sla resolved stats: %w", err)
+		return nil, fmt.Errorf("sla resolved stats: %w", err)
 	}
 	defer rows.Close()
 	for rows.Next() {
+		var pid string
 		var sev domain.Severity
-		var met, missed int
-		var mttr float64
-		if err := rows.Scan(&sev, &met, &missed, &mttr); err != nil {
-			return SLAStats{}, fmt.Errorf("scan sla resolved stats: %w", err)
+		var met, missed, n int
+		var days float64
+		if err := rows.Scan(&pid, &sev, &met, &missed, &days, &n); err != nil {
+			return nil, fmt.Errorf("scan sla resolved stats: %w", err)
 		}
-		out.Met += met
-		out.Missed += missed
-		out.MTTRDays[sev] = mttr
+		p := get(pid)
+		p.Met += met
+		p.Missed += missed
+		p.DaysSum[sev] += days
+		p.DaysCount[sev] += n
 	}
 	if err := rows.Err(); err != nil {
-		return SLAStats{}, fmt.Errorf("sla resolved stats: %w", err)
+		return nil, fmt.Errorf("sla resolved stats: %w", err)
 	}
-	if total := out.Met + out.Missed; total > 0 {
-		c := float64(out.Met) / float64(total)
-		out.Compliance = &c
+	res := make(map[string]SLAParts, len(out))
+	for k, v := range out {
+		res[k] = *v
 	}
-	return out, nil
+	return res, nil
 }
 
 // Get returns a finding by id.
@@ -721,6 +816,30 @@ func (r *Repository) Get(ctx context.Context, id string) (Finding, error) {
 		return Finding{}, fmt.Errorf("get finding: %w", err)
 	}
 	return f, nil
+}
+
+// ListByIDs returns the findings with any of ids, in no particular order.
+// Missing ids are silently skipped. Used by consumers (e.g. vulnpolicy) that
+// track their own set of finding ids rather than scanning by project filter.
+func (r *Repository) ListByIDs(ctx context.Context, ids []string) ([]Finding, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	const q = `SELECT ` + findingColumns + ` FROM findings WHERE id = ANY($1)`
+	rows, err := r.db.Query(ctx, q, ids)
+	if err != nil {
+		return nil, fmt.Errorf("list findings by ids: %w", err)
+	}
+	defer rows.Close()
+	findings := []Finding{}
+	for rows.Next() {
+		fnd, err := scanFinding(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan finding: %w", err)
+		}
+		findings = append(findings, fnd)
+	}
+	return findings, rows.Err()
 }
 
 // Triage is a status change, optionally carrying an exception (reason + expiry
@@ -1133,6 +1252,8 @@ type Enrichable struct {
 	ExploitMaturity domain.ExploitMaturity
 	// AssetExposure is kept so the recomputed priority keeps its exposure factor.
 	AssetExposure domain.Exposure
+	// Weights are the finding's project priority weights.
+	Weights domain.Weights
 }
 
 // Reachability is the finding's dependency reachability, for domain.Priority.
@@ -1153,7 +1274,8 @@ func (r *Repository) ListEnrichable(ctx context.Context) ([]Enrichable, error) {
 				|| COALESCE((SELECT aliases FROM osv_advisories WHERE id = f.rule_id), '{}')
 				|| COALESCE((SELECT aliases FROM private_advisories WHERE id = f.rule_id), '{}')
 			) x WHERE x <> ''),
-			COALESCE((SELECT exposure FROM assets WHERE assets.id = f.asset_id), '')
+			COALESCE((SELECT exposure FROM assets WHERE assets.id = f.asset_id), ''),
+			(SELECT priority_weights FROM projects pw WHERE pw.id = f.project_id)
 		FROM findings f
 		WHERE cardinality(f.cve) > 0 OR f.kev OR f.rule_id ~* '^(CVE|GHSA|EUVD)-'`
 	rows, err := r.db.Query(ctx, q)
@@ -1165,10 +1287,12 @@ func (r *Repository) ListEnrichable(ctx context.Context) ([]Enrichable, error) {
 	var out []Enrichable
 	for rows.Next() {
 		var e Enrichable
+		var weights []byte
 		if err := rows.Scan(&e.ID, &e.Severity, &e.CVE, &e.KEV, &e.EPSS, &e.Title, &e.ProjectID,
-			&e.DepDirect, &e.DepScope, &e.ExploitMaturity, &e.IDs, &e.AssetExposure); err != nil {
+			&e.DepDirect, &e.DepScope, &e.ExploitMaturity, &e.IDs, &e.AssetExposure, &weights); err != nil {
 			return nil, fmt.Errorf("scan enrichable: %w", err)
 		}
+		e.Weights = domain.WeightsFromJSON(weights)
 		out = append(out, e)
 	}
 	return out, rows.Err()
@@ -1323,6 +1447,7 @@ type GateStats struct {
 	OpenHigh     int `json:"open_high"`
 	OpenMedium   int `json:"open_medium"`
 	OpenLow      int `json:"open_low"`
+	OpenInfo     int `json:"open_info"`
 	OpenKEV      int `json:"open_kev"`
 	// OpenKEVSources counts the open KEV findings by the exact set of catalogs
 	// asserting them (comma-joined, sorted: "cisa,enisa"), so a gate limited to
@@ -1374,6 +1499,7 @@ SELECT
 	count(*) FILTER (WHERE severity = 'high'),
 	count(*) FILTER (WHERE severity = 'medium'),
 	count(*) FILTER (WHERE severity = 'low'),
+	count(*) FILTER (WHERE severity = 'info'),
 	count(*) FILTER (WHERE kev),
 	(SELECT COALESCE(jsonb_object_agg(k, n), '{}') FROM
 		(SELECT array_to_string(kev_sources, ',') AS k, count(*) AS n FROM f WHERE kev GROUP BY 1) g),
@@ -1400,7 +1526,7 @@ func (r *Repository) ComputeGateStats(ctx context.Context, projectID, versionID 
 	var s GateStats
 	var crit domain.Criticality
 	if err := r.db.QueryRow(ctx, gateStatsQuery, projectID, version, baseline, newOnly).
-		Scan(&s.OpenCritical, &s.OpenHigh, &s.OpenMedium, &s.OpenLow, &s.OpenKEV, &s.OpenKEVSources, &s.OpenLicense, &s.MaxEPSS, &s.SLABreached, &crit); err != nil {
+		Scan(&s.OpenCritical, &s.OpenHigh, &s.OpenMedium, &s.OpenLow, &s.OpenInfo, &s.OpenKEV, &s.OpenKEVSources, &s.OpenLicense, &s.MaxEPSS, &s.SLABreached, &crit); err != nil {
 		return GateStats{}, fmt.Errorf("gate stats: %w", err)
 	}
 	s.RiskScore = domain.SeverityCritical.Weight()*float64(s.OpenCritical) +
@@ -1713,14 +1839,15 @@ func (r *Repository) ProjectIDsWithFindings(ctx context.Context) ([]string, erro
 }
 
 // SetEnrichment stores a finding's EPSS, the KEV catalogs asserting it (kev =
-// any) and the recomputed priority.
-func (r *Repository) SetEnrichment(ctx context.Context, id string, epss *float64, kevSources []string, priority float64) error {
-	const q = `UPDATE findings SET epss = $2, kev = cardinality($3::text[]) > 0, kev_sources = $3, priority = $4,
-		updated_at = now() WHERE id = $1`
+// any), whether a catalog marks it as used in ransomware campaigns and the
+// recomputed priority.
+func (r *Repository) SetEnrichment(ctx context.Context, id string, epss *float64, kevSources []string, ransomware bool, priority float64) error {
+	const q = `UPDATE findings SET epss = $2, kev = cardinality($3::text[]) > 0, kev_sources = $3,
+		kev_ransomware = cardinality($3::text[]) > 0 AND $5, priority = $4, updated_at = now() WHERE id = $1`
 	if kevSources == nil {
 		kevSources = []string{}
 	}
-	_, err := r.db.Exec(ctx, q, id, epss, kevSources, priority)
+	_, err := r.db.Exec(ctx, q, id, epss, kevSources, priority, ransomware)
 	if err != nil {
 		return fmt.Errorf("set enrichment: %w", err)
 	}
@@ -1775,6 +1902,8 @@ type ReachTarget struct {
 	ExploitMaturity domain.ExploitMaturity
 	// AssetExposure is kept so the recomputed priority keeps its exposure factor.
 	AssetExposure domain.Exposure
+	// Weights are the finding's project priority weights.
+	Weights domain.Weights
 }
 
 // Reachability assembles the multiplier input.
@@ -1799,7 +1928,8 @@ func (t ReachTarget) Reachability() domain.Reachability {
 func (r *Repository) MatchInventory(ctx context.Context, projectID, scanID string) ([]ReachTarget, error) {
 	const q = `
 		SELECT f.id, f.severity, f.epss, f.kev, c.direct, c.depth, c.scope, COALESCE(f.exploit_maturity, ''),
-			COALESCE((SELECT a.exposure FROM assets a WHERE a.id = f.asset_id), '')
+			COALESCE((SELECT a.exposure FROM assets a WHERE a.id = f.asset_id), ''),
+			(SELECT priority_weights FROM projects pw WHERE pw.id = f.project_id)
 		FROM findings f
 		JOIN LATERAL (
 			SELECT c.direct, c.depth, c.scope
@@ -1839,10 +1969,12 @@ func (r *Repository) MatchInventory(ctx context.Context, projectID, scanID strin
 	var out []ReachTarget
 	for rows.Next() {
 		var t ReachTarget
+		var weights []byte
 		if err := rows.Scan(&t.ID, &t.Severity, &t.EPSS, &t.KEV, &t.DepDirect, &t.DepDepth, &t.DepScope, &t.ExploitMaturity,
-			&t.AssetExposure); err != nil {
+			&t.AssetExposure, &weights); err != nil {
 			return nil, fmt.Errorf("scan reach target: %w", err)
 		}
+		t.Weights = domain.WeightsFromJSON(weights)
 		out = append(out, t)
 	}
 	return out, rows.Err()
