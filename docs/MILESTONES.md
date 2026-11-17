@@ -785,17 +785,23 @@ Tier 1:
   the `remediation` feature switch.
 - ✅ 12.4 No-code parser (DefectDojo Pro "Universal Parser"): an instance admin
   defines a `custom_parsers` row (scanner name, category, CSV/JSON/XML format,
-  a record selector, and field mappings — path/column, static value, a
-  `{path}` template, or a severity value map) via `POST /custom-parsers` + a
+  a record selector, and field mappings (path/column, static value, a
+  `{path}` template, or a severity value map)) via `POST /custom-parsers` + a
   `/custom-parsers/dry-run` preview and a Custom Parsers admin page. The upload
   path (`?scanner=<name>`) falls back to a compiled definition when no
   built-in parser matches (`internal/scanner.CustomParser`, reusing
   `normalizeSeverity`/`cweFrom`/`cvesInText`/`mergeSameLocation`), cached and
   re-read by `updated_at` so an edit applies on every replica's next upload.
   Migration 000100.
-- ⬜ 12.5 Vulnerability policies (Dependency-Track 5): CEL rules on a component and
-  vulnerability pair that set an analysis or rating atomically at ingest, with a
-  validity window, priority, and GitOps policy bundles.
+- ✅ 12.5 Vulnerability policies (Dependency-Track 5): CEL rules on a component and
+  vulnerability pair (`internal/vulnpolicy`) that set an analysis state
+  (`not_affected`/`false_positive`/`exploitable`/`in_triage`) and/or a severity
+  rating atomically, with priority (highest wins), a validity window (expiry
+  reverts exactly what the policy set, never a person's later call), a
+  global/project/tag scope, and an apply/log-only mode. Runs as a `scan.Applier`
+  after VEX and before the generic triage rules, and on
+  `VULN_POLICY_EVAL_INTERVAL`. GitOps bundle (`GET`/`PUT /vuln-policies/bundle`,
+  dry-run) plus an optional synced `VULN_POLICY_BUNDLE_URL`. Migration 000103.
 - ✅ 12.6 More pull connectors: Snyk (`snyk-api`, REST issues), GitHub (code
   scanning and Dependabot alerts, per repository or org, GHES too), GitLab
   (GraphQL vulnerabilities), Wiz (OAuth client credentials, GraphQL

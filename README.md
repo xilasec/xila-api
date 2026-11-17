@@ -351,6 +351,12 @@ roles, and password login can optionally be turned off. See [Single sign-on](#si
 | POST   | `/api/v1/policies/preview`          | Dry-run a draft policy: components it would flag (`?project_id=` or all visible) |
 | POST   | `/api/v1/policies/evaluate`         | Re-evaluate policies now (`?project_id=` or all) (admin) |
 | GET    | `/api/v1/projects/{id}/policies`    | Policies in force on a project, with its violation counts |
+| GET/POST | `/api/v1/vuln-policies`           | Vulnerability policies: CEL rules over a component + vulnerability pair (admin) |
+| GET/PATCH/DELETE | `/api/v1/vuln-policies/{id}` | Read / update / delete a vulnerability policy (admin) |
+| POST   | `/api/v1/vuln-policies/preview`     | Dry-run a draft policy: pairs it would act on (`?project_id=` or all) (admin) |
+| POST   | `/api/v1/vuln-policies/{id}/preview` | Dry-run a stored policy (admin) |
+| POST   | `/api/v1/vuln-policies/evaluate`    | Re-evaluate vulnerability policies now (`?project_id=` or all) (admin) |
+| GET/PUT | `/api/v1/vuln-policies/bundle`     | Export / atomically replace the whole policy set (YAML or JSON, `?dry_run=true`) (admin) |
 | POST   | `/api/v1/projects/{id}/gate`        | Evaluate the security gate → 200 pass / 422 fail (optional inline `policy`) |
 | GET/PUT/DELETE | `/api/v1/projects/{id}/gate/policy` | Manage a project's gate policy |
 | GET/PUT | `/api/v1/gate/policy`              | The global default gate policy (admin) |
@@ -1584,7 +1590,8 @@ Untriaged leftovers that no longer map are closed. Recreate a custom denylist
 as a policy (or edit the seeded one).
 
 Expressions (CEL). When the fixed conditions can't express a rule, a policy
-condition (subject `expression`) and a triage rule (`expression`) take a
+condition (subject `expression`), a triage rule (`expression`) and a
+vulnerability policy (`condition`, its only condition) take a
 [CEL](https://cel.dev) expression. Dependency-Track 5 and Kubernetes use the
 same language for this:
 
@@ -1611,7 +1618,63 @@ same "unknown doesn't match" rule as every other condition. Expressions are chec
 on save: a syntax error, a misspelled field, a non-boolean result, or an expression too
 expensive to run per component returns a 400 that explains the problem. The inputs are
 plain JSON-shaped documents, so an external engine (OPA) could later be given the
-same ones. There is one built-in language, not two.
+same ones. There is one built-in language, not three.
+
+### Vulnerability policies
+
+Dependency-Track 5-style policies over a component + vulnerability pair (a
+package finding), managed under Vulnerability Policies in the UI or
+`/api/v1/vuln-policies` (instance admin). Each policy is a CEL `condition`
+(see *Expressions (CEL)* above; same `component`/`vulnerability`/`project`
+facts a vulnerability policy's own schema exposes — `component.name/version/
+purl/group/license/scope/direct`, `vulnerability.id/aliases/severity/cvss/
+epss/kev/cwes/published` (`published` is always unknown — findings carry no
+disclosure date), `project.name/tags/criticality/custom`), plus:
+
+- An `analysis` (optional): `state` — `not_affected`/`false_positive` both set
+  the finding `false_positive` (Dependency-Track keeps them as distinct
+  justifications of the same outcome, like VEX's `not_affected`/`fixed`),
+  `exploitable` sets `confirmed`, `in_triage` sets no status (useful for a
+  rating-only policy, or to flag a pair for review) — plus `justification` and
+  `details` recorded on the finding.
+- A `rating` (optional): a `severity` override (`cvss_vector`/`cvss_score` are
+  detail only; a scanner- or NVD-sourced CVSS is never overwritten). A policy
+  needs an `analysis`, a `rating`, or both.
+- `priority`: the highest-priority policy whose condition matches a pair wins
+  when several do.
+- `valid_from`/`valid_until`: outside the window the policy doesn't apply.
+- `scope`: `global`, `projects` (an explicit list) or `tag` (projects carrying
+  it).
+- `mode`: `apply` mutates findings; `log` never does (and never blocks an
+  `apply` policy underneath it) — use it to see what a policy *would* do
+  before turning it on, same idea as the triage-rule approval workflow's
+  preview.
+
+A policy's effect is reversible: when it stops matching, is disabled, deleted,
+or falls outside its validity window, the next evaluation reverts exactly what
+it set — the finding goes back to what it was before, the same way an expired
+triage exception reopens one. It never overturns a person's later call: the
+guard compares the finding's *current* state against what the engine itself
+last recorded, not against "is it still open", so once something else moved
+the finding away from that recorded state, the policy abandons its claim
+rather than fighting it.
+
+- Runs as a `scan.Applier` **after VEX** (an authoritative VEX verdict still
+  wins) and **before the generic triage rules**, on every ingest; project-wide
+  on every policy create/update/delete (in the background) and on
+  `VULN_POLICY_EVAL_INTERVAL` (6h default), which is what catches a validity
+  window's expiry between ingests.
+- `POST /vuln-policies/preview` (a draft) or `POST /vuln-policies/{id}/preview`
+  (a stored policy) dry-runs it: the pairs it would act on and how, evaluated
+  on its own (ignoring priority against other live policies), capped at 200
+  with a `total`.
+- GitOps bundle: `GET /vuln-policies/bundle?format=yaml|json` exports the
+  whole set (no database ids — an import always assigns fresh ones);
+  `PUT /vuln-policies/bundle` (`?dry_run=true` to validate without writing)
+  replaces it atomically — every policy is validated before anything is
+  written. `VULN_POLICY_BUNDLE_URL`, if set, is fetched (through netguard) and
+  imported on `VULN_POLICY_BUNDLE_INTERVAL` (1h default); a failed fetch keeps
+  the current set.
 
 ### Reachability: why most of a dependency backlog doesn't matter
 
@@ -2580,6 +2643,9 @@ Azure Key Vault, Vault) hand secrets to the app. It applies to `JWT_SECRET`,
 | `METRICS_ADDR`                | *(empty)*            | serve `/metrics` on a separate listener (e.g. `:9090`) instead of the main port |
 | `METRICS_TOKEN`               | *(empty)*            | bearer token scrapers must send. In production, `/metrics` on the main port refuses to boot without one; a separate `METRICS_ADDR` does not need it |
 | `POLICY_EVAL_INTERVAL`        | `6h`                 | re-evaluate component policies on every project (also on upload and policy edits); `0` = off. Replaces the removed `LICENSE_DENYLIST` (ignored, with a startup warning) |
+| `VULN_POLICY_EVAL_INTERVAL`   | `6h`                 | re-evaluate vulnerability policies on every project (also on ingest and policy edits); catches a validity window's expiry; `0` = off |
+| `VULN_POLICY_BUNDLE_URL`      | *(empty)*            | fetch a GitOps vulnerability-policy bundle (YAML or JSON) from this URL and replace the whole set on `VULN_POLICY_BUNDLE_INTERVAL`; a failed fetch keeps the current set |
+| `VULN_POLICY_BUNDLE_INTERVAL` | `1h`                 | how often to re-fetch `VULN_POLICY_BUNDLE_URL` |
 | `ENRICH_ENABLED`              | `true`               | run periodic EPSS/KEV enrichment         |
 | `ENRICH_INTERVAL`             | `6h`                 | how often to refresh exploit intel (and NVD CVSS when enabled) |
 | `KEV_SOURCES`                 | `cisa,enisa` (+`vulncheck` with a token) | KEV catalogs to download on each enrichment run: `cisa`, `enisa` (ENISA EUVD exploited list), `vulncheck` |

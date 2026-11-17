@@ -79,6 +79,7 @@ import (
 	"github.com/xilasec/xila-api/internal/user"
 	"github.com/xilasec/xila-api/internal/vex"
 	"github.com/xilasec/xila-api/internal/vulnmatch"
+	"github.com/xilasec/xila-api/internal/vulnpolicy"
 )
 
 const smokeTrivyReport = `{"Results":[
@@ -186,6 +187,8 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 	triageSvc := triage.NewService(triageRepo, findingRepo, findingRepo).WithCustomFields(customFieldSvc)
 	vexRepo := vex.NewRepository(pool)
 	vexSvc := vex.NewService(vexRepo, findingRepo, projectRepo)
+	vulnPolicyRepo := vulnpolicy.NewRepository(pool)
+	vulnPolicySvc := vulnpolicy.NewService(vulnPolicyRepo, findingRepo, findingRepo)
 	orgRepo := org.NewRepository(pool)
 	slaRepo := sla.NewRepository(pool)
 	trackerCipher, err := secretbox.New([]byte("smoke-integration-key-32-bytes!!"))
@@ -235,7 +238,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 	customParserRepo := customparser.NewRepository(pool)
 	customParserSvc := customparser.NewService(customParserRepo, parsers)
 	ingestSvc := scan.NewService(scanRepo, findingRepo, projectRepo, parsers, notifySvc,
-		[]scan.Applier{correlation.NewReacher(findingRepo, findingRepo), exploitSvc, vexSvc, triageSvc, assetSvc,
+		[]scan.Applier{correlation.NewReacher(findingRepo, findingRepo), exploitSvc, vexSvc, vulnPolicySvc, triageSvc, assetSvc,
 			connector.NewRemoteTriage(connectorRepo, findingRepo).WithApproval(cfg.RiskAcceptanceRequiresApproval),
 			enrichment.NewNVD(findingRepo, nil)}, scanRepo).WithFollowUps(remediationSvc).WithSkipUnchanged(true).WithHostAssets(assetRepo).
 		WithCustomParsers(customParserSvc)
@@ -339,13 +342,14 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		AuthLimiter: authLimiterFor(pool, cfg),
 		Enrichment: enrichment.NewHandler(enrichment.NewService(findingRepo, fakeExploit{},
 			[]enrichment.KEVCatalog{fakeExploit{}}, enrichment.NewKEVRepository(pool), notifySvc).WithCRA(craSvc)),
-		VulnMatch: vulnmatch.NewHandler(vulnSvc, vulnSources.Names(), osvMirrorRepo, nil),
-		Advisory:  vulnmatch.NewAdvisoryHandler(advisoryRepo, nil),
-		FeedRules: vulnmatch.NewFeedRuleHandler(feedRuleRepo, nil),
-		PSIRT:     psirt.NewHandler(psirtSvc, psirtRepo),
-		PkgMeta:   pkgmeta.NewHandler(pkgmetaRepo, pkgmetaSvc),
-		License:   license.NewHandler(licenseGroups),
-		Policy:    policy.NewHandler(policyRepo, policySvc, findingRepo),
+		VulnMatch:  vulnmatch.NewHandler(vulnSvc, vulnSources.Names(), osvMirrorRepo, nil),
+		Advisory:   vulnmatch.NewAdvisoryHandler(advisoryRepo, nil),
+		FeedRules:  vulnmatch.NewFeedRuleHandler(feedRuleRepo, nil),
+		PSIRT:      psirt.NewHandler(psirtSvc, psirtRepo),
+		PkgMeta:    pkgmeta.NewHandler(pkgmetaRepo, pkgmetaSvc),
+		License:    license.NewHandler(licenseGroups),
+		Policy:     policy.NewHandler(policyRepo, policySvc, findingRepo),
+		VulnPolicy: vulnpolicy.NewHandler(vulnPolicyRepo, vulnPolicySvc).WithCustomFields(customFieldRepo),
 	}
 	// SSO exactly as main wires it; protocol clients reach in-process IdPs over
 	// loopback, the SP key pair is the shared generated one. (ssoRepo/ssoSvc

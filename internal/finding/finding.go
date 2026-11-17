@@ -818,6 +818,30 @@ func (r *Repository) Get(ctx context.Context, id string) (Finding, error) {
 	return f, nil
 }
 
+// ListByIDs returns the findings with any of ids, in no particular order.
+// Missing ids are silently skipped. Used by consumers (e.g. vulnpolicy) that
+// track their own set of finding ids rather than scanning by project filter.
+func (r *Repository) ListByIDs(ctx context.Context, ids []string) ([]Finding, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	const q = `SELECT ` + findingColumns + ` FROM findings WHERE id = ANY($1)`
+	rows, err := r.db.Query(ctx, q, ids)
+	if err != nil {
+		return nil, fmt.Errorf("list findings by ids: %w", err)
+	}
+	defer rows.Close()
+	findings := []Finding{}
+	for rows.Next() {
+		fnd, err := scanFinding(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan finding: %w", err)
+		}
+		findings = append(findings, fnd)
+	}
+	return findings, rows.Err()
+}
+
 // Triage is a status change, optionally carrying an exception (reason + expiry
 // + who decided it). It can't set risk_accepted: only an approved risk
 // acceptance does that (ErrRiskAcceptanceRequired).

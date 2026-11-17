@@ -119,6 +119,17 @@ async function upload(path, rawText, query) {
 	return parse(res);
 }
 
+// rawPut sends a raw text body (a YAML/JSON GitOps bundle) with PUT.
+/** @param {string} path @param {string} rawText @param {Query} [query] @returns {Promise<any>} */
+async function rawPut(path, rawText, query) {
+	/** @type {Record<string, string>} */
+	const headers = { 'Content-Type': 'application/yaml' };
+	const t = getToken();
+	if (t) headers['Authorization'] = 'Bearer ' + t;
+	const res = await fetch(buildURL(path, query), { method: 'PUT', headers, body: rawText });
+	return parse(res);
+}
+
 // sendFile posts one file as multipart field "file".
 /** @param {string} path @param {Blob} file @returns {Promise<any>} */
 async function sendFile(path, file) {
@@ -885,6 +896,32 @@ export const api = {
 	/** @param {string} projectId @param {Record<string, any>} [query] */
 	projectPolicies: (projectId, query = {}) =>
 		request('GET', `/projects/${projectId}/policies`, { query }).then((d) => d.policies ?? []),
+
+	// --- vulnerability policies (admin) ---
+	listVulnPolicies: () => request('GET', '/vuln-policies').then((d) => d.policies ?? []),
+	/** @param {string} id */
+	getVulnPolicy: (id) => request('GET', `/vuln-policies/${id}`),
+	/** @param {Record<string, any>} data */
+	createVulnPolicy: (data) => request('POST', '/vuln-policies', { body: data }),
+	/** @param {string} id @param {Record<string, any>} data */
+	updateVulnPolicy: (id, data) => request('PATCH', `/vuln-policies/${id}`, { body: data }),
+	/** @param {string} id */
+	deleteVulnPolicy: (id) => request('DELETE', `/vuln-policies/${id}`),
+	// { total, findings }
+	/** @param {Record<string, any>} data @param {string} [projectId] */
+	previewVulnPolicy: (data, projectId) =>
+		request('POST', '/vuln-policies/preview', { body: data, query: { project_id: projectId } }),
+	/** @param {string} id @param {string} [projectId] */
+	previewStoredVulnPolicy: (id, projectId) =>
+		request('POST', `/vuln-policies/${id}/preview`, { query: { project_id: projectId } }),
+	/** @param {string} [projectId] */
+	evaluateVulnPolicies: (projectId) =>
+		request('POST', '/vuln-policies/evaluate', { query: { project_id: projectId } }),
+	/** @param {string} [filename] */
+	exportVulnPolicyBundle: (filename = 'vuln-policies.yaml') => download('/vuln-policies/bundle?format=yaml', filename),
+	// { policies, dry_run }
+	/** @param {string} rawText @param {boolean} [dryRun] */
+	importVulnPolicyBundle: (rawText, dryRun = false) => rawPut('/vuln-policies/bundle', rawText, { dry_run: dryRun }),
 
 	// --- assets ---
 	/** @param {string} projectId */
