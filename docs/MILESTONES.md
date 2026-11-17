@@ -806,7 +806,11 @@ Tier 1:
 
 Tier 2:
 
-- ⬜ 12.7 More issue trackers: Azure DevOps, Linear, ServiceNow.
+- ✅ 12.7 More issue trackers: Azure DevOps Boards (work items, PAT; Azure
+  DevOps Server through the base URL), Linear (GraphQL, API key, workflow state
+  types resolved to the team's state) and ServiceNow (Table API, basic auth or
+  bearer token, `sys_id` as the key) next to Jira, GitHub and GitLab, with the
+  same create, two-way status sync and test-connection. Migration 000101.
 - ✅ 12.8 User groups (granted on org, team or project like a person, expanded
   in `ProjectGrantsSQL`), custom roles (a base role minus capabilities, enforced
   per route class and in bulk edits, union across grants) and SCIM 2.0

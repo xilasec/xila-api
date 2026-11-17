@@ -35,24 +35,49 @@ type Kind string
 
 // Supported trackers.
 const (
-	KindJira   Kind = "jira"
-	KindGitHub Kind = "github"
-	KindGitLab Kind = "gitlab"
+	KindJira        Kind = "jira"
+	KindGitHub      Kind = "github"
+	KindGitLab      Kind = "gitlab"
+	KindAzureDevOps Kind = "azure-devops"
+	KindLinear      Kind = "linear"
+	KindServiceNow  Kind = "servicenow"
 )
 
 // Valid reports whether k is a supported tracker.
-func (k Kind) Valid() bool { return k == KindJira || k == KindGitHub || k == KindGitLab }
+func (k Kind) Valid() bool {
+	return k == KindJira || k == KindGitHub || k == KindGitLab ||
+		k == KindAzureDevOps || k == KindLinear || k == KindServiceNow
+}
 
-// DefaultBaseURL is the hosted service's URL for a kind (Jira has none: every
-// site has its own).
+// DefaultBaseURL is the hosted service's URL for a kind. Jira, Azure DevOps
+// and ServiceNow have none: every organization/instance is its own site.
 func (k Kind) DefaultBaseURL() string {
 	switch k {
 	case KindGitHub:
 		return "https://api.github.com"
 	case KindGitLab:
 		return "https://gitlab.com"
+	case KindLinear:
+		return "https://api.linear.app"
 	}
 	return ""
+}
+
+// DefaultTransitions is the close/reopen state value for a kind that doesn't
+// ask the user to pick one, keyed to what a fresh project of that kind looks
+// like: Jira's and GitHub/GitLab's (unused by them) default workflow; Azure
+// Boards' Basic process template; Linear's workflow state *types* (not
+// names — see linear.go); ServiceNow's out-of-the-box incident states.
+func (k Kind) DefaultTransitions() (done, reopen string) {
+	switch k {
+	case KindAzureDevOps:
+		return "Closed", "Active"
+	case KindLinear:
+		return "completed", "unstarted"
+	case KindServiceNow:
+		return "Resolved", "New"
+	}
+	return "Done", "To Do"
 }
 
 // State is an issue's (or, as last synced, a link's) open/closed state.
@@ -74,6 +99,7 @@ type Tracker struct {
 	Target           string          `json:"target"`
 	HasToken         bool            `json:"has_token"`
 	JiraEmail        string          `json:"jira_email"`
+	AuthUser         string          `json:"auth_user"`
 	IssueType        string          `json:"issue_type"`
 	DoneTransition   string          `json:"done_transition"`
 	ReopenTransition string          `json:"reopen_transition"`
@@ -117,12 +143,12 @@ func NewRepository(db *pgxpool.Pool) *Repository {
 	return &Repository{db: db}
 }
 
-const trackerColumns = `id, project_id, kind, base_url, target, token_enc, jira_email, issue_type,
+const trackerColumns = `id, project_id, kind, base_url, target, token_enc, jira_email, auth_user, issue_type,
 	done_transition, reopen_transition, min_severity, auto_create, labels, enabled, created_at, updated_at`
 
 func scanTracker(row pgx.Row) (Tracker, error) {
 	var t Tracker
-	err := row.Scan(&t.ID, &t.ProjectID, &t.Kind, &t.BaseURL, &t.Target, &t.tokenEnc, &t.JiraEmail,
+	err := row.Scan(&t.ID, &t.ProjectID, &t.Kind, &t.BaseURL, &t.Target, &t.tokenEnc, &t.JiraEmail, &t.AuthUser,
 		&t.IssueType, &t.DoneTransition, &t.ReopenTransition, &t.MinSeverity, &t.AutoCreate, &t.Labels,
 		&t.Enabled, &t.CreatedAt, &t.UpdatedAt)
 	t.HasToken = len(t.tokenEnc) > 0
@@ -205,19 +231,19 @@ func (r *Repository) Put(ctx context.Context, t Tracker, tokenEnc []byte) (Track
 	}
 
 	const q = `
-		INSERT INTO issue_trackers (project_id, kind, base_url, target, token_enc, jira_email, issue_type,
+		INSERT INTO issue_trackers (project_id, kind, base_url, target, token_enc, jira_email, auth_user, issue_type,
 		    done_transition, reopen_transition, min_severity, auto_create, labels, enabled)
-		VALUES ($1, $2, $3, $4, COALESCE($5, ''::bytea), $6, $7, $8, $9, $10, $11, $12, $13)
+		VALUES ($1, $2, $3, $4, COALESCE($5, ''::bytea), $6, $7, $8, $9, $10, $11, $12, $13, $14)
 		ON CONFLICT (project_id) DO UPDATE SET
 		    kind = EXCLUDED.kind, base_url = EXCLUDED.base_url, target = EXCLUDED.target,
 		    token_enc = COALESCE($5, issue_trackers.token_enc),
-		    jira_email = EXCLUDED.jira_email, issue_type = EXCLUDED.issue_type,
+		    jira_email = EXCLUDED.jira_email, auth_user = EXCLUDED.auth_user, issue_type = EXCLUDED.issue_type,
 		    done_transition = EXCLUDED.done_transition, reopen_transition = EXCLUDED.reopen_transition,
 		    min_severity = EXCLUDED.min_severity, auto_create = EXCLUDED.auto_create,
 		    labels = EXCLUDED.labels, enabled = EXCLUDED.enabled, updated_at = now()
 		RETURNING ` + trackerColumns
 	out, err := scanTracker(tx.QueryRow(ctx, q, t.ProjectID, t.Kind, t.BaseURL, t.Target, tokenEnc,
-		t.JiraEmail, t.IssueType, t.DoneTransition, t.ReopenTransition, t.MinSeverity, t.AutoCreate,
+		t.JiraEmail, t.AuthUser, t.IssueType, t.DoneTransition, t.ReopenTransition, t.MinSeverity, t.AutoCreate,
 		t.Labels, t.Enabled))
 	if err != nil {
 		var pgErr *pgconn.PgError

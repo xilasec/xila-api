@@ -1253,19 +1253,28 @@ func (e FindingEventKind) Valid() bool {
 
 // Defines values for FindingIssueKind.
 const (
-	FindingIssueKindGithub FindingIssueKind = "github"
-	FindingIssueKindGitlab FindingIssueKind = "gitlab"
-	FindingIssueKindJira   FindingIssueKind = "jira"
+	FindingIssueKindAzureDevops FindingIssueKind = "azure-devops"
+	FindingIssueKindGithub      FindingIssueKind = "github"
+	FindingIssueKindGitlab      FindingIssueKind = "gitlab"
+	FindingIssueKindJira        FindingIssueKind = "jira"
+	FindingIssueKindLinear      FindingIssueKind = "linear"
+	FindingIssueKindServicenow  FindingIssueKind = "servicenow"
 )
 
 // Valid indicates whether the value is a known member of the FindingIssueKind enum.
 func (e FindingIssueKind) Valid() bool {
 	switch e {
+	case FindingIssueKindAzureDevops:
+		return true
 	case FindingIssueKindGithub:
 		return true
 	case FindingIssueKindGitlab:
 		return true
 	case FindingIssueKindJira:
+		return true
+	case FindingIssueKindLinear:
+		return true
+	case FindingIssueKindServicenow:
 		return true
 	default:
 		return false
@@ -1487,19 +1496,28 @@ func (e IngestionAnomalyKind) Valid() bool {
 
 // Defines values for IssueTrackerKind.
 const (
-	IssueTrackerKindGithub IssueTrackerKind = "github"
-	IssueTrackerKindGitlab IssueTrackerKind = "gitlab"
-	IssueTrackerKindJira   IssueTrackerKind = "jira"
+	IssueTrackerKindAzureDevops IssueTrackerKind = "azure-devops"
+	IssueTrackerKindGithub      IssueTrackerKind = "github"
+	IssueTrackerKindGitlab      IssueTrackerKind = "gitlab"
+	IssueTrackerKindJira        IssueTrackerKind = "jira"
+	IssueTrackerKindLinear      IssueTrackerKind = "linear"
+	IssueTrackerKindServicenow  IssueTrackerKind = "servicenow"
 )
 
 // Valid indicates whether the value is a known member of the IssueTrackerKind enum.
 func (e IssueTrackerKind) Valid() bool {
 	switch e {
+	case IssueTrackerKindAzureDevops:
+		return true
 	case IssueTrackerKindGithub:
 		return true
 	case IssueTrackerKindGitlab:
 		return true
 	case IssueTrackerKindJira:
+		return true
+	case IssueTrackerKindLinear:
+		return true
+	case IssueTrackerKindServicenow:
 		return true
 	default:
 		return false
@@ -1508,19 +1526,28 @@ func (e IssueTrackerKind) Valid() bool {
 
 // Defines values for IssueTrackerInputKind.
 const (
-	IssueTrackerInputKindGithub IssueTrackerInputKind = "github"
-	IssueTrackerInputKindGitlab IssueTrackerInputKind = "gitlab"
-	IssueTrackerInputKindJira   IssueTrackerInputKind = "jira"
+	IssueTrackerInputKindAzureDevops IssueTrackerInputKind = "azure-devops"
+	IssueTrackerInputKindGithub      IssueTrackerInputKind = "github"
+	IssueTrackerInputKindGitlab      IssueTrackerInputKind = "gitlab"
+	IssueTrackerInputKindJira        IssueTrackerInputKind = "jira"
+	IssueTrackerInputKindLinear      IssueTrackerInputKind = "linear"
+	IssueTrackerInputKindServicenow  IssueTrackerInputKind = "servicenow"
 )
 
 // Valid indicates whether the value is a known member of the IssueTrackerInputKind enum.
 func (e IssueTrackerInputKind) Valid() bool {
 	switch e {
+	case IssueTrackerInputKindAzureDevops:
+		return true
 	case IssueTrackerInputKindGithub:
 		return true
 	case IssueTrackerInputKindGitlab:
 		return true
 	case IssueTrackerInputKindJira:
+		return true
+	case IssueTrackerInputKindLinear:
+		return true
+	case IssueTrackerInputKindServicenow:
 		return true
 	default:
 		return false
@@ -1985,19 +2012,28 @@ func (e RemediationActionCloseReason) Valid() bool {
 
 // Defines values for RemediationIssueKind.
 const (
-	RemediationIssueKindGithub RemediationIssueKind = "github"
-	RemediationIssueKindGitlab RemediationIssueKind = "gitlab"
-	RemediationIssueKindJira   RemediationIssueKind = "jira"
+	RemediationIssueKindAzureDevops RemediationIssueKind = "azure-devops"
+	RemediationIssueKindGithub      RemediationIssueKind = "github"
+	RemediationIssueKindGitlab      RemediationIssueKind = "gitlab"
+	RemediationIssueKindJira        RemediationIssueKind = "jira"
+	RemediationIssueKindLinear      RemediationIssueKind = "linear"
+	RemediationIssueKindServicenow  RemediationIssueKind = "servicenow"
 )
 
 // Valid indicates whether the value is a known member of the RemediationIssueKind enum.
 func (e RemediationIssueKind) Valid() bool {
 	switch e {
+	case RemediationIssueKindAzureDevops:
+		return true
 	case RemediationIssueKindGithub:
 		return true
 	case RemediationIssueKindGitlab:
 		return true
 	case RemediationIssueKindJira:
+		return true
+	case RemediationIssueKindLinear:
+		return true
+	case RemediationIssueKindServicenow:
 		return true
 	default:
 		return false
@@ -6201,19 +6237,21 @@ type IssueSyncResult struct {
 
 // IssueTracker defines model for IssueTracker.
 type IssueTracker struct {
-	AutoCreate *bool `json:"auto_create,omitempty"`
+	// AuthUser ServiceNow HTTP Basic auth username; empty sends the token as an OAuth Bearer access token instead.
+	AuthUser   *string `json:"auth_user,omitempty"`
+	AutoCreate *bool   `json:"auto_create,omitempty"`
 
-	// BaseUrl Jira site, GitHub API (https://api.github.com, or https://host/api/v3 for Enterprise), or GitLab instance (https://gitlab.com).
+	// BaseUrl Jira site, GitHub API (https://api.github.com, or https://host/api/v3 for Enterprise), GitLab instance (https://gitlab.com), Azure DevOps organization/collection (https://dev.azure.com/your-org), Linear API (https://api.linear.app), or ServiceNow instance (https://your-instance.service-now.com).
 	BaseUrl   *string    `json:"base_url,omitempty"`
 	CreatedAt *time.Time `json:"created_at,omitempty"`
 
-	// DoneTransition Jira transition (or target status) used to close.
+	// DoneTransition Jira transition (or target status), Azure DevOps System.State value, Linear workflow state type, or ServiceNow state value used to close.
 	DoneTransition *string             `json:"done_transition,omitempty"`
 	Enabled        *bool               `json:"enabled,omitempty"`
 	HasToken       *bool               `json:"has_token,omitempty"`
 	Id             *openapi_types.UUID `json:"id,omitempty"`
 
-	// IssueType Jira issue type.
+	// IssueType Jira issue type
 	IssueType *string `json:"issue_type,omitempty"`
 
 	// JiraEmail Jira Cloud account email (basic auth with the API token); empty sends the token as a Bearer PAT.
@@ -6223,10 +6261,10 @@ type IssueTracker struct {
 	MinSeverity *Severity           `json:"min_severity,omitempty"`
 	ProjectId   *openapi_types.UUID `json:"project_id,omitempty"`
 
-	// ReopenTransition Jira transition (or target status) used to reopen.
+	// ReopenTransition Jira transition (or target status), Azure DevOps System.State value, Linear workflow state type, or ServiceNow state value used to reopen.
 	ReopenTransition *string `json:"reopen_transition,omitempty"`
 
-	// Target Jira project key, GitHub owner/repo, or GitLab project id or full path.
+	// Target Jira project key, GitHub owner/repo, GitLab project id or full path, Azure DevOps project name, Linear team id, or ServiceNow table name (default incident).
 	Target    *string    `json:"target,omitempty"`
 	UpdatedAt *time.Time `json:"updated_at,omitempty"`
 }
@@ -6236,9 +6274,11 @@ type IssueTrackerKind string
 
 // IssueTrackerInput defines model for IssueTrackerInput.
 type IssueTrackerInput struct {
-	AutoCreate *bool `json:"auto_create,omitempty"`
+	// AuthUser ServiceNow only; empty uses OAuth Bearer auth.
+	AuthUser   *string `json:"auth_user,omitempty"`
+	AutoCreate *bool   `json:"auto_create,omitempty"`
 
-	// BaseUrl Defaults to https://api.github.com / https://gitlab.com; required for Jira.
+	// BaseUrl Defaults to https://api.github.com / https://gitlab.com / https://api.linear.app; required for Jira, Azure DevOps and ServiceNow.
 	BaseUrl          *string               `json:"base_url,omitempty"`
 	DoneTransition   *string               `json:"done_transition,omitempty"`
 	Enabled          *bool                 `json:"enabled,omitempty"`
