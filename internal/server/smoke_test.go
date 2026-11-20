@@ -45,6 +45,7 @@ import (
 	"github.com/xilasec/xila-api/internal/findingtemplate"
 	"github.com/xilasec/xila-api/internal/fixplan"
 	"github.com/xilasec/xila-api/internal/gate"
+	"github.com/xilasec/xila-api/internal/inbox"
 	"github.com/xilasec/xila-api/internal/ingesthealth"
 	"github.com/xilasec/xila-api/internal/issuetracker"
 	"github.com/xilasec/xila-api/internal/license"
@@ -169,8 +170,9 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 	assetSvc := asset.NewService(assetRepo, findingRepo)
 	complianceRepo := compliance.NewRepository(pool)
 	notifyRepo := notify.NewRepository(pool)
+	inboxRepo := inbox.NewRepository(pool)
 	features := feature.NewStore(pool, feature.Unavailable(cfg)...)
-	notifySvc := notify.NewService(notifyRepo, notify.SMTPConfig{}).WithFeatures(features)
+	notifySvc := notify.NewService(notifyRepo, notify.SMTPConfig{}).WithFeatures(features).WithInbox(inboxRepo)
 	tokenRepo := apitoken.NewRepository(pool)
 	tokenSvc := apitoken.NewService(tokenRepo)
 	userRepo := user.NewRepository(pool)
@@ -291,6 +293,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		Team:        team.NewHandler(team.NewRepository(pool), membershipRepo),
 		TeamMembers: membership.NewHandler(membershipRepo, userRepo),
 		Personal:    notify.NewPersonalHandler(notifyRepo, notifySvc),
+		Inbox:       inbox.NewHandler(inboxRepo),
 		MCP:         mcp.NewHandler(cfg.MCPEnabled, "test"),
 		Access:      access.NewHandler(access.NewRepository(pool)),
 		Project: project.NewHandler(projectRepo, findingRepo, membershipRepo).WithTagsChanged(func(id string) {

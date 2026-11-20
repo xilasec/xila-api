@@ -47,6 +47,11 @@ const (
 	// EventFindingAssigned: a finding got a (new) assignee — what personal
 	// "assigned to me" subscriptions hear.
 	EventFindingAssigned = "finding.assigned"
+	// EventMention: a comment named a user with @email or @name. Carries
+	// Event.UserIDs (already resolved against the project's members) instead
+	// of a project-wide audience; only the in-app inbox (internal/inbox) and
+	// an admin channel subscribed to it or "*" act on it.
+	EventMention = "mention"
 	// EventSummary is a channel's scheduled summary (Channel.Summary). It goes
 	// to that channel alone, whatever its event subscription.
 	EventSummary = "summary"
@@ -120,6 +125,11 @@ type Event struct {
 	FindingID string            `json:"finding_id,omitempty"`
 	Fields    map[string]string `json:"fields,omitempty"`
 	Timestamp time.Time         `json:"timestamp"`
+	// UserIDs targets an event at specific people instead of a project's
+	// usual audience (EventMention: the comment's resolved @mentions). The
+	// in-app inbox (internal/inbox) fans out to exactly these users; channels
+	// and personal (assignee/watcher) routing ignore it.
+	UserIDs []string `json:"user_ids,omitempty"`
 }
 
 // severityRank orders severities in SQL (critical 5 … info 1, unknown 0).

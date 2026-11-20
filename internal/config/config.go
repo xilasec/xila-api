@@ -213,6 +213,9 @@ type Retention struct {
 	// them; ARCHIVE_RETENTION then purges them. A fixed finding that comes back
 	// is unarchived by the next upsert.
 	FindingArchiveAfter time.Duration
+	// InboxAge (INBOX_RETENTION) purges read in-app inbox items (internal/inbox)
+	// older than this (default 90 days); unread items are never purged.
+	InboxAge time.Duration
 }
 
 // Notify governs durable notification delivery (the outbox). The leader's
@@ -932,6 +935,7 @@ func Load() (Config, error) {
 			AuditAge:            getdur("AUDIT_RETENTION", 365*24*time.Hour),
 			ArchiveAge:          getdur("ARCHIVE_RETENTION", 30*24*time.Hour),
 			FindingArchiveAfter: getdur("FINDING_ARCHIVE_AFTER", 0),
+			InboxAge:            getdur("INBOX_RETENTION", 90*24*time.Hour),
 		},
 		TriageRulesRequireApproval:     getbool("TRIAGE_RULES_REQUIRE_APPROVAL", false),
 		SBOMStrictValidation:           getbool("SBOM_STRICT_VALIDATION", false),

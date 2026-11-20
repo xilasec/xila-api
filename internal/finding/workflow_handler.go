@@ -21,6 +21,7 @@ import (
 	"github.com/xilasec/xila-api/internal/authz"
 	"github.com/xilasec/xila-api/internal/domain"
 	"github.com/xilasec/xila-api/internal/httpx"
+	"github.com/xilasec/xila-api/internal/membership"
 	"github.com/xilasec/xila-api/internal/notify"
 )
 
@@ -32,6 +33,8 @@ type accessChecker interface {
 	AdminStatus(ctx context.Context, userID string) (isAdmin, isOwner bool, err error)
 	OwnedProjectIDs(ctx context.Context, userID string) ([]string, error)
 	ProjectCapabilityAllowed(ctx context.Context, userID, projectID string, min domain.TeamRole, cap domain.Capability) (bool, error)
+	// UsersWithProjectAccess resolves @mentions in a new comment (notifyMentions).
+	UsersWithProjectAccess(ctx context.Context, projectID string) ([]membership.Member, error)
 }
 
 // decidableProjects narrows a cross-project queue to the projects whose
@@ -551,7 +554,40 @@ func (h *Handler) AddComment(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+	go h.notifyMentions(cm)
 	return c.Status(fiber.StatusCreated).JSON(cm)
+}
+
+// notifyMentions resolves @email / @name mentions in a new comment against
+// the finding's project members and raises one EventMention carrying every
+// mentioned user id (internal/inbox fans it out to each of them).
+// Best-effort, run off the request: never blocks or fails it.
+func (h *Handler) notifyMentions(cm Comment) {
+	if h.notifier == nil {
+		return
+	}
+	ctx := context.Background()
+	f, err := h.repo.Get(ctx, cm.FindingID)
+	if err != nil {
+		return
+	}
+	members, err := h.access.UsersWithProjectAccess(ctx, f.ProjectID)
+	if err != nil {
+		return
+	}
+	candidates := make([]MentionCandidate, len(members))
+	for i, m := range members {
+		candidates[i] = MentionCandidate{UserID: m.UserID, Email: m.Email}
+	}
+	ids := ExtractMentions(cm.Body, candidates)
+	if len(ids) == 0 {
+		return
+	}
+	h.notifier.Notify(ctx, notify.Event{
+		Type: notify.EventMention, ProjectID: f.ProjectID, FindingID: f.ID, UserIDs: ids,
+		Title: "Mentioned in a comment: " + f.Title,
+		Text:  fmt.Sprintf("%s mentioned you in a comment on %s.", cm.Author, f.Title),
+	})
 }
 
 // DeleteComment handles DELETE /findings/{id}/comments/{commentID}: the author
