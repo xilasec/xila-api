@@ -78,6 +78,7 @@ type Service struct {
 	matcher       AdvisoryMatcher    // optional
 	packages      PackageRefresher   // optional
 	licenses      LicenseResolver    // optional: nil leaves license_resolved NULL for the backfill
+	internal      InternalMatcher    // optional: nil leaves every component external
 	strictDefault bool               // SBOM_STRICT_VALIDATION: every upload is strict, not only ?strict=true ones
 }
 
@@ -157,6 +158,9 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest, raw io.Reader) 
 	}
 	if s.licenses != nil {
 		resolveLicenses(s.licenses, doc.Components)
+	}
+	if s.internal != nil {
+		markInternal(s.internal, doc.Components)
 	}
 	stored, err := s.store.Ingest(ctx, record, doc.Components, doc.Services, doc.Edges)
 	if err != nil {

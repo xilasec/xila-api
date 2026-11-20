@@ -40,6 +40,17 @@ const (
 	unrefServicePrefix = "service:"
 )
 
+// ComponentRef is a component's node id within its snapshot's dependency
+// graph: its bom-ref, or — for a document that gave none — a synthetic id
+// keyed by the component's own row id, so it still appears (unconnected) in
+// the graph.
+func ComponentRef(bomRef, id string) string {
+	if bomRef != "" {
+		return bomRef
+	}
+	return unrefPrefix + id
+}
+
 // BuildGraph assembles a snapshot's graph from its components, services and
 // edges. The subject is usually not a listed component, so it is synthesized
 // from the artifact name. Pure.
@@ -56,10 +67,7 @@ func BuildGraph(s Sbom, comps []ComponentHit, svcs []BomService, edges []Edge) G
 		if c.Kind == KindAIService {
 			continue // the AI inventory row of a service: the service node is below
 		}
-		ref := c.BomRef
-		if ref == "" {
-			ref = unrefPrefix + c.ID
-		}
+		ref := ComponentRef(c.BomRef, c.ID)
 		add(Node{
 			Ref: ref, Kind: "component", ComponentID: &c.ID, Name: c.Name, Version: c.Version, Purl: c.Purl,
 			Scope: string(c.Scope), Direct: c.Direct, Depth: c.Depth, Root: ref == s.RootRef,

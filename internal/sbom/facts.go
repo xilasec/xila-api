@@ -12,6 +12,8 @@ import (
 // (the newest snapshot per artifact) with the facts policies judge it on: its
 // coordinates, hashes, resolved license and vulnerability state.
 type InventoryComponent struct {
+	ID          string
+	BomRef      string
 	SbomID      string
 	ProjectID   string
 	ProjectName string
@@ -35,6 +37,16 @@ type InventoryComponent struct {
 	// Integrity is the registry check of Hashes (internal/pkgmeta):
 	// "verified", "mismatch", or "" when unknown.
 	Integrity string
+	// Internal marks a first-party component (internal/component patterns):
+	// never sent to public registries or public advisory sources.
+	Internal bool
+
+	// Reachability, read from the SBOM's own dependency graph (nil/"" when the
+	// document carried none): Direct = the project depends on it on purpose;
+	// Depth = hops from the root component; Scope = whether it ships at all.
+	Direct *bool
+	Depth  *int
+	Scope  domain.DepScope
 
 	// License is the raw string from the SBOM; LicenseExpression its normalized
 	// SPDX expression ('' when empty or unparseable). LicenseResolved is nil
@@ -68,8 +80,9 @@ func (r *Repository) CurrentInventory(ctx context.Context, projectIDs []string, 
 			  AND project_id IN (SELECT id FROM projects WHERE` + archive.Project("") + `)
 			ORDER BY version_id, artifact, created_at DESC, id DESC
 		)
-		SELECT c.sbom_id, c.project_id, p.name, p.custom, s.version_id, pv.name, pv.is_default,
-		       c.type, c.kind, c.ml, c."group", c.name, c.version, c.purl, c.hashes, COALESCE(c.integrity, ''),
+		SELECT c.id, c.bom_ref, c.sbom_id, c.project_id, p.name, p.custom, s.version_id, pv.name, pv.is_default,
+		       c.type, c.kind, c.ml, c."group", c.name, c.version, c.purl, c.hashes, COALESCE(c.integrity, ''), c.internal,
+		       c.direct, c.depth, c.scope,
 		       c.license, COALESCE(c.license_expression, ''), c.license_resolved,
 		       vf.ids, vf.max_rank, COALESCE(vf.kev, false), vf.kev_sources, vf.epss, vf.cwes
 		FROM current cur
@@ -114,8 +127,9 @@ func (r *Repository) CurrentInventory(ctx context.Context, projectIDs []string, 
 			c    InventoryComponent
 			rank *int
 		)
-		if err := rows.Scan(&c.SbomID, &c.ProjectID, &c.ProjectName, &c.ProjectCustom, &c.VersionID, &c.VersionName, &c.IsDefault,
-			&c.Type, &c.Kind, &c.ML, &c.Group, &c.Name, &c.Version, &c.Purl, &c.Hashes, &c.Integrity,
+		if err := rows.Scan(&c.ID, &c.BomRef, &c.SbomID, &c.ProjectID, &c.ProjectName, &c.ProjectCustom, &c.VersionID, &c.VersionName, &c.IsDefault,
+			&c.Type, &c.Kind, &c.ML, &c.Group, &c.Name, &c.Version, &c.Purl, &c.Hashes, &c.Integrity, &c.Internal,
+			&c.Direct, &c.Depth, &c.Scope,
 			&c.License, &c.LicenseExpression, &c.LicenseResolved,
 			&c.VulnIDs, &rank, &c.KEV, &c.KEVSources, &c.EPSS, &c.CWEs); err != nil {
 			return nil, fmt.Errorf("scan inventory component: %w", err)
