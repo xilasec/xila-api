@@ -3836,6 +3836,30 @@ func (e McpJSONBodyJsonrpc) Valid() bool {
 	}
 }
 
+// Defines values for GetMeInboxParamsFilter.
+const (
+	GetMeInboxParamsFilterAssigned GetMeInboxParamsFilter = "assigned"
+	GetMeInboxParamsFilterEmpty    GetMeInboxParamsFilter = ""
+	GetMeInboxParamsFilterMentions GetMeInboxParamsFilter = "mentions"
+	GetMeInboxParamsFilterUnread   GetMeInboxParamsFilter = "unread"
+)
+
+// Valid indicates whether the value is a known member of the GetMeInboxParamsFilter enum.
+func (e GetMeInboxParamsFilter) Valid() bool {
+	switch e {
+	case GetMeInboxParamsFilterAssigned:
+		return true
+	case GetMeInboxParamsFilterEmpty:
+		return true
+	case GetMeInboxParamsFilterMentions:
+		return true
+	case GetMeInboxParamsFilterUnread:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PutMeNotificationsJSONBodyMethodsMinSeverity.
 const (
 	PutMeNotificationsJSONBodyMethodsMinSeverityCritical PutMeNotificationsJSONBodyMethodsMinSeverity = "critical"
@@ -6284,6 +6308,23 @@ type GroupMappingRole string
 
 // GroupMappingTargetKind defines model for GroupMapping.TargetKind.
 type GroupMappingTargetKind string
+
+// InboxItem One row in the in-app notification inbox (GET /me/inbox).
+type InboxItem struct {
+	Body      *string    `json:"body,omitempty"`
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+
+	// EventType Example: mention
+	EventType *string             `json:"event_type,omitempty"`
+	FindingId *openapi_types.UUID `json:"finding_id,omitempty"`
+	Id        *openapi_types.UUID `json:"id,omitempty"`
+
+	// Link The finding or project this item is about, e.g. /findings/{id}.
+	Link      *string             `json:"link,omitempty"`
+	ProjectId *openapi_types.UUID `json:"project_id,omitempty"`
+	ReadAt    *time.Time          `json:"read_at,omitempty"`
+	Title     *string             `json:"title,omitempty"`
+}
 
 // IngestionAnomaly defines model for IngestionAnomaly.
 type IngestionAnomaly struct {
@@ -9448,6 +9489,24 @@ type McpJSONBody struct {
 // McpJSONBodyJsonrpc defines parameters for Mcp.
 type McpJSONBodyJsonrpc string
 
+// GetMeInboxParams defines parameters for GetMeInbox.
+type GetMeInboxParams struct {
+	Filter *GetMeInboxParamsFilter `form:"filter,omitempty" json:"filter,omitempty"`
+
+	// Limit Page size (max 200).
+	Limit  *Limit  `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// GetMeInboxParamsFilter defines parameters for GetMeInbox.
+type GetMeInboxParamsFilter string
+
+// PostMeInboxReadJSONBody defines parameters for PostMeInboxRead.
+type PostMeInboxReadJSONBody struct {
+	All *bool                 `json:"all,omitempty"`
+	Ids *[]openapi_types.UUID `json:"ids,omitempty"`
+}
+
 // DisableMeMfaJSONBody defines parameters for DisableMeMfa.
 type DisableMeMfaJSONBody struct {
 	Code string `json:"code"`
@@ -10801,6 +10860,9 @@ type PutLicenseGroupJSONRequestBody = LicenseGroupInput
 
 // McpJSONRequestBody defines body for Mcp for application/json ContentType.
 type McpJSONRequestBody McpJSONBody
+
+// PostMeInboxReadJSONRequestBody defines body for PostMeInboxRead for application/json ContentType.
+type PostMeInboxReadJSONRequestBody PostMeInboxReadJSONBody
 
 // DisableMeMfaJSONRequestBody defines body for DisableMeMfa for application/json ContentType.
 type DisableMeMfaJSONRequestBody DisableMeMfaJSONBody
@@ -13256,6 +13318,43 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /me (the `GetMe` operationId).
 	GetMe(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetMeInbox Your in-app notification inbox
+	//
+	// Any signed-in person (not a service account). One row per event that reached
+	// you: the assignee of a finding assigned to you, someone who @mentioned you in a
+	// finding comment, an event on a project you watch, or (for events naming no
+	// project) an instance admin. Visibility is re-checked on every call — an item
+	// whose project you can no longer see is skipped, even though the row stays.
+	// `?filter=unread|mentions|assigned` narrows the list; omitted returns everything.
+	//
+	// Corresponds with GET /me/inbox (the `GetMeInbox` operationId).
+	GetMeInbox(ctx context.Context, params *GetMeInboxParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetMeInboxCount Your unread inbox count
+	//
+	// Cheap — for a header bell badge. Same visibility re-check as the list.
+	//
+	// Corresponds with GET /me/inbox/count (the `GetMeInboxCount` operationId).
+	GetMeInboxCount(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostMeInboxReadWithBody Mark inbox items read
+	//
+	// Pass `ids`, or `all: true` for every unread item still visible to you.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /me/inbox/read (the `PostMeInboxRead` operationId).
+	PostMeInboxReadWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostMeInboxRead Mark inbox items read
+	//
+	// Pass `ids`, or `all: true` for every unread item still visible to you.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /me/inbox/read (the `PostMeInboxRead` operationId).
+	PostMeInboxRead(ctx context.Context, body PostMeInboxReadJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// Logout Sign out (and start SAML Single Logout)
 	//
@@ -20755,6 +20854,83 @@ func (c *Client) Mcp(ctx context.Context, body McpJSONRequestBody, reqEditors ..
 // Corresponds with GET /me (the `GetMe` operationId).
 func (c *Client) GetMe(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetMeRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetMeInbox Your in-app notification inbox
+//
+// Any signed-in person (not a service account). One row per event that reached
+// you: the assignee of a finding assigned to you, someone who @mentioned you in a
+// finding comment, an event on a project you watch, or (for events naming no
+// project) an instance admin. Visibility is re-checked on every call — an item
+// whose project you can no longer see is skipped, even though the row stays.
+// `?filter=unread|mentions|assigned` narrows the list; omitted returns everything.
+//
+// Corresponds with GET /me/inbox (the `GetMeInbox` operationId).
+func (c *Client) GetMeInbox(ctx context.Context, params *GetMeInboxParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetMeInboxRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetMeInboxCount Your unread inbox count
+//
+// Cheap — for a header bell badge. Same visibility re-check as the list.
+//
+// Corresponds with GET /me/inbox/count (the `GetMeInboxCount` operationId).
+func (c *Client) GetMeInboxCount(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetMeInboxCountRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PostMeInboxReadWithBody Mark inbox items read
+//
+// Pass `ids`, or `all: true` for every unread item still visible to you.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /me/inbox/read (the `PostMeInboxRead` operationId).
+func (c *Client) PostMeInboxReadWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostMeInboxReadRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PostMeInboxRead Mark inbox items read
+//
+// Pass `ids`, or `all: true` for every unread item still visible to you.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /me/inbox/read (the `PostMeInboxRead` operationId).
+func (c *Client) PostMeInboxRead(ctx context.Context, body PostMeInboxReadJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostMeInboxReadRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -35574,6 +35750,151 @@ func NewGetMeRequest(server string) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewGetMeInboxRequest constructs an http.Request for the GetMeInbox method
+func NewGetMeInboxRequest(server string, params *GetMeInboxParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/me/inbox")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Filter != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "filter", *params.Filter, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "offset", *params.Offset, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetMeInboxCountRequest constructs an http.Request for the GetMeInboxCount method
+func NewGetMeInboxCountRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/me/inbox/count")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPostMeInboxReadRequest calls the generic PostMeInboxRead builder with application/json body
+func NewPostMeInboxReadRequest(server string, body PostMeInboxReadJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostMeInboxReadRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPostMeInboxReadRequestWithBody constructs an http.Request for the PostMeInboxRead method, with any body, and a specified content type
+func NewPostMeInboxReadRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/me/inbox/read")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -51429,6 +51750,47 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /me (the `GetMe` operationId).
 	GetMeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMeResponse, error)
 
+	// GetMeInboxWithResponse Your in-app notification inbox
+	//
+	// Any signed-in person (not a service account). One row per event that reached
+	// you: the assignee of a finding assigned to you, someone who @mentioned you in a
+	// finding comment, an event on a project you watch, or (for events naming no
+	// project) an instance admin. Visibility is re-checked on every call — an item
+	// whose project you can no longer see is skipped, even though the row stays.
+	// `?filter=unread|mentions|assigned` narrows the list; omitted returns everything.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /me/inbox (the `GetMeInbox` operationId).
+	GetMeInboxWithResponse(ctx context.Context, params *GetMeInboxParams, reqEditors ...RequestEditorFn) (*GetMeInboxResponse, error)
+
+	// GetMeInboxCountWithResponse Your unread inbox count
+	//
+	// Cheap — for a header bell badge. Same visibility re-check as the list.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /me/inbox/count (the `GetMeInboxCount` operationId).
+	GetMeInboxCountWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMeInboxCountResponse, error)
+
+	// PostMeInboxReadWithBodyWithResponse Mark inbox items read
+	//
+	// Pass `ids`, or `all: true` for every unread item still visible to you.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /me/inbox/read (the `PostMeInboxRead` operationId).
+	PostMeInboxReadWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostMeInboxReadResponse, error)
+
+	// PostMeInboxReadWithResponse Mark inbox items read
+	//
+	// Pass `ids`, or `all: true` for every unread item still visible to you.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /me/inbox/read (the `PostMeInboxRead` operationId).
+	PostMeInboxReadWithResponse(ctx context.Context, body PostMeInboxReadJSONRequestBody, reqEditors ...RequestEditorFn) (*PostMeInboxReadResponse, error)
+
 	// LogoutWithResponse Sign out (and start SAML Single Logout)
 	//
 	// The "Sign out" button. Sign-out stays local — the browser drops its
@@ -63594,6 +63956,186 @@ func (r GetMeResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetMeResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetMeInboxResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Items *[]InboxItem `json:"items,omitempty"`
+
+		// Pagination `has_more` tells you whether another page exists, without a count query.
+		//
+		// Example: {"count":1,"has_more":true,"limit":1,"offset":0}
+		Pagination *Pagination `json:"pagination,omitempty"`
+	}
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetMeInboxResponse) GetJSON200() *struct {
+	Items *[]InboxItem `json:"items,omitempty"`
+
+	// Pagination `has_more` tells you whether another page exists, without a count query.
+	//
+	// Example: {"count":1,"has_more":true,"limit":1,"offset":0}
+	Pagination *Pagination `json:"pagination,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r GetMeInboxResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r GetMeInboxResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r GetMeInboxResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetMeInboxResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetMeInboxResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetMeInboxResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetMeInboxCountResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Unread *int `json:"unread,omitempty"`
+	}
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetMeInboxCountResponse) GetJSON200() *struct {
+	Unread *int `json:"unread,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r GetMeInboxCountResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r GetMeInboxCountResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetMeInboxCountResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetMeInboxCountResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetMeInboxCountResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PostMeInboxReadResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Marked *int `json:"marked,omitempty"`
+	}
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PostMeInboxReadResponse) GetJSON200() *struct {
+	Marked *int `json:"marked,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r PostMeInboxReadResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r PostMeInboxReadResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r PostMeInboxReadResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PostMeInboxReadResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostMeInboxReadResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostMeInboxReadResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -81387,6 +81929,71 @@ func (c *ClientWithResponses) GetMeWithResponse(ctx context.Context, reqEditors 
 	return ParseGetMeResponse(rsp)
 }
 
+// GetMeInboxWithResponse Your in-app notification inbox
+//
+// Any signed-in person (not a service account). One row per event that reached
+// you: the assignee of a finding assigned to you, someone who @mentioned you in a
+// finding comment, an event on a project you watch, or (for events naming no
+// project) an instance admin. Visibility is re-checked on every call — an item
+// whose project you can no longer see is skipped, even though the row stays.
+// `?filter=unread|mentions|assigned` narrows the list; omitted returns everything.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /me/inbox (the `GetMeInbox` operationId).
+func (c *ClientWithResponses) GetMeInboxWithResponse(ctx context.Context, params *GetMeInboxParams, reqEditors ...RequestEditorFn) (*GetMeInboxResponse, error) {
+	rsp, err := c.GetMeInbox(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetMeInboxResponse(rsp)
+}
+
+// GetMeInboxCountWithResponse Your unread inbox count
+//
+// Cheap — for a header bell badge. Same visibility re-check as the list.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /me/inbox/count (the `GetMeInboxCount` operationId).
+func (c *ClientWithResponses) GetMeInboxCountWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMeInboxCountResponse, error) {
+	rsp, err := c.GetMeInboxCount(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetMeInboxCountResponse(rsp)
+}
+
+// PostMeInboxReadWithBodyWithResponse Mark inbox items read
+//
+// Pass `ids`, or `all: true` for every unread item still visible to you.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /me/inbox/read (the `PostMeInboxRead` operationId).
+func (c *ClientWithResponses) PostMeInboxReadWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostMeInboxReadResponse, error) {
+	rsp, err := c.PostMeInboxReadWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostMeInboxReadResponse(rsp)
+}
+
+// PostMeInboxReadWithResponse Mark inbox items read
+//
+// Pass `ids`, or `all: true` for every unread item still visible to you.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /me/inbox/read (the `PostMeInboxRead` operationId).
+func (c *ClientWithResponses) PostMeInboxReadWithResponse(ctx context.Context, body PostMeInboxReadJSONRequestBody, reqEditors ...RequestEditorFn) (*PostMeInboxReadResponse, error) {
+	rsp, err := c.PostMeInboxRead(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostMeInboxReadResponse(rsp)
+}
+
 // LogoutWithResponse Sign out (and start SAML Single Logout)
 //
 // The "Sign out" button. Sign-out stays local — the browser drops its
@@ -93017,6 +93624,130 @@ func ParseGetMeResponse(rsp *http.Response) (*GetMeResponse, error) {
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetMeInboxResponse parses an HTTP response from a GetMeInboxWithResponse call
+func ParseGetMeInboxResponse(rsp *http.Response) (*GetMeInboxResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetMeInboxResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Items *[]InboxItem `json:"items,omitempty"`
+
+			// Pagination `has_more` tells you whether another page exists, without a count query.
+			//
+			// Example: {"count":1,"has_more":true,"limit":1,"offset":0}
+			Pagination *Pagination `json:"pagination,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetMeInboxCountResponse parses an HTTP response from a GetMeInboxCountWithResponse call
+func ParseGetMeInboxCountResponse(rsp *http.Response) (*GetMeInboxCountResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetMeInboxCountResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Unread *int `json:"unread,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostMeInboxReadResponse parses an HTTP response from a PostMeInboxReadWithResponse call
+func ParsePostMeInboxReadResponse(rsp *http.Response) (*PostMeInboxReadResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostMeInboxReadResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Marked *int `json:"marked,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	}
 

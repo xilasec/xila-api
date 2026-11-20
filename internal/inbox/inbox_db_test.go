@@ -29,7 +29,9 @@ func TestFillRecipients(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(pool)
 
-	user := func(email string) string { return q(t, pool, `INSERT INTO users (email, password_hash) VALUES ($1, 'x') RETURNING id`, email) }
+	user := func(email string) string {
+		return q(t, pool, `INSERT INTO users (email, password_hash) VALUES ($1, 'x') RETURNING id`, email)
+	}
 	admin := func(email string) string {
 		return q(t, pool, `INSERT INTO users (email, password_hash, is_admin) VALUES ($1, 'x', true) RETURNING id`, email)
 	}
@@ -131,7 +133,9 @@ func TestListCountMarkRead(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(pool)
 
-	user := func(email string) string { return q(t, pool, `INSERT INTO users (email, password_hash) VALUES ($1, 'x') RETURNING id`, email) }
+	user := func(email string) string {
+		return q(t, pool, `INSERT INTO users (email, password_hash) VALUES ($1, 'x') RETURNING id`, email)
+	}
 	project := q(t, pool, `WITH o AS (INSERT INTO organizations (slug, name) VALUES ('o', 'o') RETURNING id),
 		tm AS (INSERT INTO teams (org_id, slug, name) SELECT id, 't', 't' FROM o RETURNING id)
 		INSERT INTO projects (team_id, slug, name) SELECT id, 'web', 'Web' FROM tm RETURNING id`)

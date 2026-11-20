@@ -6456,6 +6456,71 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/inbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your in-app notification inbox
+         * @description Any signed-in person (not a service account). One row per event that reached
+         *     you: the assignee of a finding assigned to you, someone who @mentioned you in a
+         *     finding comment, an event on a project you watch, or (for events naming no
+         *     project) an instance admin. Visibility is re-checked on every call — an item
+         *     whose project you can no longer see is skipped, even though the row stays.
+         *     `?filter=unread|mentions|assigned` narrows the list; omitted returns everything.
+         */
+        get: operations["getMeInbox"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/inbox/count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your unread inbox count
+         * @description Cheap — for a header bell badge. Same visibility re-check as the list.
+         */
+        get: operations["getMeInboxCount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/inbox/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark inbox items read
+         * @description Pass `ids`, or `all: true` for every unread item still visible to you.
+         */
+        post: operations["postMeInboxRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/psirt/advisories": {
         parameters: {
             query?: never;
@@ -7076,6 +7141,29 @@ export interface components {
                 project_id?: string;
                 project_name?: string;
             }[];
+        };
+        /** @description One row in the in-app notification inbox (GET /me/inbox). */
+        InboxItem: {
+            /** Format: uuid */
+            id?: string;
+            /**
+             * @example mention
+             * @example finding.assigned
+             * @example finding.critical
+             */
+            event_type?: string;
+            title?: string;
+            body?: string;
+            /** @description The finding or project this item is about, e.g. /findings/{id}. */
+            link?: string;
+            /** Format: uuid */
+            project_id?: string | null;
+            /** Format: uuid */
+            finding_id?: string | null;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            read_at?: string | null;
         };
         PSIRTAdvisory: {
             /** Format: uuid */
@@ -21920,6 +22008,90 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: components["responses"]["Watching"];
+        };
+    };
+    getMeInbox: {
+        parameters: {
+            query?: {
+                filter?: "" | "unread" | "mentions" | "assigned";
+                /** @description Page size (max 200). */
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items?: components["schemas"]["InboxItem"][];
+                        pagination?: components["schemas"]["Pagination"];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    getMeInboxCount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        unread?: number;
+                    };
+                };
+            };
+            403: components["responses"]["Error"];
+        };
+    };
+    postMeInboxRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    ids?: string[];
+                    all?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        marked?: number;
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
         };
     };
     listPsirtAdvisories: {
