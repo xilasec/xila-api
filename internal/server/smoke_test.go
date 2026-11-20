@@ -64,6 +64,7 @@ import (
 	"github.com/xilasec/xila-api/internal/ratelimit"
 	"github.com/xilasec/xila-api/internal/remediation"
 	"github.com/xilasec/xila-api/internal/report"
+	"github.com/xilasec/xila-api/internal/reportschedule"
 	"github.com/xilasec/xila-api/internal/retention"
 	"github.com/xilasec/xila-api/internal/rootcause"
 	"github.com/xilasec/xila-api/internal/saml"
@@ -275,6 +276,11 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 	engagementRepo := engagement.NewRepository(pool)
 	findingTemplates := findingtemplate.NewRepository(pool)
 	reportTemplates := report.NewTemplateRepository(pool)
+	reportSvc := report.NewService(portfolio.NewRepository(pool), findingRepo, complianceRepo,
+		projectRepo, report.NewRepository(pool)).WithEngagements(engagementRepo)
+	evidenceHandler := evidence.NewHandler(evidence.NewRepository(pool), projectRepo, complianceRepo, portfolio.NewRepository(pool), craRepo)
+	reportScheduleSvc := reportschedule.NewService(reportschedule.NewRepository(pool), reportSvc, evidenceHandler,
+		reportTemplates, membershipRepo, userRepo, notifyRepo, notifySvc, cfg.PublicURL)
 	// AI triage as main wires it; tests point AI_BASE_URL at a fake model server.
 	var aiProvider aitriage.Provider
 	if cfg.AI.Enabled {
@@ -304,22 +310,22 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 			aitriage.Options{RequireApproval: cfg.AssessmentRequiresApproval, RateLimit: cfg.AI.RateLimit})),
 		Sbom: sbom.NewHandler(sbomRepo, sbom.NewService(sbomRepo, projectRepo, policySvc,
 			correlation.NewReacher(findingRepo, findingRepo)).WithLicenses(license.Resolve).WithStrictValidation(cfg.SBOMStrictValidation)),
-		Asset:      asset.NewHandler(assetRepo, assetSvc, membershipRepo),
-		Compliance: compliance.NewHandler(complianceRepo),
-		Portfolio:  portfolio.NewHandler(portfolio.NewRepository(pool)),
-		Metrics:    metrics.NewHandler(metrics.NewRepository(pool)).WithSnapshotter(metrics.NewRepository(pool), portfolio.NewRepository(pool).SnapshotParts),
-		Report: report.NewHandler(report.NewService(portfolio.NewRepository(pool), findingRepo, complianceRepo,
-			projectRepo, report.NewRepository(pool)).WithEngagements(engagementRepo), reportTemplates),
-		Engagement:  engagement.NewHandler(engagementRepo, ingestSvc, findingRepo, findingTemplates),
-		Badge:       badge.NewHandler(badge.NewRepository(pool), portfolio.NewRepository(pool), gateRepo, findingRepo),
-		FixPlan:     fixplan.NewHandler(findingRepo),
-		Remediation: remediation.NewHandler(remediationRepo, remediationSvc, membershipRepo),
-		RootCauses:  rootcause.NewHandler(rootcause.NewService(findingRepo, remediationRepo, remediationSvc, membershipRepo)),
-		Exploits:    exploitintel.NewHandler(exploitRepo, exploitSvc, findingRepo),
-		Evidence:    evidence.NewHandler(evidence.NewRepository(pool), projectRepo, complianceRepo, portfolio.NewRepository(pool), craRepo),
-		CRACases:    cra.NewCaseHandler(craSvc),
-		FindingTmpl: findingtemplate.NewHandler(findingTemplates),
-		ReportTmpl:  report.NewTemplateHandler(reportTemplates),
+		Asset:          asset.NewHandler(assetRepo, assetSvc, membershipRepo),
+		Compliance:     compliance.NewHandler(complianceRepo),
+		Portfolio:      portfolio.NewHandler(portfolio.NewRepository(pool)),
+		Metrics:        metrics.NewHandler(metrics.NewRepository(pool)).WithSnapshotter(metrics.NewRepository(pool), portfolio.NewRepository(pool).SnapshotParts),
+		Report:         report.NewHandler(reportSvc, reportTemplates),
+		Engagement:     engagement.NewHandler(engagementRepo, ingestSvc, findingRepo, findingTemplates),
+		Badge:          badge.NewHandler(badge.NewRepository(pool), portfolio.NewRepository(pool), gateRepo, findingRepo),
+		FixPlan:        fixplan.NewHandler(findingRepo),
+		Remediation:    remediation.NewHandler(remediationRepo, remediationSvc, membershipRepo),
+		RootCauses:     rootcause.NewHandler(rootcause.NewService(findingRepo, remediationRepo, remediationSvc, membershipRepo)),
+		Exploits:       exploitintel.NewHandler(exploitRepo, exploitSvc, findingRepo),
+		Evidence:       evidenceHandler,
+		CRACases:       cra.NewCaseHandler(craSvc),
+		FindingTmpl:    findingtemplate.NewHandler(findingTemplates),
+		ReportTmpl:     report.NewTemplateHandler(reportTemplates),
+		ReportSchedule: reportschedule.NewHandler(reportScheduleSvc, membershipRepo),
 		CustomFields: customfield.NewHandler(customFieldRepo, customFieldSvc).
 			WithComputedValidator(computedSvc).WithComputedChanged(computedSvc.OnDefinitionChanged),
 		CustomParser: customparser.NewHandler(customParserSvc),
