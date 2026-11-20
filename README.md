@@ -2786,6 +2786,7 @@ a warning, and the running keys stay.
 | `PSIRT_ADVISORY_PREFIX`       | `XILA-SA`            | tracking-ID prefix of your published advisories |
 | `PSIRT_PUBLISHER_NAME` / `_NAMESPACE` / `_CONTACT` | - | CSAF publisher (name, its URL, contact); required to publish |
 | `PSIRT_PUBLIC`                | `false`              | serve published advisories as a CSAF provider (`/.well-known/csaf/…`, `/csaf/advisories/…`), unauthenticated |
+| `VEX_DOCUMENT_PREFIX`         | `XILA`               | tracking-ID prefix of stored VEX documents (`/vex-documents`) |
 | `VULNMATCH_OSV_URL`           | `https://api.osv.dev` | OSV API base for the `osv` source |
 | `VULNMATCH_GITHUB_URL`        | `https://api.github.com` | GitHub REST base for the `github` source (GHES: `https://host/api/v3`) |
 | `VULNMATCH_GITHUB_TOKEN`      | -                    | GitHub token (no scopes needed); lifts the anonymous limit of 60 requests/hour |

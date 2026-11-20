@@ -191,6 +191,8 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 	computedSvc := computed.NewService(customFieldRepo, findingRepo, triageRepo, projectRepo, assetRepo)
 	vexRepo := vex.NewRepository(pool)
 	vexSvc := vex.NewService(vexRepo, findingRepo, projectRepo)
+	vexDocsRepo := vex.NewDocumentRepository(pool, vexRepo)
+	vexDocsSvc := vex.NewDocumentService(vexDocsRepo, membershipRepo, "")
 	vulnPolicyRepo := vulnpolicy.NewRepository(pool)
 	vulnPolicySvc := vulnpolicy.NewService(vulnPolicyRepo, findingRepo, findingRepo)
 	orgRepo := org.NewRepository(pool)
@@ -333,6 +335,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		Gate:         gate.NewHandler(gateRepo, findingRepo, projectRepo),
 		SLA:          sla.NewHandler(slaRepo, sla.NewService(slaRepo, notifySvc)),
 		Vex:          vex.NewHandler(vexRepo, vexSvc),
+		VexDocuments: vex.NewDocumentHandler(vexDocsSvc),
 		IssueTracker: issuetracker.NewHandler(issueSvc),
 		Connector:    connector.NewHandler(connector.NewService(connectorRepo, ingestSvc, trackerCipher)),
 		Correlation:  correlation.NewHandler(correlation.NewService(findingRepo, sbomRepo)),
