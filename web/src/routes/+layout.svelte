@@ -87,6 +87,7 @@
 	const baseNav = [
 		{ href: '/', key: 'nav.projects' },
 		{ href: '/my-work', key: 'nav.myWork' },
+		{ href: '/inbox', key: 'nav.inbox' },
 		{ href: '/findings', key: 'nav.findings' },
 		{ href: '/fix-plan', key: 'nav.fixPlan' },
 		{ href: '/remediation', key: 'nav.remediation' },

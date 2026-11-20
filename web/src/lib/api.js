@@ -480,6 +480,14 @@ export const api = {
 	/** @param {string} projectId @param {boolean} on */
 	watchProject: (projectId, on) =>
 		request(on ? 'PUT' : 'DELETE', `/projects/${projectId}/watch`).then((d) => !!d.watching),
+	// In-app notification inbox (13.8): assignments, @mentions, watched-project
+	// events, and (project-less) admin events, re-checked for visibility on
+	// every call. filters: unread / mentions / assigned, limit, offset.
+	/** @param {Query} [filters] */
+	listInbox: (filters) => request('GET', '/me/inbox', { query: filters }),
+	inboxCount: () => request('GET', '/me/inbox/count').then((d) => d.unread ?? 0),
+	/** @param {{ ids?: string[], all?: boolean }} body */
+	markInboxRead: (body) => request('POST', '/me/inbox/read', { body }),
 	// Permission audit (admin). filters: user, user_id, project_id, team_id,
 	// org_id, role, source, principal_kind, limit, offset.
 	/** @param {Query} [filters] */
