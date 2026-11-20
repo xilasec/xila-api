@@ -322,7 +322,7 @@ roles, and password login can optionally be turned off. See [Single sign-on](#si
 | GET    | `/api/v1/ai-proposals`              | Open AI proposals across visible projects (`?mine=true` = asked by you or on findings assigned to you) |
 | POST   | `/api/v1/assessments/{id}/approve`  | Approve + apply a pending assessment (`{note}`; project owner or admin, not the requester) |
 | POST   | `/api/v1/assessments/{id}/reject`   | Reject a pending assessment (`{note}`; same authorization) |
-| GET/POST | `/api/v1/findings/{id}/comments`  | The finding's discussion / add a comment (editor) |
+| GET/POST | `/api/v1/findings/{id}/comments`  | The finding's discussion / add a comment (editor); `@email` or `@name` mentions a project member, who gets an inbox item |
 | DELETE | `/api/v1/findings/{id}/comments/{commentID}` | Delete a comment (its author or a project owner) |
 | GET/POST | `/api/v1/findings/{id}/attachments` | Evidence files / upload one (multipart `file`, ≤10 MiB, editor) |
 | GET/DELETE | `/api/v1/findings/{id}/attachments/{attachmentID}` | Download (always as a file) / delete (uploader or project owner) |
@@ -386,6 +386,7 @@ roles, and password login can optionally be turned off. See [Single sign-on](#si
 | POST   | `/api/v1/projects/{id}/connectors/{connectorID}/pull` | Pull now and report imported / new / closed counts (editor; also runs on `CONNECTOR_PULL_INTERVAL`) |
 | GET/PUT | `/api/v1/me/notifications`        | Your own subscriptions: assigned-to-me / watched projects, by email or a personal Slack/Teams webhook (any signed-in person; `…/deliveries` = your delivery log) |
 | GET/PUT/DELETE | `/api/v1/projects/{id}/watch` | Watch a project you can see (its events reach your subscriptions) |
+| GET/POST | `/api/v1/me/inbox`             | Your in-app notification inbox: assignments, @mentions, watched-project events, admin events for project-less ones (`?filter=unread\|mentions\|assigned`); `…/count` = cheap unread count; `POST …/read` with `{ids}` or `{all:true}` |
 | GET/POST/DELETE | `/api/v1/notifications/channels` | Manage notification channels (webhook/Slack/Teams/Mattermost/email) |
 | POST   | `/api/v1/notifications/channels/{id}/test` | Send a test notification |
 | GET    | `/api/v1/notifications/deliveries`  | Recent delivery outcomes (one per queued event × channel, plus Test sends) |
@@ -665,6 +666,21 @@ outbox and retries as every channel and are listed in their own log. **Access is
 checked twice, when the event is routed and again when it is sent: someone who
 lost access to the project, or was deactivated, receives nothing.** Service accounts
 can't subscribe.
+
+In-app inbox and @mentions (13.8). Every event that reaches a channel also
+gets a row in the recipient's in-app inbox (`inbox_items`), filled in the same
+place `notify.Service.Notify` routes to every channel. Recipients: the
+assignee for `finding.assigned`, the people @mentioned in a finding comment
+(`@email` or `@name` against the project's members; unknown or ambiguous
+handles are ignored, no user enumeration), a project's watchers for its other
+events, and instance admins for events naming no project. A person can mute
+individual event types (`user_notification_prefs.muted_events`). `GET
+/me/inbox` (`?filter=unread|mentions|assigned`), `GET /me/inbox/count` (cheap,
+for a header badge) and `POST /me/inbox/read` (`{ids}` or `{all:true}`)
+re-check project visibility on every call, so losing access hides an item
+without deleting it. Read items are purged after `INBOX_RETENTION` by the
+retention job. A bell in the header (unread count) and an Inbox page list,
+open and mark items read.
 
 Channel filters (CEL). A channel can also carry a `filter`, a
 [CEL](https://cel.dev) expression over the event. The channel then gets an event
@@ -2808,6 +2824,7 @@ a warning, and the running keys stay.
 | `AUDIT_RETENTION`             | `365d` (`8760h`)     | audit log entries older than this are purged (`0` = keep forever); the purge itself is logged |
 | `ARCHIVE_RETENTION`           | `30d` (`720h`)       | archived projects, engagements, scans, and findings stay restorable for this long, then the retention job deletes them (`0` = keep forever) |
 | `FINDING_ARCHIVE_AFTER`       | `0` (off)            | archive findings fixed longer ago than this (e.g. `4320h`), in batches; `ARCHIVE_RETENTION` then purges them, and one reported again comes back open |
+| `INBOX_RETENTION`             | `90d` (`2160h`)      | delete read in-app inbox items older than this (`0` = keep forever); unread items are never purged |
 | `ASSESSMENT_REQUIRES_APPROVAL` | `false`             | four-eyes for manual status and severity changes: they become pending assessments until a different project owner (or instance admin) approves them |
 | `RISK_ACCEPTANCE_REQUIRES_APPROVAL` | `true` in production, else `false` | four-eyes for risk acceptances: the requester cannot approve or reject their own; imported acceptances wait as requests |
 | `RISK_ACCEPTANCE_EXPIRY_WARNING` | `168h` | announce approved risk acceptances this long before they expire (`0` = never) |

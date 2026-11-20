@@ -922,7 +922,14 @@ Tier 1:
 
 Tier 2:
 
-- ⬜ 13.8 In-app notification inbox and @mentions (DefectDojo Pro, SecObserve).
+- ✅ 13.8 In-app notification inbox and @mentions (DefectDojo Pro, SecObserve).
+  `inbox_items` is filled in the one place every channel is routed
+  (notify.Service.Notify): the assignee for finding.assigned, @mentions
+  resolved against the finding's project members, a project's watchers for
+  its other events, and instance admins for project-less events, each opted
+  in (user_notification_prefs.muted_events) and re-checked for visibility on
+  every read. GET/POST /me/inbox(/count,/read); a header bell component and
+  an /inbox page (nav entry); retention via INBOX_RETENTION.
 - ⬜ 13.9 Assessment approval per project with designated approvers, and bulk
   approval (SecObserve).
 - ⬜ 13.10 Project owners manage their own triage rules and vulnerability

@@ -476,6 +476,14 @@ Add a notification event: add a constant in `internal/notify/notify.go`
 spot via `go notifier.Notify(context.Background(), …)`, and add it to the UI
 event dropdowns (`web/src/routes/notifications/+page.svelte` and the project
 Alerts tab). Events with a `ProjectID` route to global and that project's channels.
+It also, automatically, reaches the in-app inbox (13.8, `internal/inbox`):
+`notify.Service.Notify` fills it in the same call, so a new event needs no
+extra wiring there. Recipients follow the event shape: a project's watchers by
+default, the finding's assignee for `EventFindingAssigned`, instance admins for
+an event with no `ProjectID`, or (set `Event.UserIDs`) exactly those people —
+`EventMention` (comment @mentions, resolved in `finding.Handler.notifyMentions`
+against `membership.UsersWithProjectAccess`) is the worked example of that last
+kind. A person can mute an event type per `user_notification_prefs.muted_events`.
 
 SLA: `internal/sla` owns policies (`sla_policies`: global / org / project;
 the most specific wins as a whole; the built-in 7/30/90/120 lives in the SQL function
