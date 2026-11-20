@@ -20,6 +20,13 @@ CREATE TABLE component_patterns (
 ALTER TABLE sbom_components ADD COLUMN IF NOT EXISTS internal BOOLEAN NOT NULL DEFAULT false;
 CREATE INDEX IF NOT EXISTS idx_sbom_components_internal ON sbom_components (project_id) WHERE internal;
 
+-- purl_ecosystem extracts a purl's type ("npm", "pypi", …), lower-cased; ''
+-- when purl isn't one. Used to recompute sbom_components.internal by
+-- (ecosystem, group, name) without reparsing every row's full purl in Go.
+CREATE OR REPLACE FUNCTION purl_ecosystem(purl TEXT) RETURNS TEXT AS $$
+    SELECT CASE WHEN purl LIKE 'pkg:%' THEN lower(split_part(substring(purl FROM 5), '/', 1)) ELSE '' END;
+$$ LANGUAGE sql IMMUTABLE;
+
 -- Private, authenticated package registries (Dependency-Track parity): an
 -- admin-managed, ordered list per ecosystem, tried before the env/default
 -- public registry. internal marks a registry allowed to see internal
