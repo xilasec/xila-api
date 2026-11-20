@@ -35,6 +35,9 @@ type Client interface {
 	Close(ctx context.Context, externalID string) error
 	// Reopen reopens a closed issue.
 	Reopen(ctx context.Context, externalID string) error
+	// AddComment posts a comment to the issue (SLA breach/due soon, a risk
+	// acceptance change, a status change in Xila, or, opt-in, a Xila comment).
+	AddComment(ctx context.Context, externalID, body string) error
 	// Check verifies the credentials and target with a cheap read.
 	Check(ctx context.Context) error
 }

@@ -104,6 +104,13 @@ func (c *jiraClient) transition(ctx context.Context, key, name string) error {
 	return fmt.Errorf("jira: issue %s has no transition named %q", key, name)
 }
 
+// AddComment adds a comment to the issue:
+// https://developer.atlassian.com/cloud/jira/platform/rest/v2/api-group-issue-comments/#api-rest-api-2-issue-issueidorkey-comment-post
+func (c *jiraClient) AddComment(ctx context.Context, key, body string) error {
+	return c.do(ctx, http.MethodPost, "/rest/api/2/issue/"+url.PathEscape(key)+"/comment",
+		map[string]string{"body": body}, nil)
+}
+
 func (c *jiraClient) Check(ctx context.Context) error {
 	return c.do(ctx, http.MethodGet, "/rest/api/2/project/"+url.PathEscape(c.project), nil, nil)
 }

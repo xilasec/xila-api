@@ -68,6 +68,12 @@ func (c *gitlabClient) Reopen(ctx context.Context, iid string) error {
 	return c.do(ctx, http.MethodPut, c.issuePath(iid), map[string]string{"state_event": "reopen"}, nil)
 }
 
+// AddComment creates a note on the issue:
+// https://docs.gitlab.com/ee/api/notes.html#create-new-issue-note
+func (c *gitlabClient) AddComment(ctx context.Context, iid, body string) error {
+	return c.do(ctx, http.MethodPost, c.issuePath(iid)+"/notes", map[string]string{"body": body}, nil)
+}
+
 func (c *gitlabClient) Check(ctx context.Context) error {
 	return c.do(ctx, http.MethodGet, c.projectPath(), nil, nil)
 }

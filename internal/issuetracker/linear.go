@@ -172,6 +172,28 @@ func (c *linearClient) Reopen(ctx context.Context, identifier string) error {
 	return c.setState(ctx, identifier, c.reopen)
 }
 
+// linearCommentMutation follows the official commentCreate example:
+// https://linear.app/developers/graphql#creating--editing-issues
+const linearCommentMutation = `mutation($input: CommentCreateInput!) {
+  commentCreate(input: $input) { success }
+}`
+
+func (c *linearClient) AddComment(ctx context.Context, identifier, body string) error {
+	var out struct {
+		CommentCreate struct {
+			Success bool `json:"success"`
+		} `json:"commentCreate"`
+	}
+	if err := c.graphQL(ctx, linearCommentMutation,
+		map[string]any{"input": map[string]any{"issueId": identifier, "body": body}}, &out); err != nil {
+		return err
+	}
+	if !out.CommentCreate.Success {
+		return fmt.Errorf("linear: comment not created")
+	}
+	return nil
+}
+
 // Check reads the team itself, the cheapest call that proves both the team
 // id and the API key are good: https://linear.app/developers/graphql#getting-started
 const linearCheckQuery = `query($teamId: String!) { team(id: $teamId) { id } }`

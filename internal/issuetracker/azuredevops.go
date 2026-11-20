@@ -102,6 +102,14 @@ func (c *azureClient) Reopen(ctx context.Context, id string) error {
 	return c.setState(ctx, id, c.reopen)
 }
 
+// AddComment adds a work item comment (the newer Comments API, distinct
+// from the fields endpoint above):
+// https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/comments/add?view=azure-devops-rest-7.1
+func (c *azureClient) AddComment(ctx context.Context, id, body string) error {
+	path := "/" + url.PathEscape(c.project) + "/_apis/wit/workItems/" + url.PathEscape(id) + "/comments?api-version=7.1-preview.3"
+	return c.do(ctx, http.MethodPost, path, map[string]string{"text": body}, nil)
+}
+
 // Check reads the project itself (Core API), cheaper than listing work items
 // and still proves both the organization URL and the PAT are good:
 // https://learn.microsoft.com/en-us/rest/api/azure/devops/core/projects/get?view=azure-devops-rest-7.1

@@ -96,6 +96,14 @@ func (c *serviceNowClient) Reopen(ctx context.Context, sysID string) error {
 	return c.setState(ctx, sysID, c.reopen)
 }
 
+// AddComment appends to the record's work_notes journal field (the Table
+// API has no separate comment endpoint; a PATCH to a journal field appends
+// rather than overwriting):
+// https://developer.servicenow.com/dev.do#!/reference/api/latest/rest/c_TableAPI
+func (c *serviceNowClient) AddComment(ctx context.Context, sysID, body string) error {
+	return c.do(ctx, http.MethodPatch, c.tablePath("/"+url.PathEscape(sysID)), map[string]string{"work_notes": body}, nil)
+}
+
 // Check lists one record from the table — the cheapest call that proves the
 // table exists and the credentials can read it.
 func (c *serviceNowClient) Check(ctx context.Context) error {

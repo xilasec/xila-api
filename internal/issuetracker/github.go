@@ -74,6 +74,12 @@ func (c *githubClient) Reopen(ctx context.Context, number string) error {
 	return c.do(ctx, http.MethodPatch, c.issuePath(number), map[string]string{"state": "open"}, nil)
 }
 
+// AddComment posts an issue comment:
+// https://docs.github.com/en/rest/issues/comments#create-an-issue-comment
+func (c *githubClient) AddComment(ctx context.Context, number, body string) error {
+	return c.do(ctx, http.MethodPost, c.issuePath(number)+"/comments", map[string]string{"body": body}, nil)
+}
+
 func (c *githubClient) Check(ctx context.Context) error {
 	return c.do(ctx, http.MethodGet, c.repoPath(), nil, nil)
 }
