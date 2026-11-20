@@ -39,6 +39,10 @@ const (
 type Schema struct {
 	Vars   []string
 	Sample map[string]any
+	// Extra adds CEL functions beyond Vars/Sample (see GraphFuncs): declared
+	// once per compiled Program, with state a caller updates between
+	// evaluations (GraphFrame.Set) rather than state baked into the document.
+	Extra []cel.EnvOption
 }
 
 // Program is a compiled, validated expression.
@@ -59,6 +63,7 @@ func env(s Schema) (*cel.Env, error) {
 	for _, v := range s.Vars {
 		opts = append(opts, cel.Variable(v, cel.DynType))
 	}
+	opts = append(opts, s.Extra...)
 	return cel.NewEnv(opts...)
 }
 
