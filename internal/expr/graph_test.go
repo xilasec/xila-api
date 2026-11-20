@@ -3,7 +3,8 @@ package expr
 import "testing"
 
 // chain: root -> a -> b -> c
-//              -> d -> c   (c has two parents: b and d)
+//
+//	-> d -> c   (c has two parents: b and d)
 func testGraph() *Graph {
 	g := NewGraph("root")
 	g.AddNode(GraphNode{ID: "root", Base: "pkg:npm/app", Purl: "pkg:npm/app@1.0.0"})
