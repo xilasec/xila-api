@@ -4527,6 +4527,118 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/vex-documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stored, versioned VEX documents
+         * @description A document has a format (OpenVEX, CSAF, CycloneDX), a scope (one project
+         *     version, several versions/branches of one project, or one vulnerability
+         *     across every project), publisher metadata, and a revision history. Lists
+         *     every document on the caller's visible projects; an instance admin also
+         *     sees vulnerability-scope documents (cross-project, admin-only to create).
+         */
+        get: operations["listVexDocuments"];
+        put?: never;
+        /**
+         * Create a VEX document
+         * @description Stores an unpublished document; `POST .../publish` renders and freezes its
+         *     first revision. `scope_kind: vulnerability` (`vuln_id` required) spans
+         *     every project and is instance-admin only. CycloneDX only supports
+         *     `scope_kind: project` with exactly one target (its single-BOM-subject
+         *     model doesn't generalize to several versions or projects).
+         */
+        post: operations["createVexDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vex-documents/{documentID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One VEX document */
+        get: operations["getVexDocument"];
+        /**
+         * Edit a document's scope, format or publisher metadata
+         * @description Its version, content hash and revision history are untouched; a scope or
+         *     metadata change takes effect on the next publish.
+         */
+        put: operations["updateVexDocument"];
+        post?: never;
+        /** Delete a document (and its revisions) */
+        delete: operations["deleteVexDocument"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vex-documents/{documentID}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish (re-render from current data)
+         * @description Re-renders the document from the project's current findings and stored VEX
+         *     statements (the same mapping `GET /projects/{id}/vex/export` uses). A new
+         *     revision and tracking version are appended only when the rendered content
+         *     actually changed since the last publish (`changed: false` otherwise).
+         */
+        post: operations["publishVexDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vex-documents/{documentID}/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A document's revision history */
+        get: operations["listVexDocumentRevisions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vex-documents/{documentID}/revisions/{number}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download one revision's frozen, rendered document */
+        get: operations["downloadVexDocumentRevision"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{projectID}/assets": {
         parameters: {
             query?: never;
@@ -9666,6 +9778,62 @@ export interface components {
             /** Format: date-time */
             created_at?: string;
         };
+        /** @description One project version a project/versions-scope document names. Neither field = the default version. */
+        VexDocumentTarget: {
+            /** Format: uuid */
+            version_id?: string;
+            /** @description Resolved to a version by name on every publish. */
+            branch?: string;
+        };
+        VexDocument: {
+            /** Format: uuid */
+            readonly id?: string;
+            /** @description `<VEX_DOCUMENT_PREFIX>-<year>-<NNNN>`, e.g. `XILA-2026-0001`. */
+            readonly document_id?: string;
+            /** @enum {string} */
+            format: "openvex" | "csaf" | "cyclonedx";
+            /** @description Only for `cyclonedx`: `1.6` (default) or `1.7`. */
+            spec_version?: string;
+            /**
+             * @description `project`: one version of `project_id` (`targets` has exactly one entry).
+             *     `versions`: several versions/branches of `project_id` (`targets` has 1+).
+             *     `vulnerability`: one `vuln_id` across every project (`project_id`/`targets`
+             *     empty; instance-admin only to create, edit, delete or publish).
+             *     `cyclonedx` only supports `project` with a single target.
+             * @enum {string}
+             */
+            scope_kind: "project" | "versions" | "vulnerability";
+            /** Format: uuid */
+            project_id?: string | null;
+            readonly project_slug?: string;
+            readonly project_name?: string;
+            targets?: components["schemas"]["VexDocumentTarget"][];
+            /** @description CVE/GHSA; only for `scope_kind: vulnerability`. */
+            vuln_id?: string;
+            /** @description Document author (OpenVEX `author` */
+            author?: string;
+            /** @description Empty = "Xila". */
+            publisher_name?: string;
+            /** @description Publisher's URL. Empty = `PUBLIC_URL` */
+            publisher_namespace?: string;
+            publisher_contact?: string;
+            /** @description Tracking version; 0 = never published. */
+            readonly version?: number;
+            /** Format: date-time */
+            readonly published_at?: string | null;
+            readonly revisions?: components["schemas"]["VexDocumentRevision"][];
+            /** Format: uuid */
+            readonly created_by?: string | null;
+            /** Format: date-time */
+            readonly created_at?: string;
+            /** Format: date-time */
+            readonly updated_at?: string;
+        };
+        VexDocumentRevision: {
+            number?: number;
+            /** Format: date-time */
+            published_at?: string;
+        };
         /** @enum {string} */
         AssetType: "repository" | "container_image" | "cloud_resource" | "host" | "kubernetes" | "serverless";
         Asset: {
@@ -10823,6 +10991,7 @@ export interface components {
         PolicyID: string;
         ChannelID: string;
         VexID: string;
+        DocumentID: string;
         ConnectorID: string;
         /** @description The provider's slug (`/sso/providers`). */
         SSOSlug: string;
@@ -18804,6 +18973,214 @@ export interface operations {
                 };
                 content?: never;
             };
+            404: components["responses"]["Error"];
+        };
+    };
+    listVexDocuments: {
+        parameters: {
+            query?: {
+                /** @description Page size (max 200). */
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        documents?: components["schemas"]["VexDocument"][];
+                        pagination?: components["schemas"]["Pagination"];
+                    };
+                };
+            };
+        };
+    };
+    createVexDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VexDocument"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VexDocument"];
+                };
+            };
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    getVexDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentID: components["parameters"]["DocumentID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VexDocument"];
+                };
+            };
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    updateVexDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentID: components["parameters"]["DocumentID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VexDocument"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VexDocument"];
+                };
+            };
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    deleteVexDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentID: components["parameters"]["DocumentID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    publishVexDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentID: components["parameters"]["DocumentID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        document?: components["schemas"]["VexDocument"];
+                        /** @description Whether a new revision was appended. */
+                        changed?: boolean;
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    listVexDocumentRevisions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentID: components["parameters"]["DocumentID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        revisions?: components["schemas"]["VexDocumentRevision"][];
+                    };
+                };
+            };
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    downloadVexDocumentRevision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentID: components["parameters"]["DocumentID"];
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The frozen document, as an attachment. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            403: components["responses"]["Error"];
             404: components["responses"]["Error"];
         };
     };

@@ -135,8 +135,8 @@ func (d *Document) Validate() error {
 			t := &d.Targets[i]
 			t.VersionID = strings.TrimSpace(t.VersionID)
 			t.Branch = strings.TrimSpace(t.Branch)
-			if (t.VersionID == "") == (t.Branch == "") {
-				return errors.New("each target names exactly one of version_id or branch")
+			if t.VersionID != "" && t.Branch != "" {
+				return errors.New("each target names at most one of version_id or branch (neither = the default version)")
 			}
 		}
 	}
@@ -162,7 +162,7 @@ func NewDocumentRepository(db *pgxpool.Pool, vex *Repository) *DocumentRepositor
 	return &DocumentRepository{db: db, vex: vex}
 }
 
-const documentColumns = `d.id, d.document_id, d.format, d.spec_version, d.scope_kind, d.project_id,
+const documentColumns = `d.id, d.document_id, d.format, d.spec_version, d.scope_kind, COALESCE(d.project_id::text, ''),
 	COALESCE(p.slug, ''), COALESCE(p.name, ''), d.targets, COALESCE(d.vuln_id, ''),
 	d.author, d.publisher_name, d.publisher_namespace, d.publisher_contact, d.serial,
 	d.content_hash, d.version, d.published_at, d.created_by, d.created_at, d.updated_at`
@@ -595,7 +595,10 @@ func (r *DocumentRepository) Publish(ctx context.Context, id string) (Document, 
 		return d, false, nil // no underlying change since the last publish
 	}
 
-	now := time.Now().UTC()
+	// Second-precision, like psirt's release: Postgres timestamptz is
+	// microsecond, but a result returned from this call (not re-read from the
+	// database) must still compare equal to a Get() right after.
+	now := time.Now().UTC().Truncate(time.Microsecond)
 	d.Version++
 	d.PublishedAt = &now
 	d.Revisions = append(d.Revisions, DocRevisionMeta{Number: d.Version, PublishedAt: now})
