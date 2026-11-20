@@ -379,8 +379,8 @@ type ComponentFilter struct {
 	// Internal keeps components by internal/component patterns' computed flag
 	// (nil = both).
 	Internal *bool
-	Limit     int
-	Offset    int
+	Limit    int
+	Offset   int
 }
 
 // SnapshotComponent is one purl-bearing package of one snapshot — the unit the
