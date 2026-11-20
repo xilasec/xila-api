@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -49,6 +50,9 @@ func (r *Repository) ApplyProposed(ctx context.Context, id string, p Proposed, a
 		if _, err := setStatusTx(ctx, tx, id, Triage{Status: *p.Status, Reason: p.Note, Actor: actor}); err != nil {
 			return Finding{}, err
 		}
+		if err := stampStatusDecided(ctx, tx, id, time.Now()); err != nil {
+			return Finding{}, err
+		}
 	}
 	if p.Severity != nil {
 		if err := applyChange(ctx, tx, []string{id}, Change{Severity: p.Severity}, actor); err != nil {
@@ -82,5 +86,14 @@ func (r *Repository) ApplyProposed(ctx context.Context, id string, p Proposed, a
 			return Finding{}, err
 		}
 	}
-	return r.Get(ctx, id)
+	f, err := r.Get(ctx, id)
+	if err != nil {
+		return Finding{}, err
+	}
+	if p.Status != nil && r.carrier != nil {
+		if err := r.carrier.Carry(ctx, f, actor); err != nil {
+			return f, fmt.Errorf("carry triage: %w", err)
+		}
+	}
+	return f, nil
 }

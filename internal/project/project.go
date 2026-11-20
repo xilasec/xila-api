@@ -287,3 +287,34 @@ func (r *Repository) SetPriorityWeights(ctx context.Context, id string, raw []by
 	}
 	return nil
 }
+
+// TriageCarrySettings returns a project's triage-carry configuration: whether
+// a manual false_positive / wont_fix / reopen decision propagates to the
+// project's other versions, and the branch-name regex scoping which versions
+// receive and share decisions (empty = every version). See
+// internal/triagecarry.
+func (r *Repository) TriageCarrySettings(ctx context.Context, id string) (enabled bool, branchRegex string, err error) {
+	err = r.db.QueryRow(ctx, `SELECT triage_carry_enabled, triage_carry_branch_regex FROM projects WHERE id = $1`, id).
+		Scan(&enabled, &branchRegex)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, "", ErrNotFound
+	}
+	if err != nil {
+		return false, "", fmt.Errorf("get triage carry settings: %w", err)
+	}
+	return enabled, branchRegex, nil
+}
+
+// SetTriageCarrySettings stores a project's triage-carry configuration.
+func (r *Repository) SetTriageCarrySettings(ctx context.Context, id string, enabled bool, branchRegex string) error {
+	tag, err := r.db.Exec(ctx,
+		`UPDATE projects SET triage_carry_enabled = $2, triage_carry_branch_regex = $3, updated_at = now() WHERE id = $1`,
+		id, enabled, branchRegex)
+	if err != nil {
+		return fmt.Errorf("set triage carry settings: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}

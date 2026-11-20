@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -61,6 +62,8 @@ func (h *Handler) Register(r fiber.Router) {
 	r.Get("/projects/:projectID/priority-weights", h.GetPriorityWeights)
 	r.Put("/projects/:projectID/priority-weights", h.SetPriorityWeights)
 	r.Delete("/projects/:projectID/priority-weights", h.ResetPriorityWeights)
+	r.Get("/projects/:projectID/triage-carry", h.GetTriageCarry)
+	r.Put("/projects/:projectID/triage-carry", h.SetTriageCarry)
 	r.Get("/projects/:projectID/versions", h.ListVersions)
 	r.Patch("/projects/:projectID/versions/:versionID", h.UpdateVersion)
 	r.Delete("/projects/:projectID/versions/:versionID", h.DeleteVersion)
@@ -449,4 +452,54 @@ func (h *Handler) storeWeights(c *fiber.Ctx, id string, raw []byte) error {
 	out := weightsResponse(raw)
 	out["reprioritized"] = n
 	return c.JSON(out)
+}
+
+// triageCarrySettings is a project's triage-carry configuration (M13 13.1):
+// opt-in carrying of a manual false_positive / wont_fix / reopen decision to
+// the project's other versions. BranchRegex scopes which versions receive and
+// share decisions; empty means every version. See internal/triagecarry and
+// CLAUDE.md's "Carry triage across branches" note.
+type triageCarrySettings struct {
+	Enabled     bool   `json:"enabled"`
+	BranchRegex string `json:"branch_regex"`
+}
+
+// GetTriageCarry handles GET /projects/{id}/triage-carry.
+func (h *Handler) GetTriageCarry(c *fiber.Ctx) error {
+	id, err := httpx.ID(c, "projectID")
+	if err != nil {
+		return err
+	}
+	enabled, branchRegex, err := h.repo.TriageCarrySettings(c.UserContext(), id)
+	if errors.Is(err, ErrNotFound) {
+		return fiber.NewError(fiber.StatusNotFound, "project not found")
+	}
+	if err != nil {
+		return err
+	}
+	return c.JSON(triageCarrySettings{Enabled: enabled, BranchRegex: branchRegex})
+}
+
+// SetTriageCarry handles PUT /projects/{id}/triage-carry.
+func (h *Handler) SetTriageCarry(c *fiber.Ctx) error {
+	id, err := httpx.ID(c, "projectID")
+	if err != nil {
+		return err
+	}
+	var body triageCarrySettings
+	if err := httpx.Parse(c, &body); err != nil {
+		return err
+	}
+	if body.BranchRegex != "" {
+		if _, err := regexp.Compile(body.BranchRegex); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "invalid branch_regex: "+err.Error())
+		}
+	}
+	if err := h.repo.SetTriageCarrySettings(c.UserContext(), id, body.Enabled, body.BranchRegex); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "project not found")
+		}
+		return err
+	}
+	return c.JSON(body)
 }

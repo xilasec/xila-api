@@ -86,6 +86,8 @@ func (h *Handler) Register(r fiber.Router) {
 	r.Delete("/findings/:findingID/attachments/:attachmentID", h.DeleteAttachment)
 	r.Get("/findings/:findingID/exceptions", h.ListExceptions)
 	r.Get("/findings/:findingID/duplicates", h.ListDuplicates)
+	r.Post("/findings/:findingID/duplicate-of", h.MarkDuplicate)
+	r.Delete("/findings/:findingID/duplicate-of", h.UnmarkDuplicate)
 	r.Get("/findings/:findingID/assessments", h.ListFindingAssessments)
 	r.Get("/assessments", h.ListAssessments)
 	r.Post("/assessments/:assessmentID/approve", h.ApproveAssessment)
@@ -366,7 +368,7 @@ func (h *Handler) UpdateStatus(c *fiber.Ctx) error {
 		}
 	}
 
-	f, err := h.repo.SetStatus(c.UserContext(), id, Triage{
+	f, err := h.repo.SetStatusManual(c.UserContext(), id, Triage{
 		Status:    body.Status,
 		Reason:    body.Reason,
 		Actor:     auth.UserID(c),
@@ -435,6 +437,55 @@ func (h *Handler) ListDuplicates(c *fiber.Ctx) error {
 		return err
 	}
 	return c.JSON(fiber.Map{"duplicates": dups})
+}
+
+type duplicateOfRequest struct {
+	PrimaryID string `json:"primary_id"`
+}
+
+// MarkDuplicate handles POST /findings/{id}/duplicate-of: a person says this
+// finding is the same issue as primary_id (same project and version).
+// Automatic dedup (Repository.Deduplicate) never rewrites the decision.
+func (h *Handler) MarkDuplicate(c *fiber.Ctx) error {
+	id, err := httpx.ID(c, "findingID")
+	if err != nil {
+		return err
+	}
+	var body duplicateOfRequest
+	if err := httpx.Parse(c, &body); err != nil {
+		return err
+	}
+	if _, err := uuid.Parse(body.PrimaryID); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "primary_id is required")
+	}
+	f, err := h.repo.MarkDuplicateManual(c.UserContext(), id, body.PrimaryID, auth.UserID(c))
+	switch {
+	case errors.Is(err, ErrNotFound):
+		return fiber.NewError(fiber.StatusNotFound, "finding not found")
+	case errors.Is(err, ErrSelfDuplicate), errors.Is(err, ErrDuplicateScope), errors.Is(err, ErrDuplicateChain):
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	case err != nil:
+		return err
+	}
+	return c.JSON(f)
+}
+
+// UnmarkDuplicate handles DELETE /findings/{id}/duplicate-of.
+func (h *Handler) UnmarkDuplicate(c *fiber.Ctx) error {
+	id, err := httpx.ID(c, "findingID")
+	if err != nil {
+		return err
+	}
+	f, err := h.repo.UnmarkDuplicateManual(c.UserContext(), id, auth.UserID(c))
+	switch {
+	case errors.Is(err, ErrNotFound):
+		return fiber.NewError(fiber.StatusNotFound, "finding not found")
+	case errors.Is(err, ErrNotManualDuplicate):
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	case err != nil:
+		return err
+	}
+	return c.JSON(f)
 }
 
 // ListExceptions handles GET /findings/{id}/exceptions (audit history).
