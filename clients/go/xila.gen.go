@@ -2111,6 +2111,87 @@ func (e RemediationStatus) Valid() bool {
 	}
 }
 
+// Defines values for ReportScheduleCadence.
+const (
+	ReportScheduleCadenceDaily   ReportScheduleCadence = "daily"
+	ReportScheduleCadenceMonthly ReportScheduleCadence = "monthly"
+	ReportScheduleCadenceWeekly  ReportScheduleCadence = "weekly"
+)
+
+// Valid indicates whether the value is a known member of the ReportScheduleCadence enum.
+func (e ReportScheduleCadence) Valid() bool {
+	switch e {
+	case ReportScheduleCadenceDaily:
+		return true
+	case ReportScheduleCadenceMonthly:
+		return true
+	case ReportScheduleCadenceWeekly:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReportScheduleKind.
+const (
+	ReportScheduleKindEvidence  ReportScheduleKind = "evidence"
+	ReportScheduleKindPortfolio ReportScheduleKind = "portfolio"
+	ReportScheduleKindProject   ReportScheduleKind = "project"
+)
+
+// Valid indicates whether the value is a known member of the ReportScheduleKind enum.
+func (e ReportScheduleKind) Valid() bool {
+	switch e {
+	case ReportScheduleKindEvidence:
+		return true
+	case ReportScheduleKindPortfolio:
+		return true
+	case ReportScheduleKindProject:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReportScheduleLastRunStatus.
+const (
+	ReportScheduleLastRunStatusEmpty   ReportScheduleLastRunStatus = ""
+	ReportScheduleLastRunStatusFailure ReportScheduleLastRunStatus = "failure"
+	ReportScheduleLastRunStatusSuccess ReportScheduleLastRunStatus = "success"
+)
+
+// Valid indicates whether the value is a known member of the ReportScheduleLastRunStatus enum.
+func (e ReportScheduleLastRunStatus) Valid() bool {
+	switch e {
+	case ReportScheduleLastRunStatusEmpty:
+		return true
+	case ReportScheduleLastRunStatusFailure:
+		return true
+	case ReportScheduleLastRunStatusSuccess:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReportScheduleRunStatus.
+const (
+	ReportScheduleRunStatusFailure ReportScheduleRunStatus = "failure"
+	ReportScheduleRunStatusSuccess ReportScheduleRunStatus = "success"
+)
+
+// Valid indicates whether the value is a known member of the ReportScheduleRunStatus enum.
+func (e ReportScheduleRunStatus) Valid() bool {
+	switch e {
+	case ReportScheduleRunStatusFailure:
+		return true
+	case ReportScheduleRunStatusSuccess:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ReportTemplateSections.
 const (
 	ReportTemplateSectionsCompliance ReportTemplateSections = "compliance"
@@ -7260,6 +7341,73 @@ type RemediationKind string
 // RemediationStatus defines model for RemediationStatus.
 type RemediationStatus string
 
+// ReportSchedule defines model for ReportSchedule.
+type ReportSchedule struct {
+	Cadence   ReportScheduleCadence `json:"cadence"`
+	CreatedAt *time.Time            `json:"created_at,omitempty"`
+
+	// DayOfMonth Required for a monthly cadence.
+	DayOfMonth *int  `json:"day_of_month,omitempty"`
+	Enabled    *bool `json:"enabled,omitempty"`
+
+	// EngagementId Scopes a project report to one engagement.
+	EngagementId *openapi_types.UUID `json:"engagement_id,omitempty"`
+
+	// FrameworkKey A compliance framework key (e.g. eu-cra); required for an evidence report.
+	FrameworkKey *string `json:"framework_key,omitempty"`
+
+	// Hour Hour of day
+	Hour int                 `json:"hour"`
+	Id   *openapi_types.UUID `json:"id,omitempty"`
+
+	// Kind What it renders; portfolio is the owner's whole visible scope.
+	Kind          ReportScheduleKind           `json:"kind"`
+	LastRunAt     *time.Time                   `json:"last_run_at,omitempty"`
+	LastRunError  *string                      `json:"last_run_error,omitempty"`
+	LastRunStatus *ReportScheduleLastRunStatus `json:"last_run_status,omitempty"`
+	Name          string                       `json:"name"`
+	OwnerEmail    *string                      `json:"owner_email,omitempty"`
+	OwnerId       *openapi_types.UUID          `json:"owner_id,omitempty"`
+
+	// ProjectId Required for project and evidence.
+	ProjectId   *openapi_types.UUID `json:"project_id,omitempty"`
+	ProjectName *string             `json:"project_name,omitempty"`
+
+	// RecipientChannelIds Notification channels; get a link to the report, never the HTML file itself.
+	RecipientChannelIds *[]openapi_types.UUID  `json:"recipient_channel_ids,omitempty"`
+	RecipientEmails     *[]openapi_types.Email `json:"recipient_emails,omitempty"`
+
+	// TemplateId A report template (project/portfolio only).
+	TemplateId *openapi_types.UUID `json:"template_id,omitempty"`
+	UpdatedAt  *time.Time          `json:"updated_at,omitempty"`
+
+	// Weekday Required for a weekly cadence (0 = Sunday).
+	Weekday *int `json:"weekday,omitempty"`
+}
+
+// ReportScheduleCadence defines model for ReportSchedule.Cadence.
+type ReportScheduleCadence string
+
+// ReportScheduleKind What it renders; portfolio is the owner's whole visible scope.
+type ReportScheduleKind string
+
+// ReportScheduleLastRunStatus defines model for ReportSchedule.LastRunStatus.
+type ReportScheduleLastRunStatus string
+
+// ReportScheduleRun defines model for ReportScheduleRun.
+type ReportScheduleRun struct {
+	Error      *string                  `json:"error,omitempty"`
+	FinishedAt *time.Time               `json:"finished_at,omitempty"`
+	Id         *openapi_types.UUID      `json:"id,omitempty"`
+	Recipients *int                     `json:"recipients,omitempty"`
+	ScheduleId *openapi_types.UUID      `json:"schedule_id,omitempty"`
+	StartedAt  *time.Time               `json:"started_at,omitempty"`
+	Status     *ReportScheduleRunStatus `json:"status,omitempty"`
+}
+
+// ReportScheduleRunStatus defines model for ReportScheduleRun.Status.
+type ReportScheduleRunStatus string
+
 // ReportTemplate defines model for ReportTemplate.
 type ReportTemplate struct {
 	AccentColor *string `json:"accent_color,omitempty"`
@@ -8504,6 +8652,9 @@ type SbomID = openapi_types.UUID
 
 // ScanID defines model for ScanID.
 type ScanID = openapi_types.UUID
+
+// ScheduleID defines model for ScheduleID.
+type ScheduleID = openapi_types.UUID
 
 // SearchFilter defines model for SearchFilter.
 type SearchFilter = string
@@ -10954,6 +11105,12 @@ type WithdrawPsirtAdvisoryJSONRequestBody WithdrawPsirtAdvisoryJSONBody
 
 // UpdateRemediationActionJSONRequestBody defines body for UpdateRemediationAction for application/json ContentType.
 type UpdateRemediationActionJSONRequestBody UpdateRemediationActionJSONBody
+
+// CreateReportScheduleJSONRequestBody defines body for CreateReportSchedule for application/json ContentType.
+type CreateReportScheduleJSONRequestBody = ReportSchedule
+
+// PutReportScheduleJSONRequestBody defines body for PutReportSchedule for application/json ContentType.
+type PutReportScheduleJSONRequestBody = ReportSchedule
 
 // CreateReportTemplateJSONRequestBody defines body for CreateReportTemplate for application/json ContentType.
 type CreateReportTemplateJSONRequestBody = ReportTemplate
@@ -15289,6 +15446,77 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /remediation/{actionID}/issue (the `CreateRemediationIssue` operationId).
 	CreateRemediationIssue(ctx context.Context, actionID ActionID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListReportSchedules List report schedules
+	//
+	// Each user sees their own schedules; instance admins see every schedule.
+	//
+	// Corresponds with GET /report-schedules (the `ListReportSchedules` operationId).
+	ListReportSchedules(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateReportScheduleWithBody Create a report schedule
+	//
+	// Owned by the caller. A leader job renders and delivers it as the caller, in their RBAC scope at send time.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /report-schedules (the `CreateReportSchedule` operationId).
+	CreateReportScheduleWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateReportSchedule Create a report schedule
+	//
+	// Owned by the caller. A leader job renders and delivers it as the caller, in their RBAC scope at send time.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /report-schedules (the `CreateReportSchedule` operationId).
+	CreateReportSchedule(ctx context.Context, body CreateReportScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteReportSchedule Delete a report schedule
+	//
+	// Its owner, or an instance admin.
+	//
+	// Corresponds with DELETE /report-schedules/{scheduleID} (the `DeleteReportSchedule` operationId).
+	DeleteReportSchedule(ctx context.Context, scheduleID ScheduleID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetReportSchedule Read a report schedule
+	//
+	// Its owner, or an instance admin.
+	//
+	// Corresponds with GET /report-schedules/{scheduleID} (the `GetReportSchedule` operationId).
+	GetReportSchedule(ctx context.Context, scheduleID ScheduleID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutReportScheduleWithBody Replace a report schedule
+	//
+	// Its owner, or an instance admin.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /report-schedules/{scheduleID} (the `PutReportSchedule` operationId).
+	PutReportScheduleWithBody(ctx context.Context, scheduleID ScheduleID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutReportSchedule Replace a report schedule
+	//
+	// Its owner, or an instance admin.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /report-schedules/{scheduleID} (the `PutReportSchedule` operationId).
+	PutReportSchedule(ctx context.Context, scheduleID ScheduleID, body PutReportScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListReportScheduleRuns A report schedule's run history
+	//
+	// Its owner, or an instance admin. Newest first, up to 20 runs.
+	//
+	// Corresponds with GET /report-schedules/{scheduleID}/runs (the `ListReportScheduleRuns` operationId).
+	ListReportScheduleRuns(ctx context.Context, scheduleID ScheduleID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SendReportScheduleNow Render and deliver a report schedule immediately
+	//
+	// Its owner, or an instance admin. Synchronous; outside its cadence.
+	//
+	// Corresponds with POST /report-schedules/{scheduleID}/send-now (the `SendReportScheduleNow` operationId).
+	SendReportScheduleNow(ctx context.Context, scheduleID ScheduleID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListReportTemplates List report templates
 	//
@@ -24888,6 +25116,167 @@ func (c *Client) ListRemediationFindings(ctx context.Context, actionID ActionID,
 // Corresponds with POST /remediation/{actionID}/issue (the `CreateRemediationIssue` operationId).
 func (c *Client) CreateRemediationIssue(ctx context.Context, actionID ActionID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateRemediationIssueRequest(c.Server, actionID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListReportSchedules List report schedules
+//
+// Each user sees their own schedules; instance admins see every schedule.
+//
+// Corresponds with GET /report-schedules (the `ListReportSchedules` operationId).
+func (c *Client) ListReportSchedules(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListReportSchedulesRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateReportScheduleWithBody Create a report schedule
+//
+// Owned by the caller. A leader job renders and delivers it as the caller, in their RBAC scope at send time.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /report-schedules (the `CreateReportSchedule` operationId).
+func (c *Client) CreateReportScheduleWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateReportScheduleRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateReportSchedule Create a report schedule
+//
+// Owned by the caller. A leader job renders and delivers it as the caller, in their RBAC scope at send time.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /report-schedules (the `CreateReportSchedule` operationId).
+func (c *Client) CreateReportSchedule(ctx context.Context, body CreateReportScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateReportScheduleRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteReportSchedule Delete a report schedule
+//
+// Its owner, or an instance admin.
+//
+// Corresponds with DELETE /report-schedules/{scheduleID} (the `DeleteReportSchedule` operationId).
+func (c *Client) DeleteReportSchedule(ctx context.Context, scheduleID ScheduleID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteReportScheduleRequest(c.Server, scheduleID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetReportSchedule Read a report schedule
+//
+// Its owner, or an instance admin.
+//
+// Corresponds with GET /report-schedules/{scheduleID} (the `GetReportSchedule` operationId).
+func (c *Client) GetReportSchedule(ctx context.Context, scheduleID ScheduleID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetReportScheduleRequest(c.Server, scheduleID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutReportScheduleWithBody Replace a report schedule
+//
+// Its owner, or an instance admin.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /report-schedules/{scheduleID} (the `PutReportSchedule` operationId).
+func (c *Client) PutReportScheduleWithBody(ctx context.Context, scheduleID ScheduleID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutReportScheduleRequestWithBody(c.Server, scheduleID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutReportSchedule Replace a report schedule
+//
+// Its owner, or an instance admin.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /report-schedules/{scheduleID} (the `PutReportSchedule` operationId).
+func (c *Client) PutReportSchedule(ctx context.Context, scheduleID ScheduleID, body PutReportScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutReportScheduleRequest(c.Server, scheduleID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListReportScheduleRuns A report schedule's run history
+//
+// Its owner, or an instance admin. Newest first, up to 20 runs.
+//
+// Corresponds with GET /report-schedules/{scheduleID}/runs (the `ListReportScheduleRuns` operationId).
+func (c *Client) ListReportScheduleRuns(ctx context.Context, scheduleID ScheduleID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListReportScheduleRunsRequest(c.Server, scheduleID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SendReportScheduleNow Render and deliver a report schedule immediately
+//
+// Its owner, or an instance admin. Synchronous; outside its cadence.
+//
+// Corresponds with POST /report-schedules/{scheduleID}/send-now (the `SendReportScheduleNow` operationId).
+func (c *Client) SendReportScheduleNow(ctx context.Context, scheduleID ScheduleID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSendReportScheduleNowRequest(c.Server, scheduleID)
 	if err != nil {
 		return nil, err
 	}
@@ -44124,6 +44513,256 @@ func NewCreateRemediationIssueRequest(server string, actionID ActionID) (*http.R
 	return req, nil
 }
 
+// NewListReportSchedulesRequest constructs an http.Request for the ListReportSchedules method
+func NewListReportSchedulesRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/report-schedules")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateReportScheduleRequest calls the generic CreateReportSchedule builder with application/json body
+func NewCreateReportScheduleRequest(server string, body CreateReportScheduleJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateReportScheduleRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateReportScheduleRequestWithBody constructs an http.Request for the CreateReportSchedule method, with any body, and a specified content type
+func NewCreateReportScheduleRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/report-schedules")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteReportScheduleRequest constructs an http.Request for the DeleteReportSchedule method
+func NewDeleteReportScheduleRequest(server string, scheduleID ScheduleID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "scheduleID", scheduleID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/report-schedules/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetReportScheduleRequest constructs an http.Request for the GetReportSchedule method
+func NewGetReportScheduleRequest(server string, scheduleID ScheduleID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "scheduleID", scheduleID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/report-schedules/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutReportScheduleRequest calls the generic PutReportSchedule builder with application/json body
+func NewPutReportScheduleRequest(server string, scheduleID ScheduleID, body PutReportScheduleJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutReportScheduleRequestWithBody(server, scheduleID, "application/json", bodyReader)
+}
+
+// NewPutReportScheduleRequestWithBody constructs an http.Request for the PutReportSchedule method, with any body, and a specified content type
+func NewPutReportScheduleRequestWithBody(server string, scheduleID ScheduleID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "scheduleID", scheduleID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/report-schedules/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListReportScheduleRunsRequest constructs an http.Request for the ListReportScheduleRuns method
+func NewListReportScheduleRunsRequest(server string, scheduleID ScheduleID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "scheduleID", scheduleID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/report-schedules/%s/runs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSendReportScheduleNowRequest constructs an http.Request for the SendReportScheduleNow method
+func NewSendReportScheduleNowRequest(server string, scheduleID ScheduleID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "scheduleID", scheduleID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/report-schedules/%s/send-now", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListReportTemplatesRequest constructs an http.Request for the ListReportTemplates method
 func NewListReportTemplatesRequest(server string) (*http.Request, error) {
 	var err error
@@ -53677,6 +54316,87 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /remediation/{actionID}/issue (the `CreateRemediationIssue` operationId).
 	CreateRemediationIssueWithResponse(ctx context.Context, actionID ActionID, reqEditors ...RequestEditorFn) (*CreateRemediationIssueResponse, error)
+
+	// ListReportSchedulesWithResponse List report schedules
+	//
+	// Each user sees their own schedules; instance admins see every schedule.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /report-schedules (the `ListReportSchedules` operationId).
+	ListReportSchedulesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListReportSchedulesResponse, error)
+
+	// CreateReportScheduleWithBodyWithResponse Create a report schedule
+	//
+	// Owned by the caller. A leader job renders and delivers it as the caller, in their RBAC scope at send time.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /report-schedules (the `CreateReportSchedule` operationId).
+	CreateReportScheduleWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateReportScheduleResponse, error)
+
+	// CreateReportScheduleWithResponse Create a report schedule
+	//
+	// Owned by the caller. A leader job renders and delivers it as the caller, in their RBAC scope at send time.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /report-schedules (the `CreateReportSchedule` operationId).
+	CreateReportScheduleWithResponse(ctx context.Context, body CreateReportScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateReportScheduleResponse, error)
+
+	// DeleteReportScheduleWithResponse Delete a report schedule
+	//
+	// Its owner, or an instance admin.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /report-schedules/{scheduleID} (the `DeleteReportSchedule` operationId).
+	DeleteReportScheduleWithResponse(ctx context.Context, scheduleID ScheduleID, reqEditors ...RequestEditorFn) (*DeleteReportScheduleResponse, error)
+
+	// GetReportScheduleWithResponse Read a report schedule
+	//
+	// Its owner, or an instance admin.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /report-schedules/{scheduleID} (the `GetReportSchedule` operationId).
+	GetReportScheduleWithResponse(ctx context.Context, scheduleID ScheduleID, reqEditors ...RequestEditorFn) (*GetReportScheduleResponse, error)
+
+	// PutReportScheduleWithBodyWithResponse Replace a report schedule
+	//
+	// Its owner, or an instance admin.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /report-schedules/{scheduleID} (the `PutReportSchedule` operationId).
+	PutReportScheduleWithBodyWithResponse(ctx context.Context, scheduleID ScheduleID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutReportScheduleResponse, error)
+
+	// PutReportScheduleWithResponse Replace a report schedule
+	//
+	// Its owner, or an instance admin.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /report-schedules/{scheduleID} (the `PutReportSchedule` operationId).
+	PutReportScheduleWithResponse(ctx context.Context, scheduleID ScheduleID, body PutReportScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*PutReportScheduleResponse, error)
+
+	// ListReportScheduleRunsWithResponse A report schedule's run history
+	//
+	// Its owner, or an instance admin. Newest first, up to 20 runs.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /report-schedules/{scheduleID}/runs (the `ListReportScheduleRuns` operationId).
+	ListReportScheduleRunsWithResponse(ctx context.Context, scheduleID ScheduleID, reqEditors ...RequestEditorFn) (*ListReportScheduleRunsResponse, error)
+
+	// SendReportScheduleNowWithResponse Render and deliver a report schedule immediately
+	//
+	// Its owner, or an instance admin. Synchronous; outside its cadence.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /report-schedules/{scheduleID}/send-now (the `SendReportScheduleNow` operationId).
+	SendReportScheduleNowWithResponse(ctx context.Context, scheduleID ScheduleID, reqEditors ...RequestEditorFn) (*SendReportScheduleNowResponse, error)
 
 	// ListReportTemplatesWithResponse List report templates
 	//
@@ -71911,6 +72631,343 @@ func (r CreateRemediationIssueResponse) ContentType() string {
 	return ""
 }
 
+type ListReportSchedulesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		ReportSchedules *[]ReportSchedule `json:"report_schedules,omitempty"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListReportSchedulesResponse) GetJSON200() *struct {
+	ReportSchedules *[]ReportSchedule `json:"report_schedules,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ListReportSchedulesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListReportSchedulesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListReportSchedulesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListReportSchedulesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateReportScheduleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *ReportSchedule
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateReportScheduleResponse) GetJSON201() *ReportSchedule {
+	return r.JSON201
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r CreateReportScheduleResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateReportScheduleResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateReportScheduleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateReportScheduleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateReportScheduleResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteReportScheduleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r DeleteReportScheduleResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteReportScheduleResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteReportScheduleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteReportScheduleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteReportScheduleResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetReportScheduleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ReportSchedule
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetReportScheduleResponse) GetJSON200() *ReportSchedule {
+	return r.JSON200
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r GetReportScheduleResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetReportScheduleResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetReportScheduleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetReportScheduleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetReportScheduleResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PutReportScheduleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ReportSchedule
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PutReportScheduleResponse) GetJSON200() *ReportSchedule {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r PutReportScheduleResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r PutReportScheduleResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r PutReportScheduleResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PutReportScheduleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutReportScheduleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PutReportScheduleResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListReportScheduleRunsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Runs *[]ReportScheduleRun `json:"runs,omitempty"`
+	}
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListReportScheduleRunsResponse) GetJSON200() *struct {
+	Runs *[]ReportScheduleRun `json:"runs,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r ListReportScheduleRunsResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListReportScheduleRunsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListReportScheduleRunsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListReportScheduleRunsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListReportScheduleRunsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SendReportScheduleNowResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r SendReportScheduleNowResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r SendReportScheduleNowResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r SendReportScheduleNowResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SendReportScheduleNowResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SendReportScheduleNowResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SendReportScheduleNowResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListReportTemplatesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -84894,6 +85951,141 @@ func (c *ClientWithResponses) CreateRemediationIssueWithResponse(ctx context.Con
 		return nil, err
 	}
 	return ParseCreateRemediationIssueResponse(rsp)
+}
+
+// ListReportSchedulesWithResponse List report schedules
+//
+// Each user sees their own schedules; instance admins see every schedule.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /report-schedules (the `ListReportSchedules` operationId).
+func (c *ClientWithResponses) ListReportSchedulesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListReportSchedulesResponse, error) {
+	rsp, err := c.ListReportSchedules(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListReportSchedulesResponse(rsp)
+}
+
+// CreateReportScheduleWithBodyWithResponse Create a report schedule
+//
+// Owned by the caller. A leader job renders and delivers it as the caller, in their RBAC scope at send time.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /report-schedules (the `CreateReportSchedule` operationId).
+func (c *ClientWithResponses) CreateReportScheduleWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateReportScheduleResponse, error) {
+	rsp, err := c.CreateReportScheduleWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateReportScheduleResponse(rsp)
+}
+
+// CreateReportScheduleWithResponse Create a report schedule
+//
+// Owned by the caller. A leader job renders and delivers it as the caller, in their RBAC scope at send time.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /report-schedules (the `CreateReportSchedule` operationId).
+func (c *ClientWithResponses) CreateReportScheduleWithResponse(ctx context.Context, body CreateReportScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateReportScheduleResponse, error) {
+	rsp, err := c.CreateReportSchedule(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateReportScheduleResponse(rsp)
+}
+
+// DeleteReportScheduleWithResponse Delete a report schedule
+//
+// Its owner, or an instance admin.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /report-schedules/{scheduleID} (the `DeleteReportSchedule` operationId).
+func (c *ClientWithResponses) DeleteReportScheduleWithResponse(ctx context.Context, scheduleID ScheduleID, reqEditors ...RequestEditorFn) (*DeleteReportScheduleResponse, error) {
+	rsp, err := c.DeleteReportSchedule(ctx, scheduleID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteReportScheduleResponse(rsp)
+}
+
+// GetReportScheduleWithResponse Read a report schedule
+//
+// Its owner, or an instance admin.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /report-schedules/{scheduleID} (the `GetReportSchedule` operationId).
+func (c *ClientWithResponses) GetReportScheduleWithResponse(ctx context.Context, scheduleID ScheduleID, reqEditors ...RequestEditorFn) (*GetReportScheduleResponse, error) {
+	rsp, err := c.GetReportSchedule(ctx, scheduleID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetReportScheduleResponse(rsp)
+}
+
+// PutReportScheduleWithBodyWithResponse Replace a report schedule
+//
+// Its owner, or an instance admin.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /report-schedules/{scheduleID} (the `PutReportSchedule` operationId).
+func (c *ClientWithResponses) PutReportScheduleWithBodyWithResponse(ctx context.Context, scheduleID ScheduleID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutReportScheduleResponse, error) {
+	rsp, err := c.PutReportScheduleWithBody(ctx, scheduleID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutReportScheduleResponse(rsp)
+}
+
+// PutReportScheduleWithResponse Replace a report schedule
+//
+// Its owner, or an instance admin.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /report-schedules/{scheduleID} (the `PutReportSchedule` operationId).
+func (c *ClientWithResponses) PutReportScheduleWithResponse(ctx context.Context, scheduleID ScheduleID, body PutReportScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*PutReportScheduleResponse, error) {
+	rsp, err := c.PutReportSchedule(ctx, scheduleID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutReportScheduleResponse(rsp)
+}
+
+// ListReportScheduleRunsWithResponse A report schedule's run history
+//
+// Its owner, or an instance admin. Newest first, up to 20 runs.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /report-schedules/{scheduleID}/runs (the `ListReportScheduleRuns` operationId).
+func (c *ClientWithResponses) ListReportScheduleRunsWithResponse(ctx context.Context, scheduleID ScheduleID, reqEditors ...RequestEditorFn) (*ListReportScheduleRunsResponse, error) {
+	rsp, err := c.ListReportScheduleRuns(ctx, scheduleID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListReportScheduleRunsResponse(rsp)
+}
+
+// SendReportScheduleNowWithResponse Render and deliver a report schedule immediately
+//
+// Its owner, or an instance admin. Synchronous; outside its cadence.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /report-schedules/{scheduleID}/send-now (the `SendReportScheduleNow` operationId).
+func (c *ClientWithResponses) SendReportScheduleNowWithResponse(ctx context.Context, scheduleID ScheduleID, reqEditors ...RequestEditorFn) (*SendReportScheduleNowResponse, error) {
+	rsp, err := c.SendReportScheduleNow(ctx, scheduleID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSendReportScheduleNowResponse(rsp)
 }
 
 // ListReportTemplatesWithResponse List report templates
@@ -98786,6 +99978,240 @@ func ParseCreateRemediationIssueResponse(rsp *http.Response) (*CreateRemediation
 			return nil, err
 		}
 		response.JSON502 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListReportSchedulesResponse parses an HTTP response from a ListReportSchedulesWithResponse call
+func ParseListReportSchedulesResponse(rsp *http.Response) (*ListReportSchedulesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListReportSchedulesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			ReportSchedules *[]ReportSchedule `json:"report_schedules,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateReportScheduleResponse parses an HTTP response from a CreateReportScheduleWithResponse call
+func ParseCreateReportScheduleResponse(rsp *http.Response) (*CreateReportScheduleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateReportScheduleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ReportSchedule
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteReportScheduleResponse parses an HTTP response from a DeleteReportScheduleWithResponse call
+func ParseDeleteReportScheduleResponse(rsp *http.Response) (*DeleteReportScheduleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteReportScheduleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetReportScheduleResponse parses an HTTP response from a GetReportScheduleWithResponse call
+func ParseGetReportScheduleResponse(rsp *http.Response) (*GetReportScheduleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetReportScheduleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ReportSchedule
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutReportScheduleResponse parses an HTTP response from a PutReportScheduleWithResponse call
+func ParsePutReportScheduleResponse(rsp *http.Response) (*PutReportScheduleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutReportScheduleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ReportSchedule
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListReportScheduleRunsResponse parses an HTTP response from a ListReportScheduleRunsWithResponse call
+func ParseListReportScheduleRunsResponse(rsp *http.Response) (*ListReportScheduleRunsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListReportScheduleRunsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Runs *[]ReportScheduleRun `json:"runs,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSendReportScheduleNowResponse parses an HTTP response from a SendReportScheduleNowWithResponse call
+func ParseSendReportScheduleNowResponse(rsp *http.Response) (*SendReportScheduleNowResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SendReportScheduleNowResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	}
 

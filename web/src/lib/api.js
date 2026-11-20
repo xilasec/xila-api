@@ -625,6 +625,19 @@ export const api = {
 	/** @param {string} id */
 	deleteReportTemplate: (id) => request('DELETE', `/report-templates/${id}`),
 
+	// --- report schedules (each user manages their own; admins see all) ---
+	listReportSchedules: () => request('GET', '/report-schedules'), // { report_schedules }
+	/** @param {object} data */
+	createReportSchedule: (data) => request('POST', '/report-schedules', { body: data }),
+	/** @param {string} id @param {object} data */
+	updateReportSchedule: (id, data) => request('PUT', `/report-schedules/${id}`, { body: data }),
+	/** @param {string} id */
+	deleteReportSchedule: (id) => request('DELETE', `/report-schedules/${id}`),
+	/** @param {string} id */
+	listReportScheduleRuns: (id) => request('GET', `/report-schedules/${id}/runs`), // { runs }
+	/** @param {string} id */
+	sendReportScheduleNow: (id) => request('POST', `/report-schedules/${id}/send-now`),
+
 	// --- README badges (token shown once; owner manages) ---
 	/** @param {string} projectId */
 	badgeStatus: (projectId) => request('GET', `/projects/${projectId}/badge-token`),

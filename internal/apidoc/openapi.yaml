@@ -3663,6 +3663,112 @@ paths:
       responses:
         "204": { description: Deleted }
 
+  /report-schedules:
+    get:
+      operationId: listReportSchedules
+      tags: [Reports]
+      summary: List report schedules
+      description: Each user sees their own schedules; instance admins see every schedule.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report_schedules: { type: array, items: { $ref: "#/components/schemas/ReportSchedule" } }
+    post:
+      operationId: createReportSchedule
+      tags: [Reports]
+      summary: Create a report schedule
+      description: Owned by the caller. A leader job renders and delivers it as the caller, in their RBAC scope at send time.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReportSchedule" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReportSchedule" }
+        "400": { $ref: "#/components/responses/Error" }
+
+  /report-schedules/{scheduleID}:
+    get:
+      operationId: getReportSchedule
+      tags: [Reports]
+      summary: Read a report schedule
+      description: Its owner, or an instance admin.
+      parameters: [{ $ref: "#/components/parameters/ScheduleID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReportSchedule" }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      operationId: putReportSchedule
+      tags: [Reports]
+      summary: Replace a report schedule
+      description: Its owner, or an instance admin.
+      parameters: [{ $ref: "#/components/parameters/ScheduleID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReportSchedule" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReportSchedule" }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deleteReportSchedule
+      tags: [Reports]
+      summary: Delete a report schedule
+      description: Its owner, or an instance admin.
+      parameters: [{ $ref: "#/components/parameters/ScheduleID" }]
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /report-schedules/{scheduleID}/runs:
+    get:
+      operationId: listReportScheduleRuns
+      tags: [Reports]
+      summary: A report schedule's run history
+      description: Its owner, or an instance admin. Newest first, up to 20 runs.
+      parameters: [{ $ref: "#/components/parameters/ScheduleID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  runs: { type: array, items: { $ref: "#/components/schemas/ReportScheduleRun" } }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /report-schedules/{scheduleID}/send-now:
+    post:
+      operationId: sendReportScheduleNow
+      tags: [Reports]
+      summary: Render and deliver a report schedule immediately
+      description: Its owner, or an instance admin. Synchronous; outside its cadence.
+      parameters: [{ $ref: "#/components/parameters/ScheduleID" }]
+      responses:
+        "204": { description: Sent }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+
   /projects/{projectID}/findings/export:
     get:
       operationId: exportProjectFindings
@@ -9286,6 +9392,7 @@ components:
       description: The change's key, base64url-encoded (no padding) — it can contain slashes and "@".
       schema: { type: string }
     TemplateID: { name: templateID, in: path, required: true, schema: { type: string, format: uuid } }
+    ScheduleID: { name: scheduleID, in: path, required: true, schema: { type: string, format: uuid } }
     ExploitFilter:
       name: exploit
       in: query
@@ -10768,6 +10875,47 @@ components:
         created_by: { type: [string, "null"], format: uuid, readOnly: true }
         created_at: { type: string, format: date-time, readOnly: true }
         updated_at: { type: string, format: date-time, readOnly: true }
+
+    ReportSchedule:
+      type: object
+      required: [name, kind, cadence, hour]
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        owner_id: { type: string, format: uuid, readOnly: true }
+        owner_email: { type: string, readOnly: true }
+        name: { type: string, maxLength: 200 }
+        kind: { type: string, enum: [project, portfolio, evidence], description: What it renders; portfolio is the owner's whole visible scope. }
+        project_id: { type: [string, "null"], format: uuid, description: Required for project and evidence. }
+        project_name: { type: string, readOnly: true }
+        framework_key: { type: string, description: A compliance framework key (e.g. eu-cra); required for an evidence report. }
+        template_id: { type: [string, "null"], format: uuid, description: A report template (project/portfolio only). }
+        engagement_id: { type: [string, "null"], format: uuid, description: Scopes a project report to one engagement. }
+        cadence: { type: string, enum: [daily, weekly, monthly] }
+        hour: { type: integer, minimum: 0, maximum: 23, description: Hour of day, UTC. }
+        weekday: { type: [integer, "null"], minimum: 0, maximum: 6, description: Required for a weekly cadence (0 = Sunday). }
+        day_of_month: { type: [integer, "null"], minimum: 1, maximum: 28, description: Required for a monthly cadence. }
+        recipient_emails: { type: array, items: { type: string, format: email } }
+        recipient_channel_ids:
+          type: array
+          items: { type: string, format: uuid }
+          description: Notification channels; get a link to the report, never the HTML file itself.
+        enabled: { type: boolean, default: true }
+        last_run_at: { type: [string, "null"], format: date-time, readOnly: true }
+        last_run_status: { type: string, enum: ["", success, failure], readOnly: true }
+        last_run_error: { type: string, readOnly: true }
+        created_at: { type: string, format: date-time, readOnly: true }
+        updated_at: { type: string, format: date-time, readOnly: true }
+
+    ReportScheduleRun:
+      type: object
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        schedule_id: { type: string, format: uuid, readOnly: true }
+        started_at: { type: string, format: date-time, readOnly: true }
+        finished_at: { type: [string, "null"], format: date-time, readOnly: true }
+        status: { type: string, enum: [success, failure], readOnly: true }
+        error: { type: string, readOnly: true }
+        recipients: { type: integer, readOnly: true }
 
     Scan:
       type: object
