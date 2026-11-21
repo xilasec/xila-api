@@ -84,7 +84,6 @@ func scanProject(row pgx.Row) (Project, error) {
 	return p, err
 }
 
-
 // writeError maps the constraints a project write can break (including the
 // projects_hierarchy trigger's) to domain errors.
 func writeError(err error) error {

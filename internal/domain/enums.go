@@ -478,7 +478,7 @@ type VexJustification string
 // Justifications (CycloneDX's vocabulary; see internal/vex for the OpenVEX /
 // CSAF mapping).
 const (
-	VexJustificationCodeNotPresent              VexJustification = "code_not_present"
+	VexJustificationCodeNotPresent               VexJustification = "code_not_present"
 	VexJustificationCodeNotReachable             VexJustification = "code_not_reachable"
 	VexJustificationRequiresConfiguration        VexJustification = "requires_configuration"
 	VexJustificationRequiresDependency           VexJustification = "requires_dependency"

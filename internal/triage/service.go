@@ -309,9 +309,11 @@ func (s *Service) apply(ctx context.Context, rule Rule, f finding.Finding, ch ch
 		return err
 	}
 	_, err := s.findings.SetStatus(ctx, f.ID, finding.Triage{
-		Status: ch.Status,
-		Reason: reason,
-		Actor:  "triage-rule:" + rule.Name,
+		Status:           ch.Status,
+		Reason:           reason,
+		Actor:            "triage-rule:" + rule.Name,
+		VexJustification: rule.VexJustification,
+		VexResponse:      rule.VexResponse,
 	})
 	return err
 }

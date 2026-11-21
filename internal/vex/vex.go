@@ -65,13 +65,16 @@ type Statement struct {
 	VulnID string `json:"vuln_id"`
 	// Product is a PURL or package name. Empty means every product in the project —
 	// which is what a document that names only a CVE amounts to.
-	Product       string    `json:"product"`
-	Status        Status    `json:"status"`
-	Justification string    `json:"justification"`
-	Detail        string    `json:"detail"`
-	Source        string    `json:"source"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	Product       string `json:"product"`
+	Status        Status `json:"status"`
+	Justification string `json:"justification"`
+	Detail        string `json:"detail"`
+	// Response is the CycloneDX analysis response codes an imported document
+	// carried (empty for OpenVEX / CSAF, which have no such vocabulary).
+	Response  []string  `json:"response"`
+	Source    string    `json:"source"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // Repository provides access to the vex_statements table.
@@ -82,13 +85,13 @@ type Repository struct {
 // NewRepository constructs a Repository.
 func NewRepository(db *pgxpool.Pool) *Repository { return &Repository{db: db} }
 
-const statementColumns = `id, project_id, vuln_id, product, status, justification, detail,
+const statementColumns = `id, project_id, vuln_id, product, status, justification, detail, response,
 	source, created_at, updated_at`
 
 func scanStatement(row pgx.Row) (Statement, error) {
 	var s Statement
 	err := row.Scan(&s.ID, &s.ProjectID, &s.VulnID, &s.Product, &s.Status, &s.Justification,
-		&s.Detail, &s.Source, &s.CreatedAt, &s.UpdatedAt)
+		&s.Detail, &s.Response, &s.Source, &s.CreatedAt, &s.UpdatedAt)
 	return s, err
 }
 
@@ -97,14 +100,14 @@ func scanStatement(row pgx.Row) (Statement, error) {
 // an addition.
 func (r *Repository) Upsert(ctx context.Context, s Statement) (Statement, error) {
 	const q = `
-		INSERT INTO vex_statements (project_id, vuln_id, product, status, justification, detail, source)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO vex_statements (project_id, vuln_id, product, status, justification, detail, response, source)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		ON CONFLICT (project_id, vuln_id, product) DO UPDATE SET
 			status = EXCLUDED.status, justification = EXCLUDED.justification,
-			detail = EXCLUDED.detail, source = EXCLUDED.source, updated_at = now()
+			detail = EXCLUDED.detail, response = EXCLUDED.response, source = EXCLUDED.source, updated_at = now()
 		RETURNING ` + statementColumns
 	out, err := scanStatement(r.db.QueryRow(ctx, q,
-		s.ProjectID, s.VulnID, s.Product, s.Status, s.Justification, s.Detail, s.Source))
+		s.ProjectID, s.VulnID, s.Product, s.Status, s.Justification, s.Detail, nonNilStrings(s.Response), s.Source))
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23503" {
 		return Statement{}, ErrNoProject
@@ -113,6 +116,15 @@ func (r *Repository) Upsert(ctx context.Context, s Statement) (Statement, error)
 		return Statement{}, fmt.Errorf("upsert vex statement: %w", err)
 	}
 	return out, nil
+}
+
+// nonNilStrings is s, or an empty (never nil) slice — the response column is
+// NOT NULL DEFAULT '{}'.
+func nonNilStrings(s []string) []string {
+	if s == nil {
+		return []string{}
+	}
+	return s
 }
 
 // ListByProject returns a project's statements, newest first.

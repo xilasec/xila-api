@@ -41,26 +41,26 @@ func (s AssessmentState) Valid() bool {
 // Assessment is an analyst's status and/or severity change on a finding,
 // held for a second person's approval (ASSESSMENT_REQUIRES_APPROVAL).
 type Assessment struct {
-	ID           string                `json:"id"`
-	FindingID    string                `json:"finding_id"`
-	ProjectID    string                `json:"project_id"`
-	RequestedBy  *string               `json:"requested_by"`
-	Requester    string                `json:"requester"`
-	Status       *domain.FindingStatus `json:"status"`
-	Severity     *domain.Severity      `json:"severity"`
-	Reason       string                `json:"reason"`
-	ExpiresAt    *time.Time            `json:"expires_at"`
+	ID          string                `json:"id"`
+	FindingID   string                `json:"finding_id"`
+	ProjectID   string                `json:"project_id"`
+	RequestedBy *string               `json:"requested_by"`
+	Requester   string                `json:"requester"`
+	Status      *domain.FindingStatus `json:"status"`
+	Severity    *domain.Severity      `json:"severity"`
+	Reason      string                `json:"reason"`
+	ExpiresAt   *time.Time            `json:"expires_at"`
 	// VexJustification / VexResponse: the structured analysis requested
 	// alongside a status of false_positive or wont_fix (M13 13.2), applied
 	// verbatim on approval.
 	VexJustification domain.VexJustification `json:"vex_justification"`
 	VexResponse      []domain.VexResponse    `json:"vex_response"`
-	State        AssessmentState       `json:"state"`
-	DecidedBy    *string               `json:"decided_by"`
-	Decider      string                `json:"decider"`
-	DecidedAt    *time.Time            `json:"decided_at"`
-	DecisionNote string                `json:"decision_note"`
-	CreatedAt    time.Time             `json:"created_at"`
+	State            AssessmentState         `json:"state"`
+	DecidedBy        *string                 `json:"decided_by"`
+	Decider          string                  `json:"decider"`
+	DecidedAt        *time.Time              `json:"decided_at"`
+	DecisionNote     string                  `json:"decision_note"`
+	CreatedAt        time.Time               `json:"created_at"`
 
 	// Context for a reviewer: what the finding is and looks like now.
 	FindingTitle    string               `json:"finding_title"`

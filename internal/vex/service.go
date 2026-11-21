@@ -10,6 +10,20 @@ import (
 	"github.com/xilasec/xila-api/internal/finding"
 )
 
+// vexResponseDomain converts stored response strings (already filtered to
+// known values by the importer) to domain.VexResponse, dropping anything
+// that somehow doesn't validate rather than guessing.
+func vexResponseDomain(ss []string) []domain.VexResponse {
+	var out []domain.VexResponse
+	for _, s := range ss {
+		r := domain.VexResponse(s)
+		if r.Valid() {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
 // maxVexBytes caps how much of an upload we buffer.
 const maxVexBytes = 16 << 20
 
@@ -136,9 +150,11 @@ func (s *Service) apply(ctx context.Context, projectID string, load func(context
 			continue // under_investigation, or already where the statement wants it
 		}
 		if _, err := s.findings.SetStatus(ctx, f.ID, finding.Triage{
-			Status: target,
-			Reason: reason(st),
-			Actor:  vexActor,
+			Status:           target,
+			Reason:           reason(st),
+			Actor:            vexActor,
+			VexJustification: domain.VexJustification(CycloneJustification(st.Justification)),
+			VexResponse:      vexResponseDomain(st.Response),
 		}); err != nil {
 			return changed, err
 		}

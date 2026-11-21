@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/xilasec/xila-api/internal/domain"
 )
 
 // Parse reads a VEX document — OpenVEX, CycloneDX VEX or CSAF 2.0 VEX — and
@@ -124,17 +126,31 @@ func parseCycloneVEX(data []byte) ([]Statement, error) {
 		if v.ID == "" || status == "" {
 			continue
 		}
+		response := knownResponses(v.Analysis.Response)
 		if len(v.Affects) == 0 {
 			out = append(out, Statement{VulnID: v.ID, Status: status,
-				Justification: v.Analysis.Justification, Detail: v.Analysis.Detail, Source: "cyclonedx"})
+				Justification: v.Analysis.Justification, Detail: v.Analysis.Detail, Response: response, Source: "cyclonedx"})
 			continue
 		}
 		for _, a := range v.Affects {
 			out = append(out, Statement{VulnID: v.ID, Product: a.Ref, Status: status,
-				Justification: v.Analysis.Justification, Detail: v.Analysis.Detail, Source: "cyclonedx"})
+				Justification: v.Analysis.Justification, Detail: v.Analysis.Detail, Response: response, Source: "cyclonedx"})
 		}
 	}
 	return out, nil
+}
+
+// knownResponses keeps only the recognized CycloneDX response codes — never
+// invented, so an unrecognized one is dropped rather than guessed.
+func knownResponses(ss []string) []string {
+	var out []string
+	for _, s := range ss {
+		s = strings.ToLower(strings.TrimSpace(s))
+		if domain.VexResponse(s).Valid() {
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 // cycloneVexStatus maps CycloneDX's analysis states onto the VEX four. Note

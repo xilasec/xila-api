@@ -221,6 +221,7 @@ func (s *Service) reconcileStatus(ctx context.Context, f *finding.Finding, elect
 			priorNow := f.Status
 			if _, err := s.findings.SetStatus(ctx, f.ID, finding.Triage{
 				Status: domain.FindingStatus(wantStatus), Actor: policyActor(elected.Name), Reason: reasonFor(elected),
+				VexJustification: vexJustificationFor(elected),
 			}); err != nil {
 				return changed, err
 			}
@@ -237,6 +238,7 @@ func (s *Service) reconcileStatus(ctx context.Context, f *finding.Finding, elect
 		prior := f.Status
 		if _, err := s.findings.SetStatus(ctx, f.ID, finding.Triage{
 			Status: domain.FindingStatus(wantStatus), Actor: policyActor(elected.Name), Reason: reasonFor(elected),
+			VexJustification: vexJustificationFor(elected),
 		}); err != nil {
 			return false, err
 		}
@@ -255,6 +257,20 @@ func (s *Service) reconcileStatus(ctx context.Context, f *finding.Finding, elect
 // untouched candidate again.
 func isClaimable(s domain.FindingStatus) bool {
 	return s == domain.FindingOpen
+}
+
+// vexJustificationFor normalizes a policy's admin-written Analysis.Justification
+// into a known CycloneDX vex_justification code; "" when it isn't one of them
+// (free text is kept only in the finding's reason, never coerced into a code).
+func vexJustificationFor(p Policy) domain.VexJustification {
+	if p.Analysis == nil {
+		return ""
+	}
+	j := domain.VexJustification(strings.ToLower(strings.TrimSpace(p.Analysis.Justification)))
+	if j.Valid() && j != "" {
+		return j
+	}
+	return ""
 }
 
 // reconcileSeverity is reconcileStatus for the rating half. It leans on

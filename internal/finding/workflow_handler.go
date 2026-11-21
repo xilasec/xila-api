@@ -315,6 +315,11 @@ type bulkRequest struct {
 	Status    *domain.FindingStatus `json:"status"`
 	Reason    string                `json:"reason"`
 	ExpiresAt *time.Time            `json:"expires_at"`
+	// VexJustification / VexResponse: the structured analysis accompanying a
+	// move to false_positive or wont_fix (M13 13.2); ignored for any other
+	// status.
+	VexJustification domain.VexJustification `json:"vex_justification"`
+	VexResponse      []domain.VexResponse    `json:"vex_response"`
 	// Title names the risk acceptance(s) status risk_accepted requests.
 	Title    string           `json:"title"`
 	Severity *domain.Severity `json:"severity"`
