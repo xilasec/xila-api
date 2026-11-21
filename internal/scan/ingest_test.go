@@ -46,6 +46,10 @@ func (f *fakeFindings) ListNewHighSeverity(context.Context, string) ([]finding.F
 	return f.newHigh, nil
 }
 
+func (f *fakeFindings) ListNew(context.Context, string) ([]finding.Finding, error) {
+	return f.newHigh, nil
+}
+
 func (f *fakeFindings) DeduplicateScan(_ context.Context, _, _ string, closedIDs []string) (int, error) {
 	f.dedupCalls++
 	f.dedupClosed = closedIDs

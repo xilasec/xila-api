@@ -47,6 +47,32 @@ const (
 	// EventFindingAssigned: a finding got a (new) assignee — what personal
 	// "assigned to me" subscriptions hear.
 	EventFindingAssigned = "finding.assigned"
+	// EventNewFinding: a scan introduced findings of any severity on the
+	// default version — one event per scan (Fields: "count", "scanner",
+	// "critical"/"high"/… breakdown), unlike EventCriticalFinding which only
+	// fires for critical/high.
+	EventNewFinding = "finding.new"
+	// EventStatusChanged: a person or an automated pass (triage rule,
+	// vulnerability policy) changed one or more findings' status or severity.
+	// Batched per request/run (Fields: "count", "actor"), never per finding.
+	EventStatusChanged = "finding.status_changed"
+	// EventSbomProcessed / EventSbomFailed: an SBOM upload parsed, or failed
+	// to.
+	EventSbomProcessed = "sbom.processed"
+	EventSbomFailed    = "sbom.failed"
+	// EventVEXProcessed: a VEX document was imported and applied.
+	EventVEXProcessed = "vex.processed"
+	// EventAdvisoryWithdrawn: an advisory currently matched to live findings
+	// was withdrawn at its source (OSV's withdrawn field).
+	EventAdvisoryWithdrawn = "advisory.withdrawn"
+	// EventSystemJobFailed: a leader-elected background job or feed started
+	// failing (enrichment, vulnmatch, pkgmeta, exploit intel, connectors).
+	// One event per job per failure streak, not every tick; routed to global
+	// channels only (it carries no ProjectID).
+	EventSystemJobFailed = "system.job_failed"
+	// EventGateChanged: a project's stored CI gate result flipped — pass to
+	// fail, or fail to pass (see internal/gate).
+	EventGateChanged = "gate.changed"
 	// EventSummary is a channel's scheduled summary (Channel.Summary). It goes
 	// to that channel alone, whatever its event subscription.
 	EventSummary = "summary"

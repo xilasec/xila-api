@@ -282,6 +282,10 @@ func run() error {
 
 	triageRepo := triage.NewRepository(db)
 	gateRepo := gate.NewRepository(db)
+	// gateEval re-evaluates and stores a project's gate result after ingest,
+	// after exploit-intel sweeps, and on GATE_SWEEP_INTERVAL; emits
+	// gate.changed when the stored result flips.
+	gateEval := gate.NewEvaluator(gateRepo, findingRepo, projectRepo, notifySvc)
 	slaRepo := sla.NewRepository(db)
 	slaSvc := sla.NewService(slaRepo, notifySvc)
 	integrationKey, err := cfg.IntegrationKey()
@@ -309,7 +313,7 @@ func run() error {
 	// (internal/computed) recompute their own value from a CEL expression.
 	customFieldRepo := customfield.NewRepository(db)
 	customFieldSvc := customfield.NewService(customFieldRepo, membershipRepo, findingRepo)
-	triageSvc := triage.NewService(triageRepo, findingRepo, findingRepo).WithCustomFields(customFieldSvc)
+	triageSvc := triage.NewService(triageRepo, findingRepo, findingRepo).WithCustomFields(customFieldSvc).WithNotifier(notifySvc)
 	computedSvc := computed.NewService(customFieldRepo, findingRepo, triageRepo, projectRepo, assetRepo)
 
 	parsers := newParserRegistry()
@@ -331,7 +335,7 @@ func run() error {
 	vexRepo := vex.NewRepository(db)
 	vexSvc := vex.NewService(vexRepo, findingRepo, projectRepo)
 	vulnPolicyRepo := vulnpolicy.NewRepository(db)
-	vulnPolicySvc := vulnpolicy.NewService(vulnPolicyRepo, findingRepo, findingRepo)
+	vulnPolicySvc := vulnpolicy.NewService(vulnPolicyRepo, findingRepo, findingRepo).WithNotifier(notifySvc)
 	connectorRepo := connector.NewRepository(db)
 	// EU CRA Article 14: actively exploited findings (KEV, weaponized exploit)
 	// of in-scope products open reporting cases with the 24 h / 72 h / 14 d clock.
@@ -350,7 +354,8 @@ func run() error {
 		if err != nil {
 			return fmt.Errorf("EXPLOIT_INTEL_SOURCES: %w", err)
 		}
-		exploitSvc = exploitintel.NewService(exploitRepo, feeds, netguard.NewClient(10*time.Minute), findingRepo).WithCRA(craSvc)
+		exploitSvc = exploitintel.NewService(exploitRepo, feeds, netguard.NewClient(10*time.Minute), findingRepo).
+			WithCRA(craSvc).WithNotifier(notifySvc).WithGate(gateEval)
 	}
 	appliers := []scan.Applier{reacher}
 	if exploitSvc != nil {
@@ -376,7 +381,8 @@ func run() error {
 		WithSkipUnchanged(cfg.Ingest.SkipUnchanged).
 		WithHostAssets(assetRepo).
 		WithPayloadStore(payloadStore).
-		WithCustomParsers(customParserSvc)
+		WithCustomParsers(customParserSvc).
+		WithGate(gateEval)
 	// Ingest queue depth: sampled once per interval and shared by the metrics
 	// exporter, the upload handler's backpressure check, and (M11 11.7) the
 	// live-tuning sample that resizes this node's worker pool.
@@ -526,7 +532,7 @@ func run() error {
 		AITriage: aitriage.NewHandler(aitriage.NewService(aitriage.NewRepository(db), findingRepo, aiProvider,
 			ratelimit.New(db, ratelimit.Limits{}), notifySvc,
 			aitriage.Options{RequireApproval: cfg.AssessmentRequiresApproval, RateLimit: cfg.AI.RateLimit})),
-		Sbom:       sbom.NewHandler(sbomRepo, sbomSvc),
+		Sbom:       sbom.NewHandler(sbomRepo, sbomSvc).WithNotifier(notifySvc),
 		Asset:      asset.NewHandler(assetRepo, assetSvc, membershipRepo),
 		Compliance: compliance.NewHandler(complianceRepo),
 		Portfolio:  portfolio.NewHandler(portfolioRepo),
@@ -555,7 +561,7 @@ func run() error {
 		Triage:       triage.NewHandler(triageRepo, triageSvc, cfg.TriageRulesRequireApproval).WithCustomFields(customFieldRepo),
 		Gate:         gate.NewHandler(gateRepo, findingRepo, projectRepo),
 		SLA:          sla.NewHandler(slaRepo, slaSvc),
-		Vex:          vex.NewHandler(vexRepo, vexSvc).WithPublicURL(cfg.PublicURL),
+		Vex:          vex.NewHandler(vexRepo, vexSvc).WithPublicURL(cfg.PublicURL).WithNotifier(notifySvc),
 		IssueTracker: issuetracker.NewHandler(issueSvc),
 		Connector:    connector.NewHandler(connectorSvc),
 		VulnMatch:    vulnmatch.NewHandler(vulnSvc, vulnSources.Names(), osvMirrorRepo, osvMirror).WithJVN(jvnMirror),
@@ -645,7 +651,7 @@ func run() error {
 		// Periodically refresh EPSS/KEV and recompute priorities; then, with
 		// NVD_ENABLED, CVSS vectors from NVD (slow without a key: rate-limited).
 		if cfg.Enrich.Enabled {
-			job(func() { runEnrichment(ctx, enrichSvc, cfg.Enrich.Interval) })
+			job(func() { runEnrichment(ctx, enrichSvc, cfg.Enrich.Interval, notifySvc) })
 		}
 		if cfg.NVD.Enabled {
 			job(func() { runNVD(ctx, nvdSvc, cfg.Enrich.Interval) })
@@ -658,7 +664,7 @@ func run() error {
 		// advisory sources so newly disclosed vulnerabilities surface without a
 		// re-scan.
 		if cfg.VulnMatch.Enabled {
-			job(func() { runVulnMatch(ctx, vulnSvc, cfg.VulnMatch.Interval) })
+			job(func() { runVulnMatch(ctx, vulnSvc, cfg.VulnMatch.Interval, notifySvc) })
 		}
 		// Air-gapped OSV mirror: download VULNMATCH_OSV_ECOSYSTEMS exports from
 		// VULNMATCH_OSV_MIRROR_URL (at start, then on the interval).
@@ -673,7 +679,7 @@ func run() error {
 		// Keep package registry metadata fresh: latest versions for the
 		// outdated-component view and policies.
 		if cfg.PkgMeta.Enabled {
-			job(func() { runPackageMeta(ctx, pkgmetaSvc, cfg.PkgMeta.Interval) })
+			job(func() { runPackageMeta(ctx, pkgmetaSvc, cfg.PkgMeta.Interval, notifySvc) })
 		}
 		// Periodically reopen findings whose risk acceptance has expired.
 		// Durable notifications: every replica queues, only the leader sends.
@@ -683,6 +689,10 @@ func run() error {
 		})
 		// Alert on findings that breached (or are about to breach) their SLA.
 		job(func() { runSLASweep(ctx, slaSvc, cfg.SLASweepInterval) })
+		// Re-evaluate every project's stored gate state: catches
+		// enrichment/vulnmatch/pkgmeta changes that don't carry a direct
+		// project-touched list (GATE_SWEEP_INTERVAL).
+		job(func() { runGateSweep(ctx, gateEval, projectRepo, cfg.GateSweepInterval) })
 		// CRA Article 14: open cases for newly exploited findings, start
 		// final-report clocks, alert on reporting deadlines (CRA_SWEEP_INTERVAL).
 		job(func() { craSvc.RunEvery(ctx, cfg.CRA.SweepInterval) })
@@ -692,7 +702,7 @@ func run() error {
 		// owners and auto-close on REMEDIATION_SWEEP_INTERVAL.
 		job(func() { runRemediationSweep(ctx, remediationSvc, cfg.RemediationSweepInterval) })
 		// Pull Dependency-Track / DefectDojo connectors on CONNECTOR_PULL_INTERVAL.
-		job(func() { runConnectorPulls(ctx, connectorSvc, cfg.ConnectorPullInterval) })
+		job(func() { runConnectorPulls(ctx, connectorSvc, cfg.ConnectorPullInterval, notifySvc) })
 		// Housekeeping: stale versions, old SBOM snapshots / scans, logs (*_RETENTION).
 		job(func() { retentionSvc.RunEvery(ctx, 24*time.Hour) })
 		// Ingestion health: alert once when a project's intake looks broken.
@@ -774,7 +784,7 @@ func run() error {
 
 // runEnrichment refreshes exploit intel on an interval until the context ends.
 // Failures (e.g. offline) are logged, not fatal.
-func runEnrichment(ctx context.Context, svc *enrichment.Service, interval time.Duration) {
+func runEnrichment(ctx context.Context, svc *enrichment.Service, interval time.Duration, notifier *notify.Service) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
@@ -785,6 +795,7 @@ func runEnrichment(ctx context.Context, svc *enrichment.Service, interval time.D
 			start := time.Now()
 			res, err := svc.Enrich(ctx)
 			observability.RecordJob(ctx, "enrichment", start, err)
+			notifier.ReportJobResult(ctx, "enrichment", err)
 			if err != nil {
 				slog.WarnContext(ctx, "enrichment run failed", "error", err)
 				continue
@@ -904,6 +915,45 @@ func runSLASweep(ctx context.Context, svc *sla.Service, interval time.Duration) 
 	}
 }
 
+// runGateSweep re-evaluates every project's default-version stored gate
+// result on an interval, until the context ends. This is the fallback that
+// catches enrichment/vulnmatch/pkgmeta changes: those don't carry a
+// project-touched list the way ingest and the exploit-intel sweep do, so
+// their effect on a gate only shows up here.
+func runGateSweep(ctx context.Context, eval *gate.Evaluator, projects *project.Repository, interval time.Duration) {
+	if interval <= 0 {
+		return
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			start := time.Now()
+			ps, err := projects.List(ctx, "", nil, nil, false)
+			var evalErr error
+			if err != nil {
+				evalErr = err
+			} else {
+				ids := make([]string, len(ps))
+				for i, p := range ps {
+					ids[i] = p.ID
+				}
+				n, failed := eval.EvaluateAllDefaults(ctx, ids)
+				if failed > 0 {
+					evalErr = fmt.Errorf("%d of %d projects failed", failed, n+failed)
+				}
+			}
+			observability.RecordJob(ctx, "gate_sweep", start, evalErr)
+			if err != nil {
+				slog.WarnContext(ctx, "gate sweep: listing projects failed", "error", err)
+			}
+		}
+	}
+}
+
 // runSecretRekey re-seals, under the ring's current primary, every row still
 // sealed with a previous INTEGRATION_SECRET_KEY: once at startup if a
 // previous key is configured (a rotation already in progress when this
@@ -1003,7 +1053,7 @@ func runRemediationSweep(ctx context.Context, svc *remediation.Service, interval
 // interval and pulls only the connectors that are due, so a connector added (or
 // last pulled) mid-interval isn't held up to a whole extra one, and instances
 // share the work: a per-connector advisory lock makes each pull happen once.
-func runConnectorPulls(ctx context.Context, svc *connector.Service, interval time.Duration) {
+func runConnectorPulls(ctx context.Context, svc *connector.Service, interval time.Duration, notifier *notify.Service) {
 	if interval <= 0 {
 		return
 	}
@@ -1017,6 +1067,7 @@ func runConnectorPulls(ctx context.Context, svc *connector.Service, interval tim
 			start := time.Now()
 			res, err := svc.PullDue(ctx, interval)
 			observability.RecordJob(ctx, "connector_pull", start, err)
+			notifier.ReportJobResult(ctx, "connector_pull", err)
 			if err != nil {
 				slog.WarnContext(ctx, "connector pulls failed", "error", err)
 				continue
@@ -1126,7 +1177,7 @@ func runComputedFields(ctx context.Context, svc *computed.Service, interval time
 // runVulnMatch re-evaluates stored SBOM inventory against the advisory feed on an
 // interval, so a vulnerability disclosed after upload still surfaces. Failures
 // (e.g. the feed is unreachable) are logged, not fatal.
-func runVulnMatch(ctx context.Context, svc *vulnmatch.Service, interval time.Duration) {
+func runVulnMatch(ctx context.Context, svc *vulnmatch.Service, interval time.Duration, notifier *notify.Service) {
 	if interval <= 0 {
 		return
 	}
@@ -1140,6 +1191,7 @@ func runVulnMatch(ctx context.Context, svc *vulnmatch.Service, interval time.Dur
 			start := time.Now()
 			n, err := svc.Match(ctx)
 			observability.RecordJob(ctx, "vulnmatch", start, err)
+			notifier.ReportJobResult(ctx, "vulnmatch", err)
 			if err != nil {
 				slog.WarnContext(ctx, "vulnerability match failed", "error", err)
 				continue
@@ -1244,7 +1296,7 @@ func runJVNMirror(ctx context.Context, mirror *vulnmatch.JVNMirror, interval tim
 // inventory: once at startup (a fresh install fills in), then every interval.
 // Each sweep only fetches packages whose TTL or backoff has passed, so a short
 // interval is cheap. Failures are logged, not fatal.
-func runPackageMeta(ctx context.Context, svc *pkgmeta.Service, interval time.Duration) {
+func runPackageMeta(ctx context.Context, svc *pkgmeta.Service, interval time.Duration, notifier *notify.Service) {
 	if interval <= 0 {
 		return
 	}
@@ -1254,6 +1306,7 @@ func runPackageMeta(ctx context.Context, svc *pkgmeta.Service, interval time.Dur
 		start := time.Now()
 		res, err := svc.Sweep(ctx)
 		observability.RecordJob(ctx, "pkgmeta", start, err)
+		notifier.ReportJobResult(ctx, "pkgmeta", err)
 		if ctx.Err() != nil {
 			return
 		}

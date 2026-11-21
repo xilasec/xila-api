@@ -182,17 +182,20 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 	membershipRepo := membership.NewRepository(pool)
 	triageRepo := triage.NewRepository(pool)
 	gateRepo := gate.NewRepository(pool)
+	// gateEval re-evaluates and stores a project's gate result after ingest
+	// and exploit-intel sweeps (see main.go's wiring comment).
+	gateEval := gate.NewEvaluator(gateRepo, findingRepo, projectRepo, notifySvc)
 	// Custom fields: definitions + validated values; triage rules read and
 	// set them, component policies read the project's. Computed fields
 	// (internal/computed) recompute their own value from a CEL expression.
 	customFieldRepo := customfield.NewRepository(pool)
 	customFieldSvc := customfield.NewService(customFieldRepo, membershipRepo, findingRepo)
-	triageSvc := triage.NewService(triageRepo, findingRepo, findingRepo).WithCustomFields(customFieldSvc)
+	triageSvc := triage.NewService(triageRepo, findingRepo, findingRepo).WithCustomFields(customFieldSvc).WithNotifier(notifySvc)
 	computedSvc := computed.NewService(customFieldRepo, findingRepo, triageRepo, projectRepo, assetRepo)
 	vexRepo := vex.NewRepository(pool)
 	vexSvc := vex.NewService(vexRepo, findingRepo, projectRepo)
 	vulnPolicyRepo := vulnpolicy.NewRepository(pool)
-	vulnPolicySvc := vulnpolicy.NewService(vulnPolicyRepo, findingRepo, findingRepo)
+	vulnPolicySvc := vulnpolicy.NewService(vulnPolicyRepo, findingRepo, findingRepo).WithNotifier(notifySvc)
 	orgRepo := org.NewRepository(pool)
 	slaRepo := sla.NewRepository(pool)
 	trackerCipher, err := secretbox.NewKeyring([]byte("smoke-integration-key-32-bytes!!"), nil)
@@ -215,7 +218,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 	exploitRepo := exploitintel.NewRepository(pool)
 	craRepo := cra.NewRepository(pool)
 	craSvc := cra.NewService(craRepo, notifySvc, cra.Manufacturer{Name: "Acme GmbH", Contact: "psirt@acme.test", MainEstablishment: "DE"}).WithFeatures(features)
-	exploitSvc := exploitintel.NewService(exploitRepo, nil, nil, findingRepo).WithCRA(craSvc)
+	exploitSvc := exploitintel.NewService(exploitRepo, nil, nil, findingRepo).WithCRA(craSvc).WithNotifier(notifySvc).WithGate(gateEval)
 	parsers := scanner.NewRegistry(
 		scanner.NewTrivy(), scanner.NewSarif(),
 		scanner.NewGrype(), scanner.NewOSVScanner(), scanner.NewNpmAudit(),
@@ -245,7 +248,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		[]scan.Applier{correlation.NewReacher(findingRepo, findingRepo), exploitSvc, vexSvc, vulnPolicySvc, triageSvc, computedSvc, assetSvc,
 			connector.NewRemoteTriage(connectorRepo, findingRepo).WithApproval(cfg.RiskAcceptanceRequiresApproval),
 			enrichment.NewNVD(findingRepo, nil)}, scanRepo).WithFollowUps(remediationSvc).WithSkipUnchanged(true).WithHostAssets(assetRepo).
-		WithCustomParsers(customParserSvc)
+		WithCustomParsers(customParserSvc).WithGate(gateEval)
 	// Advisory sources without network: the local OSV mirror + private advisories.
 	osvMirrorRepo := vulnmatch.NewOSVRepository(pool)
 	advisoryRepo := vulnmatch.NewAdvisoryRepository(pool, "")
@@ -303,7 +306,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 			ratelimit.New(pool, ratelimit.Limits{}), notifySvc,
 			aitriage.Options{RequireApproval: cfg.AssessmentRequiresApproval, RateLimit: cfg.AI.RateLimit})),
 		Sbom: sbom.NewHandler(sbomRepo, sbom.NewService(sbomRepo, projectRepo, policySvc,
-			correlation.NewReacher(findingRepo, findingRepo)).WithLicenses(license.Resolve).WithStrictValidation(cfg.SBOMStrictValidation)),
+			correlation.NewReacher(findingRepo, findingRepo)).WithLicenses(license.Resolve).WithStrictValidation(cfg.SBOMStrictValidation)).WithNotifier(notifySvc),
 		Asset:      asset.NewHandler(assetRepo, assetSvc, membershipRepo),
 		Compliance: compliance.NewHandler(complianceRepo),
 		Portfolio:  portfolio.NewHandler(portfolio.NewRepository(pool)),
@@ -332,7 +335,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		Triage:       triage.NewHandler(triageRepo, triageSvc, false).WithCustomFields(customFieldRepo),
 		Gate:         gate.NewHandler(gateRepo, findingRepo, projectRepo),
 		SLA:          sla.NewHandler(slaRepo, sla.NewService(slaRepo, notifySvc)),
-		Vex:          vex.NewHandler(vexRepo, vexSvc),
+		Vex:          vex.NewHandler(vexRepo, vexSvc).WithNotifier(notifySvc),
 		IssueTracker: issuetracker.NewHandler(issueSvc),
 		Connector:    connector.NewHandler(connector.NewService(connectorRepo, ingestSvc, trackerCipher)),
 		Correlation:  correlation.NewHandler(correlation.NewService(findingRepo, sbomRepo)),

@@ -471,6 +471,7 @@ func (h *Handler) Bulk(c *fiber.Ctx) error {
 		}
 		// Severity elects a cross-tool group's primary: regroup what moved.
 		if direct.Severity != nil || direct.Status != nil {
+			h.notifyStatusChanged(auth.UserID(c), updated)
 			for _, pid := range touched {
 				if !allowed[pid] {
 					continue
@@ -503,6 +504,26 @@ func (h *Handler) notifyAssigned(fs []Finding) {
 			Text:   fmt.Sprintf("%s (%s) was assigned to %s.", f.Title, f.Severity, deref(f.AssigneeEmail)),
 			Fields: map[string]string{"severity": string(f.Severity), "assignee": deref(f.AssigneeEmail)}}
 		go h.notifier.Notify(context.Background(), e)
+	}
+}
+
+// notifyStatusChanged raises finding.status_changed once per project for fs
+// — a single status/severity update or a bulk edit, batched as one event per
+// request even when it touched many findings (never per finding).
+func (h *Handler) notifyStatusChanged(actor string, fs []Finding) {
+	if h.notifier == nil || len(fs) == 0 {
+		return
+	}
+	byProject := map[string]int{}
+	for _, f := range fs {
+		byProject[f.ProjectID]++
+	}
+	for pid, n := range byProject {
+		go h.notifier.Notify(context.Background(), notify.Event{
+			Type: notify.EventStatusChanged, ProjectID: pid,
+			Title:  fmt.Sprintf("%d finding(s) changed", n),
+			Fields: map[string]string{"count": fmt.Sprintf("%d", n), "actor": "user:" + actor},
+		})
 	}
 }
 

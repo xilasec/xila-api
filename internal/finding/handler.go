@@ -378,6 +378,7 @@ func (h *Handler) UpdateStatus(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+	h.notifyStatusChanged(auth.UserID(c), []Finding{f})
 	return c.JSON(f)
 }
 

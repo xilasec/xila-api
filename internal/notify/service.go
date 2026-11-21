@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -46,6 +47,8 @@ type Service struct {
 	backoff     time.Duration      // SendTo's first retry wait
 	cipher      *secretbox.Keyring // webhook signing secrets (unconfigured: none can be stored or used)
 	features    Features           // optional; nil = every feature on
+	jobFailMu   sync.Mutex
+	jobFailures map[string]int // job name -> consecutive failure count
 }
 
 // NewService wires the dispatcher against the repository. smtp may be the zero
@@ -100,6 +103,37 @@ func (s *Service) WithFeatures(f Features) *Service {
 
 func (s *Service) personalOn(ctx context.Context) bool {
 	return s.features == nil || s.features.Enabled(ctx, "personal_notifications")
+}
+
+// ReportJobResult records a leader-elected background job's outcome and
+// raises system.job_failed the first time it fails — not on every later tick
+// of the same failure streak, which would page relentlessly for a feed
+// that's been down for days. A later success resets the streak, so the next
+// failure alerts again.
+func (s *Service) ReportJobResult(ctx context.Context, job string, err error) {
+	s.jobFailMu.Lock()
+	if s.jobFailures == nil {
+		s.jobFailures = map[string]int{}
+	}
+	if err == nil {
+		delete(s.jobFailures, job)
+		s.jobFailMu.Unlock()
+		return
+	}
+	s.jobFailures[job]++
+	first := s.jobFailures[job] == 1
+	s.jobFailMu.Unlock()
+	if !first {
+		return
+	}
+	s.Notify(ctx, Event{
+		Type:  EventSystemJobFailed,
+		Title: fmt.Sprintf("Background job %q is failing", job),
+		Text:  err.Error(),
+		Fields: map[string]string{
+			"job": job,
+		},
+	})
 }
 
 // Notify queues an event for every subscribed channel in the durable outbox;

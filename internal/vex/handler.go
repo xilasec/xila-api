@@ -2,9 +2,11 @@ package vex
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -13,13 +15,20 @@ import (
 
 	"github.com/xilasec/xila-api/internal/auth"
 	"github.com/xilasec/xila-api/internal/httpx"
+	"github.com/xilasec/xila-api/internal/notify"
 )
+
+// eventNotifier dispatches events (notify.Service satisfies it). Optional.
+type eventNotifier interface {
+	Notify(ctx context.Context, e notify.Event)
+}
 
 // Handler exposes VEX upload and management over HTTP.
 type Handler struct {
 	repo      *Repository
 	svc       *Service
 	publicURL string
+	notifier  eventNotifier // optional
 }
 
 // NewHandler constructs a VEX Handler.
@@ -31,6 +40,12 @@ func NewHandler(repo *Repository, svc *Service) *Handler {
 // build their document ids from (empty = a urn: identity).
 func (h *Handler) WithPublicURL(u string) *Handler {
 	h.publicURL = strings.TrimRight(u, "/")
+	return h
+}
+
+// WithNotifier raises vex.processed when a document is ingested.
+func (h *Handler) WithNotifier(n eventNotifier) *Handler {
+	h.notifier = n
 	return h
 }
 
@@ -61,6 +76,17 @@ func (h *Handler) Ingest(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusNotFound, "project not found")
 	case err != nil:
 		return fiber.NewError(fiber.StatusUnprocessableEntity, err.Error())
+	}
+	if h.notifier != nil {
+		go h.notifier.Notify(context.Background(), notify.Event{
+			Type:      notify.EventVEXProcessed,
+			Title:     fmt.Sprintf("VEX processed: %d statement(s), %d finding(s) resolved", len(stored), applied),
+			ProjectID: projectID,
+			Fields: map[string]string{
+				"statements": strconv.Itoa(len(stored)),
+				"resolved":   strconv.Itoa(applied),
+			},
+		})
 	}
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"statements":        stored,

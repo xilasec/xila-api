@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 
@@ -40,6 +41,7 @@ func NewHandler(policies *Repository, stats statsProvider, versions versionFinde
 // need editor, GET needs viewer); the global policy is admin-only.
 func (h *Handler) Register(r fiber.Router) {
 	r.Post("/projects/:projectID/gate", h.Evaluate)
+	r.Get("/projects/:projectID/gate/status", h.Status)
 	r.Get("/projects/:projectID/gate/policy", h.GetProjectPolicy)
 	r.Put("/projects/:projectID/gate/policy", h.SetProjectPolicy)
 	r.Delete("/projects/:projectID/gate/policy", h.DeleteProjectPolicy)
@@ -111,6 +113,45 @@ func (h *Handler) Evaluate(c *fiber.Ctx) error {
 		status = fiber.StatusUnprocessableEntity
 	}
 	return c.Status(status).JSON(result)
+}
+
+// statusResponse is GET /projects/{id}/gate/status: the stored result from
+// the last re-evaluation (ingest, enrichment/exploit/KEV sweep, or leader
+// interval), not a fresh run — see Evaluator. Evaluated is false for a
+// project that hasn't been evaluated yet (no scans/SBOMs, or not reached by
+// a sweep yet).
+type statusResponse struct {
+	Evaluated   bool        `json:"evaluated"`
+	Passed      bool        `json:"passed"`
+	Violations  []Violation `json:"violations"`
+	VersionID   string      `json:"version_id,omitempty"`
+	EvaluatedAt *time.Time  `json:"evaluated_at,omitempty"`
+}
+
+// Status handles GET /projects/{id}/gate/status: the project's currently
+// stored gate result, read straight from project_gate_state (no
+// re-evaluation). Same version resolution as Evaluate (?version_id=,
+// ?branch=, ?release=, else the default version).
+func (h *Handler) Status(c *fiber.Ctx) error {
+	projectID, err := httpx.ID(c, "projectID")
+	if err != nil {
+		return err
+	}
+	versionID, err := h.version(c, projectID)
+	if err != nil {
+		return err
+	}
+	st, ok, err := h.policies.GetState(c.UserContext(), projectID, versionID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return c.JSON(statusResponse{Evaluated: false})
+	}
+	return c.JSON(statusResponse{
+		Evaluated: true, Passed: st.Passed, Violations: st.Violations,
+		VersionID: st.VersionID, EvaluatedAt: &st.EvaluatedAt,
+	})
 }
 
 // version resolves which project version a gate evaluates: ?version_id=, or

@@ -370,6 +370,12 @@ type Filter struct {
 	Custom []customfield.Cond
 	// IncludeDuplicates includes cross-tool duplicate reports; default hides them.
 	IncludeDuplicates bool
+	// FailsGate narrows to the live backlog (open/confirmed, non-duplicate, on
+	// the default version) of findings that count against the project's
+	// currently stored gate result (internal/gate): everything in it while the
+	// gate fails, nothing while it passes or hasn't been evaluated. Effective
+	// only together with ProjectID.
+	FailsGate bool
 	// Archived lists archived findings (their own, their scan's or their
 	// project's archive) instead of live ones.
 	Archived bool
@@ -523,6 +529,14 @@ func listQuery(f Filter, cols string) (string, []any) {
 	}
 	if !f.IncludeDuplicates {
 		q += ` AND duplicate_of IS NULL` // collapse cross-tool duplicates
+	}
+	if f.FailsGate && f.ProjectID != "" {
+		args = append(args, f.ProjectID)
+		n := len(args)
+		q += fmt.Sprintf(` AND status IN ('open', 'confirmed') AND duplicate_of IS NULL
+			AND version_id = (SELECT id FROM project_versions WHERE project_id = $%d AND is_default)
+			AND EXISTS (SELECT 1 FROM project_gate_state gs
+				WHERE gs.project_id = $%d AND gs.version_id = version_id AND NOT gs.passed)`, n, n)
 	}
 	q += " AND" + archive.Only(archive.Finding(""), f.Archived)
 	if len(f.Tags) > 0 {
@@ -1030,6 +1044,50 @@ func (r *Repository) ListNewHighSeverity(ctx context.Context, scanID string) ([]
 		findings = append(findings, f)
 	}
 	return findings, rows.Err()
+}
+
+// ListNew returns findings of any severity first created by the given scan
+// (first_scan_id) and still live on the default version — notify.EventFindingNew,
+// the "what did this scan introduce" counterpart to ListNewHighSeverity that
+// doesn't filter by severity.
+func (r *Repository) ListNew(ctx context.Context, scanID string) ([]Finding, error) {
+	q := `SELECT ` + findingColumns + ` FROM findings
+		WHERE first_scan_id = $1
+		  AND status IN ('open', 'confirmed')
+		  AND duplicate_of IS NULL
+		  AND` + onDefaultVersion + ` AND` + archive.Finding("") + `
+		ORDER BY priority DESC`
+	rows, err := r.db.Query(ctx, q, scanID)
+	if err != nil {
+		return nil, fmt.Errorf("list new: %w", err)
+	}
+	defer rows.Close()
+	findings := []Finding{}
+	for rows.Next() {
+		f, err := scanFinding(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan finding: %w", err)
+		}
+		findings = append(findings, f)
+	}
+	return findings, rows.Err()
+}
+
+// OpenFindingExists reports whether a live (open/confirmed, non-duplicate)
+// finding exists for this exact project version and fingerprint — the
+// identity the dedup upsert uses. Used to detect an advisory withdrawal that
+// actually affects something live (vulnmatch.Service), rather than firing on
+// every advisory OSV ever withdraws.
+func (r *Repository) OpenFindingExists(ctx context.Context, projectID, versionID, fingerprint string) (bool, error) {
+	var ok bool
+	err := r.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM findings
+		WHERE project_id = $1 AND version_id = $2 AND fingerprint = $3
+		  AND status IN ('open', 'confirmed') AND duplicate_of IS NULL)`,
+		projectID, versionID, fingerprint).Scan(&ok)
+	if err != nil {
+		return false, fmt.Errorf("open finding exists: %w", err)
+	}
+	return ok, nil
 }
 
 // SummaryData computes a scheduled summary's figures for one project (or the

@@ -75,6 +75,11 @@ type Config struct {
 	ExceptionSweepInterval time.Duration
 	// SLASweepInterval is how often breached / due-soon SLAs are alerted on (0 = off).
 	SLASweepInterval time.Duration
+	// GateSweepInterval is how often every project's stored gate state
+	// (internal/gate) is re-evaluated on a schedule, catching enrichment/
+	// vulnmatch/pkgmeta/exploit-intel changes an ingest-triggered
+	// re-evaluation doesn't directly see (0 = off).
+	GateSweepInterval time.Duration
 	// Retention is what housekeeping deletes (0 = keep forever).
 	Retention Retention
 	// TriageRulesRequireApproval turns on the four-eyes workflow for triage
@@ -922,6 +927,7 @@ func Load() (Config, error) {
 		},
 		ExceptionSweepInterval: getdur("EXCEPTION_SWEEP_INTERVAL", time.Hour),
 		SLASweepInterval:       getdur("SLA_SWEEP_INTERVAL", time.Hour),
+		GateSweepInterval:      getdur("GATE_SWEEP_INTERVAL", 15*time.Minute),
 		Retention: Retention{
 			BranchAge:           getdur("BRANCH_RETENTION", 90*24*time.Hour),
 			ReleaseAge:          getdur("RELEASE_RETENTION", 0),

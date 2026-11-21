@@ -11,6 +11,7 @@ import (
 	"github.com/xilasec/xila-api/internal/customfield"
 	"github.com/xilasec/xila-api/internal/domain"
 	"github.com/xilasec/xila-api/internal/finding"
+	"github.com/xilasec/xila-api/internal/notify"
 )
 
 // ruleSource yields the enabled, approved rules that apply to a project, records
@@ -50,17 +51,30 @@ type deduper interface {
 	Deduplicate(ctx context.Context, projectID string) (int, error)
 }
 
+// eventNotifier dispatches events (notify.Service satisfies it). Optional.
+type eventNotifier interface {
+	Notify(ctx context.Context, e notify.Event)
+}
+
 // Service applies triage rules to findings.
 type Service struct {
 	rules    ruleSource
 	findings findingStore
 	dedup    deduper       // optional
 	custom   customChecker // set_custom_field needs it; without, those rules change nothing
+	notifier eventNotifier // optional
 }
 
 // WithCustomFields lets set_custom_field rules validate their writes.
 func (s *Service) WithCustomFields(c customChecker) *Service {
 	s.custom = c
+	return s
+}
+
+// WithNotifier raises finding.status_changed once per run when any rule
+// changed a finding's status or severity (batched, never per finding).
+func (s *Service) WithNotifier(n eventNotifier) *Service {
+	s.notifier = n
 	return s
 }
 
@@ -139,6 +153,13 @@ func (s *Service) applyTo(ctx context.Context, projectID string, load func(conte
 	}
 	if err := s.rules.RecordHits(ctx, hits); err != nil {
 		return changed, err
+	}
+	if changed > 0 && s.notifier != nil {
+		go s.notifier.Notify(context.Background(), notify.Event{
+			Type: notify.EventStatusChanged, ProjectID: projectID,
+			Title:  fmt.Sprintf("Triage rules changed %d finding(s)", changed),
+			Fields: map[string]string{"count": fmt.Sprintf("%d", changed), "actor": "triage-rule"},
+		})
 	}
 	return changed, nil
 }

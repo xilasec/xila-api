@@ -3,8 +3,11 @@ package sbom
 import (
 	"bytes"
 	"cmp"
+	"context"
 	"errors"
+	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -12,19 +15,32 @@ import (
 
 	"github.com/xilasec/xila-api/internal/authz"
 	"github.com/xilasec/xila-api/internal/httpx"
+	"github.com/xilasec/xila-api/internal/notify"
 	"github.com/xilasec/xila-api/internal/projecttree"
 	"github.com/xilasec/xila-api/internal/vex"
 )
 
+// eventNotifier dispatches events (notify.Service satisfies it). Optional.
+type eventNotifier interface {
+	Notify(ctx context.Context, e notify.Event)
+}
+
 // Handler exposes SBOM upload, history and component search over HTTP.
 type Handler struct {
-	repo   *Repository
-	ingest *Service
+	repo     *Repository
+	ingest   *Service
+	notifier eventNotifier // optional
 }
 
 // NewHandler constructs an SBOM Handler.
 func NewHandler(repo *Repository, ingest *Service) *Handler {
 	return &Handler{repo: repo, ingest: ingest}
+}
+
+// WithNotifier raises sbom.processed / sbom.failed on upload.
+func (h *Handler) WithNotifier(n eventNotifier) *Handler {
+	h.notifier = n
+	return h
 }
 
 // Register mounts SBOM routes.
@@ -80,14 +96,50 @@ func (h *Handler) Upload(c *fiber.Ctx) error {
 	case errors.Is(err, ErrCollection):
 		return fiber.NewError(fiber.StatusConflict, err.Error())
 	case errors.As(err, &strictErr):
+		h.notifyFailed(projectID, strictErr.Error())
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":  strictErr.Error(),
 			"fields": strictErr.Fields,
 		})
 	case err != nil:
+		h.notifyFailed(projectID, err.Error())
 		return fiber.NewError(fiber.StatusUnprocessableEntity, err.Error())
 	}
+	h.notifyProcessed(s)
 	return c.Status(fiber.StatusCreated).JSON(s)
+}
+
+// notifyProcessed raises sbom.processed (best-effort, async) once an upload
+// parsed successfully.
+func (h *Handler) notifyProcessed(s Sbom) {
+	if h.notifier == nil {
+		return
+	}
+	go h.notifier.Notify(context.Background(), notify.Event{
+		Type:      notify.EventSbomProcessed,
+		Title:     fmt.Sprintf("SBOM processed: %s %s", s.Artifact, s.Version),
+		ProjectID: s.ProjectID,
+		Fields: map[string]string{
+			"sbom_id":    s.ID,
+			"components": strconv.Itoa(s.ComponentCount),
+			"format":     s.Format,
+		},
+	})
+}
+
+// notifyFailed raises sbom.failed (best-effort, async) when an upload didn't
+// parse — a strict-validation rejection or a generic parse error, not a
+// request error (unknown project, a collection with no SBOMs of its own).
+func (h *Handler) notifyFailed(projectID, reason string) {
+	if h.notifier == nil {
+		return
+	}
+	go h.notifier.Notify(context.Background(), notify.Event{
+		Type:      notify.EventSbomFailed,
+		Title:     "SBOM upload failed to parse",
+		Text:      reason,
+		ProjectID: projectID,
+	})
 }
 
 // ListByProject handles GET /projects/{id}/sboms (SBOM history).
