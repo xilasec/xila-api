@@ -54,7 +54,8 @@ export const MAIN_NAV = [
 		key: 'nav.group.compliance',
 		items: [
 			{ href: '/sla', key: 'nav.sla', icon: 'clock' },
-			{ href: '/cra', key: 'nav.cra', icon: 'flag', feature: 'cra' }
+			{ href: '/cra', key: 'nav.cra', icon: 'flag', feature: 'cra' },
+			{ href: '/vex-documents', key: 'nav.vexDocuments', icon: 'doc' }
 		]
 	}
 ];

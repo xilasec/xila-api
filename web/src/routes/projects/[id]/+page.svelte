@@ -413,6 +413,23 @@
 		}
 	}
 
+	// Seed a project-scope VEX document from the currently selected export
+	// branch (empty = the default version); the editor page does the rest.
+	async function createVexDocument() {
+		try {
+			const doc = await api.createVexDocument({
+				format: 'openvex',
+				scope_kind: 'project',
+				project_id: id,
+				targets: [vexExport.version ? { version_id: vexExport.version } : {}]
+			});
+			notify($t('proj.vexDocCreated'), 'success');
+			goto('/vex-documents');
+		} catch (err) {
+			notify(errorMessage(err));
+		}
+	}
+
 	async function loadGate() {
 		const { policy, scope } = await api.gatePolicy(id);
 		gateScope = scope;
@@ -1392,6 +1409,7 @@
 					</button>
 				</div>
 				<button class="btn btn-primary btn-sm" onclick={() => vexDialog.showModal()}>{$t('proj.uploadVex')}</button>
+				<button class="btn btn-sm" onclick={createVexDocument}>{$t('proj.createVexDocument')}</button>
 			</div>
 		</div>
 		<State loading={tabLoading} empty={!tabLoading && vexStatements.length === 0}
