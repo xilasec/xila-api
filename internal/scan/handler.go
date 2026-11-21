@@ -2,6 +2,7 @@ package scan
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"strings"
 
@@ -9,16 +10,66 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"github.com/xilasec/xila-api/internal/auth"
+	"github.com/xilasec/xila-api/internal/domain"
 	"github.com/xilasec/xila-api/internal/httpx"
+	"github.com/xilasec/xila-api/internal/project"
 )
+
+// accessChecker answers the per-project authorization questions
+// POST /scans (project by name — no project id in the path for the
+// route-level middleware to check; see authz.parseScope's routeScope{} for
+// "scans") must re-do itself once it has resolved a project.
+// membership.Repository satisfies it.
+type accessChecker interface {
+	AdminStatus(ctx context.Context, userID string) (isAdmin, isOwner bool, err error)
+	RoleOnProject(ctx context.Context, userID, projectID string) (domain.TeamRole, bool, error)
+	ProjectCapabilityAllowed(ctx context.Context, userID, projectID string, min domain.TeamRole, cap domain.Capability) (bool, error)
+}
+
+// authorizeUpload checks userID may upload to projectID: a project-scoped
+// token confined to a different project is refused outright (the auth
+// middleware's own check never sees this project id, since it isn't in the
+// path); otherwise an instance admin always may, and anyone else needs at
+// least the uploader role plus a custom role not denying CapUpload — the
+// same bar POST /projects/{id}/scans|sboms clears via allowUploader.
+func authorizeUpload(c *fiber.Ctx, access accessChecker, userID, projectID string) error {
+	if a := auth.CurrentActor(c); a.ProjectID != "" && a.UserID == userID && a.ProjectID != projectID {
+		return fiber.NewError(fiber.StatusForbidden, "token not authorized for this project")
+	}
+	isAdmin, _, err := access.AdminStatus(c.UserContext(), userID)
+	if err != nil {
+		return err
+	}
+	if isAdmin {
+		return nil
+	}
+	role, member, err := access.RoleOnProject(c.UserContext(), userID, projectID)
+	if err != nil {
+		return err
+	}
+	if !member || !role.AtLeast(domain.TeamUploader) {
+		return fiber.NewError(fiber.StatusForbidden, "insufficient role for this action")
+	}
+	allowed, err := access.ProjectCapabilityAllowed(c.UserContext(), userID, projectID, domain.TeamUploader, domain.CapUpload)
+	if err != nil {
+		return err
+	}
+	if !allowed {
+		return fiber.NewError(fiber.StatusForbidden, "this role cannot perform this action")
+	}
+	return nil
+}
 
 // Handler exposes scan ingestion and listing over HTTP.
 type Handler struct {
-	repo   *Repository
-	ingest *Service
-	async  bool          // enqueue uploads for background processing instead of blocking
-	queue  *QueueMonitor // optional: queue depth for /ingest/queue + backpressure
-	pool   *WorkerPool   // optional: this node's worker count, for /ingest/settings
+	repo     *Repository
+	ingest   *Service
+	async    bool          // enqueue uploads for background processing instead of blocking
+	queue    *QueueMonitor // optional: queue depth for /ingest/queue + backpressure
+	pool     *WorkerPool   // optional: this node's worker count, for /ingest/settings
+	resolver *project.Resolver // optional: enables POST /scans (project by name)
+	access   accessChecker      // required alongside resolver
 }
 
 // NewHandler constructs a scan Handler. When async is true, uploads are queued
@@ -29,9 +80,17 @@ func NewHandler(repo *Repository, ingest *Service, async bool, queue *QueueMonit
 	return &Handler{repo: repo, ingest: ingest, async: async, queue: queue, pool: pool}
 }
 
+// WithProjectByName enables POST /scans (CI uploads that know a project —
+// and optionally a team — by name, not by id; see project.Resolver).
+func (h *Handler) WithProjectByName(resolver *project.Resolver, access accessChecker) *Handler {
+	h.resolver, h.access = resolver, access
+	return h
+}
+
 // Register mounts scan routes.
 func (h *Handler) Register(r fiber.Router) {
 	r.Post("/projects/:projectID/scans", h.Ingest)
+	r.Post("/scans", h.IngestByName)
 	r.Get("/projects/:projectID/scans", h.List)
 	r.Get("/scans/:scanID", h.Get)
 	r.Get("/ingest/queue", h.Queue)
@@ -118,6 +177,33 @@ func (h *Handler) Ingest(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+	return h.ingestProject(c, projectID)
+}
+
+// IngestByName handles POST /scans: an alternative to
+// POST /projects/{id}/scans for CI that knows a project (and team) by name,
+// not by id (project_name, team, auto_create — see project.Resolver). Every
+// other parameter is the same query-string metadata Ingest reads. No project
+// id is in the path, so the route-level authz middleware can't authorize
+// this route (see authz.parseScope's routeScope{} for "scans"): this handler
+// re-checks the resolved project itself (authorizeUpload).
+func (h *Handler) IngestByName(c *fiber.Ctx) error {
+	if h.resolver == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "project-by-name upload is not configured")
+	}
+	userID := auth.UserID(c)
+	p, err := h.resolver.ByName(c.UserContext(), userID,
+		c.Query("project_name"), c.Query("team"), c.QueryBool("auto_create", false))
+	if err != nil {
+		return project.ResolveError(err)
+	}
+	if err := authorizeUpload(c, h.access, userID, p.ID); err != nil {
+		return err
+	}
+	return h.ingestProject(c, p.ID)
+}
+
+func (h *Handler) ingestProject(c *fiber.Ctx, projectID string) error {
 	scannerName := strings.TrimSpace(c.Query("scanner"))
 	if scannerName == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "scanner query parameter is required")
@@ -162,6 +248,7 @@ func (h *Handler) Ingest(c *fiber.Ctx) error {
 	// Async: persist the payload + a scan row and return 202 immediately; a worker
 	// runs the pipeline. Sync: process inline and return 201 with the finished scan.
 	var sc Scan
+	var err error
 	if h.async {
 		sc, err = h.ingest.Enqueue(c.UserContext(), req, append([]byte(nil), c.Body()...))
 	} else {

@@ -3,6 +3,7 @@ package sbom
 import (
 	"bytes"
 	"cmp"
+	"context"
 	"errors"
 	"slices"
 	"strings"
@@ -10,16 +11,66 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 
+	"github.com/xilasec/xila-api/internal/auth"
 	"github.com/xilasec/xila-api/internal/authz"
+	"github.com/xilasec/xila-api/internal/domain"
 	"github.com/xilasec/xila-api/internal/httpx"
+	"github.com/xilasec/xila-api/internal/project"
 	"github.com/xilasec/xila-api/internal/projecttree"
 	"github.com/xilasec/xila-api/internal/vex"
 )
 
+// accessChecker answers the per-project authorization questions POST /sboms
+// (project by name — no project id in the path for the route-level
+// middleware to check; see authz.parseScope's routeScope{} for "sboms")
+// must re-do itself once it has resolved a project. membership.Repository
+// satisfies it.
+type accessChecker interface {
+	AdminStatus(ctx context.Context, userID string) (isAdmin, isOwner bool, err error)
+	RoleOnProject(ctx context.Context, userID, projectID string) (domain.TeamRole, bool, error)
+	ProjectCapabilityAllowed(ctx context.Context, userID, projectID string, min domain.TeamRole, cap domain.Capability) (bool, error)
+}
+
+// authorizeUpload checks userID may upload to projectID: a project-scoped
+// token confined to a different project is refused outright (the auth
+// middleware's own check never sees this project id, since it isn't in the
+// path); otherwise an instance admin always may, and anyone else needs at
+// least the uploader role plus a custom role not denying CapUpload — the
+// same bar POST /projects/{id}/sboms clears via allowUploader.
+func authorizeUpload(c *fiber.Ctx, access accessChecker, userID, projectID string) error {
+	if a := auth.CurrentActor(c); a.ProjectID != "" && a.UserID == userID && a.ProjectID != projectID {
+		return fiber.NewError(fiber.StatusForbidden, "token not authorized for this project")
+	}
+	isAdmin, _, err := access.AdminStatus(c.UserContext(), userID)
+	if err != nil {
+		return err
+	}
+	if isAdmin {
+		return nil
+	}
+	role, member, err := access.RoleOnProject(c.UserContext(), userID, projectID)
+	if err != nil {
+		return err
+	}
+	if !member || !role.AtLeast(domain.TeamUploader) {
+		return fiber.NewError(fiber.StatusForbidden, "insufficient role for this action")
+	}
+	allowed, err := access.ProjectCapabilityAllowed(c.UserContext(), userID, projectID, domain.TeamUploader, domain.CapUpload)
+	if err != nil {
+		return err
+	}
+	if !allowed {
+		return fiber.NewError(fiber.StatusForbidden, "this role cannot perform this action")
+	}
+	return nil
+}
+
 // Handler exposes SBOM upload, history and component search over HTTP.
 type Handler struct {
-	repo   *Repository
-	ingest *Service
+	repo     *Repository
+	ingest   *Service
+	resolver *project.Resolver // optional: enables POST /sboms (project by name)
+	access   accessChecker     // required alongside resolver
 }
 
 // NewHandler constructs an SBOM Handler.
@@ -27,14 +78,23 @@ func NewHandler(repo *Repository, ingest *Service) *Handler {
 	return &Handler{repo: repo, ingest: ingest}
 }
 
+// WithProjectByName enables POST /sboms (CI uploads that know a project —
+// and optionally a team — by name, not by id; see project.Resolver).
+func (h *Handler) WithProjectByName(resolver *project.Resolver, access accessChecker) *Handler {
+	h.resolver, h.access = resolver, access
+	return h
+}
+
 // Register mounts SBOM routes.
 func (h *Handler) Register(r fiber.Router) {
 	r.Post("/projects/:projectID/sboms", h.Upload)
+	r.Post("/sboms", h.UploadByName)
 	r.Get("/projects/:projectID/sboms", h.ListByProject)
 	r.Get("/projects/:projectID/components", h.ProjectComponents)
 	r.Get("/projects/:projectID/components/export", h.ExportProjectComponents)
 	r.Get("/projects/:projectID/services", h.ProjectServices)
 	r.Get("/sboms/:sbomID", h.Get)
+	r.Get("/sboms/:sbomID/status", h.Status)
 	r.Get("/sboms/:sbomID/components", h.SbomComponents)
 	r.Get("/sboms/:sbomID/components/export", h.ExportSbomComponents)
 	r.Get("/sboms/:sbomID/vulnerabilities", h.Vulnerabilities)
@@ -48,16 +108,43 @@ func (h *Handler) Register(r fiber.Router) {
 	r.Get("/vulnerabilities/:vulnID/sboms", h.VulnerabilityTimeline)
 }
 
-// Upload handles POST /projects/{id}/sboms with a CycloneDX or SPDX JSON body.
-// The format is auto-detected from the content.
+// Upload handles POST /projects/{id}/sboms with a CycloneDX (JSON or XML) or
+// SPDX JSON body. The format is auto-detected from the content.
 //
 //	POST /projects/{id}/sboms?artifact=myapp&version=1.4.0
-//	<raw cyclonedx or spdx json>
+//	<raw cyclonedx or spdx document>
 func (h *Handler) Upload(c *fiber.Ctx) error {
 	projectID, err := httpx.ID(c, "projectID")
 	if err != nil {
 		return err
 	}
+	return h.uploadProject(c, projectID)
+}
+
+// UploadByName handles POST /sboms: an alternative to
+// POST /projects/{id}/sboms for CI that knows a project (and team) by name,
+// not by id (project_name, team, auto_create — see project.Resolver). Every
+// other parameter is the same query-string metadata Upload reads. No
+// project id is in the path, so the route-level authz middleware can't
+// authorize this route (see authz.parseScope's routeScope{} for "sboms"):
+// this handler re-checks the resolved project itself (authorizeUpload).
+func (h *Handler) UploadByName(c *fiber.Ctx) error {
+	if h.resolver == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "project-by-name upload is not configured")
+	}
+	userID := auth.UserID(c)
+	p, err := h.resolver.ByName(c.UserContext(), userID,
+		c.Query("project_name"), c.Query("team"), c.QueryBool("auto_create", false))
+	if err != nil {
+		return project.ResolveError(err)
+	}
+	if err := authorizeUpload(c, h.access, userID, p.ID); err != nil {
+		return err
+	}
+	return h.uploadProject(c, p.ID)
+}
+
+func (h *Handler) uploadProject(c *fiber.Ctx, projectID string) error {
 	if len(c.Body()) == 0 {
 		return fiber.NewError(fiber.StatusBadRequest, "request body (CycloneDX JSON) is required")
 	}
@@ -79,6 +166,8 @@ func (h *Handler) Upload(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusNotFound, "project not found")
 	case errors.Is(err, ErrCollection):
 		return fiber.NewError(fiber.StatusConflict, err.Error())
+	case errors.Is(err, ErrStrictXMLUnsupported):
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	case errors.As(err, &strictErr):
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":  strictErr.Error(),
@@ -88,6 +177,25 @@ func (h *Handler) Upload(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusUnprocessableEntity, err.Error())
 	}
 	return c.Status(fiber.StatusCreated).JSON(s)
+}
+
+// Status handles GET /sboms/{id}/status: the upload's background-processing
+// state (vulnmatch match, pkgmeta fetch, policy evaluation, reachability —
+// M13 13.3), so CI can wait for it before gating instead of racing a
+// just-uploaded snapshot's still-running post-ingest steps.
+func (h *Handler) Status(c *fiber.Ctx) error {
+	s, err := h.snapshot(c, "sbomID")
+	if err != nil {
+		return err
+	}
+	p, err := h.repo.GetProcessing(c.UserContext(), s.ID)
+	if errors.Is(err, ErrNoProcessing) {
+		return fiber.NewError(fiber.StatusNotFound, "no processing record for this sbom")
+	}
+	if err != nil {
+		return err
+	}
+	return c.JSON(p)
 }
 
 // ListByProject handles GET /projects/{id}/sboms (SBOM history).

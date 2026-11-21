@@ -44,6 +44,11 @@ type Sbom struct {
 	// project's default version); not read back.
 	VersionName string `json:"-"`
 	VersionKind string `json:"-"`
+	// Processing is this upload's background-processing status (vulnmatch
+	// match, pkgmeta fetch, policy evaluation, reachability), set by
+	// Service.Ingest on its return value only — not a stored column, and nil
+	// on every other read (use GET /sboms/{id}/status instead).
+	Processing *ProcessingStatus `json:"processing,omitempty"`
 }
 
 // Component is a single entry in a bill of materials.

@@ -15,15 +15,22 @@ const maxSbomBytes = 64 << 20 // 64 MiB
 // ErrProjectNotFound is returned when uploading against a missing project.
 var ErrProjectNotFound = errors.New("project not found")
 
+// ErrStrictXMLUnsupported is returned when strict validation (?strict=true or
+// SBOM_STRICT_VALIDATION) is requested for a CycloneDX XML upload: the
+// official schema validator (internal/sbom/schema) only checks JSON.
+var ErrStrictXMLUnsupported = errors.New("strict validation is JSON-only: upload this CycloneDX XML document without ?strict=true (and without SBOM_STRICT_VALIDATION)")
+
 // projectChecker verifies a project exists before ingestion.
 type projectChecker interface {
 	Exists(ctx context.Context, id string) (bool, error)
 }
 
 // sbomStore persists a parsed SBOM, its components, services and dependency
-// edges.
+// edges, and tracks each upload's background-processing status (M13 13.3).
 type sbomStore interface {
 	Ingest(ctx context.Context, s Sbom, components []Component, services []BomService, edges []Edge) (Sbom, error)
+	CreateProcessing(ctx context.Context, sbomID string, steps []string) (ProcessingStatus, error)
+	MarkStep(ctx context.Context, sbomID, step, status, errMsg string) (ProcessingStatus, error)
 }
 
 // ComponentEvaluator is an optional post-ingest hook run once a snapshot is
@@ -127,6 +134,9 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest, raw io.Reader) 
 		return Sbom{}, fmt.Errorf("parse sbom: %w", err)
 	}
 	if req.Strict || s.strictDefault {
+		if doc.XML {
+			return Sbom{}, ErrStrictXMLUnsupported
+		}
 		if err := validateStrict(doc, data); err != nil {
 			return Sbom{}, err
 		}
@@ -163,11 +173,38 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest, raw io.Reader) 
 		return Sbom{}, err
 	}
 
+	// Track every enabled post-ingest step (M13 13.3) so a gate run right
+	// after upload can wait for them (GET /sboms/{id}/status) instead of
+	// seeing stale advisory/policy/reachability state. A disabled feature's
+	// step is never added, so it can't block "completed".
+	var steps []string
+	if s.evaluator != nil {
+		steps = append(steps, StepPolicy)
+	}
+	if s.rescorer != nil {
+		steps = append(steps, StepReachability)
+	}
+	if s.matcher != nil {
+		steps = append(steps, StepVulnMatch)
+	}
+	if s.packages != nil {
+		steps = append(steps, StepPkgMeta)
+	}
+	processing, err := s.store.CreateProcessing(ctx, stored.ID, steps)
+	if err != nil {
+		slog.WarnContext(ctx, "sbom processing record failed", "error", err, "sbom_id", stored.ID)
+	} else {
+		stored.Processing = &processing
+	}
+
 	// Run policy evaluation (e.g. license) as a best-effort side effect: the SBOM
 	// is already persisted, so a policy error is logged, not surfaced.
 	if s.evaluator != nil {
 		if err := s.evaluator.Evaluate(ctx, req.ProjectID, stored.VersionID, doc.Components); err != nil {
 			slog.WarnContext(ctx, "sbom policy evaluation failed", "error", err, "sbom_id", stored.ID)
+			s.markStep(ctx, stored.ID, StepPolicy, StepFailed, "policy evaluation failed")
+		} else {
+			s.markStep(ctx, stored.ID, StepPolicy, StepCompleted, "")
 		}
 	}
 
@@ -178,28 +215,49 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest, raw io.Reader) 
 	if s.rescorer != nil {
 		if n, err := s.rescorer.ApplyToProject(ctx, req.ProjectID); err != nil {
 			slog.WarnContext(ctx, "reachability rescore failed", "error", err, "sbom_id", stored.ID)
-		} else if n > 0 {
-			slog.InfoContext(ctx, "rescored findings against new SBOM",
-				"count", n, "project_id", req.ProjectID, "sbom_id", stored.ID)
+			s.markStep(ctx, stored.ID, StepReachability, StepFailed, "reachability rescoring failed")
+		} else {
+			if n > 0 {
+				slog.InfoContext(ctx, "rescored findings against new SBOM",
+					"count", n, "project_id", req.ProjectID, "sbom_id", stored.ID)
+			}
+			s.markStep(ctx, stored.ID, StepReachability, StepCompleted, "")
 		}
 	}
 	if s.matcher != nil {
 		go func(projectID, sbomID string) {
 			ctx, cancel := context.WithTimeout(context.Background(), matchTimeout)
 			defer cancel()
+			s.markStep(ctx, sbomID, StepVulnMatch, StepRunning, "")
 			if _, err := s.matcher.MatchProject(ctx, projectID); err != nil {
 				slog.WarnContext(ctx, "advisory match after upload failed", "error", err, "sbom_id", sbomID)
+				s.markStep(ctx, sbomID, StepVulnMatch, StepFailed, "advisory match failed")
+				return
 			}
+			s.markStep(ctx, sbomID, StepVulnMatch, StepCompleted, "")
 		}(req.ProjectID, stored.ID)
 	}
 	if s.packages != nil {
 		go func(projectID, sbomID string) {
 			ctx, cancel := context.WithTimeout(context.Background(), packageMetaTimeout)
 			defer cancel()
+			s.markStep(ctx, sbomID, StepPkgMeta, StepRunning, "")
 			if err := s.packages.RefreshProject(ctx, projectID); err != nil {
 				slog.WarnContext(ctx, "package metadata refresh after upload failed", "error", err, "sbom_id", sbomID)
+				s.markStep(ctx, sbomID, StepPkgMeta, StepFailed, "package metadata refresh failed")
+				return
 			}
+			s.markStep(ctx, sbomID, StepPkgMeta, StepCompleted, "")
 		}(req.ProjectID, stored.ID)
 	}
 	return stored, nil
+}
+
+// markStep updates a processing step, logging (not surfacing) a storage
+// failure: the step's real outcome already happened, and a status-tracking
+// hiccup must not turn that into an upload failure.
+func (s *Service) markStep(ctx context.Context, sbomID, step, status, errMsg string) {
+	if _, err := s.store.MarkStep(ctx, sbomID, step, status, errMsg); err != nil {
+		slog.WarnContext(ctx, "sbom processing step update failed", "error", err, "sbom_id", sbomID, "step", step)
+	}
 }
