@@ -1221,6 +1221,15 @@ Domain, Proprietary Free, Commercial, …) and `license_resolved`. The raw
   `category:Copyleft`.
 - Filter components: use `?license=GPL-3.0-only` or
   `?license_category=Copyleft` on any component list.
+- Manual concluded-license override: `POST/GET/PUT/DELETE /projects/{id}/license-overrides`
+  (owner) curates one package's SPDX expression in that project, optionally
+  scoped to a version range (`">=1.2.0, <2.0.0"`, empty = every version). It
+  replaces the SBOM's resolved license at the next ingest and on every
+  current snapshot immediately (no re-upload needed), with the component
+  policies re-evaluating right after; the SBOM's own declared value stays
+  visible (`license_declared_expression`) and a component row carries
+  `license_override_id` while one applies. Removing the override reverts to
+  the declared value on the next reapply.
 
 The SPDX License List (CC0-1.0, [spdx/license-list-data](https://github.com/spdx/license-list-data))
 and the ScanCode LicenseDB categories (CC-BY-4.0, © nexB Inc. and others) are

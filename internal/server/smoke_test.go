@@ -263,6 +263,14 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 			Contact: cfg.PSIRT.PublisherContact},
 	})
 	licenseGroups := license.NewGroups(pool)
+	licenseOverrideRepo := license.NewOverrideRepository(pool)
+	loadLicenseOverrides := func(ctx context.Context) (*license.Matcher, error) {
+		overrides, err := licenseOverrideRepo.ListAll(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return license.NewMatcher(overrides, sbom.CompareVersions), nil
+	}
 	policyRepo := policy.NewRepository(pool)
 	pkgmetaRepo := pkgmeta.NewRepository(pool)
 	pkgmetaSvc := pkgmeta.NewService(pkgmetaRepo, map[string]pkgmeta.Registry{pkgmeta.NPM: fakeNPM{}}, pkgmeta.Options{})
@@ -303,7 +311,8 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 			ratelimit.New(pool, ratelimit.Limits{}), notifySvc,
 			aitriage.Options{RequireApproval: cfg.AssessmentRequiresApproval, RateLimit: cfg.AI.RateLimit})),
 		Sbom: sbom.NewHandler(sbomRepo, sbom.NewService(sbomRepo, projectRepo, policySvc,
-			correlation.NewReacher(findingRepo, findingRepo)).WithLicenses(license.Resolve).WithStrictValidation(cfg.SBOMStrictValidation)),
+			correlation.NewReacher(findingRepo, findingRepo)).WithLicenses(license.Resolve).WithStrictValidation(cfg.SBOMStrictValidation).
+			WithLicenseOverrides(func(ctx context.Context) (sbom.LicenseOverrideMatcher, error) { return loadLicenseOverrides(ctx) })),
 		Asset:      asset.NewHandler(assetRepo, assetSvc, membershipRepo),
 		Compliance: compliance.NewHandler(complianceRepo),
 		Portfolio:  portfolio.NewHandler(portfolio.NewRepository(pool)),
@@ -347,12 +356,14 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		AuthLimiter: authLimiterFor(pool, cfg),
 		Enrichment: enrichment.NewHandler(enrichment.NewService(findingRepo, fakeExploit{},
 			[]enrichment.KEVCatalog{fakeExploit{}}, enrichment.NewKEVRepository(pool), notifySvc).WithCRA(craSvc)),
-		VulnMatch:  vulnmatch.NewHandler(vulnSvc, vulnSources.Names(), osvMirrorRepo, nil),
-		Advisory:   vulnmatch.NewAdvisoryHandler(advisoryRepo, nil),
-		FeedRules:  vulnmatch.NewFeedRuleHandler(feedRuleRepo, nil),
-		PSIRT:      psirt.NewHandler(psirtSvc, psirtRepo),
-		PkgMeta:    pkgmeta.NewHandler(pkgmetaRepo, pkgmetaSvc),
-		License:    license.NewHandler(licenseGroups),
+		VulnMatch: vulnmatch.NewHandler(vulnSvc, vulnSources.Names(), osvMirrorRepo, nil),
+		Advisory:  vulnmatch.NewAdvisoryHandler(advisoryRepo, nil),
+		FeedRules: vulnmatch.NewFeedRuleHandler(feedRuleRepo, nil),
+		PSIRT:     psirt.NewHandler(psirtSvc, psirtRepo),
+		PkgMeta:   pkgmeta.NewHandler(pkgmetaRepo, pkgmetaSvc),
+		License:   license.NewHandler(licenseGroups),
+		LicenseOverride: license.NewOverrideHandler(licenseOverrideRepo,
+			license.NewReapplier(sbomRepo, loadLicenseOverrides)).WithPolicyReevaluation(policySvc),
 		Policy:     policy.NewHandler(policyRepo, policySvc, findingRepo),
 		VulnPolicy: vulnpolicy.NewHandler(vulnPolicyRepo, vulnPolicySvc).WithCustomFields(customFieldRepo),
 		Secrets:    secretbox.NewHandler(pool, trackerCipher),
