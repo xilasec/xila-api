@@ -48,11 +48,11 @@ const (
 
 // Anomaly is one thing wrong with a project's intake.
 type Anomaly struct {
-	Kind        string    `json:"kind"`
-	ProjectID   string    `json:"project_id"`
-	ProjectName string    `json:"project_name"`
-	Scanner     string    `json:"scanner,omitempty"`
-	AssetID     *string   `json:"asset_id,omitempty"`
+	Kind        string  `json:"kind"`
+	ProjectID   string  `json:"project_id"`
+	ProjectName string  `json:"project_name"`
+	Scanner     string  `json:"scanner,omitempty"`
+	AssetID     *string `json:"asset_id,omitempty"`
 	// Branch is set for a KindMissing anomaly: the expectation's declared
 	// branch ("" means the project's default version).
 	Branch string    `json:"branch,omitempty"`
@@ -489,11 +489,16 @@ type Handler struct{ repo *Repository }
 // NewHandler constructs the handler.
 func NewHandler(repo *Repository) *Handler { return &Handler{repo: repo} }
 
-// Register mounts GET /ingestion-health (the caller's projects) and
-// GET /projects/{id}/ingestion-health.
+// Register mounts GET /ingestion-health (the caller's projects),
+// GET /projects/{id}/ingestion-health, and a project's declared scan
+// expectations (listing needs viewer; declaring/removing one is owner-level,
+// gated by authz like an SLA — see internal/authz).
 func (h *Handler) Register(r fiber.Router) {
 	r.Get("/ingestion-health", h.list)
 	r.Get("/projects/:projectID/ingestion-health", h.project)
+	r.Get("/projects/:projectID/scan-expectations", h.listExpectations)
+	r.Post("/projects/:projectID/scan-expectations", h.createExpectation)
+	r.Delete("/projects/:projectID/scan-expectations/:expectationID", h.deleteExpectation)
 }
 
 func (h *Handler) list(c *fiber.Ctx) error {
@@ -521,4 +526,71 @@ func (h *Handler) project(c *fiber.Ctx) error {
 		return err
 	}
 	return c.JSON(fiber.Map{"anomalies": out})
+}
+
+func (h *Handler) listExpectations(c *fiber.Ctx) error {
+	id, err := httpx.ID(c, "projectID")
+	if err != nil {
+		return err
+	}
+	out, err := h.repo.ListExpectations(c.UserContext(), id)
+	if err != nil {
+		return err
+	}
+	return c.JSON(fiber.Map{"expectations": out})
+}
+
+type expectationRequest struct {
+	Scanner     *string `json:"scanner"`
+	Category    *string `json:"category"`
+	Branch      string  `json:"branch"`
+	MaxAgeHours int     `json:"max_age_hours"`
+}
+
+// createExpectation handles POST /projects/{id}/scan-expectations: declare a
+// scanner (or category) that should report within max_age_hours on branch
+// ("" = the project's default version).
+func (h *Handler) createExpectation(c *fiber.Ctx) error {
+	id, err := httpx.ID(c, "projectID")
+	if err != nil {
+		return err
+	}
+	var req expectationRequest
+	if err := httpx.Parse(c, &req); err != nil {
+		return err
+	}
+	out, err := h.repo.CreateExpectation(c.UserContext(), Expectation{
+		ProjectID: id, Scanner: req.Scanner, Category: req.Category, Branch: req.Branch, MaxAgeHours: req.MaxAgeHours,
+	})
+	switch {
+	case errors.Is(err, ErrInvalidExpectation):
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	case errors.Is(err, ErrDuplicateExpectation):
+		return fiber.NewError(fiber.StatusConflict, err.Error())
+	case errors.Is(err, ErrNoProject):
+		return fiber.NewError(fiber.StatusNotFound, err.Error())
+	case err != nil:
+		return err
+	}
+	return c.Status(fiber.StatusCreated).JSON(out)
+}
+
+// deleteExpectation handles DELETE /projects/{id}/scan-expectations/{expectationID}.
+func (h *Handler) deleteExpectation(c *fiber.Ctx) error {
+	projectID, err := httpx.ID(c, "projectID")
+	if err != nil {
+		return err
+	}
+	expectationID, err := httpx.ID(c, "expectationID")
+	if err != nil {
+		return err
+	}
+	ok, err := h.repo.DeleteExpectation(c.UserContext(), projectID, expectationID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fiber.NewError(fiber.StatusNotFound, "scan expectation not found")
+	}
+	return c.SendStatus(fiber.StatusNoContent)
 }

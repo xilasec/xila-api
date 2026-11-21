@@ -330,7 +330,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		AuditLog:     audit.NewRecorder(auditRepo, membershipRepo, jwtKeys),
 		IngestHealth: ingesthealth.NewHandler(ingesthealth.NewRepository(pool)),
 		Triage:       triage.NewHandler(triageRepo, triageSvc, false).WithCustomFields(customFieldRepo),
-		Gate:         gate.NewHandler(gateRepo, findingRepo, projectRepo),
+		Gate:         gate.NewHandler(gateRepo, findingRepo, projectRepo, ingesthealth.NewRepository(pool)),
 		SLA:          sla.NewHandler(slaRepo, sla.NewService(slaRepo, notifySvc)),
 		Vex:          vex.NewHandler(vexRepo, vexSvc),
 		IssueTracker: issuetracker.NewHandler(issueSvc),

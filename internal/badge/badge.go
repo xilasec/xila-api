@@ -234,7 +234,9 @@ func (h *Handler) badge(ctx context.Context, pid, kind string) (Badge, error) {
 		if err != nil {
 			return Badge{}, err
 		}
-		if gate.Evaluate(policy, stats).Passed {
+		// The public badge doesn't check declared scan expectations (that needs
+		// an ingesthealth query); require_expected_scans only affects CI's gate.
+		if gate.Evaluate(policy, stats, nil).Passed {
 			return Badge{Message: "passing", Color: ColorGreen}, nil
 		}
 		return Badge{Message: "failing", Color: ColorRed}, nil

@@ -553,7 +553,7 @@ func run() error {
 		AuditLog:     audit.NewRecorder(auditRepo, membershipRepo, jwtKeys),
 		IngestHealth: ingesthealth.NewHandler(ingestHealth),
 		Triage:       triage.NewHandler(triageRepo, triageSvc, cfg.TriageRulesRequireApproval).WithCustomFields(customFieldRepo),
-		Gate:         gate.NewHandler(gateRepo, findingRepo, projectRepo),
+		Gate:         gate.NewHandler(gateRepo, findingRepo, projectRepo, ingestHealth),
 		SLA:          sla.NewHandler(slaRepo, slaSvc),
 		Vex:          vex.NewHandler(vexRepo, vexSvc).WithPublicURL(cfg.PublicURL),
 		IssueTracker: issuetracker.NewHandler(issueSvc),

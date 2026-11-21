@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 
 	"github.com/xilasec/xila-api/internal/domain"
 	"github.com/xilasec/xila-api/internal/finding"
 	"github.com/xilasec/xila-api/internal/httpx"
+	"github.com/xilasec/xila-api/internal/ingesthealth"
 )
 
 // statsProvider yields the live gate aggregates for a project version
@@ -24,16 +26,23 @@ type versionFinder interface {
 	FindVersion(ctx context.Context, projectID, name string) (string, bool, error)
 }
 
+// expectationChecker finds declared scan expectations with no completed scan
+// within their window (internal/ingesthealth.Repository).
+type expectationChecker interface {
+	Check(ctx context.Context, scope []string, now time.Time) ([]ingesthealth.Anomaly, error)
+}
+
 // Handler exposes gate evaluation + policy management.
 type Handler struct {
-	policies *Repository
-	stats    statsProvider
-	versions versionFinder
+	policies     *Repository
+	stats        statsProvider
+	versions     versionFinder
+	expectations expectationChecker
 }
 
 // NewHandler constructs a gate Handler.
-func NewHandler(policies *Repository, stats statsProvider, versions versionFinder) *Handler {
-	return &Handler{policies: policies, stats: stats, versions: versions}
+func NewHandler(policies *Repository, stats statsProvider, versions versionFinder, expectations expectationChecker) *Handler {
+	return &Handler{policies: policies, stats: stats, versions: versions, expectations: expectations}
 }
 
 // Register mounts the routes. Project routes are team-gated by authz (eval/PUT
@@ -101,7 +110,20 @@ func (h *Handler) Evaluate(c *fiber.Ctx) error {
 		return err
 	}
 
-	result := Evaluate(policy, stats)
+	var missing []string
+	if policy.RequireExpectedScans {
+		anomalies, err := h.expectations.Check(c.UserContext(), []string{projectID}, time.Now())
+		if err != nil {
+			return err
+		}
+		for _, a := range anomalies {
+			if a.Kind == ingesthealth.KindMissing {
+				missing = append(missing, a.Detail)
+			}
+		}
+	}
+
+	result := Evaluate(policy, stats, missing)
 	result.Scope = scope
 	result.VersionID = versionID
 	result.NewOnly = newOnly
