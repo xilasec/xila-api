@@ -154,7 +154,7 @@ func TestClockPausesDuringExceptionAndFollowsSeverity(t *testing.T) {
 		t.Errorf("window after a 3-day pause = %v, want 7d + 3d", w)
 	}
 
-	low, err := findings.SetSeverity(ctx, f.ID, domain.SeverityLow)
+	low, err := findings.SetSeverity(ctx, f.ID, domain.SeverityLow, "test")
 	if err != nil {
 		t.Fatalf("set severity: %v", err)
 	}

@@ -33,7 +33,7 @@ type findingStore interface {
 	ListForTriageScan(ctx context.Context, projectID, scanID string) ([]finding.Finding, error)
 	ListByIDs(ctx context.Context, ids []string) ([]finding.Finding, error)
 	SetStatus(ctx context.Context, id string, t finding.Triage) (finding.Finding, error)
-	SetSeverity(ctx context.Context, id string, sev domain.Severity) (finding.Finding, error)
+	SetSeverity(ctx context.Context, id string, sev domain.Severity, actor string) (finding.Finding, error)
 }
 
 // deduper recomputes cross-tool grouping for a project (finding.Repository
@@ -279,7 +279,7 @@ func (s *Service) reconcileSeverity(ctx context.Context, f *finding.Finding, ele
 		}
 		changed := false
 		if prior := domain.Severity(m.PriorSeverity); prior != "" && f.Severity != prior {
-			nf, err := s.findings.SetSeverity(ctx, f.ID, prior)
+			nf, err := s.findings.SetSeverity(ctx, f.ID, prior, policyActor(m.PolicyName))
 			if err != nil {
 				return false, err
 			}
@@ -289,7 +289,7 @@ func (s *Service) reconcileSeverity(ctx context.Context, f *finding.Finding, ele
 		m.AppliedSeverity, m.PriorSeverity = "", ""
 		if want != "" && f.Severity != domain.Severity(want) {
 			priorNow := f.Severity
-			nf, err := s.findings.SetSeverity(ctx, f.ID, domain.Severity(want))
+			nf, err := s.findings.SetSeverity(ctx, f.ID, domain.Severity(want), policyActor(elected.Name))
 			if err != nil {
 				return changed, err
 			}
@@ -303,7 +303,7 @@ func (s *Service) reconcileSeverity(ctx context.Context, f *finding.Finding, ele
 
 	if want != "" && f.Severity != domain.Severity(want) {
 		prior := f.Severity
-		nf, err := s.findings.SetSeverity(ctx, f.ID, domain.Severity(want))
+		nf, err := s.findings.SetSeverity(ctx, f.ID, domain.Severity(want), policyActor(elected.Name))
 		if err != nil {
 			return false, err
 		}
