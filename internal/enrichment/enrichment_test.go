@@ -159,12 +159,13 @@ type fakeCatalog struct {
 	name       string
 	ids        []string
 	ransomware []string
+	dueDates   map[string]time.Time
 	err        error
 }
 
 func (f fakeCatalog) Name() string { return f.name }
 func (f fakeCatalog) Fetch(context.Context) (KEVList, error) {
-	l := KEVList{IDs: f.ids, Ransomware: map[string]bool{}}
+	l := KEVList{IDs: f.ids, Ransomware: map[string]bool{}, DueDates: f.dueDates}
 	for _, id := range f.ransomware {
 		l.Ransomware[id] = true
 	}
@@ -192,12 +193,17 @@ func (s *fakeKEVStore) Failed(_ context.Context, source string, cause error) err
 	return nil
 }
 func (s *fakeKEVStore) Assertions(_ context.Context, sources []string) (KEVAssertions, error) {
-	out := KEVAssertions{Sources: map[string][]string{}, Ransomware: map[string]bool{}}
+	out := KEVAssertions{Sources: map[string][]string{}, Ransomware: map[string]bool{}, DueDates: map[string]time.Time{}}
 	for _, src := range sources {
 		for _, id := range s.lists[src].IDs {
 			out.Sources[id] = append(out.Sources[id], src)
 			if s.lists[src].Ransomware[id] {
 				out.Ransomware[id] = true
+			}
+			if d, ok := s.lists[src].DueDates[id]; ok {
+				if existing, ok := out.DueDates[id]; !ok || d.Before(existing) {
+					out.DueDates[id] = d
+				}
 			}
 		}
 	}
