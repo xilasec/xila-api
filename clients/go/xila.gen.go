@@ -8007,6 +8007,13 @@ type TimelineSnapshot struct {
 	Version  *string             `json:"version,omitempty"`
 }
 
+// TriageCarrySettings defines model for TriageCarrySettings.
+type TriageCarrySettings struct {
+	// BranchRegex Empty matches every version of the project.
+	BranchRegex *string `json:"branch_regex,omitempty"`
+	Enabled     *bool   `json:"enabled,omitempty"`
+}
+
 // TriagePreview defines model for TriagePreview.
 type TriagePreview struct {
 	Findings *[]struct {
@@ -9365,6 +9372,11 @@ type UpdateFindingDetailsJSONBody struct {
 	References       *[]string `json:"references,omitempty"`
 	StepsToReproduce *string   `json:"steps_to_reproduce,omitempty"`
 	Title            *string   `json:"title,omitempty"`
+}
+
+// MarkFindingDuplicateJSONBody defines parameters for MarkFindingDuplicate.
+type MarkFindingDuplicateJSONBody struct {
+	PrimaryId openapi_types.UUID `json:"primary_id"`
 }
 
 // ListFindingExploits200JSONResponseBodyExploitsMaturity defines parameters for ListFindingExploits.
@@ -10781,6 +10793,9 @@ type UpdateFindingCustomJSONRequestBody = CustomValues
 // UpdateFindingDetailsJSONRequestBody defines body for UpdateFindingDetails for application/json ContentType.
 type UpdateFindingDetailsJSONRequestBody UpdateFindingDetailsJSONBody
 
+// MarkFindingDuplicateJSONRequestBody defines body for MarkFindingDuplicate for application/json ContentType.
+type MarkFindingDuplicateJSONRequestBody MarkFindingDuplicateJSONBody
+
 // UpdateFindingFieldsJSONRequestBody defines body for UpdateFindingFields for application/json ContentType.
 type UpdateFindingFieldsJSONRequestBody UpdateFindingFieldsJSONBody
 
@@ -10933,6 +10948,9 @@ type CreateProjectScanJSONRequestBody = CreateProjectScanJSONBody
 
 // PutProjectSlaPolicyJSONRequestBody defines body for PutProjectSlaPolicy for application/json ContentType.
 type PutProjectSlaPolicyJSONRequestBody = SLADays
+
+// PutProjectTriageCarryJSONRequestBody defines body for PutProjectTriageCarry for application/json ContentType.
+type PutProjectTriageCarryJSONRequestBody = TriageCarrySettings
 
 // UpdateProjectVersionJSONRequestBody defines body for UpdateProjectVersion for application/json ContentType.
 type UpdateProjectVersionJSONRequestBody UpdateProjectVersionJSONBody
@@ -12898,6 +12916,35 @@ type ClientInterface interface {
 	//
 	// Corresponds with PATCH /findings/{findingID}/details (the `UpdateFindingDetails` operationId).
 	UpdateFindingDetails(ctx context.Context, findingID FindingID, body UpdateFindingDetailsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UnmarkFindingDuplicate Undo a manual duplicate mark
+	//
+	// Corresponds with DELETE /findings/{findingID}/duplicate-of (the `UnmarkFindingDuplicate` operationId).
+	UnmarkFindingDuplicate(ctx context.Context, findingID FindingID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// MarkFindingDuplicateWithBody Mark by hand as a duplicate of another finding
+	//
+	// Same project and version as the primary. A manual override: automatic
+	// dedup (`Deduplicate`) never rewrites it, and the finding behaves exactly
+	// like an automatic duplicate everywhere (excluded from counts, lists,
+	// metrics) until unmarked.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /findings/{findingID}/duplicate-of (the `MarkFindingDuplicate` operationId).
+	MarkFindingDuplicateWithBody(ctx context.Context, findingID FindingID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// MarkFindingDuplicate Mark by hand as a duplicate of another finding
+	//
+	// Same project and version as the primary. A manual override: automatic
+	// dedup (`Deduplicate`) never rewrites it, and the finding behaves exactly
+	// like an automatic duplicate everywhere (excluded from counts, lists,
+	// metrics) until unmarked.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /findings/{findingID}/duplicate-of (the `MarkFindingDuplicate` operationId).
+	MarkFindingDuplicate(ctx context.Context, findingID FindingID, body MarkFindingDuplicateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListFindingDuplicates The other tools that reported this same issue
 	//
@@ -15003,6 +15050,35 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /projects/{projectID}/summary (the `GetProjectSummary` operationId).
 	GetProjectSummary(ctx context.Context, projectID ProjectID, params *GetProjectSummaryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetProjectTriageCarry The project's triage-carry setting
+	//
+	// Whether a manual triage decision (`false_positive`, `wont_fix`, or
+	// reopening) on one version of this project is copied to its other
+	// in-scope versions, and applied to a matching finding a later scan
+	// creates there. Risk acceptances never carry; they are a decision
+	// about one version's exposure, not a fact about the code.
+	//
+	// Corresponds with GET /projects/{projectID}/triage-carry (the `GetProjectTriageCarry` operationId).
+	GetProjectTriageCarry(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutProjectTriageCarryWithBody Turn triage carry on or off, and scope it by branch
+	//
+	// Owner. `branch_regex` empty matches every version of the project.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /projects/{projectID}/triage-carry (the `PutProjectTriageCarry` operationId).
+	PutProjectTriageCarryWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutProjectTriageCarry Turn triage carry on or off, and scope it by branch
+	//
+	// Owner. `branch_regex` empty matches every version of the project.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /projects/{projectID}/triage-carry (the `PutProjectTriageCarry` operationId).
+	PutProjectTriageCarry(ctx context.Context, projectID ProjectID, body PutProjectTriageCarryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListProjectVersions A project's branches and releases
 	//
@@ -20047,6 +20123,65 @@ func (c *Client) UpdateFindingDetails(ctx context.Context, findingID FindingID, 
 	return c.Client.Do(req)
 }
 
+// UnmarkFindingDuplicate Undo a manual duplicate mark
+//
+// Corresponds with DELETE /findings/{findingID}/duplicate-of (the `UnmarkFindingDuplicate` operationId).
+func (c *Client) UnmarkFindingDuplicate(ctx context.Context, findingID FindingID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUnmarkFindingDuplicateRequest(c.Server, findingID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// MarkFindingDuplicateWithBody Mark by hand as a duplicate of another finding
+//
+// Same project and version as the primary. A manual override: automatic
+// dedup (`Deduplicate`) never rewrites it, and the finding behaves exactly
+// like an automatic duplicate everywhere (excluded from counts, lists,
+// metrics) until unmarked.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /findings/{findingID}/duplicate-of (the `MarkFindingDuplicate` operationId).
+func (c *Client) MarkFindingDuplicateWithBody(ctx context.Context, findingID FindingID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewMarkFindingDuplicateRequestWithBody(c.Server, findingID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// MarkFindingDuplicate Mark by hand as a duplicate of another finding
+//
+// Same project and version as the primary. A manual override: automatic
+// dedup (`Deduplicate`) never rewrites it, and the finding behaves exactly
+// like an automatic duplicate everywhere (excluded from counts, lists,
+// metrics) until unmarked.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /findings/{findingID}/duplicate-of (the `MarkFindingDuplicate` operationId).
+func (c *Client) MarkFindingDuplicate(ctx context.Context, findingID FindingID, body MarkFindingDuplicateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewMarkFindingDuplicateRequest(c.Server, findingID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListFindingDuplicates The other tools that reported this same issue
 //
 // Cross-tool duplicates collapsed into this finding, with their own scanner and lifecycle preserved.
@@ -24282,6 +24417,65 @@ func (c *Client) PutProjectSlaPolicy(ctx context.Context, projectID ProjectID, b
 // Corresponds with GET /projects/{projectID}/summary (the `GetProjectSummary` operationId).
 func (c *Client) GetProjectSummary(ctx context.Context, projectID ProjectID, params *GetProjectSummaryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetProjectSummaryRequest(c.Server, projectID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetProjectTriageCarry The project's triage-carry setting
+//
+// Whether a manual triage decision (`false_positive`, `wont_fix`, or
+// reopening) on one version of this project is copied to its other
+// in-scope versions, and applied to a matching finding a later scan
+// creates there. Risk acceptances never carry; they are a decision
+// about one version's exposure, not a fact about the code.
+//
+// Corresponds with GET /projects/{projectID}/triage-carry (the `GetProjectTriageCarry` operationId).
+func (c *Client) GetProjectTriageCarry(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetProjectTriageCarryRequest(c.Server, projectID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutProjectTriageCarryWithBody Turn triage carry on or off, and scope it by branch
+//
+// Owner. `branch_regex` empty matches every version of the project.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /projects/{projectID}/triage-carry (the `PutProjectTriageCarry` operationId).
+func (c *Client) PutProjectTriageCarryWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutProjectTriageCarryRequestWithBody(c.Server, projectID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutProjectTriageCarry Turn triage carry on or off, and scope it by branch
+//
+// Owner. `branch_regex` empty matches every version of the project.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /projects/{projectID}/triage-carry (the `PutProjectTriageCarry` operationId).
+func (c *Client) PutProjectTriageCarry(ctx context.Context, projectID ProjectID, body PutProjectTriageCarryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutProjectTriageCarryRequest(c.Server, projectID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -34414,6 +34608,87 @@ func NewUpdateFindingDetailsRequestWithBody(server string, findingID FindingID, 
 	return req, nil
 }
 
+// NewUnmarkFindingDuplicateRequest constructs an http.Request for the UnmarkFindingDuplicate method
+func NewUnmarkFindingDuplicateRequest(server string, findingID FindingID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "findingID", findingID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/findings/%s/duplicate-of", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewMarkFindingDuplicateRequest calls the generic MarkFindingDuplicate builder with application/json body
+func NewMarkFindingDuplicateRequest(server string, findingID FindingID, body MarkFindingDuplicateJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewMarkFindingDuplicateRequestWithBody(server, findingID, "application/json", bodyReader)
+}
+
+// NewMarkFindingDuplicateRequestWithBody constructs an http.Request for the MarkFindingDuplicate method, with any body, and a specified content type
+func NewMarkFindingDuplicateRequestWithBody(server string, findingID FindingID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "findingID", findingID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/findings/%s/duplicate-of", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListFindingDuplicatesRequest constructs an http.Request for the ListFindingDuplicates method
 func NewListFindingDuplicatesRequest(server string, findingID FindingID) (*http.Request, error) {
 	var err error
@@ -43078,6 +43353,87 @@ func NewGetProjectSummaryRequest(server string, projectID ProjectID, params *Get
 	return req, nil
 }
 
+// NewGetProjectTriageCarryRequest constructs an http.Request for the GetProjectTriageCarry method
+func NewGetProjectTriageCarryRequest(server string, projectID ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/triage-carry", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutProjectTriageCarryRequest calls the generic PutProjectTriageCarry builder with application/json body
+func NewPutProjectTriageCarryRequest(server string, projectID ProjectID, body PutProjectTriageCarryJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutProjectTriageCarryRequestWithBody(server, projectID, "application/json", bodyReader)
+}
+
+// NewPutProjectTriageCarryRequestWithBody constructs an http.Request for the PutProjectTriageCarry method, with any body, and a specified content type
+func NewPutProjectTriageCarryRequestWithBody(server string, projectID ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/triage-carry", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListProjectVersionsRequest constructs an http.Request for the ListProjectVersions method
 func NewListProjectVersionsRequest(server string, projectID ProjectID) (*http.Request, error) {
 	var err error
@@ -51027,6 +51383,37 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with PATCH /findings/{findingID}/details (the `UpdateFindingDetails` operationId).
 	UpdateFindingDetailsWithResponse(ctx context.Context, findingID FindingID, body UpdateFindingDetailsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateFindingDetailsResponse, error)
 
+	// UnmarkFindingDuplicateWithResponse Undo a manual duplicate mark
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /findings/{findingID}/duplicate-of (the `UnmarkFindingDuplicate` operationId).
+	UnmarkFindingDuplicateWithResponse(ctx context.Context, findingID FindingID, reqEditors ...RequestEditorFn) (*UnmarkFindingDuplicateResponse, error)
+
+	// MarkFindingDuplicateWithBodyWithResponse Mark by hand as a duplicate of another finding
+	//
+	// Same project and version as the primary. A manual override: automatic
+	// dedup (`Deduplicate`) never rewrites it, and the finding behaves exactly
+	// like an automatic duplicate everywhere (excluded from counts, lists,
+	// metrics) until unmarked.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /findings/{findingID}/duplicate-of (the `MarkFindingDuplicate` operationId).
+	MarkFindingDuplicateWithBodyWithResponse(ctx context.Context, findingID FindingID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*MarkFindingDuplicateResponse, error)
+
+	// MarkFindingDuplicateWithResponse Mark by hand as a duplicate of another finding
+	//
+	// Same project and version as the primary. A manual override: automatic
+	// dedup (`Deduplicate`) never rewrites it, and the finding behaves exactly
+	// like an automatic duplicate everywhere (excluded from counts, lists,
+	// metrics) until unmarked.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /findings/{findingID}/duplicate-of (the `MarkFindingDuplicate` operationId).
+	MarkFindingDuplicateWithResponse(ctx context.Context, findingID FindingID, body MarkFindingDuplicateJSONRequestBody, reqEditors ...RequestEditorFn) (*MarkFindingDuplicateResponse, error)
+
 	// ListFindingDuplicatesWithResponse The other tools that reported this same issue
 	//
 	// Cross-tool duplicates collapsed into this finding, with their own scanner and lifecycle preserved.
@@ -53355,6 +53742,37 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /projects/{projectID}/summary (the `GetProjectSummary` operationId).
 	GetProjectSummaryWithResponse(ctx context.Context, projectID ProjectID, params *GetProjectSummaryParams, reqEditors ...RequestEditorFn) (*GetProjectSummaryResponse, error)
+
+	// GetProjectTriageCarryWithResponse The project's triage-carry setting
+	//
+	// Whether a manual triage decision (`false_positive`, `wont_fix`, or
+	// reopening) on one version of this project is copied to its other
+	// in-scope versions, and applied to a matching finding a later scan
+	// creates there. Risk acceptances never carry; they are a decision
+	// about one version's exposure, not a fact about the code.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /projects/{projectID}/triage-carry (the `GetProjectTriageCarry` operationId).
+	GetProjectTriageCarryWithResponse(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*GetProjectTriageCarryResponse, error)
+
+	// PutProjectTriageCarryWithBodyWithResponse Turn triage carry on or off, and scope it by branch
+	//
+	// Owner. `branch_regex` empty matches every version of the project.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /projects/{projectID}/triage-carry (the `PutProjectTriageCarry` operationId).
+	PutProjectTriageCarryWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutProjectTriageCarryResponse, error)
+
+	// PutProjectTriageCarryWithResponse Turn triage carry on or off, and scope it by branch
+	//
+	// Owner. `branch_regex` empty matches every version of the project.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /projects/{projectID}/triage-carry (the `PutProjectTriageCarry` operationId).
+	PutProjectTriageCarryWithResponse(ctx context.Context, projectID ProjectID, body PutProjectTriageCarryJSONRequestBody, reqEditors ...RequestEditorFn) (*PutProjectTriageCarryResponse, error)
 
 	// ListProjectVersionsWithResponse A project's branches and releases
 	//
@@ -62045,6 +62463,109 @@ func (r UpdateFindingDetailsResponse) ContentType() string {
 	return ""
 }
 
+type UnmarkFindingDuplicateResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Finding
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UnmarkFindingDuplicateResponse) GetJSON200() *Finding {
+	return r.JSON200
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r UnmarkFindingDuplicateResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r UnmarkFindingDuplicateResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UnmarkFindingDuplicateResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UnmarkFindingDuplicateResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UnmarkFindingDuplicateResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type MarkFindingDuplicateResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Finding
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r MarkFindingDuplicateResponse) GetJSON200() *Finding {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r MarkFindingDuplicateResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r MarkFindingDuplicateResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r MarkFindingDuplicateResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r MarkFindingDuplicateResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r MarkFindingDuplicateResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r MarkFindingDuplicateResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListFindingDuplicatesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -70547,6 +71068,109 @@ func (r GetProjectSummaryResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetProjectSummaryResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetProjectTriageCarryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *TriageCarrySettings
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetProjectTriageCarryResponse) GetJSON200() *TriageCarrySettings {
+	return r.JSON200
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r GetProjectTriageCarryResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetProjectTriageCarryResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetProjectTriageCarryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetProjectTriageCarryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetProjectTriageCarryResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PutProjectTriageCarryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *TriageCarrySettings
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PutProjectTriageCarryResponse) GetJSON200() *TriageCarrySettings {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r PutProjectTriageCarryResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r PutProjectTriageCarryResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r PutProjectTriageCarryResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PutProjectTriageCarryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutProjectTriageCarryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PutProjectTriageCarryResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -80769,6 +81393,55 @@ func (c *ClientWithResponses) UpdateFindingDetailsWithResponse(ctx context.Conte
 	return ParseUpdateFindingDetailsResponse(rsp)
 }
 
+// UnmarkFindingDuplicateWithResponse Undo a manual duplicate mark
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /findings/{findingID}/duplicate-of (the `UnmarkFindingDuplicate` operationId).
+func (c *ClientWithResponses) UnmarkFindingDuplicateWithResponse(ctx context.Context, findingID FindingID, reqEditors ...RequestEditorFn) (*UnmarkFindingDuplicateResponse, error) {
+	rsp, err := c.UnmarkFindingDuplicate(ctx, findingID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUnmarkFindingDuplicateResponse(rsp)
+}
+
+// MarkFindingDuplicateWithBodyWithResponse Mark by hand as a duplicate of another finding
+//
+// Same project and version as the primary. A manual override: automatic
+// dedup (`Deduplicate`) never rewrites it, and the finding behaves exactly
+// like an automatic duplicate everywhere (excluded from counts, lists,
+// metrics) until unmarked.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /findings/{findingID}/duplicate-of (the `MarkFindingDuplicate` operationId).
+func (c *ClientWithResponses) MarkFindingDuplicateWithBodyWithResponse(ctx context.Context, findingID FindingID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*MarkFindingDuplicateResponse, error) {
+	rsp, err := c.MarkFindingDuplicateWithBody(ctx, findingID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseMarkFindingDuplicateResponse(rsp)
+}
+
+// MarkFindingDuplicateWithResponse Mark by hand as a duplicate of another finding
+//
+// Same project and version as the primary. A manual override: automatic
+// dedup (`Deduplicate`) never rewrites it, and the finding behaves exactly
+// like an automatic duplicate everywhere (excluded from counts, lists,
+// metrics) until unmarked.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /findings/{findingID}/duplicate-of (the `MarkFindingDuplicate` operationId).
+func (c *ClientWithResponses) MarkFindingDuplicateWithResponse(ctx context.Context, findingID FindingID, body MarkFindingDuplicateJSONRequestBody, reqEditors ...RequestEditorFn) (*MarkFindingDuplicateResponse, error) {
+	rsp, err := c.MarkFindingDuplicate(ctx, findingID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseMarkFindingDuplicateResponse(rsp)
+}
+
 // ListFindingDuplicatesWithResponse The other tools that reported this same issue
 //
 // Cross-tool duplicates collapsed into this finding, with their own scanner and lifecycle preserved.
@@ -84380,6 +85053,55 @@ func (c *ClientWithResponses) GetProjectSummaryWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseGetProjectSummaryResponse(rsp)
+}
+
+// GetProjectTriageCarryWithResponse The project's triage-carry setting
+//
+// Whether a manual triage decision (`false_positive`, `wont_fix`, or
+// reopening) on one version of this project is copied to its other
+// in-scope versions, and applied to a matching finding a later scan
+// creates there. Risk acceptances never carry; they are a decision
+// about one version's exposure, not a fact about the code.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /projects/{projectID}/triage-carry (the `GetProjectTriageCarry` operationId).
+func (c *ClientWithResponses) GetProjectTriageCarryWithResponse(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*GetProjectTriageCarryResponse, error) {
+	rsp, err := c.GetProjectTriageCarry(ctx, projectID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetProjectTriageCarryResponse(rsp)
+}
+
+// PutProjectTriageCarryWithBodyWithResponse Turn triage carry on or off, and scope it by branch
+//
+// Owner. `branch_regex` empty matches every version of the project.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /projects/{projectID}/triage-carry (the `PutProjectTriageCarry` operationId).
+func (c *ClientWithResponses) PutProjectTriageCarryWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutProjectTriageCarryResponse, error) {
+	rsp, err := c.PutProjectTriageCarryWithBody(ctx, projectID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutProjectTriageCarryResponse(rsp)
+}
+
+// PutProjectTriageCarryWithResponse Turn triage carry on or off, and scope it by branch
+//
+// Owner. `branch_regex` empty matches every version of the project.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /projects/{projectID}/triage-carry (the `PutProjectTriageCarry` operationId).
+func (c *ClientWithResponses) PutProjectTriageCarryWithResponse(ctx context.Context, projectID ProjectID, body PutProjectTriageCarryJSONRequestBody, reqEditors ...RequestEditorFn) (*PutProjectTriageCarryResponse, error) {
+	rsp, err := c.PutProjectTriageCarry(ctx, projectID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutProjectTriageCarryResponse(rsp)
 }
 
 // ListProjectVersionsWithResponse A project's branches and releases
@@ -91969,6 +92691,79 @@ func ParseUpdateFindingDetailsResponse(rsp *http.Response) (*UpdateFindingDetail
 	return response, nil
 }
 
+// ParseUnmarkFindingDuplicateResponse parses an HTTP response from a UnmarkFindingDuplicateWithResponse call
+func ParseUnmarkFindingDuplicateResponse(rsp *http.Response) (*UnmarkFindingDuplicateResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UnmarkFindingDuplicateResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Finding
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseMarkFindingDuplicateResponse parses an HTTP response from a MarkFindingDuplicateWithResponse call
+func ParseMarkFindingDuplicateResponse(rsp *http.Response) (*MarkFindingDuplicateResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &MarkFindingDuplicateResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Finding
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListFindingDuplicatesResponse parses an HTTP response from a ListFindingDuplicatesWithResponse call
 func ParseListFindingDuplicatesResponse(rsp *http.Response) (*ListFindingDuplicatesResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -97810,6 +98605,79 @@ func ParseGetProjectSummaryResponse(rsp *http.Response) (*GetProjectSummaryRespo
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetProjectTriageCarryResponse parses an HTTP response from a GetProjectTriageCarryWithResponse call
+func ParseGetProjectTriageCarryResponse(rsp *http.Response) (*GetProjectTriageCarryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetProjectTriageCarryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TriageCarrySettings
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutProjectTriageCarryResponse parses an HTTP response from a PutProjectTriageCarryWithResponse call
+func ParsePutProjectTriageCarryResponse(rsp *http.Response) (*PutProjectTriageCarryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutProjectTriageCarryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TriageCarrySettings
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	}
 

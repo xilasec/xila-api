@@ -1035,6 +1035,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{projectID}/triage-carry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The project's triage-carry setting
+         * @description Whether a manual triage decision (`false_positive`, `wont_fix`, or
+         *     reopening) on one version of this project is copied to its other
+         *     in-scope versions, and applied to a matching finding a later scan
+         *     creates there. Risk acceptances never carry; they are a decision
+         *     about one version's exposure, not a fact about the code.
+         */
+        get: operations["getProjectTriageCarry"];
+        /**
+         * Turn triage carry on or off, and scope it by branch
+         * @description Owner. `branch_regex` empty matches every version of the project.
+         */
+        put: operations["putProjectTriageCarry"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{projectID}/versions": {
         parameters: {
             query?: never;
@@ -3181,6 +3209,30 @@ export interface paths {
          */
         post: operations["syncExploitIntel"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/findings/{findingID}/duplicate-of": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark by hand as a duplicate of another finding
+         * @description Same project and version as the primary. A manual override: automatic
+         *     dedup (`Deduplicate`) never rewrites it, and the finding behaves exactly
+         *     like an automatic duplicate everywhere (excluded from counts, lists,
+         *     metrics) until unmarked.
+         */
+        post: operations["markFindingDuplicate"];
+        /** Undo a manual duplicate mark */
+        delete: operations["unmarkFindingDuplicate"];
         options?: never;
         head?: never;
         patch?: never;
@@ -7693,6 +7745,11 @@ export interface components {
         /** @description A SCIM 2.0 User or Group (RFC 7643), `application/scim+json`. */
         SCIMResource: {
             [key: string]: unknown;
+        };
+        TriageCarrySettings: {
+            enabled?: boolean;
+            /** @description Empty matches every version of the project. */
+            branch_regex?: string;
         };
         /** @description The factors of a finding's priority (severity weight × exploitability × reachability × exposure). */
         PriorityWeights: {
@@ -12250,6 +12307,57 @@ export interface operations {
             404: components["responses"]["Error"];
         };
     };
+    getProjectTriageCarry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TriageCarrySettings"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    putProjectTriageCarry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TriageCarrySettings"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TriageCarrySettings"];
+                };
+            };
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
     listProjectVersions: {
         parameters: {
             query?: never;
@@ -16620,6 +16728,60 @@ export interface operations {
                 };
             };
             409: components["responses"]["Error"];
+        };
+    };
+    markFindingDuplicate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                findingID: components["parameters"]["FindingID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    primary_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Finding"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    unmarkFindingDuplicate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                findingID: components["parameters"]["FindingID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Finding"];
+                };
+            };
+            404: components["responses"]["Error"];
         };
     };
     listFindingDuplicates: {

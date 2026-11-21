@@ -21,6 +21,43 @@
 
 	let finding = $state(/** @type {any} */ (null));
 	/** Archive instead of delete: the finding leaves every view until restored. */
+	let markingDuplicate = $state(false);
+	let duplicatePrimaryId = $state('');
+	let duplicateBusy = $state(false);
+
+	function markDuplicateOpen() {
+		duplicatePrimaryId = '';
+		markingDuplicate = true;
+	}
+
+	/** @param {SubmitEvent} e */
+	async function markDuplicateSubmit(e) {
+		e.preventDefault();
+		if (!duplicatePrimaryId.trim()) return;
+		duplicateBusy = true;
+		try {
+			finding = await api.markDuplicate(id, duplicatePrimaryId.trim());
+			markingDuplicate = false;
+			notify($t('finding.markedDuplicate'), 'success');
+		} catch (err) {
+			notify(errorMessage(err));
+		} finally {
+			duplicateBusy = false;
+		}
+	}
+
+	async function unmarkDuplicate() {
+		duplicateBusy = true;
+		try {
+			finding = await api.unmarkDuplicate(id);
+			notify($t('finding.unmarkedDuplicate'), 'success');
+		} catch (err) {
+			notify(errorMessage(err));
+		} finally {
+			duplicateBusy = false;
+		}
+	}
+
 	async function setArchived(/** @type {boolean} */ archived) {
 		if (archived && !confirm($t('finding.archiveConfirm'))) return;
 		try {
@@ -247,7 +284,18 @@
 				{#if !finding.archived_at}
 					<button class="btn btn-ghost btn-xs text-error" onclick={() => setArchived(true)}>{$t('common.archive')}</button>
 				{/if}
+				{#if !finding.duplicate_of}
+					<button class="btn btn-ghost btn-xs" onclick={markDuplicateOpen}>{$t('finding.markDuplicate')}</button>
+				{/if}
 			</h1>
+			{#if markingDuplicate}
+				<form class="mb-2 flex items-center gap-2" onsubmit={markDuplicateSubmit}>
+					<input class="input input-bordered input-sm max-w-xs" bind:value={duplicatePrimaryId}
+						placeholder={$t('finding.markDuplicatePlaceholder')} />
+					<button class="btn btn-sm btn-primary" disabled={duplicateBusy}>{$t('common.save')}</button>
+					<button type="button" class="btn btn-sm btn-ghost" onclick={() => (markingDuplicate = false)}>{$t('common.cancel')}</button>
+				</form>
+			{/if}
 			<p class="text-sm text-base-content/60">
 				{finding.scanner}{#if finding.rule_id} · {finding.rule_id}{#if !finding.cve?.some((/** @type {string} */ c) => c.toUpperCase() === finding.rule_id.toUpperCase())}{#each advisoryLinks(finding.rule_id) as l (l.label)}<a class="link text-xs ml-1" href={l.href} target="_blank" rel="noopener noreferrer">{l.label} ↗</a>{/each}{/if}{/if}
 				{#if duplicates.length}· <span title={$t('finding.alsoReportedTitle')}>{$t('finding.reportedBy', { count: duplicates.length + 1 })}</span>{/if}
@@ -288,6 +336,9 @@
 	{#if finding.duplicate_of}
 		<div class="alert alert-warning mb-4 py-2 text-sm">
 			<span>{$t('finding.duplicate')} <a class="link font-semibold" href={`/findings/${finding.duplicate_of}`}>{$t('finding.openPrimary')}</a></span>
+			{#if finding.duplicate_manual}
+				<button class="btn btn-ghost btn-xs" disabled={duplicateBusy} onclick={unmarkDuplicate}>{$t('finding.unmarkDuplicate')}</button>
+			{/if}
 		</div>
 	{/if}
 
