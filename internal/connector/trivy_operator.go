@@ -84,14 +84,14 @@ func trivyTLSClient(caPEM string) (*http.Client, error) {
 		return nil, invalid("token's ca_pem is not a valid PEM certificate")
 	}
 	t := netguard.Transport()
-	t.TLSClientConfig = &tls.Config{RootCAs: pool}
+	t.TLSClientConfig = &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12}
 	return netguard.WrapTransport(t, clientTimeout), nil
 }
 
 // inClusterClient trusts the service account's own CA when present, else the
 // system pool.
 func inClusterClient(caPath string) *http.Client {
-	var cfg tls.Config
+	cfg := tls.Config{MinVersion: tls.VersionTLS12}
 	if ca, err := os.ReadFile(caPath); err == nil {
 		pool := x509.NewCertPool()
 		if pool.AppendCertsFromPEM(ca) {
