@@ -349,7 +349,16 @@ func (r *Repository) Apply(ctx context.Context, ids []string, c Change, actor st
 			return nil, err
 		}
 	}
-	return readFindings(ctx, r.db, ids)
+	out, err := readFindings(ctx, r.db, ids)
+	if err != nil {
+		return nil, err
+	}
+	if c.Status != nil || c.Severity != nil {
+		for _, f := range out {
+			r.fireTrigger(f.ProjectID, f.ID, actor)
+		}
+	}
+	return out, nil
 }
 
 // applyChange writes c to the findings in ids inside tx (whose actor is

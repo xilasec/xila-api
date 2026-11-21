@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -20,6 +21,7 @@ import (
 	"github.com/xilasec/xila-api/internal/domain"
 	"github.com/xilasec/xila-api/internal/expr"
 	"github.com/xilasec/xila-api/internal/finding"
+	"github.com/xilasec/xila-api/internal/membership"
 )
 
 // Domain errors.
@@ -48,6 +50,9 @@ const (
 )
 
 var actions = []Action{ActionFalsePositive, ActionRiskAccepted, ActionWontFix, ActionSetSeverity, ActionSetCustomField}
+
+// ScheduleDaily is the one additional schedule trigger a rule may opt into.
+const ScheduleDaily = "daily"
 
 // Valid reports whether a is a known action.
 func (a Action) Valid() bool {
@@ -118,6 +123,35 @@ type Rule struct {
 	// value, validated against the field's definition when the rule is saved.
 	CustomField string `json:"custom_field"`
 	CustomValue any    `json:"custom_value"`
+
+	// Side actions: alongside its one primary action, a rule may also assign
+	// the finding, add tags, post a comment and/or enqueue a notification.
+	// Independent of the primary action and of each other; set means
+	// "configured", not "already done" — see decideSide for what still fires.
+	AssignUserID *string `json:"assign_user_id"`
+	// AssignOwnerFrom is "" or "project_owner" (resolved at apply time from
+	// the project's own owner grant; CODEOWNERS is out of scope). Mutually
+	// exclusive with AssignUserID.
+	AssignOwnerFrom string `json:"assign_owner_from"`
+	// OnlyIfUnassigned (default true) skips the assign action when the
+	// finding already has an assignee, so a rule never steals an assignment
+	// a person (or another rule) already made.
+	OnlyIfUnassigned bool     `json:"only_if_unassigned"`
+	AddTags          []string `json:"add_tags"`
+	// Comment is posted as the system, naming the rule; "" = no comment action.
+	Comment string `json:"comment"`
+	// Notify enqueues one durable-outbox notification per rule per run
+	// listing the findings it newly matched (EventTriageRule), never one per
+	// finding.
+	Notify bool `json:"notify"`
+
+	// Schedule is an additional trigger alongside ingest and finding events:
+	// "" (none) or "daily" (the leader schedule job re-evaluates the rule's
+	// project(s) once every >= 24h, tracked by ScheduleLastRunAt).
+	Schedule          string     `json:"schedule"`
+	ScheduleLastRunAt *time.Time `json:"schedule_last_run_at"`
+	// AgeDaysGt matches findings first seen more than this many days ago.
+	AgeDaysGt *int `json:"age_days_gt"`
 
 	// Hit metrics (read-only): findings this rule actually changed.
 	HitCount  int64      `json:"hit_count"`
@@ -211,6 +245,28 @@ func (r *Rule) Validate(schema expr.Schema) error {
 			return err
 		}
 	}
+	if r.AssignUserID != nil && uuid.Validate(*r.AssignUserID) != nil {
+		return errors.New("assign_user_id must be a user id")
+	}
+	if r.AssignOwnerFrom != "" && r.AssignOwnerFrom != "project_owner" {
+		return errors.New("assign_owner_from must be \"\" or \"project_owner\"")
+	}
+	if r.AssignUserID != nil && r.AssignOwnerFrom != "" {
+		return errors.New("assign_user_id and assign_owner_from are mutually exclusive")
+	}
+	if len(r.AddTags) > 0 {
+		tags, err := finding.NormalizeTags(r.AddTags)
+		if err != nil {
+			return err
+		}
+		r.AddTags = tags
+	}
+	if r.Schedule != "" && r.Schedule != ScheduleDaily {
+		return errors.New("schedule must be \"\" or \"daily\"")
+	}
+	if r.AgeDaysGt != nil && *r.AgeDaysGt < 0 {
+		return errors.New("age_days_gt must be >= 0")
+	}
 	return r.compile()
 }
 
@@ -266,6 +322,9 @@ func (r *Rule) Matches(f finding.Finding, p ProjectFacts) bool {
 	if len(r.ProjectCriticality) > 0 && !slices.Contains(r.ProjectCriticality, crit) {
 		return false
 	}
+	if r.AgeDaysGt != nil && time.Since(f.FirstSeenAt) <= time.Duration(*r.AgeDaysGt)*24*time.Hour {
+		return false
+	}
 	if r.expr != nil && !r.expr.Match(context.Background(), FindingDoc(f, p)) {
 		return false
 	}
@@ -275,6 +334,16 @@ func (r *Rule) Matches(f finding.Finding, p ProjectFacts) bool {
 // needsProject reports whether evaluating the rule needs the project's facts
 // (criticality, custom fields), so callers can skip the lookup otherwise.
 func (r *Rule) needsProject() bool { return len(r.ProjectCriticality) > 0 || r.expr != nil }
+
+// hasSideActions reports whether the rule configures any side action
+// (assign, add_tags, comment, notify) alongside its primary action.
+func (r Rule) hasSideActions() bool {
+	return r.AssignUserID != nil || r.AssignOwnerFrom != "" || len(r.AddTags) > 0 || r.Comment != "" || r.Notify
+}
+
+// onlyIfUnassigned reads OnlyIfUnassigned (the handler defaults a request
+// that omits it to true before validating/saving).
+func (r Rule) onlyIfUnassigned() bool { return r.OnlyIfUnassigned }
 
 func containsSeverity(set []domain.Severity, s domain.Severity) bool {
 	for _, x := range set {
@@ -311,7 +380,9 @@ const ruleColumns = `id, name, enabled, sort_order, project_id, scanner, categor
 	min_epss, kev, project_criticality, expression,
 	action, new_severity, reason, custom_field, custom_value, hit_count, last_hit_at,
 	approval_status, created_by, updated_by, approved_by, approved_at, rejected_by, rejected_at,
-	created_at, updated_at, continue_matching`
+	created_at, updated_at, continue_matching,
+	assign_user_id, assign_owner_from, only_if_unassigned, add_tags, comment, notify,
+	schedule, schedule_last_run_at, age_days_gt`
 
 func scanRule(row pgx.Row) (Rule, error) {
 	var r Rule
@@ -320,7 +391,9 @@ func scanRule(row pgx.Row) (Rule, error) {
 		&r.DepScope, &r.DepTransitive, &r.MinEPSS, &r.KEV, &r.ProjectCriticality, &r.Expression,
 		&r.Action, &r.NewSeverity, &r.Reason, &r.CustomField, &r.CustomValue, &r.HitCount, &r.LastHitAt,
 		&r.ApprovalStatus, &r.CreatedBy, &r.UpdatedBy, &r.ApprovedBy, &r.ApprovedAt,
-		&r.RejectedBy, &r.RejectedAt, &r.CreatedAt, &r.UpdatedAt, &r.Continue)
+		&r.RejectedBy, &r.RejectedAt, &r.CreatedAt, &r.UpdatedAt, &r.Continue,
+		&r.AssignUserID, &r.AssignOwnerFrom, &r.OnlyIfUnassigned, &r.AddTags, &r.Comment, &r.Notify,
+		&r.Schedule, &r.ScheduleLastRunAt, &r.AgeDaysGt)
 	if err != nil {
 		return Rule{}, err
 	}
@@ -351,9 +424,11 @@ func (r *Repository) Create(ctx context.Context, rule Rule, actor string, requir
 		rule_id, cve_in, path_regex, package_regex, dep_scope, dep_transitive,
 		min_epss, kev, project_criticality,
 		action, new_severity, reason, approval_status, created_by, updated_by, approved_at, expression,
-		custom_field, custom_value, continue_matching
+		custom_field, custom_value, continue_matching,
+		assign_user_id, assign_owner_from, only_if_unassigned, add_tags, comment, notify, schedule, age_days_gt
 	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
-		$21, $22::uuid, $22::uuid, CASE WHEN $21 = 'approved' THEN now() END, $23, $24, $25, $26)
+		$21, $22::uuid, $22::uuid, CASE WHEN $21 = 'approved' THEN now() END, $23, $24, $25, $26,
+		$27, $28, $29, $30, $31, $32, $33, $34)
 	RETURNING ` + ruleColumns
 	out, err := scanRule(r.db.QueryRow(ctx, q,
 		rule.Name, rule.Enabled, rule.SortOrder, rule.ProjectID, rule.Scanner, rule.Category,
@@ -361,7 +436,9 @@ func (r *Repository) Create(ctx context.Context, rule Rule, actor string, requir
 		rule.PathRegex, rule.PackageRegex, rule.DepScope, rule.DepTransitive,
 		rule.MinEPSS, rule.KEV, coalesceCrit(rule.ProjectCriticality),
 		rule.Action, rule.NewSeverity, rule.Reason, approvalFor(requireApproval), nilIfEmpty(actor), rule.Expression,
-		rule.CustomField, customValueArg(rule), rule.Continue))
+		rule.CustomField, customValueArg(rule), rule.Continue,
+		rule.AssignUserID, rule.AssignOwnerFrom, rule.OnlyIfUnassigned, coalesceStr(rule.AddTags), rule.Comment, rule.Notify,
+		rule.Schedule, rule.AgeDaysGt))
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23503" {
 		return Rule{}, ErrNoProject
@@ -391,11 +468,23 @@ func (r *Repository) List(ctx context.Context) ([]Rule, error) {
 
 // ListEnabledForProject returns the enabled, approved rules that apply to a
 // project (global rules + that project's rules), in evaluation order. Pending
-// and rejected rules never apply.
+// and rejected rules never apply. A project with skip_global_rules set skips
+// every global (project_id IS NULL) rule, keeping only its own.
 func (r *Repository) ListEnabledForProject(ctx context.Context, projectID string) ([]Rule, error) {
+	const q = `SELECT ` + ruleColumns + ` FROM triage_rules t
+		WHERE t.enabled AND t.approval_status = 'approved'
+		  AND (t.project_id = $1 OR (t.project_id IS NULL AND NOT EXISTS (
+		        SELECT 1 FROM projects p WHERE p.id = $1 AND p.skip_global_rules)))
+		ORDER BY t.sort_order, t.created_at`
+	return r.query(ctx, q, projectID)
+}
+
+// ListForProject returns a project's own rules only (never the global ones),
+// in every approval/enabled state — the project-owner management view
+// (/projects/{id}/triage-rules), unlike ListEnabledForProject's evaluation set.
+func (r *Repository) ListForProject(ctx context.Context, projectID string) ([]Rule, error) {
 	const q = `SELECT ` + ruleColumns + ` FROM triage_rules
-		WHERE enabled AND approval_status = 'approved' AND (project_id IS NULL OR project_id = $1)
-		ORDER BY sort_order, created_at`
+		WHERE project_id = $1 ORDER BY sort_order, created_at`
 	return r.query(ctx, q, projectID)
 }
 
@@ -431,6 +520,8 @@ func (r *Repository) Update(ctx context.Context, rule Rule, actor string, requir
 		action=$19, new_severity=$20, reason=$21,
 		approval_status=$22, updated_by=$23::uuid, expression=$24, custom_field=$25, custom_value=$26,
 		continue_matching=$27,
+		assign_user_id=$28, assign_owner_from=$29, only_if_unassigned=$30, add_tags=$31,
+		comment=$32, notify=$33, schedule=$34, age_days_gt=$35,
 		approved_by = CASE WHEN $22 = 'approved' AND approval_status = 'approved' THEN approved_by END,
 		approved_at = CASE WHEN $22 = 'approved' THEN COALESCE(approved_at, now()) END,
 		rejected_by = NULL, rejected_at = NULL,
@@ -442,7 +533,9 @@ func (r *Repository) Update(ctx context.Context, rule Rule, actor string, requir
 		rule.PathRegex, rule.PackageRegex, rule.DepScope, rule.DepTransitive,
 		rule.MinEPSS, rule.KEV, coalesceCrit(rule.ProjectCriticality),
 		rule.Action, rule.NewSeverity, rule.Reason, approvalFor(requireApproval), nilIfEmpty(actor), rule.Expression,
-		rule.CustomField, customValueArg(rule), rule.Continue))
+		rule.CustomField, customValueArg(rule), rule.Continue,
+		rule.AssignUserID, rule.AssignOwnerFrom, rule.OnlyIfUnassigned, coalesceStr(rule.AddTags),
+		rule.Comment, rule.Notify, rule.Schedule, rule.AgeDaysGt))
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23503" {
 		return Rule{}, ErrNoProject
@@ -604,4 +697,138 @@ func coalesceStr(s []string) []string {
 		return []string{}
 	}
 	return s
+}
+
+// ProjectOwner returns one user id holding the "owner" role on a project
+// (a direct grant, the owning team's role, or organization-admin; never the
+// instance-admin fallback, which isn't "this project's owner"), for the
+// assign action's owner_from = "project_owner". ok is false when the
+// project has no such owner. Deterministic: the alphabetically-first email
+// among them, so a rule's choice doesn't depend on query plan.
+func (r *Repository) ProjectOwner(ctx context.Context, projectID string) (string, bool, error) {
+	const q = `SELECT g.user_id FROM (` + membership.ProjectGrantsSQL + `) g
+		JOIN users u ON u.id = g.user_id
+		WHERE g.project_id = $1 AND g.role = 'owner'
+		ORDER BY u.email LIMIT 1`
+	var id string
+	err := r.db.QueryRow(ctx, q, projectID).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, fmt.Errorf("project owner: %w", err)
+	}
+	return id, true, nil
+}
+
+// FiredAction is one side action (comment/notify) already posted for a
+// (rule, finding), recorded so re-running an idempotent rule never reposts
+// it. assign/add_tags need no log: applying them again is a no-op already.
+type FiredAction struct {
+	RuleID    string
+	FindingID string
+	Action    string
+}
+
+// fireKey is the map key FiredActions/applySide agree on.
+func fireKey(ruleID, findingID, action string) string { return ruleID + "|" + findingID + "|" + action }
+
+// FiredActions returns the (rule, finding, action) triples already recorded
+// for any of ruleIDs, as a set keyed by fireKey.
+func (r *Repository) FiredActions(ctx context.Context, ruleIDs []string) (map[string]bool, error) {
+	if len(ruleIDs) == 0 {
+		return nil, nil
+	}
+	rows, err := r.db.Query(ctx, `SELECT rule_id, finding_id, action FROM triage_rule_actions WHERE rule_id = ANY($1)`, ruleIDs)
+	if err != nil {
+		return nil, fmt.Errorf("list fired actions: %w", err)
+	}
+	defer rows.Close()
+	out := map[string]bool{}
+	for rows.Next() {
+		var ruleID, findingID, action string
+		if err := rows.Scan(&ruleID, &findingID, &action); err != nil {
+			return nil, fmt.Errorf("scan fired action: %w", err)
+		}
+		out[fireKey(ruleID, findingID, action)] = true
+	}
+	return out, rows.Err()
+}
+
+// RecordActions batch-inserts newly fired (rule, finding, action) rows,
+// idempotent (a side action already logged is left alone).
+func (r *Repository) RecordActions(ctx context.Context, fired []FiredAction) error {
+	if len(fired) == 0 {
+		return nil
+	}
+	ruleIDs := make([]string, len(fired))
+	findingIDs := make([]string, len(fired))
+	actions := make([]string, len(fired))
+	for i, f := range fired {
+		ruleIDs[i], findingIDs[i], actions[i] = f.RuleID, f.FindingID, f.Action
+	}
+	const q = `INSERT INTO triage_rule_actions (rule_id, finding_id, action)
+		SELECT * FROM unnest($1::uuid[], $2::uuid[], $3::text[])
+		ON CONFLICT DO NOTHING`
+	if _, err := r.db.Exec(ctx, q, ruleIDs, findingIDs, actions); err != nil {
+		return fmt.Errorf("record fired actions: %w", err)
+	}
+	return nil
+}
+
+// Settings is the instance-wide triage configuration (singleton row).
+type Settings struct {
+	AllowSkipGlobalRules bool      `json:"allow_skip_global_rules"`
+	UpdatedAt            time.Time `json:"updated_at"`
+}
+
+// GetSettings returns the current instance settings.
+func (r *Repository) GetSettings(ctx context.Context) (Settings, error) {
+	var s Settings
+	if err := r.db.QueryRow(ctx, `SELECT allow_skip_global_rules, updated_at FROM triage_settings`).
+		Scan(&s.AllowSkipGlobalRules, &s.UpdatedAt); err != nil {
+		return Settings{}, fmt.Errorf("get triage settings: %w", err)
+	}
+	return s, nil
+}
+
+// PutSettings stores the instance settings.
+func (r *Repository) PutSettings(ctx context.Context, s Settings) (Settings, error) {
+	var out Settings
+	err := r.db.QueryRow(ctx, `
+		INSERT INTO triage_settings (id, allow_skip_global_rules, updated_at)
+		VALUES (true, $1, now())
+		ON CONFLICT (id) DO UPDATE SET allow_skip_global_rules = EXCLUDED.allow_skip_global_rules, updated_at = now()
+		RETURNING allow_skip_global_rules, updated_at`, s.AllowSkipGlobalRules).
+		Scan(&out.AllowSkipGlobalRules, &out.UpdatedAt)
+	if err != nil {
+		return Settings{}, fmt.Errorf("put triage settings: %w", err)
+	}
+	return out, nil
+}
+
+// AllowSkipGlobalRules reports whether an instance admin has allowed project
+// owners to opt their project out of global rules (project.Handler's
+// triageSettings dependency — satisfied directly by *Repository).
+func (r *Repository) AllowSkipGlobalRules(ctx context.Context) (bool, error) {
+	s, err := r.GetSettings(ctx)
+	return s.AllowSkipGlobalRules, err
+}
+
+// DueSchedules returns the enabled, approved rules whose Schedule is due now:
+// ScheduleLastRunAt is NULL, or at least 24h in the past for "daily".
+func (r *Repository) DueSchedules(ctx context.Context, now time.Time) ([]Rule, error) {
+	const q = `SELECT ` + ruleColumns + ` FROM triage_rules
+		WHERE enabled AND approval_status = 'approved' AND schedule <> ''
+		  AND (schedule_last_run_at IS NULL OR schedule_last_run_at <= $1)
+		ORDER BY sort_order, created_at`
+	return r.query(ctx, q, now.Add(-24*time.Hour))
+}
+
+// MarkScheduleRun stamps a rule's schedule as having just run.
+func (r *Repository) MarkScheduleRun(ctx context.Context, ruleID string, now time.Time) error {
+	if _, err := r.db.Exec(ctx, `UPDATE triage_rules SET schedule_last_run_at = $2 WHERE id = $1`, ruleID, now); err != nil {
+		return fmt.Errorf("mark schedule run: %w", err)
+	}
+	return nil
 }

@@ -139,14 +139,41 @@ func (f Finding) Reachability() domain.Reachability {
 	return domain.Reachability{Direct: f.DepDirect, Scope: f.DepScope}
 }
 
+// ChangeTrigger is notified after a finding's status or severity changes, so
+// another subsystem (auto-triage rules) can react without this package
+// knowing about it — see WithChangeTrigger. Best-effort, like
+// notify.Service.Notify: implementations must not block or fail the write
+// that triggered them.
+type ChangeTrigger interface {
+	OnFindingChanged(ctx context.Context, projectID, findingID, actor string)
+}
+
 // Repository provides access to the findings table.
 type Repository struct {
-	db *pgxpool.Pool
+	db      *pgxpool.Pool
+	trigger ChangeTrigger // optional
 }
 
 // NewRepository constructs a Repository.
 func NewRepository(db *pgxpool.Pool) *Repository {
 	return &Repository{db: db}
+}
+
+// WithChangeTrigger lets another subsystem (auto-triage rules) react to a
+// finding's status/severity changes — the finding-event trigger alongside
+// ingest and any schedule. fires in a goroutine so it never adds latency to
+// the write that caused it.
+func (r *Repository) WithChangeTrigger(t ChangeTrigger) *Repository {
+	r.trigger = t
+	return r
+}
+
+// fireTrigger notifies the change trigger, if any, without blocking the caller.
+func (r *Repository) fireTrigger(projectID, findingID, actor string) {
+	if r.trigger == nil {
+		return
+	}
+	go r.trigger.OnFindingChanged(context.Background(), projectID, findingID, actor)
 }
 
 // onDefaultVersion restricts a findings query (table alias-free) to each
@@ -884,6 +911,7 @@ func (r *Repository) SetStatus(ctx context.Context, id string, t Triage) (Findin
 	if err := tx.Commit(ctx); err != nil {
 		return Finding{}, fmt.Errorf("commit: %w", err)
 	}
+	r.fireTrigger(f.ProjectID, f.ID, t.Actor)
 	return f, nil
 }
 
@@ -1330,21 +1358,47 @@ func (r *Repository) listForTriage(ctx context.Context, projectID string, scanID
 	return out, rows.Err()
 }
 
-// SetSeverity sets a finding's severity for a triage rule and recomputes its
-// priority from every input. A severity a person set (severity_manual) is
-// left alone: a generic rule never overrides an analyst's judgment.
-func (r *Repository) SetSeverity(ctx context.Context, id string, sev domain.Severity) (Finding, error) {
+// GetOneForTriage is ListForTriage narrowed to one finding — the
+// finding-event trigger re-evaluates just that finding. ok is false when it
+// isn't in the active, non-duplicate backlog the other triggers evaluate.
+func (r *Repository) GetOneForTriage(ctx context.Context, id string) (Finding, bool, error) {
+	q := `SELECT ` + findingColumns + ` FROM findings
+		WHERE id = $1 AND status IN ('open', 'confirmed') AND duplicate_of IS NULL AND` + archive.Finding("")
+	f, err := scanFinding(r.db.QueryRow(ctx, q, id))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Finding{}, false, nil
+	}
+	if err != nil {
+		return Finding{}, false, fmt.Errorf("get finding for triage: %w", err)
+	}
+	return f, true, nil
+}
+
+// SetSeverity sets a finding's severity (actor "" for a triage rule's own
+// write, non-"" for anything else that should re-trigger the finding-event
+// hook) and recomputes its priority from every input. A severity a person
+// set (severity_manual) is left alone: a generic rule never overrides an
+// analyst's judgment.
+func (r *Repository) SetSeverity(ctx context.Context, id string, sev domain.Severity, actor string) (Finding, error) {
 	tag, err := r.db.Exec(ctx, `UPDATE findings SET severity = $2, updated_at = now()
 		WHERE id = $1 AND NOT severity_manual AND severity IS DISTINCT FROM $2`, id, sev)
 	if err != nil {
 		return Finding{}, fmt.Errorf("set severity: %w", err)
 	}
-	if tag.RowsAffected() > 0 {
+	changed := tag.RowsAffected() > 0
+	if changed {
 		if _, _, err := r.Reprioritize(ctx, PriorityScope{FindingIDs: []string{id}}); err != nil {
 			return Finding{}, err
 		}
 	}
-	return r.Get(ctx, id)
+	f, err := r.Get(ctx, id)
+	if err != nil {
+		return Finding{}, err
+	}
+	if changed {
+		r.fireTrigger(f.ProjectID, f.ID, actor)
+	}
+	return f, nil
 }
 
 // FixCandidate is a live finding as the fix plan and remediation grouping
