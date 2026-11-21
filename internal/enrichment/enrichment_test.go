@@ -215,6 +215,7 @@ type fakeStore struct {
 		kev        bool
 		sources    []string
 		ransomware bool
+		dueDate    *time.Time
 		priority   float64
 	}
 }
@@ -222,13 +223,14 @@ type fakeStore struct {
 func (s *fakeStore) ListEnrichable(context.Context) ([]finding.Enrichable, error) {
 	return s.items, nil
 }
-func (s *fakeStore) SetEnrichment(_ context.Context, id string, epss *float64, kevSources []string, ransomware bool, priority float64) error {
+func (s *fakeStore) SetEnrichment(_ context.Context, id string, epss *float64, kevSources []string, ransomware bool, kevDueDate *time.Time, priority float64) error {
 	if s.set == nil {
 		s.set = map[string]struct {
 			epss       *float64
 			kev        bool
 			sources    []string
 			ransomware bool
+			dueDate    *time.Time
 			priority   float64
 		}{}
 	}
@@ -237,8 +239,9 @@ func (s *fakeStore) SetEnrichment(_ context.Context, id string, epss *float64, k
 		kev        bool
 		sources    []string
 		ransomware bool
+		dueDate    *time.Time
 		priority   float64
-	}{epss, len(kevSources) > 0, kevSources, ransomware, priority}
+	}{epss, len(kevSources) > 0, kevSources, ransomware, kevDueDate, priority}
 	return nil
 }
 

@@ -94,7 +94,7 @@ func TestPolicyPrecedenceReappliesToFindings(t *testing.T) {
 
 	put := func(target sla.Target, d sla.Days) {
 		t.Helper()
-		if _, err := repo.Put(ctx, target, d); err != nil {
+		if _, err := repo.Put(ctx, target, d, false); err != nil {
 			t.Fatalf("put: %v", err)
 		}
 	}

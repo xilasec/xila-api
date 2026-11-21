@@ -72,22 +72,27 @@ func (h *Handler) get(target targetFn) fiber.Handler {
 	}
 }
 
-// put stores the target's policy. The body states all five windows; an omitted
-// or null one means no SLA for that severity at this scope.
+// put stores the target's policy. The body states all seven windows (five
+// severities plus kev_days/exploited_days); an omitted or null one means no
+// SLA / no shorter window for it at this scope. use_kev_due_date caps the
+// deadline at the published KEV due date.
 func (h *Handler) put(target targetFn) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		t, scope, err := target(c)
 		if err != nil {
 			return err
 		}
-		var d Days
-		if err := httpx.Parse(c, &d); err != nil {
+		var body struct {
+			Days
+			UseKEVDueDate bool `json:"use_kev_due_date"`
+		}
+		if err := httpx.Parse(c, &body); err != nil {
 			return err
 		}
-		if err := d.Validate(); err != nil {
+		if err := body.Days.Validate(); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
-		if _, err := h.repo.Put(c.UserContext(), t, d); errors.Is(err, ErrNotFound) {
+		if _, err := h.repo.Put(c.UserContext(), t, body.Days, body.UseKEVDueDate); errors.Is(err, ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, err.Error())
 		} else if err != nil {
 			return err

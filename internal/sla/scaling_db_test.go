@@ -98,7 +98,7 @@ func TestCriticalityScalingMovesExistingDeadlines(t *testing.T) {
 	// A window never scales below one day.
 	tiny := on
 	tiny.Factors.Low = 0.1
-	if _, err := repo.Put(ctx, sla.Global, sla.Days{Critical: new(1), High: new(30)}); err != nil {
+	if _, err := repo.Put(ctx, sla.Global, sla.Days{Critical: new(1), High: new(30)}, false); err != nil {
 		t.Fatalf("put policy: %v", err)
 	}
 	if _, err := repo.PutSettings(ctx, tiny); err != nil {

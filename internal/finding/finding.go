@@ -67,6 +67,11 @@ type Finding struct {
 	// KEVRansomware is true when a KEV catalog asserting the finding says the
 	// flaw is known to be used in ransomware campaigns.
 	KEVRansomware bool `json:"kev_ransomware"`
+	// KEVDueDate is the earliest required-action due date any configured KEV
+	// catalog publishes for the finding (CISA, VulnCheck), nil when none does
+	// or it isn't KEV. Enrichment-written; a project's sla_policies.use_kev_due_date
+	// caps the SLA deadline at this date.
+	KEVDueDate *time.Time `json:"kev_due_date"`
 	// ExploitMaturity is the strongest public exploit known for the finding's
 	// CVEs (internal/exploitintel): "", "poc" or "weaponized".
 	ExploitMaturity domain.ExploitMaturity `json:"exploit_maturity"`
@@ -159,7 +164,7 @@ const findingColumns = `id, project_id, version_id, fingerprint, scanner, catego
 	title, description, severity, cwe, cve, file_path, line, package_name,
 	package_version, fixed_version, purl, url, metadata, status, first_seen_at,
 	last_seen_at, first_scan_id, last_scan_id, resolved_at, created_at, updated_at,
-	cvss, epss, kev, kev_sources, kev_ransomware, priority, asset_id, cvss_vector, cvss_version, cvss_source,
+	cvss, epss, kev, kev_sources, kev_ransomware, kev_due_date, priority, asset_id, cvss_vector, cvss_version, cvss_source,
 	exception_reason, exception_by, exception_expires_at,
 	correlation_key, duplicate_of, dep_direct, dep_depth, dep_scope,
 	sla_days, sla_due_at, tags, custom, COALESCE(exploit_maturity, ''),
@@ -179,7 +184,7 @@ func scanFinding(row pgx.Row, extra ...any) (Finding, error) {
 		&f.Title, &f.Description, &f.Severity, &f.CWE, &f.CVE, &f.FilePath, &f.Line, &f.PackageName,
 		&f.PackageVersion, &f.FixedVersion, &f.Purl, &f.URL, &f.Metadata, &f.Status, &f.FirstSeenAt,
 		&f.LastSeenAt, &f.FirstScanID, &f.LastScanID, &f.ResolvedAt, &f.CreatedAt, &f.UpdatedAt,
-		&f.CVSS, &f.EPSS, &f.KEV, &f.KEVSources, &f.KEVRansomware, &f.Priority, &f.AssetID, &f.CVSSVector, &f.CVSSVersion, &f.CVSSSource,
+		&f.CVSS, &f.EPSS, &f.KEV, &f.KEVSources, &f.KEVRansomware, &f.KEVDueDate, &f.Priority, &f.AssetID, &f.CVSSVector, &f.CVSSVersion, &f.CVSSSource,
 		&f.ExceptionReason, &f.ExceptionBy, &f.ExceptionExpiresAt,
 		&f.CorrelationKey, &f.DuplicateOf, &f.DepDirect, &f.DepDepth, &f.DepScope,
 		&f.SLADays, &f.SLADueAt, &f.Tags, &f.Custom, &f.ExploitMaturity,
@@ -1839,15 +1844,16 @@ func (r *Repository) ProjectIDsWithFindings(ctx context.Context) ([]string, erro
 }
 
 // SetEnrichment stores a finding's EPSS, the KEV catalogs asserting it (kev =
-// any), whether a catalog marks it as used in ransomware campaigns and the
+// any), whether a catalog marks it as used in ransomware campaigns, the
+// earliest required-action due date any catalog publishes for it, and the
 // recomputed priority.
-func (r *Repository) SetEnrichment(ctx context.Context, id string, epss *float64, kevSources []string, ransomware bool, priority float64) error {
+func (r *Repository) SetEnrichment(ctx context.Context, id string, epss *float64, kevSources []string, ransomware bool, kevDueDate *time.Time, priority float64) error {
 	const q = `UPDATE findings SET epss = $2, kev = cardinality($3::text[]) > 0, kev_sources = $3,
-		kev_ransomware = cardinality($3::text[]) > 0 AND $5, priority = $4, updated_at = now() WHERE id = $1`
+		kev_ransomware = cardinality($3::text[]) > 0 AND $5, kev_due_date = $6, priority = $4, updated_at = now() WHERE id = $1`
 	if kevSources == nil {
 		kevSources = []string{}
 	}
-	_, err := r.db.Exec(ctx, q, id, epss, kevSources, priority, ransomware)
+	_, err := r.db.Exec(ctx, q, id, epss, kevSources, priority, ransomware, kevDueDate)
 	if err != nil {
 		return fmt.Errorf("set enrichment: %w", err)
 	}
