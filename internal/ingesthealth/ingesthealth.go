@@ -362,7 +362,7 @@ func (r *Repository) Check(ctx context.Context, scope []string, now time.Time) (
 	// (including one that has never run).
 	erow, err := r.db.Query(ctx, `
 		SELECT e.project_id, p.name, e.scanner, e.category, e.branch, e.max_age_hours,
-		       (SELECT max(s.finished_at) FROM scans s
+		       (SELECT max(COALESCE(s.finished_at, s.created_at)) FROM scans s
 		        WHERE s.project_id = e.project_id AND s.status = 'completed'
 		          AND (e.scanner IS NULL OR s.scanner = e.scanner)
 		          AND (e.category IS NULL OR s.category = e.category)
@@ -387,11 +387,11 @@ func (r *Repository) Check(ctx context.Context, scope []string, now time.Time) (
 		if lastOK != nil && now.Sub(*lastOK) <= limit {
 			continue // satisfied
 		}
-		what := "category " + *category
+		var what string
 		if scanner != nil {
 			what, a.Scanner = *scanner, *scanner
 		} else {
-			a.Scanner = "category:" + *category
+			what, a.Scanner = "category "+*category, "category:"+*category
 		}
 		branchLabel := a.Branch
 		if branchLabel == "" {
