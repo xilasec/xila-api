@@ -27,7 +27,7 @@ type projectSettings interface {
 
 // findingStore is the subset of the finding repository the engine needs.
 type findingStore interface {
-	ListByFingerprint(ctx context.Context, projectID, fingerprint, excludeID string) ([]finding.Finding, error)
+	ListByFingerprint(ctx context.Context, projectID, fingerprint, excludeID string, statuses []domain.FindingStatus) ([]finding.Finding, error)
 	ListForTriageScan(ctx context.Context, projectID, scanID string) ([]finding.Finding, error)
 	SetStatusCarried(ctx context.Context, id string, t finding.Triage, decidedAt time.Time, note string) (finding.Finding, error)
 }
@@ -86,13 +86,24 @@ func (sc scope) inScope(versionID string) bool {
 	return sc.filter == nil || sc.filter.MatchString(name)
 }
 
+// targetStatuses is which findings a decision reaches: false_positive/wont_fix
+// looks for currently open/confirmed findings to suppress; open (a reopen)
+// looks for currently suppressed ones (false_positive/wont_fix) to reopen —
+// exactly what an earlier carry, or independent triage, suppressed.
+func targetStatuses(status domain.FindingStatus) []domain.FindingStatus {
+	if status == domain.FindingOpen {
+		return []domain.FindingStatus{domain.FindingFalsePositive, domain.FindingWontFix}
+	}
+	return []domain.FindingStatus{domain.FindingOpen, domain.FindingConfirmed}
+}
+
 // Carry records f's status as the project's latest decision for its
 // fingerprint (when carry is on and f's version is in scope) and propagates
-// it to every other still-open/confirmed finding sharing the fingerprint on
-// an in-scope version of the same project, attributed to actor with the
-// history note "carried from <branch>". It never overturns a target whose own
-// status was decided more recently (see applyDecision); a status outside
-// Eligible (confirmed, remediated, risk_accepted) is a no-op.
+// it to every other matching finding on an in-scope version of the same
+// project (see targetStatuses), attributed to actor with the history note
+// "carried from <branch>". It never overturns a target whose own status was
+// decided more recently (see applyDecision); a status outside Eligible
+// (confirmed, remediated, risk_accepted) is a no-op.
 func (s *Service) Carry(ctx context.Context, f finding.Finding, actor string) error {
 	if !Eligible(f.Status) {
 		return nil
@@ -120,7 +131,7 @@ func (s *Service) Carry(ctx context.Context, f finding.Finding, actor string) er
 		return nil // a decision at least as recent is already on file
 	}
 
-	candidates, err := s.findings.ListByFingerprint(ctx, d.ProjectID, d.Fingerprint, d.SourceFindingID)
+	candidates, err := s.findings.ListByFingerprint(ctx, d.ProjectID, d.Fingerprint, d.SourceFindingID, targetStatuses(d.Status))
 	if err != nil {
 		return err
 	}

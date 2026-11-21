@@ -1048,15 +1048,18 @@ func (r *Repository) SetStatusCarried(ctx context.Context, id string, t Triage, 
 	return f, nil
 }
 
-// ListByFingerprint returns a project's other active (open/confirmed),
-// non-duplicate, non-archived findings sharing fingerprint — triage carry's
-// candidates to propagate a decision to ("every other version's report of the
-// same issue").
-func (r *Repository) ListByFingerprint(ctx context.Context, projectID, fingerprint, excludeID string) ([]Finding, error) {
+// ListByFingerprint returns a project's other non-duplicate, non-archived
+// findings sharing fingerprint whose status is one of statuses — triage
+// carry's candidates to propagate a decision to ("every other version's
+// report of the same issue"). A false_positive/wont_fix decision targets
+// currently open/confirmed findings; a reopen (open) targets currently
+// suppressed ones (false_positive/wont_fix), so the reopen reaches exactly
+// what an earlier carry (or independent triage) suppressed.
+func (r *Repository) ListByFingerprint(ctx context.Context, projectID, fingerprint, excludeID string, statuses []domain.FindingStatus) ([]Finding, error) {
 	q := `SELECT ` + findingColumns + ` FROM findings
 		WHERE project_id = $1 AND fingerprint = $2 AND id <> $3
-		  AND status IN ('open', 'confirmed') AND duplicate_of IS NULL AND` + archive.Finding("")
-	rows, err := r.db.Query(ctx, q, projectID, fingerprint, excludeID)
+		  AND status = ANY($4) AND duplicate_of IS NULL AND` + archive.Finding("")
+	rows, err := r.db.Query(ctx, q, projectID, fingerprint, excludeID, statuses)
 	if err != nil {
 		return nil, fmt.Errorf("list by fingerprint: %w", err)
 	}
