@@ -194,6 +194,18 @@
 	let compOutdated = $state('');
 	let compKind = $state('');
 	let assets = $state(/** @type {any[]} */ ([]));
+	// Asset risk column: click to sort, toggling direction (unsorted = load order).
+	let assetRiskSort = $state(/** @type {'asc' | 'desc' | null} */ (null));
+	function toggleAssetRiskSort() {
+		assetRiskSort = assetRiskSort === 'desc' ? 'asc' : 'desc';
+	}
+	const sortedAssets = $derived(
+		assetRiskSort
+			? [...assets].sort((a, b) =>
+					assetRiskSort === 'desc' ? (b.risk_score ?? 0) - (a.risk_score ?? 0) : (a.risk_score ?? 0) - (b.risk_score ?? 0)
+				)
+			: assets
+	);
 	let projectPolicies = $state(/** @type {any[]} */ ([]));
 	/** @type {Record<string, string>} */
 	const POLICY_TONE = { fail: 'badge-error', warn: 'badge-warning', info: 'badge-info' };
@@ -1485,21 +1497,31 @@
 		{#if !tabLoading && assets.length > 0}
 			<div class="overflow-x-auto bg-base-100 rounded-box shadow-sm">
 				<table class="table table-sm">
-					<thead><tr><th>{$t('proj.colType')}</th><th>{$t('proj.colName')}</th><th>{$t('proj.colIdentifier')}</th><th>{$t('proj.colExposure')}</th><th></th></tr></thead>
-					<tbody>
-						{#each assets as a (a.id)}
-							<tr class="hover">
-								<td><span class="badge badge-ghost badge-sm">{$labelOf('asset', a.type)}</span></td>
-								<td>{a.name}</td>
-								<td class="text-xs font-mono text-base-content/60 max-w-xs truncate" title={a.identifier}>{a.identifier || '—'}</td>
-								<td>
-									<ExposureBadge exposure={a.exposure} source={a.exposure_source} reason={a.exposure_reason} />
-									{#if !a.exposure}<span class="text-xs text-base-content/40">{$t('common.unknown')}</span>{/if}
-								</td>
-								<td class="text-right"><button class="btn btn-ghost btn-xs" onclick={() => openAsset(a)}>{$t('proj.exposureRelations')}</button></td>
-							</tr>
-						{/each}
-					</tbody>
+				<thead><tr>
+					<th>{$t('proj.colType')}</th>
+					<th>{$t('proj.colName')}</th>
+					<th>{$t('proj.colIdentifier')}</th>
+					<th>{$t('proj.colExposure')}</th>
+					<th class="cursor-pointer select-none text-right" onclick={toggleAssetRiskSort}>
+						{$t('proj.colRisk')}{assetRiskSort === 'desc' ? ' ▼' : assetRiskSort === 'asc' ? ' ▲' : ''}
+					</th>
+					<th></th>
+				</tr></thead>
+				<tbody>
+					{#each sortedAssets as a (a.id)}
+						<tr class="hover">
+							<td><span class="badge badge-ghost badge-sm">{$labelOf('asset', a.type)}</span></td>
+							<td>{a.name}</td>
+							<td class="text-xs font-mono text-base-content/60 max-w-xs truncate" title={a.identifier}>{a.identifier || '—'}</td>
+							<td>
+								<ExposureBadge exposure={a.exposure} source={a.exposure_source} reason={a.exposure_reason} />
+								{#if !a.exposure}<span class="text-xs text-base-content/40">{$t('common.unknown')}</span>{/if}
+							</td>
+							<td class="text-right font-mono {riskTone(a.risk_score ?? 0)}">{fmtNumber(a.risk_score ?? 0, { maximumFractionDigits: 1 })}</td>
+							<td class="text-right"><button class="btn btn-ghost btn-xs" onclick={() => openAsset(a)}>{$t('proj.exposureRelations')}</button></td>
+						</tr>
+					{/each}
+				</tbody>
 				</table>
 			</div>
 		{/if}

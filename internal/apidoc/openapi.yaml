@@ -6059,6 +6059,7 @@ paths:
       parameters:
         - { $ref: "#/components/parameters/ProjectID" }
         - { name: type, in: query, schema: { $ref: "#/components/schemas/AssetType" } }
+        - { name: sort, in: query, schema: { type: string, enum: [risk] }, description: "`risk` sorts by risk_score, highest first." }
         - { $ref: "#/components/parameters/CustomFieldFilter" }
       responses:
         "200":
@@ -6078,6 +6079,7 @@ paths:
       parameters:
         - { name: type, in: query, schema: { $ref: "#/components/schemas/AssetType" } }
         - { $ref: "#/components/parameters/CustomFieldFilter" }
+        - { name: sort, in: query, schema: { type: string, enum: [risk] }, description: "`risk` sorts by risk_score, highest first." }
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Offset" }
       responses:
@@ -11614,6 +11616,16 @@ components:
         exposure_reason: { type: string, description: The evidence or the person's note. }
         exposure_updated_at: { type: [string, "null"], format: date-time }
         custom: { $ref: "#/components/schemas/CustomValues" }
+        risk_score:
+          type: number
+          description: |
+            Same weighted formula as the project risk score (severity weight x
+            count, scaled by the project's business criticality), scoped to this
+            asset's own open, non-duplicate, default-version findings.
+        total_open: { type: integer, description: Open findings on this asset (same scope as risk_score). }
+        open_by_severity:
+          type: object
+          additionalProperties: { type: integer }
         created_at: { type: string, format: date-time }
 
     AssetRef:

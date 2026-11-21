@@ -4,7 +4,8 @@
 	// any asset the caller can see, in any project.
 	import { api, errorMessage } from '#lib/api.js';
 	import { notify } from '#lib/stores.js';
-	import { t } from '#lib/i18n.js';
+	import { t, labelOf } from '#lib/i18n.js';
+	import { SEVERITIES, severityClass, riskTone, fmtNumber } from '#lib/format.js';
 	import Badge from '#lib/components/Badge.svelte';
 	import ExposureBadge from '#lib/components/ExposureBadge.svelte';
 	import Field from '#lib/components/Field.svelte';
@@ -113,6 +114,24 @@
 </script>
 
 <div class="flex flex-col gap-5">
+	<section>
+		<h4 class="font-semibold mb-2 flex items-center gap-2">
+			{$t('asset.risk')}
+			<span class="font-mono {riskTone(asset.risk_score ?? 0)}">{fmtNumber(asset.risk_score ?? 0, { maximumFractionDigits: 1 })}</span>
+		</h4>
+		{#if asset.total_open}
+			<div class="flex flex-wrap gap-1">
+				{#each SEVERITIES as sev (sev)}
+					{#if asset.open_by_severity?.[sev]}
+						<span class="badge badge-sm {severityClass(sev)}">{$labelOf('severity', sev)}: {asset.open_by_severity[sev]}</span>
+					{/if}
+				{/each}
+			</div>
+		{:else}
+			<span class="text-xs text-base-content/50">{$t('asset.noOpenFindings')}</span>
+		{/if}
+	</section>
+
 	<section>
 		<h4 class="font-semibold mb-2 flex items-center gap-2">
 			{$t('asset.exposure')}

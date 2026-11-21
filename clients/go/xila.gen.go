@@ -3083,6 +3083,21 @@ func (e ListAssessmentsParamsState) Valid() bool {
 	}
 }
 
+// Defines values for ListAssetsParamsSort.
+const (
+	ListAssetsParamsSortRisk ListAssetsParamsSort = "risk"
+)
+
+// Valid indicates whether the value is a known member of the ListAssetsParamsSort enum.
+func (e ListAssetsParamsSort) Valid() bool {
+	switch e {
+	case ListAssetsParamsSortRisk:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListAssetBlastRadius200JSONResponseBodyAffectedVia.
 const (
 	ListAssetBlastRadius200JSONResponseBodyAffectedViaBuiltFrom  ListAssetBlastRadius200JSONResponseBodyAffectedVia = "built_from"
@@ -4139,6 +4154,21 @@ func (e GetProjectAccessParamsPrincipalKind) Valid() bool {
 	}
 }
 
+// Defines values for ListProjectAssetsParamsSort.
+const (
+	ListProjectAssetsParamsSortRisk ListProjectAssetsParamsSort = "risk"
+)
+
+// Valid indicates whether the value is a known member of the ListProjectAssetsParamsSort enum.
+func (e ListProjectAssetsParamsSort) Valid() bool {
+	switch e {
+	case ListProjectAssetsParamsSortRisk:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListProjectComponentsParamsIntegrity.
 const (
 	ListProjectComponentsParamsIntegrityMismatch ListProjectComponentsParamsIntegrity = "mismatch"
@@ -4935,8 +4965,17 @@ type Asset struct {
 	Id                *openapi_types.UUID  `json:"id,omitempty"`
 	Identifier        *string              `json:"identifier,omitempty"`
 	Name              *string              `json:"name,omitempty"`
+	OpenBySeverity    *map[string]int      `json:"open_by_severity,omitempty"`
 	ProjectId         *openapi_types.UUID  `json:"project_id,omitempty"`
-	Type              *AssetType           `json:"type,omitempty"`
+
+	// RiskScore Same weighted formula as the project risk score (severity weight x
+	// count, scaled by the project's business criticality), scoped to this
+	// asset's own open, non-duplicate, default-version findings.
+	RiskScore *float32 `json:"risk_score,omitempty"`
+
+	// TotalOpen Open findings on this asset (same scope as risk_score).
+	TotalOpen *int       `json:"total_open,omitempty"`
+	Type      *AssetType `json:"type,omitempty"`
 }
 
 // AssetExposure Where the asset can be reached from; null = unknown, which never
@@ -8674,10 +8713,16 @@ type ListAssetsParams struct {
 	// field is set. The literal parameter names are e.g. `cf.team`, `cf.score.gte`.
 	CfKey *CustomFieldFilter `form:"cf.{key},omitempty" json:"cf.{key},omitempty"`
 
+	// Sort `risk` sorts by risk_score, highest first.
+	Sort *ListAssetsParamsSort `form:"sort,omitempty" json:"sort,omitempty"`
+
 	// Limit Page size (max 200).
 	Limit  *Limit  `form:"limit,omitempty" json:"limit,omitempty"`
 	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
 }
+
+// ListAssetsParamsSort defines parameters for ListAssets.
+type ListAssetsParamsSort string
 
 // UpdateAssetJSONBody defines parameters for UpdateAsset.
 type UpdateAssetJSONBody struct {
@@ -9742,6 +9787,9 @@ type GetProjectAccessParamsPrincipalKind string
 type ListProjectAssetsParams struct {
 	Type *AssetType `form:"type,omitempty" json:"type,omitempty"`
 
+	// Sort `risk` sorts by risk_score, highest first.
+	Sort *ListProjectAssetsParamsSort `form:"sort,omitempty" json:"sort,omitempty"`
+
 	// CfKey Custom-field filter; repeatable, one per field (at most 10). `?cf.<key>=value`
 	// matches the stored value (text, enum, date, user id, or a number);
 	// `?cf.<key>.gte=` / `.gt=` / `.lte=` / `.lt=` compare numbers numerically and
@@ -9749,6 +9797,9 @@ type ListProjectAssetsParams struct {
 	// field is set. The literal parameter names are e.g. `cf.team`, `cf.score.gte`.
 	CfKey *CustomFieldFilter `form:"cf.{key},omitempty" json:"cf.{key},omitempty"`
 }
+
+// ListProjectAssetsParamsSort defines parameters for ListProjectAssets.
+type ListProjectAssetsParamsSort string
 
 // CreateProjectAssetJSONBody defines parameters for CreateProjectAsset.
 type CreateProjectAssetJSONBody struct {
@@ -28330,6 +28381,18 @@ func NewListAssetsRequest(server string, params *ListAssetsParams) (*http.Reques
 
 		}
 
+		if params.Sort != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "sort", *params.Sort, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
 		if params.Limit != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
@@ -38605,6 +38668,18 @@ func NewListProjectAssetsRequest(server string, projectID ProjectID, params *Lis
 		if params.Type != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "type", *params.Type, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Sort != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "sort", *params.Sort, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
