@@ -555,6 +555,15 @@ type JWT struct {
 	// ReauthWindow is how recently a session must have authenticated to
 	// create an API token (REAUTH_WINDOW; 0 turns the check off).
 	ReauthWindow time.Duration
+	// IdleTimeout ends a password/SSO/LDAP browser session after this long
+	// without an authenticated request (SESSION_IDLE_TIMEOUT; 0 = off). API
+	// tokens and service-account/federated sessions are exempt (see
+	// auth.SessionStore).
+	IdleTimeout time.Duration
+	// MaxAge is the absolute session lifetime from sign-in
+	// (SESSION_MAX_AGE; default = TTL, which "exp" already enforces — only a
+	// shorter value adds anything). Same exemptions as IdleTimeout.
+	MaxAge time.Duration
 }
 
 // OIDC configures optional Single Sign-On via an OpenID Connect provider
@@ -685,6 +694,9 @@ func Load() (Config, error) {
 		corsDefault = nil
 	}
 
+	// JWT_TTL doubles as the default absolute session lifetime (SESSION_MAX_AGE).
+	jwtTTL := getdur("JWT_TTL", 24*time.Hour)
+
 	cfg := Config{
 		Env: env,
 		Security: Security{
@@ -725,8 +737,10 @@ func Load() (Config, error) {
 		JWT: JWT{
 			Secret:       sec.get("JWT_SECRET", ""),
 			Previous:     splitSecretList(sec.get("JWT_PREVIOUS_SECRETS", "")),
-			TTL:          getdur("JWT_TTL", 24*time.Hour),
+			TTL:          jwtTTL,
 			ReauthWindow: getdur("REAUTH_WINDOW", 10*time.Minute),
+			IdleTimeout:  getdur("SESSION_IDLE_TIMEOUT", 0),
+			MaxAge:       getdur("SESSION_MAX_AGE", jwtTTL),
 		},
 		OIDC: OIDC{
 			Enabled:      getbool("OIDC_ENABLED", false),
