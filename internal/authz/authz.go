@@ -298,7 +298,7 @@ func capabilityFor(path, method string) domain.Capability {
 				return domain.CapUpload // running the gate is part of a CI upload
 			}
 			return domain.CapProjectSettings // gate policy
-		case "members", "groups":
+		case "members", "groups", "assessment-approvers":
 			return domain.CapManageMembers
 		case "connectors":
 			if last == "pull" {
@@ -412,8 +412,9 @@ func baseScope(path, method string) routeScope {
 		}
 		// Granting access to a project is itself an owner-level act: an editor who
 		// could add members could grant themselves nothing new, but could hand the
-		// project to anyone.
-		if len(segs) >= 3 && (segs[2] == "members" || segs[2] == "groups" || segs[2] == "access") {
+		// project to anyone. Who may decide its assessments is the same kind of
+		// act (M13 13.9).
+		if len(segs) >= 3 && (segs[2] == "members" || segs[2] == "groups" || segs[2] == "access" || segs[2] == "assessment-approvers") {
 			s.minRole = domain.TeamOwner // who can reach the project and why: owner-level, like managing it
 		}
 		// Watching is a personal subscription: anyone who can see the project.
@@ -535,13 +536,17 @@ func baseScope(path, method string) routeScope {
 		if len(segs) == 1 {
 			return routeScope{globalList: true} // the review queue, scoped by the handler
 		}
-		// Approving / rejecting a manual assessment is owner-level; the handler
-		// also refuses the requester (four-eyes).
-		s := routeScope{resource: "assessments", resourceID: segs[1], minRole: domain.TeamViewer}
-		if !get {
-			s.minRole = domain.TeamOwner
+		if len(segs) == 2 && (segs[1] == "approve" || segs[1] == "reject") {
+			// Bulk approve/reject spans projects: the handler authorizes each
+			// assessment's project (mayDecide). Never a resource lookup —
+			// "approve"/"reject" isn't an id.
+			return routeScope{}
 		}
-		return s
+		// Approving / rejecting a manual assessment may be owner-level or a
+		// project's designated approver (who may hold a lesser role); the
+		// handler (mayDecide) re-checks this precisely, and also refuses the
+		// requester (four-eyes).
+		return routeScope{resource: "assessments", resourceID: segs[1], minRole: domain.TeamViewer}
 	case "components", "portfolio", "vulnerabilities", "ingestion-health", "fix-plan":
 		return routeScope{globalList: true}
 	case "license-groups":

@@ -269,12 +269,16 @@ func (r *Repository) DeleteAttachment(ctx context.Context, findingID, attachment
 }
 
 // Change is a bulk edit: any of status (with exception reason / expiry),
-// severity and assignee, applied to many findings at once.
+// severity and assignee, applied to many findings at once. VexJustification /
+// VexResponse accompany a status moved to false_positive or wont_fix; any
+// other status clears them regardless of what is given.
 type Change struct {
-	Status    *domain.FindingStatus
-	Reason    string
-	ExpiresAt *time.Time
-	Severity  *domain.Severity
+	Status           *domain.FindingStatus
+	Reason           string
+	ExpiresAt        *time.Time
+	VexJustification domain.VexJustification
+	VexResponse      []domain.VexResponse
+	Severity         *domain.Severity
 	// SetAssignee applies AssigneeID (nil = unassign); false leaves it alone.
 	SetAssignee bool
 	AssigneeID  *string
@@ -364,17 +368,21 @@ func applyChange(ctx context.Context, tx pgx.Tx, ids []string, c Change, actor s
 		}
 		reason, by := "", ""
 		var expires *time.Time
+		justification := domain.VexJustification("")
+		var response []domain.VexResponse
 		if isExceptionStatus(*c.Status) {
 			reason, by, expires = c.Reason, actor, c.ExpiresAt
+			justification, response = c.VexJustification, c.VexResponse
 		}
 		if _, err := tx.Exec(ctx, `
 			UPDATE findings
 			SET status = $2,
 			    resolved_at = CASE WHEN $2 IN ('false_positive', 'remediated', 'wont_fix')
 			                       THEN now() ELSE NULL END,
-			    exception_reason = $3, exception_by = $4, exception_expires_at = $5, updated_at = now()
+			    exception_reason = $3, exception_by = $4, exception_expires_at = $5,
+			    vex_justification = $6, vex_response = $7, updated_at = now()
 			WHERE id = ANY($1) AND status IS DISTINCT FROM $2`,
-			ids, *c.Status, reason, by, expires); err != nil {
+			ids, *c.Status, reason, by, expires, justification, vexResponseStrings(response)); err != nil {
 			return fmt.Errorf("bulk status: %w", err)
 		}
 		if isExceptionStatus(*c.Status) {

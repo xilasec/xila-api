@@ -85,6 +85,12 @@ type Finding struct {
 	ExceptionReason    string     `json:"exception_reason"`
 	ExceptionBy        string     `json:"exception_by"`
 	ExceptionExpiresAt *time.Time `json:"exception_expires_at"`
+	// VexJustification / VexResponse: the structured CycloneDX impact analysis
+	// behind an active false_positive / wont_fix (M13 13.2). Every writer —
+	// manual triage, triage rules, VEX import, vulnerability policies — clears
+	// them on any other status; never invented otherwise.
+	VexJustification domain.VexJustification `json:"vex_justification"`
+	VexResponse      []domain.VexResponse    `json:"vex_response"`
 	// RiskAcceptance is the live (requested or approved) risk acceptance that
 	// covers the finding, if any. Read-only.
 	RiskAcceptance *AcceptanceRef `json:"risk_acceptance"`
@@ -160,7 +166,7 @@ const findingColumns = `id, project_id, version_id, fingerprint, scanner, catego
 	package_version, fixed_version, purl, url, metadata, status, first_seen_at,
 	last_seen_at, first_scan_id, last_scan_id, resolved_at, created_at, updated_at,
 	cvss, epss, kev, kev_sources, kev_ransomware, priority, asset_id, cvss_vector, cvss_version, cvss_source,
-	exception_reason, exception_by, exception_expires_at,
+	exception_reason, exception_by, exception_expires_at, vex_justification, vex_response,
 	correlation_key, duplicate_of, dep_direct, dep_depth, dep_scope,
 	sla_days, sla_due_at, tags, custom, COALESCE(exploit_maturity, ''),
 	assignee_id, (SELECT email FROM users WHERE users.id = assignee_id),
@@ -180,7 +186,7 @@ func scanFinding(row pgx.Row, extra ...any) (Finding, error) {
 		&f.PackageVersion, &f.FixedVersion, &f.Purl, &f.URL, &f.Metadata, &f.Status, &f.FirstSeenAt,
 		&f.LastSeenAt, &f.FirstScanID, &f.LastScanID, &f.ResolvedAt, &f.CreatedAt, &f.UpdatedAt,
 		&f.CVSS, &f.EPSS, &f.KEV, &f.KEVSources, &f.KEVRansomware, &f.Priority, &f.AssetID, &f.CVSSVector, &f.CVSSVersion, &f.CVSSSource,
-		&f.ExceptionReason, &f.ExceptionBy, &f.ExceptionExpiresAt,
+		&f.ExceptionReason, &f.ExceptionBy, &f.ExceptionExpiresAt, &f.VexJustification, &f.VexResponse,
 		&f.CorrelationKey, &f.DuplicateOf, &f.DepDirect, &f.DepDepth, &f.DepScope,
 		&f.SLADays, &f.SLADueAt, &f.Tags, &f.Custom, &f.ExploitMaturity,
 		&f.AssigneeID, &f.AssigneeEmail, &f.AssetExposure, &f.RiskAcceptance,
@@ -844,12 +850,29 @@ func (r *Repository) ListByIDs(ctx context.Context, ids []string) ([]Finding, er
 
 // Triage is a status change, optionally carrying an exception (reason + expiry
 // + who decided it). It can't set risk_accepted: only an approved risk
-// acceptance does that (ErrRiskAcceptanceRequired).
+// acceptance does that (ErrRiskAcceptanceRequired). VexJustification /
+// VexResponse accompany a move to false_positive or wont_fix; any other
+// status clears them regardless of what is given.
 type Triage struct {
-	Status    domain.FindingStatus
-	Reason    string
-	Actor     string
-	ExpiresAt *time.Time
+	Status           domain.FindingStatus
+	Reason           string
+	Actor            string
+	ExpiresAt        *time.Time
+	VexJustification domain.VexJustification
+	VexResponse      []domain.VexResponse
+}
+
+// vexResponseStrings converts to the plain []string a text[] column takes
+// (never nil — the column is NOT NULL DEFAULT '{}').
+func vexResponseStrings(rs []domain.VexResponse) []string {
+	if rs == nil {
+		return []string{}
+	}
+	out := make([]string, len(rs))
+	for i, r := range rs {
+		out[i] = string(r)
+	}
+	return out
 }
 
 // isExceptionStatus reports whether a status is a triage exception that carries
@@ -898,8 +921,11 @@ func setStatusTx(ctx context.Context, tx pgx.Tx, id string, t Triage) (Finding, 
 	}
 	reason, actor := "", ""
 	var expires *time.Time
+	justification := domain.VexJustification("")
+	var response []domain.VexResponse
 	if isExceptionStatus(t.Status) {
 		reason, actor, expires = t.Reason, t.Actor, t.ExpiresAt
+		justification, response = t.VexJustification, t.VexResponse
 	}
 	const q = `
 		UPDATE findings
@@ -910,10 +936,12 @@ func setStatusTx(ctx context.Context, tx pgx.Tx, id string, t Triage) (Finding, 
 		    exception_reason     = $3,
 		    exception_by         = $4,
 		    exception_expires_at = $5,
+		    vex_justification    = $6,
+		    vex_response         = $7,
 		    updated_at           = now()
 		WHERE id = $1
 		RETURNING ` + findingColumns
-	f, err := scanFinding(tx.QueryRow(ctx, q, id, t.Status, reason, actor, expires))
+	f, err := scanFinding(tx.QueryRow(ctx, q, id, t.Status, reason, actor, expires, justification, vexResponseStrings(response)))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Finding{}, ErrNotFound
 	}

@@ -50,6 +50,11 @@ type Assessment struct {
 	Severity     *domain.Severity      `json:"severity"`
 	Reason       string                `json:"reason"`
 	ExpiresAt    *time.Time            `json:"expires_at"`
+	// VexJustification / VexResponse: the structured analysis requested
+	// alongside a status of false_positive or wont_fix (M13 13.2), applied
+	// verbatim on approval.
+	VexJustification domain.VexJustification `json:"vex_justification"`
+	VexResponse      []domain.VexResponse    `json:"vex_response"`
 	State        AssessmentState       `json:"state"`
 	DecidedBy    *string               `json:"decided_by"`
 	Decider      string                `json:"decider"`
@@ -80,7 +85,7 @@ func (a Assessment) summary() string {
 }
 
 const assessmentColumns = `a.id, a.finding_id, a.project_id, a.requested_by, a.requester, a.status, a.severity,
-	a.reason, a.expires_at, a.state, a.decided_by, a.decider, a.decided_at, a.decision_note, a.created_at,
+	a.reason, a.expires_at, a.vex_justification, a.vex_response, a.state, a.decided_by, a.decider, a.decided_at, a.decision_note, a.created_at,
 	f.title, f.status, f.severity, p.name`
 
 const assessmentFrom = ` FROM finding_assessments a
@@ -90,7 +95,7 @@ const assessmentFrom = ` FROM finding_assessments a
 func scanAssessment(row pgx.Row) (Assessment, error) {
 	var a Assessment
 	err := row.Scan(&a.ID, &a.FindingID, &a.ProjectID, &a.RequestedBy, &a.Requester, &a.Status, &a.Severity,
-		&a.Reason, &a.ExpiresAt, &a.State, &a.DecidedBy, &a.Decider, &a.DecidedAt, &a.DecisionNote, &a.CreatedAt,
+		&a.Reason, &a.ExpiresAt, &a.VexJustification, &a.VexResponse, &a.State, &a.DecidedBy, &a.Decider, &a.DecidedAt, &a.DecisionNote, &a.CreatedAt,
 		&a.FindingTitle, &a.CurrentStatus, &a.CurrentSeverity, &a.ProjectName)
 	return a, err
 }
@@ -138,13 +143,18 @@ func (r *Repository) RequestAssessments(ctx context.Context, ids []string, c Cha
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck // no-op after commit
 
+	justification := domain.VexJustification("")
+	var response []domain.VexResponse
+	if c.Status != nil && isExceptionStatus(*c.Status) {
+		justification, response = c.VexJustification, c.VexResponse
+	}
 	rows, err := tx.Query(ctx, `
-		INSERT INTO finding_assessments (finding_id, project_id, requested_by, requester, status, severity, reason, expires_at)
+		INSERT INTO finding_assessments (finding_id, project_id, requested_by, requester, status, severity, reason, expires_at, vex_justification, vex_response)
 		SELECT f.id, f.project_id, NULLIF($2, '')::uuid,
-		       COALESCE((SELECT email FROM users WHERE id::text = $2), ''), $3, $4, $5, $6
+		       COALESCE((SELECT email FROM users WHERE id::text = $2), ''), $3, $4, $5, $6, $7, $8
 		FROM findings f WHERE f.id = ANY($1)
 		ON CONFLICT (finding_id) WHERE state = 'pending' DO NOTHING
-		RETURNING id`, ids, requester, c.Status, c.Severity, c.Reason, c.ExpiresAt)
+		RETURNING id`, ids, requester, c.Status, c.Severity, c.Reason, c.ExpiresAt, justification, vexResponseStrings(response))
 	if err != nil {
 		return nil, nil, fmt.Errorf("request assessments: %w", err)
 	}
@@ -336,6 +346,37 @@ func decide(ctx context.Context, tx pgx.Tx, a *Assessment, state AssessmentState
 //
 // The caller regroups duplicates afterwards when the status or severity moved.
 func (r *Repository) ApproveAssessment(ctx context.Context, id, approver, note string) (Assessment, Finding, error) {
+	return r.approveAssessment(ctx, id, approver, note, nil, nil)
+}
+
+// ApproveAssessments is ApproveAssessment over many ids ("approve with
+// edits" when justification is non-nil: its own value and response override
+// every one of them, meaningful only for a result of false_positive or
+// wont_fix — ignored otherwise, same as a direct edit). Each id is applied
+// independently; one that fails (already decided, not found, the requester
+// deciding their own request) is reported in failed rather than aborting
+// the rest.
+func (r *Repository) ApproveAssessments(ctx context.Context, ids []string, approver, note string,
+	justification *domain.VexJustification, response []domain.VexResponse,
+) (approved []Assessment, findings []Finding, failed []BulkFailure, err error) {
+	for _, id := range ids {
+		a, f, aerr := r.approveAssessment(ctx, id, approver, note, justification, response)
+		if aerr != nil {
+			failed = append(failed, BulkFailure{ID: id, Error: aerr.Error()})
+			continue
+		}
+		approved = append(approved, a)
+		findings = append(findings, f)
+	}
+	return approved, findings, failed, nil
+}
+
+// approveAssessment is ApproveAssessment with an optional vex_justification /
+// vex_response override; nil justification applies the assessment's own
+// stored values unchanged.
+func (r *Repository) approveAssessment(ctx context.Context, id, approver, note string,
+	justification *domain.VexJustification, response []domain.VexResponse,
+) (Assessment, Finding, error) {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return Assessment{}, Finding{}, fmt.Errorf("begin: %w", err)
@@ -355,9 +396,14 @@ func (r *Repository) ApproveAssessment(ctx context.Context, id, approver, note s
 	if err := withActor(ctx, tx, actor, a.Reason); err != nil {
 		return Assessment{}, Finding{}, err
 	}
+	vj, vr := a.VexJustification, a.VexResponse
+	if justification != nil {
+		vj, vr = *justification, response
+	}
 	if a.Status != nil {
 		if _, err := setStatusTx(ctx, tx, a.FindingID, Triage{
 			Status: *a.Status, Reason: a.Reason, Actor: actor, ExpiresAt: a.ExpiresAt,
+			VexJustification: vj, VexResponse: vr,
 		}); err != nil {
 			return Assessment{}, Finding{}, err
 		}
@@ -412,4 +458,18 @@ func (r *Repository) RejectAssessment(ctx context.Context, id, decider, note str
 		return Assessment{}, fmt.Errorf("commit: %w", err)
 	}
 	return a, nil
+}
+
+// RejectAssessments is RejectAssessment over many ids; a failure is reported
+// in failed rather than aborting the rest.
+func (r *Repository) RejectAssessments(ctx context.Context, ids []string, decider, note string) (rejected []Assessment, failed []BulkFailure) {
+	for _, id := range ids {
+		a, err := r.RejectAssessment(ctx, id, decider, note)
+		if err != nil {
+			failed = append(failed, BulkFailure{ID: id, Error: err.Error()})
+			continue
+		}
+		rejected = append(rejected, a)
+	}
+	return rejected, failed
 }

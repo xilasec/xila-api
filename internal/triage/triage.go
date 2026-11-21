@@ -118,6 +118,11 @@ type Rule struct {
 	// value, validated against the field's definition when the rule is saved.
 	CustomField string `json:"custom_field"`
 	CustomValue any    `json:"custom_value"`
+	// VexJustification / VexResponse: optional CycloneDX impact-analysis
+	// fields (M13 13.2) set on findings a false_positive / wont_fix action
+	// moves; ignored (cleared on save) for every other action.
+	VexJustification domain.VexJustification `json:"vex_justification"`
+	VexResponse      []domain.VexResponse    `json:"vex_response"`
 
 	// Hit metrics (read-only): findings this rule actually changed.
 	HitCount  int64      `json:"hit_count"`
@@ -189,6 +194,15 @@ func (r *Rule) Validate(schema expr.Schema) error {
 	}
 	if r.Action != ActionSetCustomField {
 		r.CustomField, r.CustomValue = "", nil
+	}
+	if r.Action != ActionFalsePositive && r.Action != ActionWontFix {
+		r.VexJustification, r.VexResponse = "", nil
+	}
+	if !r.VexJustification.Valid() {
+		return errors.New("invalid vex_justification")
+	}
+	if !domain.ValidVexResponses(r.VexResponse) {
+		return errors.New("invalid vex_response")
 	}
 	if r.Category != "" && !r.Category.Valid() {
 		return errors.New("invalid category")

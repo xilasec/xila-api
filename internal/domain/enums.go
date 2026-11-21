@@ -468,3 +468,91 @@ func ValidCapabilities(cs []Capability) bool {
 	}
 	return true
 }
+
+// VexJustification is a CycloneDX ImpactAnalysisJustification value: why a
+// not-affected-type verdict (false_positive, wont_fix) holds. "" means none was
+// recorded — never invented, only ever what an analyst, a triage rule, a VEX
+// import or a vulnerability policy actually set.
+type VexJustification string
+
+// Justifications (CycloneDX's vocabulary; see internal/vex for the OpenVEX /
+// CSAF mapping).
+const (
+	VexJustificationCodeNotPresent              VexJustification = "code_not_present"
+	VexJustificationCodeNotReachable             VexJustification = "code_not_reachable"
+	VexJustificationRequiresConfiguration        VexJustification = "requires_configuration"
+	VexJustificationRequiresDependency           VexJustification = "requires_dependency"
+	VexJustificationRequiresEnvironment          VexJustification = "requires_environment"
+	VexJustificationProtectedByCompiler          VexJustification = "protected_by_compiler"
+	VexJustificationProtectedAtRuntime           VexJustification = "protected_at_runtime"
+	VexJustificationProtectedAtPerimeter         VexJustification = "protected_at_perimeter"
+	VexJustificationProtectedByMitigatingControl VexJustification = "protected_by_mitigating_control"
+)
+
+var vexJustifications = []VexJustification{
+	VexJustificationCodeNotPresent, VexJustificationCodeNotReachable, VexJustificationRequiresConfiguration,
+	VexJustificationRequiresDependency, VexJustificationRequiresEnvironment, VexJustificationProtectedByCompiler,
+	VexJustificationProtectedAtRuntime, VexJustificationProtectedAtPerimeter, VexJustificationProtectedByMitigatingControl,
+}
+
+// Valid reports whether j is a known justification, or "" (none given).
+func (j VexJustification) Valid() bool { return j == "" || slices.Contains(vexJustifications, j) }
+
+// VexResponse is a CycloneDX ImpactAnalysisResponse value: what is being done
+// about a finding carrying a not-affected-type verdict.
+type VexResponse string
+
+// Responses (CycloneDX's vocabulary).
+const (
+	VexResponseCanNotFix           VexResponse = "can_not_fix"
+	VexResponseWillNotFix          VexResponse = "will_not_fix"
+	VexResponseUpdate              VexResponse = "update"
+	VexResponseRollback            VexResponse = "rollback"
+	VexResponseWorkaroundAvailable VexResponse = "workaround_available"
+)
+
+var vexResponses = []VexResponse{
+	VexResponseCanNotFix, VexResponseWillNotFix, VexResponseUpdate, VexResponseRollback, VexResponseWorkaroundAvailable,
+}
+
+// Valid reports whether r is a known response.
+func (r VexResponse) Valid() bool { return slices.Contains(vexResponses, r) }
+
+// ValidVexResponses reports whether every response in rs is known.
+func ValidVexResponses(rs []VexResponse) bool {
+	for _, r := range rs {
+		if !r.Valid() {
+			return false
+		}
+	}
+	return true
+}
+
+// ApprovalSetting is a project's override of the instance-wide
+// ASSESSMENT_REQUIRES_APPROVAL default (M13 13.9): inherit follows it;
+// required and off always apply regardless of the instance setting.
+type ApprovalSetting string
+
+const (
+	ApprovalInherit  ApprovalSetting = "inherit"
+	ApprovalRequired ApprovalSetting = "required"
+	ApprovalOff      ApprovalSetting = "off"
+)
+
+var approvalSettings = []ApprovalSetting{ApprovalInherit, ApprovalRequired, ApprovalOff}
+
+// Valid reports whether s is a known approval setting.
+func (s ApprovalSetting) Valid() bool { return slices.Contains(approvalSettings, s) }
+
+// Effective resolves the setting against the instance-wide default (inherit
+// follows it).
+func (s ApprovalSetting) Effective(instanceDefault bool) bool {
+	switch s {
+	case ApprovalRequired:
+		return true
+	case ApprovalOff:
+		return false
+	default:
+		return instanceDefault
+	}
+}

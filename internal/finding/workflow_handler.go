@@ -21,6 +21,7 @@ import (
 	"github.com/xilasec/xila-api/internal/authz"
 	"github.com/xilasec/xila-api/internal/domain"
 	"github.com/xilasec/xila-api/internal/httpx"
+	"github.com/xilasec/xila-api/internal/membership"
 	"github.com/xilasec/xila-api/internal/notify"
 )
 
@@ -32,16 +33,28 @@ type accessChecker interface {
 	AdminStatus(ctx context.Context, userID string) (isAdmin, isOwner bool, err error)
 	OwnedProjectIDs(ctx context.Context, userID string) ([]string, error)
 	ProjectCapabilityAllowed(ctx context.Context, userID, projectID string, min domain.TeamRole, cap domain.Capability) (bool, error)
+	// ProjectApprovalSetting / AssessmentApprovers / ApproverProjectIDs back
+	// the per-project assessment-approval setting (M13 13.9): the project's
+	// inherit/required/off override, its designated approvers (groups
+	// expanded; empty = any owner may decide), and the reverse lookup for the
+	// cross-project review queue.
+	ProjectApprovalSetting(ctx context.Context, projectID string) (string, error)
+	AssessmentApprovers(ctx context.Context, projectID string) ([]string, error)
+	ApproverProjectIDs(ctx context.Context, userID string) ([]string, error)
+	ListAssessmentApproverGrants(ctx context.Context, projectID string) ([]membership.ApproverGrant, error)
+	SetAssessmentApproverGrants(ctx context.Context, projectID string, userIDs, groupIDs []string) error
 }
 
 // decidableProjects narrows a cross-project queue to the projects whose
-// requests the caller may decide: those they own, within visible (the
-// caller's visible scope; nil = every project). Instance admins decide
-// everywhere. A project-scoped token never decides outside its project.
-// The result follows the same convention: nil = every project.
+// requests the caller may decide: those they own (or, when a project has
+// designated approvers, those where they are one — see mayDecide), within
+// visible (the caller's visible scope; nil = every project). Instance admins
+// decide everywhere. A project-scoped token never decides outside its
+// project. The result follows the same convention: nil = every project.
 //
 // cap is the custom-role capability deciding needs: a project where every
-// owner-level grant of the caller denies it is left out.
+// owner-level grant of the caller denies it is left out (designated-approver
+// access, which doesn't require owner at all, is never narrowed by cap).
 func (h *Handler) decidableProjects(c *fiber.Ctx, uid string, visible []string, cap domain.Capability) ([]string, error) {
 	isAdmin, _, err := h.access.AdminStatus(c.UserContext(), uid)
 	if err != nil {
@@ -59,15 +72,59 @@ func (h *Handler) decidableProjects(c *fiber.Ctx, uid string, visible []string, 
 			if err != nil {
 				return nil, err
 			}
-			if ok {
+			approvers, err := h.access.AssessmentApprovers(c.UserContext(), pid)
+			if err != nil {
+				return nil, err
+			}
+			// Designated approvers narrow who, of the owners, may still decide.
+			if ok && (len(approvers) == 0 || slices.Contains(approvers, uid)) {
 				mine = append(mine, pid)
 			}
 		}
+		// A designated approver who doesn't otherwise own the project can
+		// still decide.
+		theirs, err := h.access.ApproverProjectIDs(c.UserContext(), uid)
+		if err != nil {
+			return nil, err
+		}
+		mine = append(mine, theirs...)
+		slices.Sort(mine)
+		mine = slices.Compact(mine)
 	}
 	if a := auth.CurrentActor(c); a.ProjectID != "" && a.UserID == uid {
 		mine = intersectIDs(mine, []string{a.ProjectID})
 	}
 	return intersectIDs(mine, visible), nil
+}
+
+// approvalRequired reports whether projectID's manual assessments need
+// approval: its own inherit/required/off override (domain.ApprovalSetting),
+// inherit following the instance-wide ASSESSMENT_REQUIRES_APPROVAL default.
+func (h *Handler) approvalRequired(ctx context.Context, projectID string) (bool, error) {
+	setting, err := h.access.ProjectApprovalSetting(ctx, projectID)
+	if err != nil {
+		return false, err
+	}
+	return domain.ApprovalSetting(setting).Effective(h.requireApproval), nil
+}
+
+// mayDecide reports whether uid may approve/reject an assessment of
+// projectID: an instance admin always may; otherwise, when the project has
+// designated approvers, only one of them; otherwise any owner of it (the
+// original rule).
+func (h *Handler) mayDecide(c *fiber.Ctx, uid, projectID string) (bool, error) {
+	isAdmin, _, err := h.access.AdminStatus(c.UserContext(), uid)
+	if err != nil || isAdmin {
+		return isAdmin, err
+	}
+	approvers, err := h.access.AssessmentApprovers(c.UserContext(), projectID)
+	if err != nil {
+		return false, err
+	}
+	if len(approvers) > 0 {
+		return slices.Contains(approvers, uid), nil
+	}
+	return h.can(c, uid, projectID, domain.TeamOwner)
 }
 
 // intersectIDs intersects two id sets where nil means "every id".
@@ -327,22 +384,32 @@ type BulkFailure struct {
 // projects. Each finding is authorized on its own project (editor or above);
 // the ones the caller can't edit, or that don't exist, are reported in
 // `failed` and left untouched — the rest are applied in one transaction.
-// With ASSESSMENT_REQUIRES_APPROVAL the status / severity part becomes one
-// pending assessment per finding (`pending`, 202) instead; an assignee change
-// still applies at once. Status risk_accepted requests one risk acceptance per
-// project (`acceptances`, 202) — the findings only become risk_accepted once
-// it is approved.
+// A status / severity change becomes one pending assessment per finding
+// (`pending`, 202) instead of applying at once wherever its project's
+// assessment-approval setting requires it (the project's own
+// inherit/required/off override, inherit following ASSESSMENT_REQUIRES_APPROVAL);
+// different projects in the same bulk edit may split this way. An assignee
+// or tag change still applies at once regardless. Status risk_accepted
+// requests one risk acceptance per project (`acceptances`, 202) — the
+// findings only become risk_accepted once it is approved.
 func (h *Handler) Bulk(c *fiber.Ctx) error {
 	var body bulkRequest
 	if err := httpx.Parse(c, &body); err != nil {
 		return err
 	}
-	change := Change{Status: body.Status, Reason: body.Reason, ExpiresAt: body.ExpiresAt, Severity: body.Severity}
+	change := Change{Status: body.Status, Reason: body.Reason, ExpiresAt: body.ExpiresAt, Severity: body.Severity,
+		VexJustification: body.VexJustification, VexResponse: body.VexResponse}
 	if change.Status != nil && !change.Status.Valid() {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid status")
 	}
 	if change.Severity != nil && !change.Severity.Valid() {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid severity")
+	}
+	if !change.VexJustification.Valid() {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid vex_justification")
+	}
+	if !domain.ValidVexResponses(change.VexResponse) {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid vex_response")
 	}
 	if len(body.AssigneeID) > 0 {
 		change.SetAssignee = true
@@ -446,18 +513,41 @@ func (h *Handler) Bulk(c *fiber.Ctx) error {
 			direct.Status, direct.Reason, direct.ExpiresAt = nil, "", nil
 			change.Status = nil
 		}
-		if h.requireApproval && (change.Status != nil || change.Severity != nil) {
-			created, busy, err := h.repo.RequestAssessments(c.UserContext(), ids, change, auth.UserID(c))
-			if err != nil {
-				return err
+		// A status / severity change may need approval on some of the touched
+		// projects and not others (each project's own setting): split ids
+		// accordingly, rather than one blanket answer for the whole edit.
+		var needApproval []string
+		if change.Status != nil || change.Severity != nil {
+			approvalFor := map[string]bool{}
+			for _, pid := range touched {
+				if !allowed[pid] {
+					continue
+				}
+				req, err := h.approvalRequired(c.UserContext(), pid)
+				if err != nil {
+					return err
+				}
+				approvalFor[pid] = req
 			}
-			pending = created
-			for _, id := range busy {
-				failed = append(failed, BulkFailure{id, ErrAssessmentPending.Error()})
+			var directIDs []string
+			for _, id := range ids {
+				if approvalFor[projects[id]] {
+					needApproval = append(needApproval, id)
+				} else {
+					directIDs = append(directIDs, id)
+				}
 			}
-			// Assignment and tags aren't assessments: they apply at once.
-			direct = Change{SetAssignee: change.SetAssignee, AssigneeID: change.AssigneeID,
-				AddTags: change.AddTags, RemoveTags: change.RemoveTags}
+			if len(needApproval) > 0 {
+				created, busy, rerr := h.repo.RequestAssessments(c.UserContext(), needApproval, change, auth.UserID(c))
+				if rerr != nil {
+					return rerr
+				}
+				pending = created
+				for _, id := range busy {
+					failed = append(failed, BulkFailure{id, ErrAssessmentPending.Error()})
+				}
+			}
+			ids = directIDs
 		}
 		if !direct.Empty() {
 			if updated, err = h.repo.Apply(c.UserContext(), ids, direct, auth.UserID(c)); errors.Is(err, ErrTooManyTags) {
@@ -467,6 +557,20 @@ func (h *Handler) Bulk(c *fiber.Ctx) error {
 			}
 			if direct.SetAssignee && direct.AssigneeID != nil {
 				h.notifyAssigned(updated)
+			}
+		}
+		if len(needApproval) > 0 && (direct.SetAssignee || direct.touchesTags()) {
+			// Assignment and tags aren't assessments: they still apply at once
+			// to findings whose status / severity is held for review.
+			assignTags := Change{SetAssignee: direct.SetAssignee, AssigneeID: direct.AssigneeID,
+				AddTags: direct.AddTags, RemoveTags: direct.RemoveTags}
+			more, aerr := h.repo.Apply(c.UserContext(), needApproval, assignTags, auth.UserID(c))
+			if aerr != nil {
+				return aerr
+			}
+			updated = append(updated, more...)
+			if assignTags.SetAssignee && assignTags.AssigneeID != nil {
+				h.notifyAssigned(more)
 			}
 		}
 		// Severity elects a cross-tool group's primary: regroup what moved.
