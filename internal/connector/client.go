@@ -58,6 +58,42 @@ func NewClient(c Connector, token string, hc *http.Client) (Client, error) {
 		}
 		return &tenable{base: c.BaseURL, scope: c.RemoteProject,
 			accessKey: creds.AccessKey, secretKey: creds.SecretKey, hc: hc, pollInterval: tenablePollInterval}, nil
+	case KindAWSSecurityHub:
+		var creds awsCredentials
+		if token != "" {
+			var err error
+			if creds, err = parseAWSCredentials(token); err != nil {
+				return nil, err
+			}
+		}
+		return &awsSecurityHub{regions: strings.Split(c.BaseURL, ","), roleARN: c.RoleARN, filter: c.RemoteProject,
+			accessKeyID: creds.AccessKeyID, secretAccessKey: creds.SecretAccessKey, sessionToken: creds.SessionToken, hc: hc}, nil
+	case KindMicrosoftDefender:
+		creds, err := parseDefenderCredentials(token)
+		if err != nil {
+			return nil, err
+		}
+		return &microsoftDefender{base: c.BaseURL, authURL: c.AuthURL,
+			clientID: creds.ClientID, clientSecret: creds.ClientSecret, hc: hc, pageSize: defenderPageSize}, nil
+	case KindQualys:
+		creds, err := parseQualysCredentials(token)
+		if err != nil {
+			return nil, err
+		}
+		return &qualys{base: c.BaseURL, filter: c.RemoteProject, username: creds.Username, password: creds.Password, hc: hc}, nil
+	case KindTrivyOperator:
+		creds, err := parseTrivyCredentials(token)
+		if err != nil {
+			return nil, err
+		}
+		client := hc
+		if creds.CAPEM != "" {
+			var err error
+			if client, err = trivyTLSClient(creds.CAPEM); err != nil {
+				return nil, err
+			}
+		}
+		return &trivyOperator{base: c.BaseURL, namespace: c.RemoteProject, bearerToken: creds.BearerToken, hc: client}, nil
 	}
 	return nil, fmt.Errorf("unsupported connector kind %q", c.Kind)
 }
@@ -90,6 +126,11 @@ func PublicMessage(err error) string {
 	}
 	return err.Error()
 }
+
+// clientTimeout is the per-request timeout every pull client shares
+// (netguard.NewClient in NewService; a per-connector TLS client for the Trivy
+// Operator kind's optional custom CA — see trivyTLSClient in trivy_operator.go).
+const clientTimeout = 2 * time.Minute
 
 // maxPages bounds one pull, so a remote that ignores paging (returns the same
 // page forever) fails the pull instead of looping.
