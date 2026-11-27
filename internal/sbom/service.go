@@ -73,12 +73,13 @@ type IngestRequest struct {
 type Service struct {
 	store         sbomStore
 	projects      projectChecker
-	evaluator     ComponentEvaluator // optional
-	rescorer      ProjectRescorer    // optional
-	matcher       AdvisoryMatcher    // optional
-	packages      PackageRefresher   // optional
-	licenses      LicenseResolver    // optional: nil leaves license_resolved NULL for the backfill
-	strictDefault bool               // SBOM_STRICT_VALIDATION: every upload is strict, not only ?strict=true ones
+	evaluator     ComponentEvaluator                                        // optional
+	rescorer      ProjectRescorer                                           // optional
+	matcher       AdvisoryMatcher                                           // optional
+	packages      PackageRefresher                                          // optional
+	licenses      LicenseResolver                                           // optional: nil leaves license_resolved NULL for the backfill
+	loadOverrides func(ctx context.Context) (LicenseOverrideMatcher, error) // optional: a project's curated concluded licenses
+	strictDefault bool                                                      // SBOM_STRICT_VALIDATION: every upload is strict, not only ?strict=true ones
 }
 
 // NewService wires the ingestion dependencies. evaluator and rescorer may be nil.
@@ -106,6 +107,15 @@ func (s *Service) WithStrictValidation(strict bool) *Service {
 // scheduled sweep catches anything this misses.
 func (s *Service) WithPackageMeta(p PackageRefresher) *Service {
 	s.packages = p
+	return s
+}
+
+// WithLicenseOverrides applies a project's curated concluded licenses
+// (M13 13.12) after the SBOM's own license is resolved, on every upload.
+// matcher is re-fetched fresh by the caller for each call (license overrides
+// change rarely and the set is small; see license.NewMatcher).
+func (s *Service) WithLicenseOverrides(matcher func(ctx context.Context) (LicenseOverrideMatcher, error)) *Service {
+	s.loadOverrides = matcher
 	return s
 }
 
@@ -157,6 +167,13 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest, raw io.Reader) 
 	}
 	if s.licenses != nil {
 		resolveLicenses(s.licenses, doc.Components)
+	}
+	if s.loadOverrides != nil {
+		overrides, err := s.loadOverrides(ctx)
+		if err != nil {
+			return Sbom{}, fmt.Errorf("load license overrides: %w", err)
+		}
+		applyLicenseOverrides(overrides, req.ProjectID, doc.Components)
 	}
 	stored, err := s.store.Ingest(ctx, record, doc.Components, doc.Services, doc.Edges)
 	if err != nil {

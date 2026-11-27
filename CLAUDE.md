@@ -154,6 +154,24 @@ Components carry `license_expression` / `license_ids` / `license_categories` /
 `license_resolved`, computed at ingest by `license.Resolve`. Do not match licenses
 by substring. Use `Expr.Satisfies` (`MIT OR GPL-3.0` satisfies "no GPL").
 
+Manual concluded-license override (M13 13.12): `license_overrides` (per
+project, keyed by base purl plus an optional version range) lets an admin
+correct a component's license. `sbom.Service.WithLicenseOverrides` applies
+it at ingest (`internal/sbom/license.go`'s `applyLicenseOverrides`), copying
+the SBOM's own resolution into `license_declared_*` before overwriting the
+live `license_expression`/`license_ids`/`license_categories`/`license_resolved`
+with the override's (re-resolved through `license.Resolve`, so the two paths
+can never disagree on what counts as "known"). `sbom.Repository.ReapplyLicenseOverrides`
+redoes this for every current snapshot's components without a re-upload,
+re-deriving the declared value from the stored raw `license` string with the
+same recovery the startup backfill uses (`legacyLicenseTerms`), so it never
+drifts regardless of how many times an override has since changed. Call it,
+then `policy.Service.Reevaluate`, on every override create/update/delete
+(`license.OverrideHandler` does both). `license.Matcher` holds every
+project's overrides at once (the whole curated set is small); its
+`byProject` lookup is why one load serves both the ingest hook and a
+reapply scoped to one project.
+
 Package freshness: `internal/pkgmeta` caches registry metadata per base purl
 (leader cron `PKGMETA_*`, per-ecosystem mirror URLs) and writes `package_status`
 per exact purl on fetch. Component queries join it. "Latest" means the newest stable,

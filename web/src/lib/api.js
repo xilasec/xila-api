@@ -814,6 +814,16 @@ export const api = {
 	/** @param {string} projectId @param {Record<string, any>} [filters] @param {string} [format] */
 	exportProjectComponents: (projectId, filters, format) =>
 		exportTable(`/projects/${projectId}/components/export`, 'xila-components', filters, format),
+	/** @param {string} projectId */
+	listLicenseOverrides: (projectId) => request('GET', `/projects/${projectId}/license-overrides`),
+	/** @param {string} projectId @param {string} id */
+	getLicenseOverride: (projectId, id) => request('GET', `/projects/${projectId}/license-overrides/${id}`),
+	/** @param {string} projectId @param {any} data */
+	createLicenseOverride: (projectId, data) => request('POST', `/projects/${projectId}/license-overrides`, { body: data }),
+	/** @param {string} projectId @param {string} id @param {any} data */
+	updateLicenseOverride: (projectId, id, data) => request('PUT', `/projects/${projectId}/license-overrides/${id}`, { body: data }),
+	/** @param {string} projectId @param {string} id */
+	deleteLicenseOverride: (projectId, id) => request('DELETE', `/projects/${projectId}/license-overrides/${id}`),
 	/** @param {string} id @param {Record<string, any>} [filters] @param {string} [format] */
 	exportSbomComponents: (id, filters, format) =>
 		exportTable(`/sboms/${id}/components/export`, 'xila-components', filters, format),

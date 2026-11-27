@@ -6465,6 +6465,39 @@ type LicenseGroupInput struct {
 	Name       string    `json:"name"`
 }
 
+// LicenseOverride defines model for LicenseOverride.
+type LicenseOverride struct {
+	Comment   *string             `json:"comment,omitempty"`
+	CreatedAt *time.Time          `json:"created_at,omitempty"`
+	CreatedBy *openapi_types.UUID `json:"created_by,omitempty"`
+	Id        *openapi_types.UUID `json:"id,omitempty"`
+
+	// License The concluded SPDX expression.
+	License   *string             `json:"license,omitempty"`
+	ProjectId *openapi_types.UUID `json:"project_id,omitempty"`
+
+	// Purl Without version, qualifiers or subpath ("npm/lodash").
+	Purl      *string    `json:"purl,omitempty"`
+	UpdatedAt *time.Time `json:"updated_at,omitempty"`
+
+	// VersionRange Component-policy-style range (">=1.2.0, <2.0.0"); empty = every version.
+	VersionRange *string `json:"version_range,omitempty"`
+}
+
+// LicenseOverrideInput defines model for LicenseOverrideInput.
+type LicenseOverrideInput struct {
+	Comment *string `json:"comment,omitempty"`
+
+	// License Example: MIT
+	License string `json:"license"`
+
+	// Purl Example: pkg:npm/lodash
+	Purl string `json:"purl"`
+
+	// VersionRange Example: >=4.17.0, <5.0.0
+	VersionRange *string `json:"version_range,omitempty"`
+}
+
 // MLDataset defines model for MLDataset.
 type MLDataset struct {
 	Classification *string `json:"classification,omitempty"`
@@ -8436,6 +8469,9 @@ type OrgID = openapi_types.UUID
 
 // OutdatedFilter defines model for OutdatedFilter.
 type OutdatedFilter = bool
+
+// OverrideID defines model for OverrideID.
+type OverrideID = openapi_types.UUID
 
 // PermOrgID defines model for PermOrgID.
 type PermOrgID = openapi_types.UUID
@@ -10912,6 +10948,12 @@ type PutProjectGatePolicyJSONRequestBody = GatePolicy
 
 // PutProjectIssueTrackerJSONRequestBody defines body for PutProjectIssueTracker for application/json ContentType.
 type PutProjectIssueTrackerJSONRequestBody = IssueTrackerInput
+
+// CreateLicenseOverrideJSONRequestBody defines body for CreateLicenseOverride for application/json ContentType.
+type CreateLicenseOverrideJSONRequestBody = LicenseOverrideInput
+
+// UpdateLicenseOverrideJSONRequestBody defines body for UpdateLicenseOverride for application/json ContentType.
+type UpdateLicenseOverrideJSONRequestBody = LicenseOverrideInput
 
 // CreateProjectMemberJSONRequestBody defines body for CreateProjectMember for application/json ContentType.
 type CreateProjectMemberJSONRequestBody CreateProjectMemberJSONBody
@@ -14573,6 +14615,57 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /projects/{projectID}/issue-tracker/test (the `TestProjectIssueTracker` operationId).
 	TestProjectIssueTracker(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListLicenseOverrides The project's curated concluded licenses
+	//
+	// Corresponds with GET /projects/{projectID}/license-overrides (the `ListLicenseOverrides` operationId).
+	ListLicenseOverrides(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateLicenseOverrideWithBody Curate a package's concluded license
+	//
+	// Owner. Applied at the project's next ingest instead of the SBOM's
+	// declared license, and immediately to its current snapshots; the
+	// project's component policies re-evaluate right after. Kept across
+	// re-uploads. `purl` is matched without version, qualifiers or subpath.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /projects/{projectID}/license-overrides (the `CreateLicenseOverride` operationId).
+	CreateLicenseOverrideWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateLicenseOverride Curate a package's concluded license
+	//
+	// Owner. Applied at the project's next ingest instead of the SBOM's
+	// declared license, and immediately to its current snapshots; the
+	// project's component policies re-evaluate right after. Kept across
+	// re-uploads. `purl` is matched without version, qualifiers or subpath.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /projects/{projectID}/license-overrides (the `CreateLicenseOverride` operationId).
+	CreateLicenseOverride(ctx context.Context, projectID ProjectID, body CreateLicenseOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteLicenseOverride Remove a curated license, reverting to the SBOM's declared one
+	//
+	// Corresponds with DELETE /projects/{projectID}/license-overrides/{overrideID} (the `DeleteLicenseOverride` operationId).
+	DeleteLicenseOverride(ctx context.Context, projectID ProjectID, overrideID OverrideID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetLicenseOverride performs a GET /projects/{projectID}/license-overrides/{overrideID} (the `GetLicenseOverride` operationId) request.
+	GetLicenseOverride(ctx context.Context, projectID ProjectID, overrideID OverrideID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateLicenseOverrideWithBody Change a curated license
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /projects/{projectID}/license-overrides/{overrideID} (the `UpdateLicenseOverride` operationId).
+	UpdateLicenseOverrideWithBody(ctx context.Context, projectID ProjectID, overrideID OverrideID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateLicenseOverride Change a curated license
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /projects/{projectID}/license-overrides/{overrideID} (the `UpdateLicenseOverride` operationId).
+	UpdateLicenseOverride(ctx context.Context, projectID ProjectID, overrideID OverrideID, body UpdateLicenseOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListProjectMembers A project's direct members
 	//
@@ -23500,6 +23593,127 @@ func (c *Client) PutProjectIssueTracker(ctx context.Context, projectID ProjectID
 // Corresponds with POST /projects/{projectID}/issue-tracker/test (the `TestProjectIssueTracker` operationId).
 func (c *Client) TestProjectIssueTracker(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewTestProjectIssueTrackerRequest(c.Server, projectID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListLicenseOverrides The project's curated concluded licenses
+//
+// Corresponds with GET /projects/{projectID}/license-overrides (the `ListLicenseOverrides` operationId).
+func (c *Client) ListLicenseOverrides(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListLicenseOverridesRequest(c.Server, projectID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateLicenseOverrideWithBody Curate a package's concluded license
+//
+// Owner. Applied at the project's next ingest instead of the SBOM's
+// declared license, and immediately to its current snapshots; the
+// project's component policies re-evaluate right after. Kept across
+// re-uploads. `purl` is matched without version, qualifiers or subpath.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /projects/{projectID}/license-overrides (the `CreateLicenseOverride` operationId).
+func (c *Client) CreateLicenseOverrideWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateLicenseOverrideRequestWithBody(c.Server, projectID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateLicenseOverride Curate a package's concluded license
+//
+// Owner. Applied at the project's next ingest instead of the SBOM's
+// declared license, and immediately to its current snapshots; the
+// project's component policies re-evaluate right after. Kept across
+// re-uploads. `purl` is matched without version, qualifiers or subpath.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /projects/{projectID}/license-overrides (the `CreateLicenseOverride` operationId).
+func (c *Client) CreateLicenseOverride(ctx context.Context, projectID ProjectID, body CreateLicenseOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateLicenseOverrideRequest(c.Server, projectID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteLicenseOverride Remove a curated license, reverting to the SBOM's declared one
+//
+// Corresponds with DELETE /projects/{projectID}/license-overrides/{overrideID} (the `DeleteLicenseOverride` operationId).
+func (c *Client) DeleteLicenseOverride(ctx context.Context, projectID ProjectID, overrideID OverrideID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteLicenseOverrideRequest(c.Server, projectID, overrideID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetLicenseOverride performs a GET /projects/{projectID}/license-overrides/{overrideID} (the `GetLicenseOverride` operationId) request.
+func (c *Client) GetLicenseOverride(ctx context.Context, projectID ProjectID, overrideID OverrideID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetLicenseOverrideRequest(c.Server, projectID, overrideID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateLicenseOverrideWithBody Change a curated license
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /projects/{projectID}/license-overrides/{overrideID} (the `UpdateLicenseOverride` operationId).
+func (c *Client) UpdateLicenseOverrideWithBody(ctx context.Context, projectID ProjectID, overrideID OverrideID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateLicenseOverrideRequestWithBody(c.Server, projectID, overrideID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateLicenseOverride Change a curated license
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /projects/{projectID}/license-overrides/{overrideID} (the `UpdateLicenseOverride` operationId).
+func (c *Client) UpdateLicenseOverride(ctx context.Context, projectID ProjectID, overrideID OverrideID, body UpdateLicenseOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateLicenseOverrideRequest(c.Server, projectID, overrideID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -41419,6 +41633,223 @@ func NewTestProjectIssueTrackerRequest(server string, projectID ProjectID) (*htt
 	return req, nil
 }
 
+// NewListLicenseOverridesRequest constructs an http.Request for the ListLicenseOverrides method
+func NewListLicenseOverridesRequest(server string, projectID ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/license-overrides", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateLicenseOverrideRequest calls the generic CreateLicenseOverride builder with application/json body
+func NewCreateLicenseOverrideRequest(server string, projectID ProjectID, body CreateLicenseOverrideJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateLicenseOverrideRequestWithBody(server, projectID, "application/json", bodyReader)
+}
+
+// NewCreateLicenseOverrideRequestWithBody constructs an http.Request for the CreateLicenseOverride method, with any body, and a specified content type
+func NewCreateLicenseOverrideRequestWithBody(server string, projectID ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/license-overrides", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteLicenseOverrideRequest constructs an http.Request for the DeleteLicenseOverride method
+func NewDeleteLicenseOverrideRequest(server string, projectID ProjectID, overrideID OverrideID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "overrideID", overrideID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/license-overrides/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetLicenseOverrideRequest constructs an http.Request for the GetLicenseOverride method
+func NewGetLicenseOverrideRequest(server string, projectID ProjectID, overrideID OverrideID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "overrideID", overrideID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/license-overrides/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateLicenseOverrideRequest calls the generic UpdateLicenseOverride builder with application/json body
+func NewUpdateLicenseOverrideRequest(server string, projectID ProjectID, overrideID OverrideID, body UpdateLicenseOverrideJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateLicenseOverrideRequestWithBody(server, projectID, overrideID, "application/json", bodyReader)
+}
+
+// NewUpdateLicenseOverrideRequestWithBody constructs an http.Request for the UpdateLicenseOverride method, with any body, and a specified content type
+func NewUpdateLicenseOverrideRequestWithBody(server string, projectID ProjectID, overrideID OverrideID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "overrideID", overrideID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/license-overrides/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListProjectMembersRequest constructs an http.Request for the ListProjectMembers method
 func NewListProjectMembersRequest(server string, projectID ProjectID) (*http.Request, error) {
 	var err error
@@ -53225,6 +53656,63 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /projects/{projectID}/issue-tracker/test (the `TestProjectIssueTracker` operationId).
 	TestProjectIssueTrackerWithResponse(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*TestProjectIssueTrackerResponse, error)
+
+	// ListLicenseOverridesWithResponse The project's curated concluded licenses
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /projects/{projectID}/license-overrides (the `ListLicenseOverrides` operationId).
+	ListLicenseOverridesWithResponse(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*ListLicenseOverridesResponse, error)
+
+	// CreateLicenseOverrideWithBodyWithResponse Curate a package's concluded license
+	//
+	// Owner. Applied at the project's next ingest instead of the SBOM's
+	// declared license, and immediately to its current snapshots; the
+	// project's component policies re-evaluate right after. Kept across
+	// re-uploads. `purl` is matched without version, qualifiers or subpath.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /projects/{projectID}/license-overrides (the `CreateLicenseOverride` operationId).
+	CreateLicenseOverrideWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateLicenseOverrideResponse, error)
+
+	// CreateLicenseOverrideWithResponse Curate a package's concluded license
+	//
+	// Owner. Applied at the project's next ingest instead of the SBOM's
+	// declared license, and immediately to its current snapshots; the
+	// project's component policies re-evaluate right after. Kept across
+	// re-uploads. `purl` is matched without version, qualifiers or subpath.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /projects/{projectID}/license-overrides (the `CreateLicenseOverride` operationId).
+	CreateLicenseOverrideWithResponse(ctx context.Context, projectID ProjectID, body CreateLicenseOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateLicenseOverrideResponse, error)
+
+	// DeleteLicenseOverrideWithResponse Remove a curated license, reverting to the SBOM's declared one
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /projects/{projectID}/license-overrides/{overrideID} (the `DeleteLicenseOverride` operationId).
+	DeleteLicenseOverrideWithResponse(ctx context.Context, projectID ProjectID, overrideID OverrideID, reqEditors ...RequestEditorFn) (*DeleteLicenseOverrideResponse, error)
+
+	// GetLicenseOverrideWithResponse performs a GET /projects/{projectID}/license-overrides/{overrideID} (the `GetLicenseOverride` operationId) request.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	GetLicenseOverrideWithResponse(ctx context.Context, projectID ProjectID, overrideID OverrideID, reqEditors ...RequestEditorFn) (*GetLicenseOverrideResponse, error)
+
+	// UpdateLicenseOverrideWithBodyWithResponse Change a curated license
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /projects/{projectID}/license-overrides/{overrideID} (the `UpdateLicenseOverride` operationId).
+	UpdateLicenseOverrideWithBodyWithResponse(ctx context.Context, projectID ProjectID, overrideID OverrideID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLicenseOverrideResponse, error)
+
+	// UpdateLicenseOverrideWithResponse Change a curated license
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /projects/{projectID}/license-overrides/{overrideID} (the `UpdateLicenseOverride` operationId).
+	UpdateLicenseOverrideWithResponse(ctx context.Context, projectID ProjectID, overrideID OverrideID, body UpdateLicenseOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLicenseOverrideResponse, error)
 
 	// ListProjectMembersWithResponse A project's direct members
 	//
@@ -69335,6 +69823,243 @@ func (r TestProjectIssueTrackerResponse) ContentType() string {
 	return ""
 }
 
+type ListLicenseOverridesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		LicenseOverrides *[]LicenseOverride `json:"license_overrides,omitempty"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListLicenseOverridesResponse) GetJSON200() *struct {
+	LicenseOverrides *[]LicenseOverride `json:"license_overrides,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ListLicenseOverridesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListLicenseOverridesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListLicenseOverridesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListLicenseOverridesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateLicenseOverrideResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *LicenseOverride
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateLicenseOverrideResponse) GetJSON201() *LicenseOverride {
+	return r.JSON201
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r CreateLicenseOverrideResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateLicenseOverrideResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateLicenseOverrideResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateLicenseOverrideResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateLicenseOverrideResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteLicenseOverrideResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r DeleteLicenseOverrideResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteLicenseOverrideResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteLicenseOverrideResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteLicenseOverrideResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteLicenseOverrideResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetLicenseOverrideResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *LicenseOverride
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetLicenseOverrideResponse) GetJSON200() *LicenseOverride {
+	return r.JSON200
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r GetLicenseOverrideResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetLicenseOverrideResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetLicenseOverrideResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetLicenseOverrideResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetLicenseOverrideResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateLicenseOverrideResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *LicenseOverride
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateLicenseOverrideResponse) GetJSON200() *LicenseOverride {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r UpdateLicenseOverrideResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r UpdateLicenseOverrideResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateLicenseOverrideResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateLicenseOverrideResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateLicenseOverrideResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateLicenseOverrideResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListProjectMembersResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -84274,6 +84999,105 @@ func (c *ClientWithResponses) TestProjectIssueTrackerWithResponse(ctx context.Co
 	return ParseTestProjectIssueTrackerResponse(rsp)
 }
 
+// ListLicenseOverridesWithResponse The project's curated concluded licenses
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /projects/{projectID}/license-overrides (the `ListLicenseOverrides` operationId).
+func (c *ClientWithResponses) ListLicenseOverridesWithResponse(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*ListLicenseOverridesResponse, error) {
+	rsp, err := c.ListLicenseOverrides(ctx, projectID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListLicenseOverridesResponse(rsp)
+}
+
+// CreateLicenseOverrideWithBodyWithResponse Curate a package's concluded license
+//
+// Owner. Applied at the project's next ingest instead of the SBOM's
+// declared license, and immediately to its current snapshots; the
+// project's component policies re-evaluate right after. Kept across
+// re-uploads. `purl` is matched without version, qualifiers or subpath.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /projects/{projectID}/license-overrides (the `CreateLicenseOverride` operationId).
+func (c *ClientWithResponses) CreateLicenseOverrideWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateLicenseOverrideResponse, error) {
+	rsp, err := c.CreateLicenseOverrideWithBody(ctx, projectID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateLicenseOverrideResponse(rsp)
+}
+
+// CreateLicenseOverrideWithResponse Curate a package's concluded license
+//
+// Owner. Applied at the project's next ingest instead of the SBOM's
+// declared license, and immediately to its current snapshots; the
+// project's component policies re-evaluate right after. Kept across
+// re-uploads. `purl` is matched without version, qualifiers or subpath.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /projects/{projectID}/license-overrides (the `CreateLicenseOverride` operationId).
+func (c *ClientWithResponses) CreateLicenseOverrideWithResponse(ctx context.Context, projectID ProjectID, body CreateLicenseOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateLicenseOverrideResponse, error) {
+	rsp, err := c.CreateLicenseOverride(ctx, projectID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateLicenseOverrideResponse(rsp)
+}
+
+// DeleteLicenseOverrideWithResponse Remove a curated license, reverting to the SBOM's declared one
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /projects/{projectID}/license-overrides/{overrideID} (the `DeleteLicenseOverride` operationId).
+func (c *ClientWithResponses) DeleteLicenseOverrideWithResponse(ctx context.Context, projectID ProjectID, overrideID OverrideID, reqEditors ...RequestEditorFn) (*DeleteLicenseOverrideResponse, error) {
+	rsp, err := c.DeleteLicenseOverride(ctx, projectID, overrideID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteLicenseOverrideResponse(rsp)
+}
+
+// GetLicenseOverrideWithResponse performs a GET /projects/{projectID}/license-overrides/{overrideID} (the `GetLicenseOverride` operationId) request.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) GetLicenseOverrideWithResponse(ctx context.Context, projectID ProjectID, overrideID OverrideID, reqEditors ...RequestEditorFn) (*GetLicenseOverrideResponse, error) {
+	rsp, err := c.GetLicenseOverride(ctx, projectID, overrideID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetLicenseOverrideResponse(rsp)
+}
+
+// UpdateLicenseOverrideWithBodyWithResponse Change a curated license
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /projects/{projectID}/license-overrides/{overrideID} (the `UpdateLicenseOverride` operationId).
+func (c *ClientWithResponses) UpdateLicenseOverrideWithBodyWithResponse(ctx context.Context, projectID ProjectID, overrideID OverrideID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLicenseOverrideResponse, error) {
+	rsp, err := c.UpdateLicenseOverrideWithBody(ctx, projectID, overrideID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateLicenseOverrideResponse(rsp)
+}
+
+// UpdateLicenseOverrideWithResponse Change a curated license
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /projects/{projectID}/license-overrides/{overrideID} (the `UpdateLicenseOverride` operationId).
+func (c *ClientWithResponses) UpdateLicenseOverrideWithResponse(ctx context.Context, projectID ProjectID, overrideID OverrideID, body UpdateLicenseOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLicenseOverrideResponse, error) {
+	rsp, err := c.UpdateLicenseOverride(ctx, projectID, overrideID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateLicenseOverrideResponse(rsp)
+}
+
 // ListProjectMembersWithResponse A project's direct members
 //
 // The grants made **on this project** — not everyone who can reach it through
@@ -97375,6 +98199,169 @@ func ParseTestProjectIssueTrackerResponse(rsp *http.Response) (*TestProjectIssue
 			return nil, err
 		}
 		response.JSON502 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListLicenseOverridesResponse parses an HTTP response from a ListLicenseOverridesWithResponse call
+func ParseListLicenseOverridesResponse(rsp *http.Response) (*ListLicenseOverridesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListLicenseOverridesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			LicenseOverrides *[]LicenseOverride `json:"license_overrides,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateLicenseOverrideResponse parses an HTTP response from a CreateLicenseOverrideWithResponse call
+func ParseCreateLicenseOverrideResponse(rsp *http.Response) (*CreateLicenseOverrideResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateLicenseOverrideResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest LicenseOverride
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteLicenseOverrideResponse parses an HTTP response from a DeleteLicenseOverrideWithResponse call
+func ParseDeleteLicenseOverrideResponse(rsp *http.Response) (*DeleteLicenseOverrideResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteLicenseOverrideResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetLicenseOverrideResponse parses an HTTP response from a GetLicenseOverrideWithResponse call
+func ParseGetLicenseOverrideResponse(rsp *http.Response) (*GetLicenseOverrideResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetLicenseOverrideResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LicenseOverride
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateLicenseOverrideResponse parses an HTTP response from a UpdateLicenseOverrideWithResponse call
+func ParseUpdateLicenseOverrideResponse(rsp *http.Response) (*UpdateLicenseOverrideResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateLicenseOverrideResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LicenseOverride
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	}
 

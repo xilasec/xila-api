@@ -941,9 +941,17 @@ Tier 2:
 - ⬜ 13.10 Project owners manage their own triage rules and vulnerability
   policies and may opt out of global ones (SecObserve).
 - ⬜ 13.11 Internal components and authenticated private registries (DT).
-- ⬜ 13.12 Manual concluded-license override that survives re-uploads
-  (SecObserve).
-- ⬜ 13.13 Offline matching for distro packages: dpkg, rpm, apk (DT).
+- ✅ 13.12 Manual concluded-license override that survives re-uploads
+  (SecObserve): `/projects/{id}/license-overrides` curates one package's SPDX
+  expression (optionally one version range) per project; applied at ingest
+  and immediately reapplied to current snapshots (then the component
+  policies re-run), with the SBOM's own declared value still visible.
+  Migration 000117.
+- ✅ 13.13 Offline matching for distro packages: dpkg, rpm, apk (DT). OSV
+  ecosystem names for deb/rpm/apk purl `distro` qualifiers (Debian, Ubuntu,
+  Alpine, Red Hat, Rocky Linux, AlmaLinux) and version comparators matching
+  each format's own spec, so `osv-local` and private advisories match
+  container SBOMs offline too.
 - ⬜ 13.14 Stored, versioned VEX documents (SecObserve).
 - 13.15 Mark as duplicate and merge findings by hand; risk per asset
   (DefectDojo Pro). Done so far:

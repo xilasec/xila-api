@@ -24,6 +24,9 @@
 	import TrendChart from '#lib/components/TrendChart.svelte';
 	import ExportMenu from '#lib/components/ExportMenu.svelte';
 	import LicenseBadge from '#lib/components/LicenseBadge.svelte';
+	import LicenseOverrideDialog from '#lib/components/LicenseOverrideDialog.svelte';
+	/** @type {ReturnType<typeof LicenseOverrideDialog>} */
+	let licenseOverrideDialog;
 	import OutdatedBadge from '#lib/components/OutdatedBadge.svelte';
 	import IntegrityBadge from '#lib/components/IntegrityBadge.svelte';
 	import AIBadge from '#lib/components/AIBadge.svelte';
@@ -1460,7 +1463,7 @@
 		{#if !tabLoading && components.length > 0}
 			<div class="overflow-x-auto bg-base-100 rounded-box shadow-sm">
 				<table class="table table-sm">
-					<thead><tr><th>{$t('finding.colComponent')}</th><th>{$t('proj.colVersion')}</th><th>{$t('proj.colLatest')}</th><th>{$t('proj.vulnerabilities')}</th><th>{$t('proj.colFile')}</th><th>{$t('proj.colLicense')}</th><th>PURL</th></tr></thead>
+					<thead><tr><th>{$t('finding.colComponent')}</th><th>{$t('proj.colVersion')}</th><th>{$t('proj.colLatest')}</th><th>{$t('proj.vulnerabilities')}</th><th>{$t('proj.colFile')}</th><th>{$t('proj.colLicense')}</th><th>PURL</th><th></th></tr></thead>
 					<tbody>
 						{#each components as c (c.id)}
 							<tr class="hover">
@@ -1471,11 +1474,17 @@
 								<td class="text-xs font-mono text-base-content/70 max-w-xs truncate" title={c.file_path}>{c.file_path || '—'}</td>
 								<td><LicenseBadge {c} /></td>
 								<td class="text-xs text-base-content/50 max-w-xs truncate">{c.purl || '—'}</td>
+								<td class="text-right">
+									{#if c.purl}
+										<button class="btn btn-ghost btn-xs" onclick={() => licenseOverrideDialog.open(c)}>{$t('licov.setConcluded')}</button>
+									{/if}
+								</td>
 							</tr>
 						{/each}
 					</tbody>
 				</table>
 			</div>
+			<LicenseOverrideDialog bind:this={licenseOverrideDialog} projectId={id} onsaved={searchComponents} />
 		{/if}
 	{:else if tab === 'assets'}
 		<div class="flex justify-end mb-3">

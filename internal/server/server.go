@@ -136,12 +136,13 @@ type Handlers struct {
 	FeedRules    *vulnmatch.FeedRuleHandler
 	// PSIRT serves CSAF advisory publishing (admin) and the public CSAF
 	// provider directory (404 unless PSIRT_PUBLIC).
-	PSIRT      *psirt.Handler
-	PkgMeta    *pkgmeta.Handler
-	License    *license.Handler
-	Policy     *policy.Handler
-	VulnPolicy *vulnpolicy.Handler
-	SSO        *sso.Handler
+	PSIRT           *psirt.Handler
+	PkgMeta         *pkgmeta.Handler
+	License         *license.Handler
+	LicenseOverride *license.OverrideHandler
+	Policy          *policy.Handler
+	VulnPolicy      *vulnpolicy.Handler
+	SSO             *sso.Handler
 	// OIDC and SAML serve every provider's public login routes under
 	// /api/v1/auth (environment ones at the bare paths, admin-managed ones by
 	// slug); always mounted, 404 for an unknown or disabled provider.
@@ -354,6 +355,7 @@ func New(cfg config.Config, h Handlers) *Server {
 	h.Connector.Register(secured)
 	h.Report.Register(secured)
 	h.License.Register(secured)
+	h.LicenseOverride.Register(secured)
 	h.Policy.Register(secured)
 	h.VulnPolicy.Register(secured)
 	h.PkgMeta.Register(secured)

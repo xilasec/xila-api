@@ -398,8 +398,25 @@ func run() error {
 	policyRepo := policy.NewRepository(db)
 	policySvc := policy.NewService(policyRepo, sbomRepo, pkgmetaRepo, licenseGroups, ingestSvc, notifySvc).
 		WithCustomFields(customFieldRepo)
+	// Manual concluded-license overrides (M13 13.12): loaded fresh per upload
+	// and per reapply, since the whole curated set is small (admin-curated).
+	// loadLicenseOverrides returns the concrete *license.Matcher, which
+	// satisfies both sbom's and license's LicenseOverrideMatcher interfaces
+	// structurally, without either package importing the other's wiring type.
+	licenseOverrideRepo := license.NewOverrideRepository(db)
+	loadLicenseOverrides := func(ctx context.Context) (*license.Matcher, error) {
+		overrides, err := licenseOverrideRepo.ListAll(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return license.NewMatcher(overrides, sbom.CompareVersions), nil
+	}
 	sbomSvc := sbom.NewService(sbomRepo, projectRepo, policySvc, reacher).
-		WithLicenses(license.Resolve).WithStrictValidation(cfg.SBOMStrictValidation)
+		WithLicenses(license.Resolve).WithStrictValidation(cfg.SBOMStrictValidation).
+		WithLicenseOverrides(func(ctx context.Context) (sbom.LicenseOverrideMatcher, error) { return loadLicenseOverrides(ctx) })
+	licenseOverrideHandler := license.NewOverrideHandler(licenseOverrideRepo,
+		license.NewReapplier(sbomRepo, loadLicenseOverrides)).
+		WithPolicyReevaluation(policySvc)
 	correlationSvc := correlation.NewService(findingRepo, sbomRepo)
 	authSvc := auth.NewService(userRepo, cfg.JWT, cfg.PasswordLoginEnabled)
 	// Shared with the auth middleware and the audit recorder, so rotating
@@ -582,13 +599,14 @@ func run() error {
 			IPMax: cfg.AuthRateLimit.IPPerMinute, IPWindow: time.Minute,
 			AccountMax: cfg.AuthRateLimit.Account, AccountWindow: cfg.AuthRateLimit.AccountWindow,
 		}),
-		Enrichment: enrichment.NewHandler(enrichSvc),
-		License:    license.NewHandler(licenseGroups),
-		Policy:     policy.NewHandler(policyRepo, policySvc, findingRepo),
-		VulnPolicy: vulnpolicy.NewHandler(vulnPolicyRepo, vulnPolicySvc).WithCustomFields(customFieldRepo),
-		Secrets:    secretbox.NewHandler(db, trackerCipher),
-		JWTKeys:    jwtKeys,
-		Ready:      db.Ping,
+		Enrichment:      enrichment.NewHandler(enrichSvc),
+		License:         license.NewHandler(licenseGroups),
+		LicenseOverride: licenseOverrideHandler,
+		Policy:          policy.NewHandler(policyRepo, policySvc, findingRepo),
+		VulnPolicy:      vulnpolicy.NewHandler(vulnPolicyRepo, vulnPolicySvc).WithCustomFields(customFieldRepo),
+		Secrets:         secretbox.NewHandler(db, trackerCipher),
+		JWTKeys:         jwtKeys,
+		Ready:           db.Ping,
 	}
 
 	// SSO: providers from the environment (OIDC_*, SAML_*) and from the admin

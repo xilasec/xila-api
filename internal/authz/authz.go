@@ -424,8 +424,8 @@ func baseScope(path, method string) routeScope {
 		// backlog shouldn't be able to relax its own deadlines. Likewise which
 		// version is the default decides what metrics and gates report, and
 		// deleting a version deletes its findings.
-		if len(segs) >= 3 && (segs[2] == "sla" || segs[2] == "versions" || segs[2] == "priority-weights") && !get {
-			s.minRole = domain.TeamOwner // priority weights decide what the team treats as urgent, like an SLA
+		if len(segs) >= 3 && (segs[2] == "sla" || segs[2] == "versions" || segs[2] == "priority-weights" || segs[2] == "license-overrides") && !get {
+			s.minRole = domain.TeamOwner // priority weights decide what the team treats as urgent, like an SLA; a curated license is a compliance call
 		}
 		// The issue tracker holds a credential for another system and decides
 		// what gets filed there: configuring (or testing) it is owner-level.

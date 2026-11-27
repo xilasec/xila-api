@@ -2105,6 +2105,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{projectID}/license-overrides": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The project's curated concluded licenses */
+        get: operations["listLicenseOverrides"];
+        put?: never;
+        /**
+         * Curate a package's concluded license
+         * @description Owner. Applied at the project's next ingest instead of the SBOM's
+         *     declared license, and immediately to its current snapshots; the
+         *     project's component policies re-evaluate right after. Kept across
+         *     re-uploads. `purl` is matched without version, qualifiers or subpath.
+         */
+        post: operations["createLicenseOverride"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectID}/license-overrides/{overrideID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getLicenseOverride"];
+        /** Change a curated license */
+        put: operations["updateLicenseOverride"];
+        post?: never;
+        /** Remove a curated license, reverting to the SBOM's declared one */
+        delete: operations["deleteLicenseOverride"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{projectID}/priority-weights": {
         parameters: {
             query?: never;
@@ -7751,6 +7793,34 @@ export interface components {
             /** @description Empty matches every version of the project. */
             branch_regex?: string;
         };
+        LicenseOverride: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            project_id?: string;
+            /** @description Without version, qualifiers or subpath ("npm/lodash"). */
+            purl?: string;
+            /** @description Component-policy-style range (">=1.2.0, <2.0.0"); empty = every version. */
+            version_range?: string;
+            /** @description The concluded SPDX expression. */
+            license?: string;
+            comment?: string;
+            /** Format: uuid */
+            created_by?: string | null;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        LicenseOverrideInput: {
+            /** @example pkg:npm/lodash */
+            purl: string;
+            /** @example >=4.17.0, <5.0.0 */
+            version_range?: string;
+            /** @example MIT */
+            license: string;
+            comment?: string;
+        };
         /** @description The factors of a finding's priority (severity weight × exploitability × reachability × exposure). */
         PriorityWeights: {
             /** @default 15 */
@@ -10792,6 +10862,7 @@ export interface components {
         OrgID: string;
         TeamID: string;
         ProjectID: string;
+        OverrideID: string;
         CRACaseID: string;
         EngagementID: string;
         ActionID: string;
@@ -14622,6 +14693,132 @@ export interface operations {
                     };
                 };
             };
+        };
+    };
+    listLicenseOverrides: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        license_overrides?: components["schemas"]["LicenseOverride"][];
+                    };
+                };
+            };
+        };
+    };
+    createLicenseOverride: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LicenseOverrideInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LicenseOverride"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    getLicenseOverride: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+                overrideID: components["parameters"]["OverrideID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LicenseOverride"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    updateLicenseOverride: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+                overrideID: components["parameters"]["OverrideID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LicenseOverrideInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LicenseOverride"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    deleteLicenseOverride: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+                overrideID: components["parameters"]["OverrideID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
         };
     };
     listProjectPriorityWeights: {
