@@ -42,7 +42,7 @@ ALTER TABLE findings ADD COLUMN duplicate_manual boolean NOT NULL DEFAULT false;
 -- status or severity change.
 ALTER TABLE finding_events DROP CONSTRAINT finding_events_kind_check;
 ALTER TABLE finding_events ADD CONSTRAINT finding_events_kind_check
-    CHECK (kind IN ('created', 'status', 'severity', 'assignee', 'comment', 'attachment', 'assessment', 'tags', 'duplicate'));
+    CHECK (kind IN ('created', 'status', 'severity', 'assignee', 'comment', 'attachment', 'assessment', 'tags', 'custom_field', 'duplicate'));
 
 CREATE OR REPLACE FUNCTION findings_record_events() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN

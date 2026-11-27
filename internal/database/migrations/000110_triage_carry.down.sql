@@ -35,7 +35,7 @@ CREATE TRIGGER findings_events
 
 ALTER TABLE finding_events DROP CONSTRAINT finding_events_kind_check;
 ALTER TABLE finding_events ADD CONSTRAINT finding_events_kind_check
-    CHECK (kind IN ('created', 'status', 'severity', 'assignee', 'comment', 'attachment', 'assessment', 'tags'));
+    CHECK (kind IN ('created', 'status', 'severity', 'assignee', 'comment', 'attachment', 'assessment', 'tags', 'custom_field'));
 
 ALTER TABLE findings DROP COLUMN duplicate_manual;
 

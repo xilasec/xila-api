@@ -14873,7 +14873,9 @@ type ClientInterface interface {
 	// Corresponds with DELETE /projects/{projectID}/license-overrides/{overrideID} (the `DeleteLicenseOverride` operationId).
 	DeleteLicenseOverride(ctx context.Context, projectID ProjectID, overrideID OverrideID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetLicenseOverride performs a GET /projects/{projectID}/license-overrides/{overrideID} (the `GetLicenseOverride` operationId) request.
+	// GetLicenseOverride One curated concluded license
+	//
+	// Corresponds with GET /projects/{projectID}/license-overrides/{overrideID} (the `GetLicenseOverride` operationId).
 	GetLicenseOverride(ctx context.Context, projectID ProjectID, overrideID OverrideID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpdateLicenseOverrideWithBody Change a curated license
@@ -24064,7 +24066,9 @@ func (c *Client) DeleteLicenseOverride(ctx context.Context, projectID ProjectID,
 	return c.Client.Do(req)
 }
 
-// GetLicenseOverride performs a GET /projects/{projectID}/license-overrides/{overrideID} (the `GetLicenseOverride` operationId) request.
+// GetLicenseOverride One curated concluded license
+//
+// Corresponds with GET /projects/{projectID}/license-overrides/{overrideID} (the `GetLicenseOverride` operationId).
 func (c *Client) GetLicenseOverride(ctx context.Context, projectID ProjectID, overrideID OverrideID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetLicenseOverrideRequest(c.Server, projectID, overrideID)
 	if err != nil {
@@ -54785,9 +54789,11 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with DELETE /projects/{projectID}/license-overrides/{overrideID} (the `DeleteLicenseOverride` operationId).
 	DeleteLicenseOverrideWithResponse(ctx context.Context, projectID ProjectID, overrideID OverrideID, reqEditors ...RequestEditorFn) (*DeleteLicenseOverrideResponse, error)
 
-	// GetLicenseOverrideWithResponse performs a GET /projects/{projectID}/license-overrides/{overrideID} (the `GetLicenseOverride` operationId) request.
+	// GetLicenseOverrideWithResponse One curated concluded license
 	//
 	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /projects/{projectID}/license-overrides/{overrideID} (the `GetLicenseOverride` operationId).
 	GetLicenseOverrideWithResponse(ctx context.Context, projectID ProjectID, overrideID OverrideID, reqEditors ...RequestEditorFn) (*GetLicenseOverrideResponse, error)
 
 	// UpdateLicenseOverrideWithBodyWithResponse Change a curated license
@@ -86954,9 +86960,11 @@ func (c *ClientWithResponses) DeleteLicenseOverrideWithResponse(ctx context.Cont
 	return ParseDeleteLicenseOverrideResponse(rsp)
 }
 
-// GetLicenseOverrideWithResponse performs a GET /projects/{projectID}/license-overrides/{overrideID} (the `GetLicenseOverride` operationId) request.
+// GetLicenseOverrideWithResponse One curated concluded license
 //
 // Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /projects/{projectID}/license-overrides/{overrideID} (the `GetLicenseOverride` operationId).
 func (c *ClientWithResponses) GetLicenseOverrideWithResponse(ctx context.Context, projectID ProjectID, overrideID OverrideID, reqEditors ...RequestEditorFn) (*GetLicenseOverrideResponse, error) {
 	rsp, err := c.GetLicenseOverride(ctx, projectID, overrideID, reqEditors...)
 	if err != nil {

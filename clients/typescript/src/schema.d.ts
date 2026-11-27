@@ -2136,6 +2136,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** One curated concluded license */
         get: operations["getLicenseOverride"];
         /** Change a curated license */
         put: operations["updateLicenseOverride"];
