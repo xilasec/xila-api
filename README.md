@@ -508,6 +508,13 @@ If no name is given, the default version is used (`main` if none exists yet).
   is two findings: fixing it on the branch doesn't close it on `main`, and
   accepting the risk on `main` doesn't hide it on a release. A scan only
   auto-closes findings of its own version (and asset).
+- `PUT /projects/{id}/triage-carry` turns on carrying a false positive,
+  won't-fix or reopen decision to a project's other versions, scoped by an
+  optional branch regex (empty matches every version). A later scan on an
+  in-scope version applies the same decision to a matching fingerprint at
+  ingest. The most recent decision wins, so carrying never overturns a newer
+  manual call; risk acceptances never carry (they are a decision about one
+  version's exposure, not a fact about the code).
 - The default version represents what the organization runs. Project summaries,
   the portfolio, compliance, SLA alerts, new-critical alerts, summaries and an
   unqualified gate read only default versions. Listings show the default version
@@ -1006,6 +1013,12 @@ recomputed each ingest, so it self-heals when a scanner stops reporting. See
 `?include_duplicates=true` and `GET /findings/{id}/duplicates`. A finding with
 neither a CVE nor a file path/line (most DAST without a CVE) still gets no key:
 matching by title alone is not a sound cross-tool signal.
+
+`POST /findings/{id}/duplicate-of` marks one finding as a hand-made duplicate
+of another in the same project and version, for a grouping the automatic
+rule above gets wrong; automatic dedup never rewrites that decision, and the
+finding is hidden from lists, counts and alerts exactly like an automatic
+duplicate. `DELETE` the same path undoes it.
 
 Security gates (break the build): a per-project (or global-default) policy
 that CI evaluates to fail a pipeline on unacceptable risk. `POST /projects/{id}/gate`

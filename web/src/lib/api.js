@@ -645,6 +645,15 @@ export const api = {
 	// only the factors to override.
 	/** @param {string} projectId */
 	priorityWeights: (projectId) => request('GET', `/projects/${projectId}/priority-weights`),
+
+	/** @param {string} projectId */
+	getTriageCarry: (projectId) => request('GET', `/projects/${projectId}/triage-carry`),
+	/** @param {string} projectId @param {{enabled: boolean, branch_regex: string}} data */
+	setTriageCarry: (projectId, data) => request('PUT', `/projects/${projectId}/triage-carry`, { body: data }),
+	/** @param {string} findingId @param {string} primaryId */
+	markDuplicate: (findingId, primaryId) => request('POST', `/findings/${findingId}/duplicate-of`, { body: { primary_id: primaryId } }),
+	/** @param {string} findingId */
+	unmarkDuplicate: (findingId) => request('DELETE', `/findings/${findingId}/duplicate-of`),
 	/** @param {string} projectId @param {Record<string, number>} weights */
 	setPriorityWeights: (projectId, weights) => request('PUT', `/projects/${projectId}/priority-weights`, { body: weights }),
 	/** @param {string} projectId */

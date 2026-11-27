@@ -100,6 +100,26 @@ func (r *Repository) FindVersion(ctx context.Context, projectID, name string) (s
 	return id, true, nil
 }
 
+// VersionNames returns a project's version ids and their branch/release
+// names — the minimal shape triage carry needs to resolve its branch-regex
+// scope, without ListVersions' per-version finding/scan counts.
+func (r *Repository) VersionNames(ctx context.Context, projectID string) (map[string]string, error) {
+	rows, err := r.db.Query(ctx, `SELECT id, name FROM project_versions WHERE project_id = $1`, projectID)
+	if err != nil {
+		return nil, fmt.Errorf("list version names: %w", err)
+	}
+	defer rows.Close()
+	out := map[string]string{}
+	for rows.Next() {
+		var id, name string
+		if err := rows.Scan(&id, &name); err != nil {
+			return nil, fmt.Errorf("scan version name: %w", err)
+		}
+		out[id] = name
+	}
+	return out, rows.Err()
+}
+
 // SetDefaultVersion makes a version the project's default. Both writes happen in
 // one transaction so the project is never without (or with two) defaults.
 func (r *Repository) SetDefaultVersion(ctx context.Context, projectID, versionID string) error {

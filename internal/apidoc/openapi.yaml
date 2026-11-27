@@ -1295,6 +1295,42 @@ paths:
           $ref: "#/components/responses/Error"
         "404": { $ref: "#/components/responses/Error" }
 
+  /projects/{projectID}/triage-carry:
+    get:
+      operationId: getProjectTriageCarry
+      tags: [Projects]
+      summary: The project's triage-carry setting
+      description: |
+        Whether a manual triage decision (`false_positive`, `wont_fix`, or
+        reopening) on one version of this project is copied to its other
+        in-scope versions, and applied to a matching finding a later scan
+        creates there. Risk acceptances never carry; they are a decision
+        about one version's exposure, not a fact about the code.
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json: { schema: { $ref: "#/components/schemas/TriageCarrySettings" } }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      operationId: putProjectTriageCarry
+      tags: [Projects]
+      summary: Turn triage carry on or off, and scope it by branch
+      description: Owner. `branch_regex` empty matches every version of the project.
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }]
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { $ref: "#/components/schemas/TriageCarrySettings" } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json: { schema: { $ref: "#/components/schemas/TriageCarrySettings" } }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+
   /projects/{projectID}/versions:
     get:
       operationId: listProjectVersions
@@ -4290,6 +4326,46 @@ paths:
                   failed: { type: object, additionalProperties: { type: string } }
                   findings: { type: integer, description: Findings whose exploit maturity changed. }
         "409": { $ref: "#/components/responses/Error" }
+
+  /findings/{findingID}/duplicate-of:
+    post:
+      operationId: markFindingDuplicate
+      tags: [Findings]
+      summary: Mark by hand as a duplicate of another finding
+      description: |
+        Same project and version as the primary. A manual override: automatic
+        dedup (`Deduplicate`) never rewrites it, and the finding behaves exactly
+        like an automatic duplicate everywhere (excluded from counts, lists,
+        metrics) until unmarked.
+      parameters: [{ $ref: "#/components/parameters/FindingID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [primary_id]
+              properties: { primary_id: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Finding" }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: unmarkFindingDuplicate
+      tags: [Findings]
+      summary: Undo a manual duplicate mark
+      parameters: [{ $ref: "#/components/parameters/FindingID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Finding" }
+        "404": { $ref: "#/components/responses/Error" }
 
   /findings/{findingID}/duplicates:
     get:
@@ -10008,6 +10084,12 @@ components:
       type: object
       description: A SCIM 2.0 User or Group (RFC 7643), `application/scim+json`.
       additionalProperties: true
+
+    TriageCarrySettings:
+      type: object
+      properties:
+        enabled: { type: boolean }
+        branch_regex: { type: string, description: "Empty matches every version of the project." }
 
     PriorityWeights:
       type: object

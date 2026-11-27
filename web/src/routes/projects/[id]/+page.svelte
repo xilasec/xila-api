@@ -42,6 +42,7 @@
 	import CustomFieldsEditor from '#lib/components/CustomFieldsEditor.svelte';
 	import ManualControls from '#lib/components/ManualControls.svelte';
 	import PriorityWeights from '#lib/components/PriorityWeights.svelte';
+	import TriageCarry from '#lib/components/TriageCarry.svelte';
 	import { OPEN_BY_SEVERITY, RISK, FLOW, fmtCount, fmtRisk, windowStats } from '#lib/trends.js';
 	import { parentChoices } from '#lib/projectTree.js';
 
@@ -1709,6 +1710,7 @@
 			</div>
 		{/if}
 		<PriorityWeights projectId={id} />
+		<TriageCarry projectId={id} />
 	{:else if tab === 'sla'}
 		<p class="text-sm text-base-content/60 mb-3">
 			{$t('proj.slaIntro')}

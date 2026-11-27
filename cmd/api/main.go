@@ -83,6 +83,7 @@ import (
 	"github.com/xilasec/xila-api/internal/sso"
 	"github.com/xilasec/xila-api/internal/team"
 	"github.com/xilasec/xila-api/internal/triage"
+	"github.com/xilasec/xila-api/internal/triagecarry"
 	"github.com/xilasec/xila-api/internal/user"
 	"github.com/xilasec/xila-api/internal/vex"
 	"github.com/xilasec/xila-api/internal/vulnmatch"
@@ -322,16 +323,23 @@ func run() error {
 	// whose verdicts are authoritative and must win over a generic rule; then
 	// vulnerability policies (component+vulnerability-pair CEL rules, with their
 	// own priority among themselves) — after VEX so an authoritative VEX verdict
-	// always wins, before the generic triage rules so a policy's analysis/rating
-	// is in place before a rule conditions on it; then the triage rules, which
-	// only see what VEX and the policies left open; last, imported verdicts
-	// (connector pulls, reports carrying their own triage), applied only to new
-	// findings nothing local has triaged.
+	// always wins; then triage carry (M13 13.1), which reapplies a decision made
+	// on another version of the project to a matching new/reopened finding here
+	// — after VEX and vulnerability policies so an authoritative verdict always
+	// wins over a carried one, before the generic triage rules so a rule still
+	// sees what carry already settled (and so a rule can't fight a carried
+	// decision that then reapplies on the next ingest); then the triage rules,
+	// which only see what VEX, the policies and carry left open; last, imported
+	// verdicts (connector pulls, reports carrying their own triage), applied
+	// only to new findings nothing local has triaged.
 	reacher := correlation.NewReacher(findingRepo, findingRepo)
 	vexRepo := vex.NewRepository(db)
 	vexSvc := vex.NewService(vexRepo, findingRepo, projectRepo)
 	vulnPolicyRepo := vulnpolicy.NewRepository(db)
 	vulnPolicySvc := vulnpolicy.NewService(vulnPolicyRepo, findingRepo, findingRepo)
+	carryRepo := triagecarry.NewRepository(db)
+	carrySvc := triagecarry.NewService(carryRepo, projectRepo, findingRepo)
+	findingRepo.WithCarrier(carrySvc)
 	connectorRepo := connector.NewRepository(db)
 	// EU CRA Article 14: actively exploited findings (KEV, weaponized exploit)
 	// of in-scope products open reporting cases with the 24 h / 72 h / 14 d clock.
@@ -361,7 +369,7 @@ func run() error {
 	// reset included) before dedup elects primaries. Computed fields right after
 	// the triage rules: a computed finding field reads the severity/status a
 	// rule just settled.
-	appliers = append(appliers, vexSvc, vulnPolicySvc, triageSvc, computedSvc, assetSvc,
+	appliers = append(appliers, vexSvc, vulnPolicySvc, carrySvc, triageSvc, computedSvc, assetSvc,
 		connector.NewRemoteTriage(connectorRepo, findingRepo).WithApproval(cfg.RiskAcceptanceRequiresApproval))
 	// NVD CVSS: stamp cached vectors onto a scan's findings at ingest (no network;
 	// the enrichment schedule fetches). Before dedup, after nothing that reads it.

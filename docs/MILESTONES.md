@@ -914,7 +914,13 @@ Usability (reviewed in the browser):
 
 Tier 1:
 
-- ⬜ 13.1 Carry triage across branches and to new versions (SecObserve, DT).
+- ✅ 13.1 Carry triage across branches and to new versions (SecObserve, DT):
+  `triage_carry_enabled` / `triage_carry_branch_regex` per project
+  (`PUT /projects/{id}/triage-carry`) copies a `false_positive`/`wont_fix`/
+  reopen decision to the project's other matching versions and to a matching
+  fingerprint a later scan creates (an ingest applier, after VEX and
+  vulnerability policies, before the triage rules). The newest decision per
+  fingerprint always wins; risk acceptances never carry. Migration 000110.
 - ⬜ 13.2 Structured analysis on manual triage and rules: a VEX justification
   and vendor response, kept in history and exported (SecObserve, DT).
 - ⬜ 13.3 SBOMs from CI: `xila upload --sbom`, a processing status CI can
@@ -939,8 +945,11 @@ Tier 2:
   (SecObserve).
 - ⬜ 13.13 Offline matching for distro packages: dpkg, rpm, apk (DT).
 - ⬜ 13.14 Stored, versioned VEX documents (SecObserve).
-- ⬜ 13.15 Mark as duplicate and merge findings by hand; risk per asset
-  (DefectDojo Pro).
+- 13.15 Mark as duplicate and merge findings by hand; risk per asset
+  (DefectDojo Pro). Done so far:
+  - `POST`/`DELETE /findings/{id}/duplicate-of` marks or unmarks a hand-made
+    duplicate (`findings.duplicate_manual`); automatic dedup never rewrites
+    it, and it behaves exactly like an automatic duplicate everywhere else.
 - ⬜ 13.16 Idle timeout with a session-expiry warning; a personal-data filter
   for MCP results (DefectDojo Pro).
 - ⬜ 13.17 Scheduled report delivery; expected scans per project (DefectDojo Pro).

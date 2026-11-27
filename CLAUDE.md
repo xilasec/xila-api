@@ -722,6 +722,26 @@ predates the location key; keep its SQL in sync with this function if the
 formula changes again (see migration 000057/000056 for the CVE-location
 precedent).
 
+**Carry triage across branches**: a project's `triage_carry_enabled` /
+`triage_carry_branch_regex` (`internal/triagecarry`) copy a manual
+`false_positive`/`wont_fix`/reopen decision made on one version to its other
+matching versions, and apply it to a matching fingerprint a later scan
+creates there. It runs as a `scan.Applier` after VEX and vulnerability
+policies and before the triage rules (a carried decision is itself subject
+to the project's rules, same as an ingest-found one), and immediately after
+a direct status PATCH. The most recent decision per fingerprint always
+wins, so a carry never overturns a newer manual call; a small
+`triage_carries` table records the shared decision so this is idempotent
+and explainable. Risk acceptances never carry: an acceptance is a decision
+about one version's exposure, not a fact about the code.
+
+**Mark as duplicate by hand**: `findings.duplicate_manual` (set by
+`POST /findings/{id}/duplicate-of`, cleared by the `DELETE`) flags a
+`duplicate_of` link a person made rather than `Deduplicate` itself, so the
+automatic pass's `UPDATE`s and `scanner_counts` grouping skip that row (see
+the correlation-key paragraph above). A manual duplicate behaves exactly
+like an automatic one everywhere else: hidden from lists, counts and alerts.
+
 **Archive instead of delete**: projects, engagements, scans and findings are
 archived (`archived_at`), not deleted by a user DELETE (`internal/archive`;
 `?purge=true` is admin-only, and the retention job purges past

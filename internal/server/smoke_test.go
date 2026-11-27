@@ -77,6 +77,7 @@ import (
 	"github.com/xilasec/xila-api/internal/sso"
 	"github.com/xilasec/xila-api/internal/team"
 	"github.com/xilasec/xila-api/internal/triage"
+	"github.com/xilasec/xila-api/internal/triagecarry"
 	"github.com/xilasec/xila-api/internal/user"
 	"github.com/xilasec/xila-api/internal/vex"
 	"github.com/xilasec/xila-api/internal/vulnmatch"
@@ -193,6 +194,9 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 	vexSvc := vex.NewService(vexRepo, findingRepo, projectRepo)
 	vulnPolicyRepo := vulnpolicy.NewRepository(pool)
 	vulnPolicySvc := vulnpolicy.NewService(vulnPolicyRepo, findingRepo, findingRepo)
+	carryRepo := triagecarry.NewRepository(pool)
+	carrySvc := triagecarry.NewService(carryRepo, projectRepo, findingRepo)
+	findingRepo.WithCarrier(carrySvc)
 	orgRepo := org.NewRepository(pool)
 	slaRepo := sla.NewRepository(pool)
 	trackerCipher, err := secretbox.NewKeyring([]byte("smoke-integration-key-32-bytes!!"), nil)
@@ -242,7 +246,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 	customParserRepo := customparser.NewRepository(pool)
 	customParserSvc := customparser.NewService(customParserRepo, parsers)
 	ingestSvc := scan.NewService(scanRepo, findingRepo, projectRepo, parsers, notifySvc,
-		[]scan.Applier{correlation.NewReacher(findingRepo, findingRepo), exploitSvc, vexSvc, vulnPolicySvc, triageSvc, computedSvc, assetSvc,
+		[]scan.Applier{correlation.NewReacher(findingRepo, findingRepo), exploitSvc, vexSvc, vulnPolicySvc, carrySvc, triageSvc, computedSvc, assetSvc,
 			connector.NewRemoteTriage(connectorRepo, findingRepo).WithApproval(cfg.RiskAcceptanceRequiresApproval),
 			enrichment.NewNVD(findingRepo, nil)}, scanRepo).WithFollowUps(remediationSvc).WithSkipUnchanged(true).WithHostAssets(assetRepo).
 		WithCustomParsers(customParserSvc)

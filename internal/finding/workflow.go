@@ -349,7 +349,18 @@ func (r *Repository) Apply(ctx context.Context, ids []string, c Change, actor st
 			return nil, err
 		}
 	}
-	return readFindings(ctx, r.db, ids)
+	found, err := readFindings(ctx, r.db, ids)
+	if err != nil {
+		return nil, err
+	}
+	if c.Status != nil && r.carrier != nil {
+		for _, f := range found {
+			if err := r.carrier.Carry(ctx, f, actor); err != nil {
+				return found, fmt.Errorf("carry triage: %w", err)
+			}
+		}
+	}
+	return found, nil
 }
 
 // applyChange writes c to the findings in ids inside tx (whose actor is
@@ -367,12 +378,17 @@ func applyChange(ctx context.Context, tx pgx.Tx, ids []string, c Change, actor s
 		if isExceptionStatus(*c.Status) {
 			reason, by, expires = c.Reason, actor, c.ExpiresAt
 		}
+		// status_decided_at is stamped here because this branch is reached only
+		// from Apply (a person's bulk edit); a triage-carry propagation later
+		// compares against it to avoid overturning a more recent, targeted
+		// decision on one instance.
 		if _, err := tx.Exec(ctx, `
 			UPDATE findings
 			SET status = $2,
 			    resolved_at = CASE WHEN $2 IN ('false_positive', 'remediated', 'wont_fix')
 			                       THEN now() ELSE NULL END,
-			    exception_reason = $3, exception_by = $4, exception_expires_at = $5, updated_at = now()
+			    exception_reason = $3, exception_by = $4, exception_expires_at = $5,
+			    status_decided_at = now(), updated_at = now()
 			WHERE id = ANY($1) AND status IS DISTINCT FROM $2`,
 			ids, *c.Status, reason, by, expires); err != nil {
 			return fmt.Errorf("bulk status: %w", err)
