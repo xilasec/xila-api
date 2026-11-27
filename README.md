@@ -322,7 +322,7 @@ roles, and password login can optionally be turned off. See [Single sign-on](#si
 | GET    | `/api/v1/ai-proposals`              | Open AI proposals across visible projects (`?mine=true` = asked by you or on findings assigned to you) |
 | POST   | `/api/v1/assessments/{id}/approve`  | Approve + apply a pending assessment (`{note}`; project owner or admin, not the requester) |
 | POST   | `/api/v1/assessments/{id}/reject`   | Reject a pending assessment (`{note}`; same authorization) |
-| GET/POST | `/api/v1/findings/{id}/comments`  | The finding's discussion / add a comment (editor) |
+| GET/POST | `/api/v1/findings/{id}/comments`  | The finding's discussion / add a comment (editor); `@email` or `@name` mentions a project member, who gets an inbox item |
 | DELETE | `/api/v1/findings/{id}/comments/{commentID}` | Delete a comment (its author or a project owner) |
 | GET/POST | `/api/v1/findings/{id}/attachments` | Evidence files / upload one (multipart `file`, ≤10 MiB, editor) |
 | GET/DELETE | `/api/v1/findings/{id}/attachments/{attachmentID}` | Download (always as a file) / delete (uploader or project owner) |
@@ -386,6 +386,7 @@ roles, and password login can optionally be turned off. See [Single sign-on](#si
 | POST   | `/api/v1/projects/{id}/connectors/{connectorID}/pull` | Pull now and report imported / new / closed counts (editor; also runs on `CONNECTOR_PULL_INTERVAL`) |
 | GET/PUT | `/api/v1/me/notifications`        | Your own subscriptions: assigned-to-me / watched projects, by email or a personal Slack/Teams webhook (any signed-in person; `…/deliveries` = your delivery log) |
 | GET/PUT/DELETE | `/api/v1/projects/{id}/watch` | Watch a project you can see (its events reach your subscriptions) |
+| GET/POST | `/api/v1/me/inbox`             | Your in-app notification inbox: assignments, @mentions, watched-project events, admin events for project-less ones (`?filter=unread\|mentions\|assigned`); `…/count` = cheap unread count; `POST …/read` with `{ids}` or `{all:true}` |
 | GET/POST/DELETE | `/api/v1/notifications/channels` | Manage notification channels (webhook/Slack/Teams/Mattermost/email) |
 | POST   | `/api/v1/notifications/channels/{id}/test` | Send a test notification |
 | GET    | `/api/v1/notifications/deliveries`  | Recent delivery outcomes (one per queued event × channel, plus Test sends) |
@@ -508,6 +509,13 @@ If no name is given, the default version is used (`main` if none exists yet).
   is two findings: fixing it on the branch doesn't close it on `main`, and
   accepting the risk on `main` doesn't hide it on a release. A scan only
   auto-closes findings of its own version (and asset).
+- `PUT /projects/{id}/triage-carry` turns on carrying a false positive,
+  won't-fix or reopen decision to a project's other versions, scoped by an
+  optional branch regex (empty matches every version). A later scan on an
+  in-scope version applies the same decision to a matching fingerprint at
+  ingest. The most recent decision wins, so carrying never overturns a newer
+  manual call; risk acceptances never carry (they are a decision about one
+  version's exposure, not a fact about the code).
 - The default version represents what the organization runs. Project summaries,
   the portfolio, compliance, SLA alerts, new-critical alerts, summaries and an
   unqualified gate read only default versions. Listings show the default version
@@ -665,6 +673,21 @@ outbox and retries as every channel and are listed in their own log. **Access is
 checked twice, when the event is routed and again when it is sent: someone who
 lost access to the project, or was deactivated, receives nothing.** Service accounts
 can't subscribe.
+
+In-app inbox and @mentions (13.8). Every event that reaches a channel also
+gets a row in the recipient's in-app inbox (`inbox_items`), filled in the same
+place `notify.Service.Notify` routes to every channel. Recipients: the
+assignee for `finding.assigned`, the people @mentioned in a finding comment
+(`@email` or `@name` against the project's members; unknown or ambiguous
+handles are ignored, no user enumeration), a project's watchers for its other
+events, and instance admins for events naming no project. A person can mute
+individual event types (`user_notification_prefs.muted_events`). `GET
+/me/inbox` (`?filter=unread|mentions|assigned`), `GET /me/inbox/count` (cheap,
+for a header badge) and `POST /me/inbox/read` (`{ids}` or `{all:true}`)
+re-check project visibility on every call, so losing access hides an item
+without deleting it. Read items are purged after `INBOX_RETENTION` by the
+retention job. A bell in the header (unread count) and an Inbox page list,
+open and mark items read.
 
 Channel filters (CEL). A channel can also carry a `filter`, a
 [CEL](https://cel.dev) expression over the event. The channel then gets an event
@@ -1007,6 +1030,12 @@ recomputed each ingest, so it self-heals when a scanner stops reporting. See
 neither a CVE nor a file path/line (most DAST without a CVE) still gets no key:
 matching by title alone is not a sound cross-tool signal.
 
+`POST /findings/{id}/duplicate-of` marks one finding as a hand-made duplicate
+of another in the same project and version, for a grouping the automatic
+rule above gets wrong; automatic dedup never rewrites that decision, and the
+finding is hidden from lists, counts and alerts exactly like an automatic
+duplicate. `DELETE` the same path undoes it.
+
 Security gates (break the build): a per-project (or global-default) policy
 that CI evaluates to fail a pipeline on unacceptable risk. `POST /projects/{id}/gate`
 checks the deduped, triaged backlog against these thresholds: `max_critical`,
@@ -1221,6 +1250,15 @@ Domain, Proprietary Free, Commercial, …) and `license_resolved`. The raw
   `category:Copyleft`.
 - Filter components: use `?license=GPL-3.0-only` or
   `?license_category=Copyleft` on any component list.
+- Manual concluded-license override: `POST/GET/PUT/DELETE /projects/{id}/license-overrides`
+  (owner) curates one package's SPDX expression in that project, optionally
+  scoped to a version range (`">=1.2.0, <2.0.0"`, empty = every version). It
+  replaces the SBOM's resolved license at the next ingest and on every
+  current snapshot immediately (no re-upload needed), with the component
+  policies re-evaluating right after; the SBOM's own declared value stays
+  visible (`license_declared_expression`) and a component row carries
+  `license_override_id` while one applies. Removing the override reverts to
+  the declared value on the next reapply.
 
 The SPDX License List (CC0-1.0, [spdx/license-list-data](https://github.com/spdx/license-list-data))
 and the ScanCode LicenseDB categories (CC-BY-4.0, © nexB Inc. and others) are
@@ -2786,6 +2824,7 @@ a warning, and the running keys stay.
 | `PSIRT_ADVISORY_PREFIX`       | `XILA-SA`            | tracking-ID prefix of your published advisories |
 | `PSIRT_PUBLISHER_NAME` / `_NAMESPACE` / `_CONTACT` | - | CSAF publisher (name, its URL, contact); required to publish |
 | `PSIRT_PUBLIC`                | `false`              | serve published advisories as a CSAF provider (`/.well-known/csaf/…`, `/csaf/advisories/…`), unauthenticated |
+| `VEX_DOCUMENT_PREFIX`         | `XILA`               | tracking-ID prefix of stored VEX documents (`/vex-documents`) |
 | `VULNMATCH_OSV_URL`           | `https://api.osv.dev` | OSV API base for the `osv` source |
 | `VULNMATCH_GITHUB_URL`        | `https://api.github.com` | GitHub REST base for the `github` source (GHES: `https://host/api/v3`) |
 | `VULNMATCH_GITHUB_TOKEN`      | -                    | GitHub token (no scopes needed); lifts the anonymous limit of 60 requests/hour |
@@ -2808,6 +2847,7 @@ a warning, and the running keys stay.
 | `AUDIT_RETENTION`             | `365d` (`8760h`)     | audit log entries older than this are purged (`0` = keep forever); the purge itself is logged |
 | `ARCHIVE_RETENTION`           | `30d` (`720h`)       | archived projects, engagements, scans, and findings stay restorable for this long, then the retention job deletes them (`0` = keep forever) |
 | `FINDING_ARCHIVE_AFTER`       | `0` (off)            | archive findings fixed longer ago than this (e.g. `4320h`), in batches; `ARCHIVE_RETENTION` then purges them, and one reported again comes back open |
+| `INBOX_RETENTION`             | `90d` (`2160h`)      | delete read in-app inbox items older than this (`0` = keep forever); unread items are never purged |
 | `ASSESSMENT_REQUIRES_APPROVAL` | `false`             | four-eyes for manual status and severity changes: they become pending assessments until a different project owner (or instance admin) approves them |
 | `RISK_ACCEPTANCE_REQUIRES_APPROVAL` | `true` in production, else `false` | four-eyes for risk acceptances: the requester cannot approve or reject their own; imported acceptances wait as requests |
 | `RISK_ACCEPTANCE_EXPIRY_WARNING` | `168h` | announce approved risk acceptances this long before they expire (`0` = never) |

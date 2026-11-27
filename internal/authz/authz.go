@@ -424,8 +424,8 @@ func baseScope(path, method string) routeScope {
 		// backlog shouldn't be able to relax its own deadlines. Likewise which
 		// version is the default decides what metrics and gates report, and
 		// deleting a version deletes its findings.
-		if len(segs) >= 3 && (segs[2] == "sla" || segs[2] == "versions" || segs[2] == "priority-weights") && !get {
-			s.minRole = domain.TeamOwner // priority weights decide what the team treats as urgent, like an SLA
+		if len(segs) >= 3 && (segs[2] == "sla" || segs[2] == "versions" || segs[2] == "priority-weights" || segs[2] == "license-overrides") && !get {
+			s.minRole = domain.TeamOwner // priority weights decide what the team treats as urgent, like an SLA; a curated license is a compliance call
 		}
 		// The issue tracker holds a credential for another system and decides
 		// what gets filed there: configuring (or testing) it is owner-level.
@@ -505,6 +505,14 @@ func baseScope(path, method string) routeScope {
 		// handler. "kind"/"key" aren't resource ids, so there is no path
 		// resource to check; creating checks editor on each project in the
 		// handler, like POST /findings/bulk.
+		return routeScope{globalList: true}
+	case "vex-documents":
+		// Stored VEX documents (M13 13.14): a project/versions-scope document is
+		// authorized against its own project (editor to create/edit/publish,
+		// viewer to read); a vulnerability-scope document spans every project
+		// and is admin-only. No single project owns the list or a document that
+		// may have none, so this is handler-authorized like /findings/bulk and
+		// /root-causes, not a path resource lookup.
 		return routeScope{globalList: true}
 	case "findings":
 		if len(segs) == 1 {

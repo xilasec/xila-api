@@ -286,7 +286,7 @@
 		</div>
 	</div>
 
-	<div role="tablist" class="tabs tabs-bordered mb-4">
+	<div role="tablist" class="tabs tabs-border mb-4">
 		{#each TABS as tb (tb)}
 			<button role="tab" class="tab" class:tab-active={tab === tb} onclick={() => openTab(tb)}>{$t(/** @type {import('#lib/i18n.js').MessageKey} */ ('sbomp.tab.' + tb))}</button>
 		{/each}

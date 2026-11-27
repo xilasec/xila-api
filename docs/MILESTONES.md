@@ -892,3 +892,94 @@ Deliberately not pursued: FedRAMP POA&M and OSCAL export (US federal niche),
 threat modeling, AI-generated fix pull requests, active cloud scanning (Xila
 ingests scanner output and doesn't scan), pushing findings to other platforms.
 
+## M13: Parity review 4 and a usability pass (November 2026)
+
+Compared with DefectDojo Pro 3.5.200, SecObserve 1.65.0 and Dependency-Track
+5.2.1. Every gap was checked against the code; load testing is out of scope.
+
+Usability (reviewed in the browser):
+
+- ✅ 13.0 Navigation and layout. Before: 31 destinations in a two-row top bar
+  plus a 15-item Admin menu (one flat list of 31 on mobile), 20 project tabs
+  on two rows, 12 findings filters on four rows, and a findings table wider
+  than the page. Now a sidebar with grouped sections (a drawer below 1024px)
+  and a Settings hub for configuration, with breadcrumbs; account, language,
+  theme and sign-out in a user menu; the project page in 7 sections with a
+  tab row each (deep links unchanged); the findings filters in one row plus a
+  "Filters" panel that opens itself when a hidden filter is active; findings
+  rows that fit, with titles as links and triage in a per-row menu. Admin-only
+  pages (Notifications) no longer show for non-admins, the command palette
+  reaches every page, and daisyUI 4 class names that v5 dropped
+  (`tabs-bordered`, `tabs-boxed`, `label-text`, `form-control`) work again.
+
+Tier 1:
+
+- ✅ 13.1 Carry triage across branches and to new versions (SecObserve, DT):
+  `triage_carry_enabled` / `triage_carry_branch_regex` per project
+  (`PUT /projects/{id}/triage-carry`) copies a `false_positive`/`wont_fix`/
+  reopen decision to the project's other matching versions and to a matching
+  fingerprint a later scan creates (an ingest applier, after VEX and
+  vulnerability policies, before the triage rules). The newest decision per
+  fingerprint always wins; risk acceptances never carry. Migration 000110.
+- ⬜ 13.2 Structured analysis on manual triage and rules: a VEX justification
+  and vendor response, kept in history and exported (SecObserve, DT).
+- ⬜ 13.3 SBOMs from CI: `xila upload --sbom`, a processing status CI can
+  wait on before the gate, and creating a project by name on upload (DT).
+- ⬜ 13.4 Exploit-aware SLA: a KEV due date or an exploit response window
+  shortens the deadline (DefectDojo Pro).
+- ⬜ 13.5 Triage rules that assign, tag, comment and notify, on schedules and
+  finding events as well as ingest (DefectDojo Pro).
+- ⬜ 13.6 CycloneDX XML SBOMs (DT).
+- ⬜ 13.7 More notification events, and a stored gate state that alerts when
+  it flips, with a "fails gate" filter (all three).
+
+Tier 2:
+
+- ✅ 13.8 In-app notification inbox and @mentions (DefectDojo Pro, SecObserve).
+  `inbox_items` is filled in the one place every channel is routed
+  (notify.Service.Notify): the assignee for finding.assigned, @mentions
+  resolved against the finding's project members, a project's watchers for
+  its other events, and instance admins for project-less events, each opted
+  in (user_notification_prefs.muted_events) and re-checked for visibility on
+  every read. GET/POST /me/inbox(/count,/read); a header bell component and
+  an /inbox page (nav entry); retention via INBOX_RETENTION.
+- ⬜ 13.9 Assessment approval per project with designated approvers, and bulk
+  approval (SecObserve).
+- ⬜ 13.10 Project owners manage their own triage rules and vulnerability
+  policies and may opt out of global ones (SecObserve).
+- ⬜ 13.11 Internal components and authenticated private registries (DT).
+- ✅ 13.12 Manual concluded-license override that survives re-uploads
+  (SecObserve): `/projects/{id}/license-overrides` curates one package's SPDX
+  expression (optionally one version range) per project; applied at ingest
+  and immediately reapplied to current snapshots (then the component
+  policies re-run), with the SBOM's own declared value still visible.
+  Migration 000117.
+- ✅ 13.13 Offline matching for distro packages: dpkg, rpm, apk (DT). OSV
+  ecosystem names for deb/rpm/apk purl `distro` qualifiers (Debian, Ubuntu,
+  Alpine, Red Hat, Rocky Linux, AlmaLinux) and version comparators matching
+  each format's own spec, so `osv-local` and private advisories match
+  container SBOMs offline too.
+- ⬜ 13.14 Stored, versioned VEX documents (SecObserve).
+- 13.15 Mark as duplicate and merge findings by hand; risk per asset
+  (DefectDojo Pro). Done so far:
+  - `POST`/`DELETE /findings/{id}/duplicate-of` marks or unmarks a hand-made
+    duplicate (`findings.duplicate_manual`); automatic dedup never rewrites
+    it, and it behaves exactly like an automatic duplicate everywhere else.
+- ⬜ 13.16 Idle timeout with a session-expiry warning; a personal-data filter
+  for MCP results (DefectDojo Pro).
+- ⬜ 13.17 Scheduled report delivery; expected scans per project (DefectDojo Pro).
+- ⬜ 13.18 Issue-tracker comments, ticket templates and webhook receivers
+  (DefectDojo Pro).
+- ⬜ 13.19 Connectors: AWS Security Hub, Microsoft Defender, Qualys, Trivy
+  Operator (DefectDojo Pro, SecObserve).
+- ⬜ 13.20 Dependency-graph functions and scope facts in component-policy CEL
+  (DT).
+
+Left for later (small or low value): finding date-range and assessed filters,
+a column chooser, default risk-acceptance expiry, compressed uploads,
+component search by hash or CPE, policy inheritance to child projects, tag
+management, a site banner, notification templates, per-project branch
+housekeeping, an org-level gate, saved views, View As User, custom
+dashboards, cloud IAM database login, project export, contextual VEX
+ratings, CEL violation messages, an instance time zone.
+

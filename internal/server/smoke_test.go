@@ -45,6 +45,7 @@ import (
 	"github.com/xilasec/xila-api/internal/findingtemplate"
 	"github.com/xilasec/xila-api/internal/fixplan"
 	"github.com/xilasec/xila-api/internal/gate"
+	"github.com/xilasec/xila-api/internal/inbox"
 	"github.com/xilasec/xila-api/internal/ingesthealth"
 	"github.com/xilasec/xila-api/internal/issuetracker"
 	"github.com/xilasec/xila-api/internal/license"
@@ -77,6 +78,7 @@ import (
 	"github.com/xilasec/xila-api/internal/sso"
 	"github.com/xilasec/xila-api/internal/team"
 	"github.com/xilasec/xila-api/internal/triage"
+	"github.com/xilasec/xila-api/internal/triagecarry"
 	"github.com/xilasec/xila-api/internal/user"
 	"github.com/xilasec/xila-api/internal/vex"
 	"github.com/xilasec/xila-api/internal/vulnmatch"
@@ -169,8 +171,9 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 	assetSvc := asset.NewService(assetRepo, findingRepo)
 	complianceRepo := compliance.NewRepository(pool)
 	notifyRepo := notify.NewRepository(pool)
+	inboxRepo := inbox.NewRepository(pool)
 	features := feature.NewStore(pool, feature.Unavailable(cfg)...)
-	notifySvc := notify.NewService(notifyRepo, notify.SMTPConfig{}).WithFeatures(features)
+	notifySvc := notify.NewService(notifyRepo, notify.SMTPConfig{}).WithFeatures(features).WithInbox(inboxRepo)
 	tokenRepo := apitoken.NewRepository(pool)
 	tokenSvc := apitoken.NewService(tokenRepo)
 	userRepo := user.NewRepository(pool)
@@ -191,8 +194,13 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 	computedSvc := computed.NewService(customFieldRepo, findingRepo, triageRepo, projectRepo, assetRepo)
 	vexRepo := vex.NewRepository(pool)
 	vexSvc := vex.NewService(vexRepo, findingRepo, projectRepo)
+	vexDocsRepo := vex.NewDocumentRepository(pool, vexRepo)
+	vexDocsSvc := vex.NewDocumentService(vexDocsRepo, membershipRepo, "")
 	vulnPolicyRepo := vulnpolicy.NewRepository(pool)
 	vulnPolicySvc := vulnpolicy.NewService(vulnPolicyRepo, findingRepo, findingRepo)
+	carryRepo := triagecarry.NewRepository(pool)
+	carrySvc := triagecarry.NewService(carryRepo, projectRepo, findingRepo)
+	findingRepo.WithCarrier(carrySvc)
 	orgRepo := org.NewRepository(pool)
 	slaRepo := sla.NewRepository(pool)
 	trackerCipher, err := secretbox.NewKeyring([]byte("smoke-integration-key-32-bytes!!"), nil)
@@ -242,7 +250,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 	customParserRepo := customparser.NewRepository(pool)
 	customParserSvc := customparser.NewService(customParserRepo, parsers)
 	ingestSvc := scan.NewService(scanRepo, findingRepo, projectRepo, parsers, notifySvc,
-		[]scan.Applier{correlation.NewReacher(findingRepo, findingRepo), exploitSvc, vexSvc, vulnPolicySvc, triageSvc, computedSvc, assetSvc,
+		[]scan.Applier{correlation.NewReacher(findingRepo, findingRepo), exploitSvc, vexSvc, vulnPolicySvc, carrySvc, triageSvc, computedSvc, assetSvc,
 			connector.NewRemoteTriage(connectorRepo, findingRepo).WithApproval(cfg.RiskAcceptanceRequiresApproval),
 			enrichment.NewNVD(findingRepo, nil)}, scanRepo).WithFollowUps(remediationSvc).WithSkipUnchanged(true).WithHostAssets(assetRepo).
 		WithCustomParsers(customParserSvc)
@@ -263,6 +271,14 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 			Contact: cfg.PSIRT.PublisherContact},
 	})
 	licenseGroups := license.NewGroups(pool)
+	licenseOverrideRepo := license.NewOverrideRepository(pool)
+	loadLicenseOverrides := func(ctx context.Context) (*license.Matcher, error) {
+		overrides, err := licenseOverrideRepo.ListAll(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return license.NewMatcher(overrides, sbom.CompareVersions), nil
+	}
 	policyRepo := policy.NewRepository(pool)
 	pkgmetaRepo := pkgmeta.NewRepository(pool)
 	pkgmetaSvc := pkgmeta.NewService(pkgmetaRepo, map[string]pkgmeta.Registry{pkgmeta.NPM: fakeNPM{}}, pkgmeta.Options{})
@@ -291,6 +307,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		Team:        team.NewHandler(team.NewRepository(pool), membershipRepo),
 		TeamMembers: membership.NewHandler(membershipRepo, userRepo),
 		Personal:    notify.NewPersonalHandler(notifyRepo, notifySvc),
+		Inbox:       inbox.NewHandler(inboxRepo),
 		MCP:         mcp.NewHandler(cfg.MCPEnabled, "test"),
 		Access:      access.NewHandler(access.NewRepository(pool)),
 		Project: project.NewHandler(projectRepo, findingRepo, membershipRepo).WithTagsChanged(func(id string) {
@@ -303,7 +320,8 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 			ratelimit.New(pool, ratelimit.Limits{}), notifySvc,
 			aitriage.Options{RequireApproval: cfg.AssessmentRequiresApproval, RateLimit: cfg.AI.RateLimit})),
 		Sbom: sbom.NewHandler(sbomRepo, sbom.NewService(sbomRepo, projectRepo, policySvc,
-			correlation.NewReacher(findingRepo, findingRepo)).WithLicenses(license.Resolve).WithStrictValidation(cfg.SBOMStrictValidation)),
+			correlation.NewReacher(findingRepo, findingRepo)).WithLicenses(license.Resolve).WithStrictValidation(cfg.SBOMStrictValidation).
+			WithLicenseOverrides(func(ctx context.Context) (sbom.LicenseOverrideMatcher, error) { return loadLicenseOverrides(ctx) })),
 		Asset:      asset.NewHandler(assetRepo, assetSvc, membershipRepo),
 		Compliance: compliance.NewHandler(complianceRepo),
 		Portfolio:  portfolio.NewHandler(portfolio.NewRepository(pool)),
@@ -333,6 +351,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		Gate:         gate.NewHandler(gateRepo, findingRepo, projectRepo),
 		SLA:          sla.NewHandler(slaRepo, sla.NewService(slaRepo, notifySvc)),
 		Vex:          vex.NewHandler(vexRepo, vexSvc),
+		VexDocuments: vex.NewDocumentHandler(vexDocsSvc),
 		IssueTracker: issuetracker.NewHandler(issueSvc),
 		Connector:    connector.NewHandler(connector.NewService(connectorRepo, ingestSvc, trackerCipher)),
 		Correlation:  correlation.NewHandler(correlation.NewService(findingRepo, sbomRepo)),
@@ -347,12 +366,14 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		AuthLimiter: authLimiterFor(pool, cfg),
 		Enrichment: enrichment.NewHandler(enrichment.NewService(findingRepo, fakeExploit{},
 			[]enrichment.KEVCatalog{fakeExploit{}}, enrichment.NewKEVRepository(pool), notifySvc).WithCRA(craSvc)),
-		VulnMatch:  vulnmatch.NewHandler(vulnSvc, vulnSources.Names(), osvMirrorRepo, nil),
-		Advisory:   vulnmatch.NewAdvisoryHandler(advisoryRepo, nil),
-		FeedRules:  vulnmatch.NewFeedRuleHandler(feedRuleRepo, nil),
-		PSIRT:      psirt.NewHandler(psirtSvc, psirtRepo),
-		PkgMeta:    pkgmeta.NewHandler(pkgmetaRepo, pkgmetaSvc),
-		License:    license.NewHandler(licenseGroups),
+		VulnMatch: vulnmatch.NewHandler(vulnSvc, vulnSources.Names(), osvMirrorRepo, nil),
+		Advisory:  vulnmatch.NewAdvisoryHandler(advisoryRepo, nil),
+		FeedRules: vulnmatch.NewFeedRuleHandler(feedRuleRepo, nil),
+		PSIRT:     psirt.NewHandler(psirtSvc, psirtRepo),
+		PkgMeta:   pkgmeta.NewHandler(pkgmetaRepo, pkgmetaSvc),
+		License:   license.NewHandler(licenseGroups),
+		LicenseOverride: license.NewOverrideHandler(licenseOverrideRepo,
+			license.NewReapplier(sbomRepo, loadLicenseOverrides)).WithPolicyReevaluation(policySvc),
 		Policy:     policy.NewHandler(policyRepo, policySvc, findingRepo),
 		VulnPolicy: vulnpolicy.NewHandler(vulnPolicyRepo, vulnPolicySvc).WithCustomFields(customFieldRepo),
 		Secrets:    secretbox.NewHandler(pool, trackerCipher),
@@ -1290,5 +1311,124 @@ func TestSmokeCustomParser(t *testing.T) {
 	}
 	if resp, _ := req(t, app, http.MethodPost, scanPath, adminToken, sample); resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("upload after deleting the parser = %d, want 400 (unknown scanner)", resp.StatusCode)
+	}
+}
+
+// TestSmokeInbox drives the in-app inbox end to end: an assignment and an
+// @mention both land in the mentioned/assigned person's inbox, filters and
+// the unread count agree, marking read works, and losing project access
+// hides the items (13.8).
+func TestSmokeInbox(t *testing.T) {
+	app := newTestApp(t)
+
+	ownerCreds := `{"email":"inbox-owner@xila.io","password":"supersecret"}`
+	req(t, app, http.MethodPost, "/api/v1/auth/register", "", ownerCreds)
+	_, ownerLogin := req(t, app, http.MethodPost, "/api/v1/auth/login", "", ownerCreds)
+	ownerToken, _ := ownerLogin["token"].(string)
+
+	memberCreds := `{"email":"mentioned@xila.io","password":"supersecret"}`
+	req(t, app, http.MethodPost, "/api/v1/auth/register", "", memberCreds)
+	_, memberLogin := req(t, app, http.MethodPost, "/api/v1/auth/login", "", memberCreds)
+	memberToken, _ := memberLogin["token"].(string)
+	memberUser, _ := memberLogin["user"].(map[string]any)
+	memberID, _ := memberUser["id"].(string)
+	if memberID == "" {
+		t.Fatal("login returned no user id")
+	}
+
+	_, orgBody := req(t, app, http.MethodPost, "/api/v1/orgs", ownerToken, `{"slug":"inbox-co","name":"Inbox Co"}`)
+	orgID, _ := orgBody["id"].(string)
+	_, teamBody := req(t, app, http.MethodPost, "/api/v1/orgs/"+orgID+"/teams", ownerToken, `{"slug":"platform","name":"Platform"}`)
+	teamID, _ := teamBody["id"].(string)
+	_, projBody := req(t, app, http.MethodPost, "/api/v1/teams/"+teamID+"/projects", ownerToken, `{"slug":"web","name":"Web"}`)
+	projectID, _ := projBody["id"].(string)
+	if resp, _ := req(t, app, http.MethodPost, "/api/v1/projects/"+projectID+"/members", ownerToken,
+		`{"email":"mentioned@xila.io","role":"editor"}`); resp.StatusCode != http.StatusCreated {
+		t.Fatalf("add project member = %d", resp.StatusCode)
+	}
+
+	scanPath := "/api/v1/projects/" + projectID + "/scans?scanner=trivy"
+	if resp, _ := req(t, app, http.MethodPost, scanPath, ownerToken, smokeTrivyReport); resp.StatusCode != http.StatusCreated {
+		t.Fatalf("ingest = %d", resp.StatusCode)
+	}
+	_, listBody := req(t, app, http.MethodGet, "/api/v1/projects/"+projectID+"/findings", ownerToken, "")
+	findings, _ := listBody["findings"].([]any)
+	if len(findings) == 0 {
+		t.Fatal("no findings ingested")
+	}
+	findingID, _ := findings[0].(map[string]any)["id"].(string)
+
+	// Assignment: finding.assigned reaches the assignee's inbox.
+	if resp, _ := req(t, app, http.MethodPut, "/api/v1/findings/"+findingID+"/assignee", ownerToken,
+		`{"assignee_id":"`+memberID+`"}`); resp.StatusCode != http.StatusOK {
+		t.Fatalf("assign = %d", resp.StatusCode)
+	}
+	// @mention: the comment names the member by the local part of their email.
+	if resp, _ := req(t, app, http.MethodPost, "/api/v1/findings/"+findingID+"/comments", ownerToken,
+		`{"body":"cc @mentioned please take a look"}`); resp.StatusCode != http.StatusCreated {
+		t.Fatalf("comment = %d", resp.StatusCode)
+	}
+
+	// Both routing passes happen off the request (go h.notifier.Notify…), so
+	// poll briefly rather than racing them.
+	var items []any
+	for range 40 {
+		_, listing := req(t, app, http.MethodGet, "/api/v1/me/inbox", memberToken, "")
+		items, _ = listing["items"].([]any)
+		if len(items) >= 2 {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if len(items) != 2 {
+		t.Fatalf("inbox items = %d, want 2 (assigned + mention)", len(items))
+	}
+
+	_, mentions := req(t, app, http.MethodGet, "/api/v1/me/inbox?filter=mentions", memberToken, "")
+	mentionItems, _ := mentions["items"].([]any)
+	if len(mentionItems) != 1 || mentionItems[0].(map[string]any)["event_type"] != "mention" {
+		t.Fatalf("mentions filter = %v", mentionItems)
+	}
+	_, assignedList := req(t, app, http.MethodGet, "/api/v1/me/inbox?filter=assigned", memberToken, "")
+	assignedItems, _ := assignedList["items"].([]any)
+	if len(assignedItems) != 1 || assignedItems[0].(map[string]any)["event_type"] != "finding.assigned" {
+		t.Fatalf("assigned filter = %v", assignedItems)
+	}
+	if link, _ := mentionItems[0].(map[string]any)["link"].(string); link != "/findings/"+findingID {
+		t.Errorf("mention link = %q, want /findings/%s", link, findingID)
+	}
+
+	_, count := req(t, app, http.MethodGet, "/api/v1/me/inbox/count", memberToken, "")
+	if count["unread"] != float64(2) {
+		t.Fatalf("unread count = %v, want 2", count["unread"])
+	}
+
+	// Mark everything read.
+	_, marked := req(t, app, http.MethodPost, "/api/v1/me/inbox/read", memberToken, `{"all":true}`)
+	if marked["marked"] != float64(2) {
+		t.Fatalf("marked = %v, want 2", marked["marked"])
+	}
+	_, countAfter := req(t, app, http.MethodGet, "/api/v1/me/inbox/count", memberToken, "")
+	if countAfter["unread"] != float64(0) {
+		t.Fatalf("unread count after marking read = %v, want 0", countAfter["unread"])
+	}
+	_, unreadFiltered := req(t, app, http.MethodGet, "/api/v1/me/inbox?filter=unread", memberToken, "")
+	if uf, _ := unreadFiltered["items"].([]any); len(uf) != 0 {
+		t.Errorf("unread filter after marking read = %v, want none", uf)
+	}
+
+	// RBAC recheck: removing the member from the project hides their inbox
+	// items (the rows stay; List re-checks visibility, it doesn't delete).
+	if resp, _ := req(t, app, http.MethodDelete, "/api/v1/projects/"+projectID+"/members/"+memberID, ownerToken, ""); resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("remove project member = %d", resp.StatusCode)
+	}
+	_, afterRemoval := req(t, app, http.MethodGet, "/api/v1/me/inbox", memberToken, "")
+	if items, _ := afterRemoval["items"].([]any); len(items) != 0 {
+		t.Errorf("inbox after losing project access = %v, want empty", items)
+	}
+
+	// Service accounts have no inbox.
+	if resp, _ := req(t, app, http.MethodGet, "/api/v1/me/inbox", ownerToken, ""); resp.StatusCode != http.StatusOK {
+		t.Fatalf("owner's own inbox = %d", resp.StatusCode)
 	}
 }

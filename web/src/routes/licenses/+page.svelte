@@ -176,7 +176,7 @@
 			{$t('lic.subtitle', { version: listVersion ? '\u00a0' + listVersion : '' })}
 		</p>
 	</div>
-	<div role="tablist" class="tabs tabs-boxed">
+	<div role="tablist" class="tabs tabs-box">
 		<button role="tab" class="tab" class:tab-active={tab === 'catalog'} onclick={() => switchTab('catalog')}>{$t('lic.tabCatalog')}</button>
 		<button role="tab" class="tab" class:tab-active={tab === 'groups'} onclick={() => switchTab('groups')}>{$t('lic.tabGroups')}</button>
 	</div>

@@ -1295,6 +1295,42 @@ paths:
           $ref: "#/components/responses/Error"
         "404": { $ref: "#/components/responses/Error" }
 
+  /projects/{projectID}/triage-carry:
+    get:
+      operationId: getProjectTriageCarry
+      tags: [Projects]
+      summary: The project's triage-carry setting
+      description: |
+        Whether a manual triage decision (`false_positive`, `wont_fix`, or
+        reopening) on one version of this project is copied to its other
+        in-scope versions, and applied to a matching finding a later scan
+        creates there. Risk acceptances never carry; they are a decision
+        about one version's exposure, not a fact about the code.
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json: { schema: { $ref: "#/components/schemas/TriageCarrySettings" } }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      operationId: putProjectTriageCarry
+      tags: [Projects]
+      summary: Turn triage carry on or off, and scope it by branch
+      description: Owner. `branch_regex` empty matches every version of the project.
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }]
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { $ref: "#/components/schemas/TriageCarrySettings" } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json: { schema: { $ref: "#/components/schemas/TriageCarrySettings" } }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+
   /projects/{projectID}/versions:
     get:
       operationId: listProjectVersions
@@ -2659,6 +2695,78 @@ paths:
                 type: object
                 properties:
                   projects: { type: array, items: { $ref: "#/components/schemas/Project" } }
+
+  /projects/{projectID}/license-overrides:
+    get:
+      operationId: listLicenseOverrides
+      tags: [Projects]
+      summary: The project's curated concluded licenses
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  license_overrides: { type: array, items: { $ref: "#/components/schemas/LicenseOverride" } }
+    post:
+      operationId: createLicenseOverride
+      tags: [Projects]
+      summary: Curate a package's concluded license
+      description: |
+        Owner. Applied at the project's next ingest instead of the SBOM's
+        declared license, and immediately to its current snapshots; the
+        project's component policies re-evaluate right after. Kept across
+        re-uploads. `purl` is matched without version, qualifiers or subpath.
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }]
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { $ref: "#/components/schemas/LicenseOverrideInput" } }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json: { schema: { $ref: "#/components/schemas/LicenseOverride" } }
+        "400": { $ref: "#/components/responses/Error" }
+  /projects/{projectID}/license-overrides/{overrideID}:
+    get:
+      operationId: getLicenseOverride
+      tags: [Projects]
+      summary: One curated concluded license
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }, { $ref: "#/components/parameters/OverrideID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json: { schema: { $ref: "#/components/schemas/LicenseOverride" } }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      operationId: updateLicenseOverride
+      tags: [Projects]
+      summary: Change a curated license
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }, { $ref: "#/components/parameters/OverrideID" }]
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { $ref: "#/components/schemas/LicenseOverrideInput" } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json: { schema: { $ref: "#/components/schemas/LicenseOverride" } }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deleteLicenseOverride
+      tags: [Projects]
+      summary: Remove a curated license, reverting to the SBOM's declared one
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }, { $ref: "#/components/parameters/OverrideID" }]
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Error" }
 
   /projects/{projectID}/priority-weights:
     get:
@@ -4290,6 +4398,46 @@ paths:
                   failed: { type: object, additionalProperties: { type: string } }
                   findings: { type: integer, description: Findings whose exploit maturity changed. }
         "409": { $ref: "#/components/responses/Error" }
+
+  /findings/{findingID}/duplicate-of:
+    post:
+      operationId: markFindingDuplicate
+      tags: [Findings]
+      summary: Mark by hand as a duplicate of another finding
+      description: |
+        Same project and version as the primary. A manual override: automatic
+        dedup (`Deduplicate`) never rewrites it, and the finding behaves exactly
+        like an automatic duplicate everywhere (excluded from counts, lists,
+        metrics) until unmarked.
+      parameters: [{ $ref: "#/components/parameters/FindingID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [primary_id]
+              properties: { primary_id: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Finding" }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: unmarkFindingDuplicate
+      tags: [Findings]
+      summary: Undo a manual duplicate mark
+      parameters: [{ $ref: "#/components/parameters/FindingID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Finding" }
+        "404": { $ref: "#/components/responses/Error" }
 
   /findings/{findingID}/duplicates:
     get:
@@ -6027,6 +6175,148 @@ paths:
       parameters: [{ $ref: "#/components/parameters/VexID" }]
       responses:
         "204": { description: Removed }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /vex-documents:
+    get:
+      operationId: listVexDocuments
+      tags: [VEX]
+      summary: Stored, versioned VEX documents
+      description: |
+        A document has a format (OpenVEX, CSAF, CycloneDX), a scope (one project
+        version, several versions/branches of one project, or one vulnerability
+        across every project), publisher metadata, and a revision history. Lists
+        every document on the caller's visible projects; an instance admin also
+        sees vulnerability-scope documents (cross-project, admin-only to create).
+      parameters:
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Offset" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  documents: { type: array, items: { $ref: "#/components/schemas/VexDocument" } }
+                  pagination: { $ref: "#/components/schemas/Pagination" }
+    post:
+      operationId: createVexDocument
+      tags: [VEX]
+      summary: Create a VEX document
+      description: |
+        Stores an unpublished document; `POST .../publish` renders and freezes its
+        first revision. `scope_kind: vulnerability` (`vuln_id` required) spans
+        every project and is instance-admin only. CycloneDX only supports
+        `scope_kind: project` with exactly one target (its single-BOM-subject
+        model doesn't generalize to several versions or projects).
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/VexDocument" } } } }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VexDocument" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+  /vex-documents/{documentID}:
+    get:
+      operationId: getVexDocument
+      tags: [VEX]
+      summary: One VEX document
+      parameters: [{ $ref: "#/components/parameters/DocumentID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VexDocument" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      operationId: updateVexDocument
+      tags: [VEX]
+      summary: Edit a document's scope, format or publisher metadata
+      description: |
+        Its version, content hash and revision history are untouched; a scope or
+        metadata change takes effect on the next publish.
+      parameters: [{ $ref: "#/components/parameters/DocumentID" }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/VexDocument" } } } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VexDocument" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deleteVexDocument
+      tags: [VEX]
+      summary: Delete a document (and its revisions)
+      parameters: [{ $ref: "#/components/parameters/DocumentID" }]
+      responses:
+        "204": { description: Deleted }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /vex-documents/{documentID}/publish:
+    post:
+      operationId: publishVexDocument
+      tags: [VEX]
+      summary: Publish (re-render from current data)
+      description: |
+        Re-renders the document from the project's current findings and stored VEX
+        statements (the same mapping `GET /projects/{id}/vex/export` uses). A new
+        revision and tracking version are appended only when the rendered content
+        actually changed since the last publish (`changed: false` otherwise).
+      parameters: [{ $ref: "#/components/parameters/DocumentID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  document: { $ref: "#/components/schemas/VexDocument" }
+                  changed: { type: boolean, description: Whether a new revision was appended. }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /vex-documents/{documentID}/revisions:
+    get:
+      operationId: listVexDocumentRevisions
+      tags: [VEX]
+      summary: A document's revision history
+      parameters: [{ $ref: "#/components/parameters/DocumentID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revisions: { type: array, items: { $ref: "#/components/schemas/VexDocumentRevision" } }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /vex-documents/{documentID}/revisions/{number}/download:
+    get:
+      operationId: downloadVexDocumentRevision
+      tags: [VEX]
+      summary: Download one revision's frozen, rendered document
+      parameters:
+        - { $ref: "#/components/parameters/DocumentID" }
+        - { name: number, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        "200":
+          description: The frozen document, as an attachment.
+          content:
+            application/json:
+              schema: { type: object }
+        "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
 
   /projects/{projectID}/assets:
@@ -8439,6 +8729,71 @@ paths:
       responses:
         "200": { $ref: "#/components/responses/Watching" }
 
+  /me/inbox:
+    get:
+      operationId: getMeInbox
+      tags: [Notifications]
+      summary: Your in-app notification inbox
+      description: |
+        Any signed-in person (not a service account). One row per event that reached
+        you: the assignee of a finding assigned to you, someone who @mentioned you in a
+        finding comment, an event on a project you watch, or (for events naming no
+        project) an instance admin. Visibility is re-checked on every call — an item
+        whose project you can no longer see is skipped, even though the row stays.
+        `?filter=unread|mentions|assigned` narrows the list; omitted returns everything.
+      parameters:
+        - { name: filter, in: query, schema: { type: string, enum: ["", unread, mentions, assigned] } }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Offset" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/InboxItem" } }
+                  pagination: { $ref: "#/components/schemas/Pagination" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+  /me/inbox/count:
+    get:
+      operationId: getMeInboxCount
+      tags: [Notifications]
+      summary: Your unread inbox count
+      description: Cheap — for a header bell badge. Same visibility re-check as the list.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, properties: { unread: { type: integer } } }
+        "403": { $ref: "#/components/responses/Error" }
+  /me/inbox/read:
+    post:
+      operationId: postMeInboxRead
+      tags: [Notifications]
+      summary: Mark inbox items read
+      description: 'Pass `ids`, or `all: true` for every unread item still visible to you.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids: { type: array, items: { type: string, format: uuid } }
+                all: { type: boolean }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, properties: { marked: { type: integer } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+
   /psirt/advisories:
     get:
       operationId: listPsirtAdvisories
@@ -9266,6 +9621,7 @@ components:
     OrgID: { name: orgID, in: path, required: true, schema: { type: string, format: uuid } }
     TeamID: { name: teamID, in: path, required: true, schema: { type: string, format: uuid } }
     ProjectID: { name: projectID, in: path, required: true, schema: { type: string, format: uuid } }
+    OverrideID: { name: overrideID, in: path, required: true, schema: { type: string, format: uuid } }
     CRACaseID: { name: caseID, in: path, required: true, schema: { type: string, format: uuid } }
     EngagementID: { name: engagementID, in: path, required: true, schema: { type: string, format: uuid } }
     ActionID: { name: actionID, in: path, required: true, schema: { type: string, format: uuid } }
@@ -9400,6 +9756,7 @@ components:
     PolicyID: { name: policyID, in: path, required: true, schema: { type: string, format: uuid } }
     ChannelID: { name: channelID, in: path, required: true, schema: { type: string, format: uuid } }
     VexID: { name: vexID, in: path, required: true, schema: { type: string, format: uuid } }
+    DocumentID: { name: documentID, in: path, required: true, schema: { type: string, format: uuid } }
     ConnectorID: { name: connectorID, in: path, required: true, schema: { type: string, format: uuid } }
     SSOSlug:
       name: slug
@@ -9536,6 +9893,19 @@ components:
             properties:
               project_id: { type: string, format: uuid }
               project_name: { type: string }
+    InboxItem:
+      type: object
+      description: One row in the in-app notification inbox (GET /me/inbox).
+      properties:
+        id: { type: string, format: uuid }
+        event_type: { type: string, examples: [mention, finding.assigned, finding.critical] }
+        title: { type: string }
+        body: { type: string }
+        link: { type: string, description: "The finding or project this item is about, e.g. /findings/{id}." }
+        project_id: { type: [string, "null"], format: uuid }
+        finding_id: { type: [string, "null"], format: uuid }
+        created_at: { type: string, format: date-time }
+        read_at: { type: [string, "null"], format: date-time }
     PSIRTAdvisory:
       type: object
       properties:
@@ -10008,6 +10378,33 @@ components:
       type: object
       description: A SCIM 2.0 User or Group (RFC 7643), `application/scim+json`.
       additionalProperties: true
+
+    TriageCarrySettings:
+      type: object
+      properties:
+        enabled: { type: boolean }
+        branch_regex: { type: string, description: "Empty matches every version of the project." }
+    LicenseOverride:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        project_id: { type: string, format: uuid }
+        purl: { type: string, description: "Without version, qualifiers or subpath (\"npm/lodash\")." }
+        version_range: { type: string, description: 'Component-policy-style range (">=1.2.0, <2.0.0"); empty = every version.' }
+        license: { type: string, description: The concluded SPDX expression. }
+        comment: { type: string }
+        created_by: { type: string, format: uuid, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    LicenseOverrideInput:
+      type: object
+      required: [purl, license]
+      properties:
+        purl: { type: string, examples: ["pkg:npm/lodash"] }
+        version_range: { type: string, examples: [">=4.17.0, <5.0.0"] }
+        license: { type: string, examples: [MIT] }
+        comment: { type: string }
 
     PriorityWeights:
       type: object
@@ -11587,6 +11984,52 @@ components:
         detail: { type: string }
         source: { type: string, enum: [openvex, cyclonedx] }
         created_at: { type: string, format: date-time }
+
+    VexDocumentTarget:
+      type: object
+      description: One project version a project/versions-scope document names. Neither field = the default version.
+      properties:
+        version_id: { type: string, format: uuid }
+        branch: { type: string, description: Resolved to a version by name on every publish. }
+
+    VexDocument:
+      type: object
+      required: [format, scope_kind]
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        document_id: { type: string, readOnly: true, description: "`<VEX_DOCUMENT_PREFIX>-<year>-<NNNN>`, e.g. `XILA-2026-0001`." }
+        format: { type: string, enum: [openvex, csaf, cyclonedx] }
+        spec_version: { type: string, description: "Only for `cyclonedx`: `1.6` (default) or `1.7`." }
+        scope_kind:
+          type: string
+          enum: [project, versions, vulnerability]
+          description: |
+            `project`: one version of `project_id` (`targets` has exactly one entry).
+            `versions`: several versions/branches of `project_id` (`targets` has 1+).
+            `vulnerability`: one `vuln_id` across every project (`project_id`/`targets`
+            empty; instance-admin only to create, edit, delete or publish).
+            `cyclonedx` only supports `project` with a single target.
+        project_id: { type: [string, "null"], format: uuid }
+        project_slug: { type: string, readOnly: true }
+        project_name: { type: string, readOnly: true }
+        targets: { type: array, items: { $ref: "#/components/schemas/VexDocumentTarget" } }
+        vuln_id: { type: string, description: "CVE/GHSA; only for `scope_kind: vulnerability`." }
+        author: { type: string, description: Document author (OpenVEX `author`, CSAF contact). Empty = the publishing user. }
+        publisher_name: { type: string, description: Empty = "Xila". }
+        publisher_namespace: { type: string, description: Publisher's URL. Empty = `PUBLIC_URL`, else `urn:xila`. }
+        publisher_contact: { type: string }
+        version: { type: integer, readOnly: true, description: Tracking version; 0 = never published. }
+        published_at: { type: [string, "null"], format: date-time, readOnly: true }
+        revisions: { type: array, readOnly: true, items: { $ref: "#/components/schemas/VexDocumentRevision" } }
+        created_by: { type: [string, "null"], format: uuid, readOnly: true }
+        created_at: { type: string, format: date-time, readOnly: true }
+        updated_at: { type: string, format: date-time, readOnly: true }
+
+    VexDocumentRevision:
+      type: object
+      properties:
+        number: { type: integer }
+        published_at: { type: string, format: date-time }
 
     AssetType:
       type: string

@@ -88,6 +88,16 @@ type Component struct {
 	// SPDX expression, id or name, all of which apply — the resolver's input.
 	// Not stored: License keeps the raw, flattened form.
 	LicenseTerms []string `json:"-"`
+
+	// Declared* keep the SBOM's own resolved license once a project
+	// license_overrides row replaces License{Expression,IDs,Categories,Resolved}
+	// with the curated, concluded value (M13 13.12). Empty/nil when no override
+	// applies: the two pairs are then identical.
+	LicenseDeclaredExpression string   `json:"license_declared_expression"`
+	LicenseDeclaredIDs        []string `json:"license_declared_ids"`
+	LicenseDeclaredCategories []string `json:"license_declared_categories"`
+	LicenseDeclaredResolved   *bool    `json:"license_declared_resolved"`
+	LicenseOverrideID         *string  `json:"license_override_id"`
 }
 
 // ComponentHit is a component plus the snapshot/project context it was found in.
@@ -256,13 +266,15 @@ func (r *Repository) Ingest(ctx context.Context, s Sbom, components []Component,
 			}
 			rows[i] = []any{out.ID, out.ProjectID, c.BomRef, c.Type, cmp.Or(c.Kind, KindSoftware), c.ML, c.Group, c.Name, c.Version, c.Purl, c.Cpe, c.License, c.FilePath, hashes,
 				c.Direct, c.Depth, string(c.Scope),
-				c.LicenseExpression, nonNil(c.LicenseIDs), nonNil(c.LicenseCategories), c.LicenseResolved}
+				c.LicenseExpression, nonNil(c.LicenseIDs), nonNil(c.LicenseCategories), c.LicenseResolved,
+				c.LicenseDeclaredExpression, nonNil(c.LicenseDeclaredIDs), nonNil(c.LicenseDeclaredCategories), c.LicenseDeclaredResolved, c.LicenseOverrideID}
 		}
 		_, err = tx.CopyFrom(ctx,
 			pgx.Identifier{"sbom_components"},
 			[]string{"sbom_id", "project_id", "bom_ref", "type", "kind", "ml", "group", "name", "version", "purl", "cpe", "license", "file_path", "hashes",
 				"direct", "depth", "scope",
-				"license_expression", "license_ids", "license_categories", "license_resolved"},
+				"license_expression", "license_ids", "license_categories", "license_resolved",
+				"license_declared_expression", "license_declared_ids", "license_declared_categories", "license_declared_resolved", "license_override_id"},
 			pgx.CopyFromRows(rows))
 		if err != nil {
 			return Sbom{}, fmt.Errorf("copy components: %w", err)
@@ -452,6 +464,7 @@ const componentColumns = `
 		       c.purl, c.cpe, c.license, c.file_path, c.hashes, c.created_at,
 		       c.direct, c.depth, c.scope,
 		       c.license_expression, c.license_ids, c.license_categories, c.license_resolved,
+		       c.license_declared_expression, c.license_declared_ids, c.license_declared_categories, c.license_declared_resolved, c.license_override_id,
 		       p.slug, p.name, s.artifact, s.version, s.created_at,
 		       vs.vuln_count, vs.max_rank, vs.kev, vs.vulns,
 		       ps.latest_version, ps.outdated, ps.versions_behind, ps.published_at,
@@ -469,6 +482,7 @@ func scanComponentHit(row pgx.Row) (ComponentHit, error) {
 		&h.Purl, &h.Cpe, &h.License, &h.FilePath, &h.Hashes, &h.Component.CreatedAt,
 		&h.Direct, &h.Depth, &h.Scope,
 		&h.LicenseExpression, &h.LicenseIDs, &h.LicenseCategories, &h.LicenseResolved,
+		&h.LicenseDeclaredExpression, &h.LicenseDeclaredIDs, &h.LicenseDeclaredCategories, &h.LicenseDeclaredResolved, &h.LicenseOverrideID,
 		&h.ProjectSlug, &h.ProjectName, &h.Artifact, &h.SbomVersion, &h.SbomCreatedAt,
 		&h.VulnCount, &rank, &h.KEV, &h.Vulns,
 		&h.LatestVersion, &h.Outdated, &h.VersionsBehind, &h.VersionPublishedAt,

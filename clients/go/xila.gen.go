@@ -2627,6 +2627,48 @@ func (e UserKind) Valid() bool {
 	}
 }
 
+// Defines values for VexDocumentFormat.
+const (
+	VexDocumentFormatCsaf      VexDocumentFormat = "csaf"
+	VexDocumentFormatCyclonedx VexDocumentFormat = "cyclonedx"
+	VexDocumentFormatOpenvex   VexDocumentFormat = "openvex"
+)
+
+// Valid indicates whether the value is a known member of the VexDocumentFormat enum.
+func (e VexDocumentFormat) Valid() bool {
+	switch e {
+	case VexDocumentFormatCsaf:
+		return true
+	case VexDocumentFormatCyclonedx:
+		return true
+	case VexDocumentFormatOpenvex:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VexDocumentScopeKind.
+const (
+	VexDocumentScopeKindProject       VexDocumentScopeKind = "project"
+	VexDocumentScopeKindVersions      VexDocumentScopeKind = "versions"
+	VexDocumentScopeKindVulnerability VexDocumentScopeKind = "vulnerability"
+)
+
+// Valid indicates whether the value is a known member of the VexDocumentScopeKind enum.
+func (e VexDocumentScopeKind) Valid() bool {
+	switch e {
+	case VexDocumentScopeKindProject:
+		return true
+	case VexDocumentScopeKindVersions:
+		return true
+	case VexDocumentScopeKindVulnerability:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for VexStatementSource.
 const (
 	VexStatementSourceCyclonedx VexStatementSource = "cyclonedx"
@@ -3830,6 +3872,30 @@ const (
 func (e McpJSONBodyJsonrpc) Valid() bool {
 	switch e {
 	case N20:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetMeInboxParamsFilter.
+const (
+	GetMeInboxParamsFilterAssigned GetMeInboxParamsFilter = "assigned"
+	GetMeInboxParamsFilterEmpty    GetMeInboxParamsFilter = ""
+	GetMeInboxParamsFilterMentions GetMeInboxParamsFilter = "mentions"
+	GetMeInboxParamsFilterUnread   GetMeInboxParamsFilter = "unread"
+)
+
+// Valid indicates whether the value is a known member of the GetMeInboxParamsFilter enum.
+func (e GetMeInboxParamsFilter) Valid() bool {
+	switch e {
+	case GetMeInboxParamsFilterAssigned:
+		return true
+	case GetMeInboxParamsFilterEmpty:
+		return true
+	case GetMeInboxParamsFilterMentions:
+		return true
+	case GetMeInboxParamsFilterUnread:
 		return true
 	default:
 		return false
@@ -6285,6 +6351,23 @@ type GroupMappingRole string
 // GroupMappingTargetKind defines model for GroupMapping.TargetKind.
 type GroupMappingTargetKind string
 
+// InboxItem One row in the in-app notification inbox (GET /me/inbox).
+type InboxItem struct {
+	Body      *string    `json:"body,omitempty"`
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+
+	// EventType Example: mention
+	EventType *string             `json:"event_type,omitempty"`
+	FindingId *openapi_types.UUID `json:"finding_id,omitempty"`
+	Id        *openapi_types.UUID `json:"id,omitempty"`
+
+	// Link The finding or project this item is about, e.g. /findings/{id}.
+	Link      *string             `json:"link,omitempty"`
+	ProjectId *openapi_types.UUID `json:"project_id,omitempty"`
+	ReadAt    *time.Time          `json:"read_at,omitempty"`
+	Title     *string             `json:"title,omitempty"`
+}
+
 // IngestionAnomaly defines model for IngestionAnomaly.
 type IngestionAnomaly struct {
 	AssetId     *openapi_types.UUID   `json:"asset_id,omitempty"`
@@ -6463,6 +6546,39 @@ type LicenseGroupInput struct {
 	// LicenseIds Example: ["MIT","Apache-2.0","LicenseRef-internal"]
 	LicenseIds *[]string `json:"license_ids,omitempty"`
 	Name       string    `json:"name"`
+}
+
+// LicenseOverride defines model for LicenseOverride.
+type LicenseOverride struct {
+	Comment   *string             `json:"comment,omitempty"`
+	CreatedAt *time.Time          `json:"created_at,omitempty"`
+	CreatedBy *openapi_types.UUID `json:"created_by,omitempty"`
+	Id        *openapi_types.UUID `json:"id,omitempty"`
+
+	// License The concluded SPDX expression.
+	License   *string             `json:"license,omitempty"`
+	ProjectId *openapi_types.UUID `json:"project_id,omitempty"`
+
+	// Purl Without version, qualifiers or subpath ("npm/lodash").
+	Purl      *string    `json:"purl,omitempty"`
+	UpdatedAt *time.Time `json:"updated_at,omitempty"`
+
+	// VersionRange Component-policy-style range (">=1.2.0, <2.0.0"); empty = every version.
+	VersionRange *string `json:"version_range,omitempty"`
+}
+
+// LicenseOverrideInput defines model for LicenseOverrideInput.
+type LicenseOverrideInput struct {
+	Comment *string `json:"comment,omitempty"`
+
+	// License Example: MIT
+	License string `json:"license"`
+
+	// Purl Example: pkg:npm/lodash
+	Purl string `json:"purl"`
+
+	// VersionRange Example: >=4.17.0, <5.0.0
+	VersionRange *string `json:"version_range,omitempty"`
 }
 
 // MLDataset defines model for MLDataset.
@@ -8007,6 +8123,13 @@ type TimelineSnapshot struct {
 	Version  *string             `json:"version,omitempty"`
 }
 
+// TriageCarrySettings defines model for TriageCarrySettings.
+type TriageCarrySettings struct {
+	// BranchRegex Empty matches every version of the project.
+	BranchRegex *string `json:"branch_regex,omitempty"`
+	Enabled     *bool   `json:"enabled,omitempty"`
+}
+
 // TriagePreview defines model for TriagePreview.
 type TriagePreview struct {
 	Findings *[]struct {
@@ -8177,6 +8300,72 @@ type UserGroup struct {
 	Name        *string             `json:"name,omitempty"`
 	OrgId       *openapi_types.UUID `json:"org_id,omitempty"`
 	UpdatedAt   *time.Time          `json:"updated_at,omitempty"`
+}
+
+// VexDocument defines model for VexDocument.
+type VexDocument struct {
+	// Author Document author (OpenVEX `author`
+	Author    *string             `json:"author,omitempty"`
+	CreatedAt *time.Time          `json:"created_at,omitempty"`
+	CreatedBy *openapi_types.UUID `json:"created_by,omitempty"`
+
+	// DocumentId `<VEX_DOCUMENT_PREFIX>-<year>-<NNNN>`, e.g. `XILA-2026-0001`.
+	DocumentId       *string             `json:"document_id,omitempty"`
+	Format           VexDocumentFormat   `json:"format"`
+	Id               *openapi_types.UUID `json:"id,omitempty"`
+	ProjectId        *openapi_types.UUID `json:"project_id,omitempty"`
+	ProjectName      *string             `json:"project_name,omitempty"`
+	ProjectSlug      *string             `json:"project_slug,omitempty"`
+	PublishedAt      *time.Time          `json:"published_at,omitempty"`
+	PublisherContact *string             `json:"publisher_contact,omitempty"`
+
+	// PublisherName Empty = "Xila".
+	PublisherName *string `json:"publisher_name,omitempty"`
+
+	// PublisherNamespace Publisher's URL. Empty = `PUBLIC_URL`
+	PublisherNamespace *string                `json:"publisher_namespace,omitempty"`
+	Revisions          *[]VexDocumentRevision `json:"revisions,omitempty"`
+
+	// ScopeKind `project`: one version of `project_id` (`targets` has exactly one entry).
+	// `versions`: several versions/branches of `project_id` (`targets` has 1+).
+	// `vulnerability`: one `vuln_id` across every project (`project_id`/`targets`
+	// empty; instance-admin only to create, edit, delete or publish).
+	// `cyclonedx` only supports `project` with a single target.
+	ScopeKind VexDocumentScopeKind `json:"scope_kind"`
+
+	// SpecVersion Only for `cyclonedx`: `1.6` (default) or `1.7`.
+	SpecVersion *string              `json:"spec_version,omitempty"`
+	Targets     *[]VexDocumentTarget `json:"targets,omitempty"`
+	UpdatedAt   *time.Time           `json:"updated_at,omitempty"`
+
+	// Version Tracking version; 0 = never published.
+	Version *int `json:"version,omitempty"`
+
+	// VulnId CVE/GHSA; only for `scope_kind: vulnerability`.
+	VulnId *string `json:"vuln_id,omitempty"`
+}
+
+// VexDocumentFormat defines model for VexDocument.Format.
+type VexDocumentFormat string
+
+// VexDocumentScopeKind `project`: one version of `project_id` (`targets` has exactly one entry).
+// `versions`: several versions/branches of `project_id` (`targets` has 1+).
+// `vulnerability`: one `vuln_id` across every project (`project_id`/`targets`
+// empty; instance-admin only to create, edit, delete or publish).
+// `cyclonedx` only supports `project` with a single target.
+type VexDocumentScopeKind string
+
+// VexDocumentRevision defines model for VexDocumentRevision.
+type VexDocumentRevision struct {
+	Number      *int       `json:"number,omitempty"`
+	PublishedAt *time.Time `json:"published_at,omitempty"`
+}
+
+// VexDocumentTarget One project version a project/versions-scope document names. Neither field = the default version.
+type VexDocumentTarget struct {
+	// Branch Resolved to a version by name on every publish.
+	Branch    *string             `json:"branch,omitempty"`
+	VersionId *openapi_types.UUID `json:"version_id,omitempty"`
 }
 
 // VexStatement defines model for VexStatement.
@@ -8373,6 +8562,9 @@ type CustomFieldID = openapi_types.UUID
 // CustomParserID defines model for CustomParserID.
 type CustomParserID = openapi_types.UUID
 
+// DocumentID defines model for DocumentID.
+type DocumentID = openapi_types.UUID
+
 // EngagementFilter defines model for EngagementFilter.
 type EngagementFilter = openapi_types.UUID
 
@@ -8429,6 +8621,9 @@ type OrgID = openapi_types.UUID
 
 // OutdatedFilter defines model for OutdatedFilter.
 type OutdatedFilter = bool
+
+// OverrideID defines model for OverrideID.
+type OverrideID = openapi_types.UUID
 
 // PermOrgID defines model for PermOrgID.
 type PermOrgID = openapi_types.UUID
@@ -9367,6 +9562,11 @@ type UpdateFindingDetailsJSONBody struct {
 	Title            *string   `json:"title,omitempty"`
 }
 
+// MarkFindingDuplicateJSONBody defines parameters for MarkFindingDuplicate.
+type MarkFindingDuplicateJSONBody struct {
+	PrimaryId openapi_types.UUID `json:"primary_id"`
+}
+
 // ListFindingExploits200JSONResponseBodyExploitsMaturity defines parameters for ListFindingExploits.
 type ListFindingExploits200JSONResponseBodyExploitsMaturity string
 
@@ -9447,6 +9647,24 @@ type McpJSONBody struct {
 
 // McpJSONBodyJsonrpc defines parameters for Mcp.
 type McpJSONBodyJsonrpc string
+
+// GetMeInboxParams defines parameters for GetMeInbox.
+type GetMeInboxParams struct {
+	Filter *GetMeInboxParamsFilter `form:"filter,omitempty" json:"filter,omitempty"`
+
+	// Limit Page size (max 200).
+	Limit  *Limit  `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// GetMeInboxParamsFilter defines parameters for GetMeInbox.
+type GetMeInboxParamsFilter string
+
+// PostMeInboxReadJSONBody defines parameters for PostMeInboxRead.
+type PostMeInboxReadJSONBody struct {
+	All *bool                 `json:"all,omitempty"`
+	Ids *[]openapi_types.UUID `json:"ids,omitempty"`
+}
 
 // DisableMeMfaJSONBody defines parameters for DisableMeMfa.
 type DisableMeMfaJSONBody struct {
@@ -10598,6 +10816,13 @@ type UpdateUserJSONBody struct {
 	IsAdmin *bool `json:"is_admin,omitempty"`
 }
 
+// ListVexDocumentsParams defines parameters for ListVexDocuments.
+type ListVexDocumentsParams struct {
+	// Limit Page size (max 200).
+	Limit  *Limit  `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
 // ExportVulnPolicyBundleParams defines parameters for ExportVulnPolicyBundle.
 type ExportVulnPolicyBundleParams struct {
 	Format *ExportVulnPolicyBundleParamsFormat `form:"format,omitempty" json:"format,omitempty"`
@@ -10781,6 +11006,9 @@ type UpdateFindingCustomJSONRequestBody = CustomValues
 // UpdateFindingDetailsJSONRequestBody defines body for UpdateFindingDetails for application/json ContentType.
 type UpdateFindingDetailsJSONRequestBody UpdateFindingDetailsJSONBody
 
+// MarkFindingDuplicateJSONRequestBody defines body for MarkFindingDuplicate for application/json ContentType.
+type MarkFindingDuplicateJSONRequestBody MarkFindingDuplicateJSONBody
+
 // UpdateFindingFieldsJSONRequestBody defines body for UpdateFindingFields for application/json ContentType.
 type UpdateFindingFieldsJSONRequestBody UpdateFindingFieldsJSONBody
 
@@ -10801,6 +11029,9 @@ type PutLicenseGroupJSONRequestBody = LicenseGroupInput
 
 // McpJSONRequestBody defines body for Mcp for application/json ContentType.
 type McpJSONRequestBody McpJSONBody
+
+// PostMeInboxReadJSONRequestBody defines body for PostMeInboxRead for application/json ContentType.
+type PostMeInboxReadJSONRequestBody PostMeInboxReadJSONBody
 
 // DisableMeMfaJSONRequestBody defines body for DisableMeMfa for application/json ContentType.
 type DisableMeMfaJSONRequestBody DisableMeMfaJSONBody
@@ -10898,6 +11129,12 @@ type PutProjectGatePolicyJSONRequestBody = GatePolicy
 // PutProjectIssueTrackerJSONRequestBody defines body for PutProjectIssueTracker for application/json ContentType.
 type PutProjectIssueTrackerJSONRequestBody = IssueTrackerInput
 
+// CreateLicenseOverrideJSONRequestBody defines body for CreateLicenseOverride for application/json ContentType.
+type CreateLicenseOverrideJSONRequestBody = LicenseOverrideInput
+
+// UpdateLicenseOverrideJSONRequestBody defines body for UpdateLicenseOverride for application/json ContentType.
+type UpdateLicenseOverrideJSONRequestBody = LicenseOverrideInput
+
 // CreateProjectMemberJSONRequestBody defines body for CreateProjectMember for application/json ContentType.
 type CreateProjectMemberJSONRequestBody CreateProjectMemberJSONBody
 
@@ -10933,6 +11170,9 @@ type CreateProjectScanJSONRequestBody = CreateProjectScanJSONBody
 
 // PutProjectSlaPolicyJSONRequestBody defines body for PutProjectSlaPolicy for application/json ContentType.
 type PutProjectSlaPolicyJSONRequestBody = SLADays
+
+// PutProjectTriageCarryJSONRequestBody defines body for PutProjectTriageCarry for application/json ContentType.
+type PutProjectTriageCarryJSONRequestBody = TriageCarrySettings
 
 // UpdateProjectVersionJSONRequestBody defines body for UpdateProjectVersion for application/json ContentType.
 type UpdateProjectVersionJSONRequestBody UpdateProjectVersionJSONBody
@@ -11035,6 +11275,12 @@ type CreateUserJSONRequestBody CreateUserJSONBody
 
 // UpdateUserJSONRequestBody defines body for UpdateUser for application/json ContentType.
 type UpdateUserJSONRequestBody UpdateUserJSONBody
+
+// CreateVexDocumentJSONRequestBody defines body for CreateVexDocument for application/json ContentType.
+type CreateVexDocumentJSONRequestBody = VexDocument
+
+// UpdateVexDocumentJSONRequestBody defines body for UpdateVexDocument for application/json ContentType.
+type UpdateVexDocumentJSONRequestBody = VexDocument
 
 // CreateVulnPolicyJSONRequestBody defines body for CreateVulnPolicy for application/json ContentType.
 type CreateVulnPolicyJSONRequestBody = VulnPolicy
@@ -12899,6 +13145,35 @@ type ClientInterface interface {
 	// Corresponds with PATCH /findings/{findingID}/details (the `UpdateFindingDetails` operationId).
 	UpdateFindingDetails(ctx context.Context, findingID FindingID, body UpdateFindingDetailsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// UnmarkFindingDuplicate Undo a manual duplicate mark
+	//
+	// Corresponds with DELETE /findings/{findingID}/duplicate-of (the `UnmarkFindingDuplicate` operationId).
+	UnmarkFindingDuplicate(ctx context.Context, findingID FindingID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// MarkFindingDuplicateWithBody Mark by hand as a duplicate of another finding
+	//
+	// Same project and version as the primary. A manual override: automatic
+	// dedup (`Deduplicate`) never rewrites it, and the finding behaves exactly
+	// like an automatic duplicate everywhere (excluded from counts, lists,
+	// metrics) until unmarked.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /findings/{findingID}/duplicate-of (the `MarkFindingDuplicate` operationId).
+	MarkFindingDuplicateWithBody(ctx context.Context, findingID FindingID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// MarkFindingDuplicate Mark by hand as a duplicate of another finding
+	//
+	// Same project and version as the primary. A manual override: automatic
+	// dedup (`Deduplicate`) never rewrites it, and the finding behaves exactly
+	// like an automatic duplicate everywhere (excluded from counts, lists,
+	// metrics) until unmarked.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /findings/{findingID}/duplicate-of (the `MarkFindingDuplicate` operationId).
+	MarkFindingDuplicate(ctx context.Context, findingID FindingID, body MarkFindingDuplicateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListFindingDuplicates The other tools that reported this same issue
 	//
 	// Cross-tool duplicates collapsed into this finding, with their own scanner and lifecycle preserved.
@@ -13256,6 +13531,43 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /me (the `GetMe` operationId).
 	GetMe(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetMeInbox Your in-app notification inbox
+	//
+	// Any signed-in person (not a service account). One row per event that reached
+	// you: the assignee of a finding assigned to you, someone who @mentioned you in a
+	// finding comment, an event on a project you watch, or (for events naming no
+	// project) an instance admin. Visibility is re-checked on every call — an item
+	// whose project you can no longer see is skipped, even though the row stays.
+	// `?filter=unread|mentions|assigned` narrows the list; omitted returns everything.
+	//
+	// Corresponds with GET /me/inbox (the `GetMeInbox` operationId).
+	GetMeInbox(ctx context.Context, params *GetMeInboxParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetMeInboxCount Your unread inbox count
+	//
+	// Cheap — for a header bell badge. Same visibility re-check as the list.
+	//
+	// Corresponds with GET /me/inbox/count (the `GetMeInboxCount` operationId).
+	GetMeInboxCount(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostMeInboxReadWithBody Mark inbox items read
+	//
+	// Pass `ids`, or `all: true` for every unread item still visible to you.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /me/inbox/read (the `PostMeInboxRead` operationId).
+	PostMeInboxReadWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostMeInboxRead Mark inbox items read
+	//
+	// Pass `ids`, or `all: true` for every unread item still visible to you.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /me/inbox/read (the `PostMeInboxRead` operationId).
+	PostMeInboxRead(ctx context.Context, body PostMeInboxReadJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// Logout Sign out (and start SAML Single Logout)
 	//
@@ -14527,6 +14839,59 @@ type ClientInterface interface {
 	// Corresponds with POST /projects/{projectID}/issue-tracker/test (the `TestProjectIssueTracker` operationId).
 	TestProjectIssueTracker(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListLicenseOverrides The project's curated concluded licenses
+	//
+	// Corresponds with GET /projects/{projectID}/license-overrides (the `ListLicenseOverrides` operationId).
+	ListLicenseOverrides(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateLicenseOverrideWithBody Curate a package's concluded license
+	//
+	// Owner. Applied at the project's next ingest instead of the SBOM's
+	// declared license, and immediately to its current snapshots; the
+	// project's component policies re-evaluate right after. Kept across
+	// re-uploads. `purl` is matched without version, qualifiers or subpath.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /projects/{projectID}/license-overrides (the `CreateLicenseOverride` operationId).
+	CreateLicenseOverrideWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateLicenseOverride Curate a package's concluded license
+	//
+	// Owner. Applied at the project's next ingest instead of the SBOM's
+	// declared license, and immediately to its current snapshots; the
+	// project's component policies re-evaluate right after. Kept across
+	// re-uploads. `purl` is matched without version, qualifiers or subpath.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /projects/{projectID}/license-overrides (the `CreateLicenseOverride` operationId).
+	CreateLicenseOverride(ctx context.Context, projectID ProjectID, body CreateLicenseOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteLicenseOverride Remove a curated license, reverting to the SBOM's declared one
+	//
+	// Corresponds with DELETE /projects/{projectID}/license-overrides/{overrideID} (the `DeleteLicenseOverride` operationId).
+	DeleteLicenseOverride(ctx context.Context, projectID ProjectID, overrideID OverrideID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetLicenseOverride One curated concluded license
+	//
+	// Corresponds with GET /projects/{projectID}/license-overrides/{overrideID} (the `GetLicenseOverride` operationId).
+	GetLicenseOverride(ctx context.Context, projectID ProjectID, overrideID OverrideID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateLicenseOverrideWithBody Change a curated license
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /projects/{projectID}/license-overrides/{overrideID} (the `UpdateLicenseOverride` operationId).
+	UpdateLicenseOverrideWithBody(ctx context.Context, projectID ProjectID, overrideID OverrideID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateLicenseOverride Change a curated license
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /projects/{projectID}/license-overrides/{overrideID} (the `UpdateLicenseOverride` operationId).
+	UpdateLicenseOverride(ctx context.Context, projectID ProjectID, overrideID OverrideID, body UpdateLicenseOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListProjectMembers A project's direct members
 	//
 	// The grants made **on this project** — not everyone who can reach it through
@@ -15003,6 +15368,35 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /projects/{projectID}/summary (the `GetProjectSummary` operationId).
 	GetProjectSummary(ctx context.Context, projectID ProjectID, params *GetProjectSummaryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetProjectTriageCarry The project's triage-carry setting
+	//
+	// Whether a manual triage decision (`false_positive`, `wont_fix`, or
+	// reopening) on one version of this project is copied to its other
+	// in-scope versions, and applied to a matching finding a later scan
+	// creates there. Risk acceptances never carry; they are a decision
+	// about one version's exposure, not a fact about the code.
+	//
+	// Corresponds with GET /projects/{projectID}/triage-carry (the `GetProjectTriageCarry` operationId).
+	GetProjectTriageCarry(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutProjectTriageCarryWithBody Turn triage carry on or off, and scope it by branch
+	//
+	// Owner. `branch_regex` empty matches every version of the project.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /projects/{projectID}/triage-carry (the `PutProjectTriageCarry` operationId).
+	PutProjectTriageCarryWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutProjectTriageCarry Turn triage carry on or off, and scope it by branch
+	//
+	// Owner. `branch_regex` empty matches every version of the project.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /projects/{projectID}/triage-carry (the `PutProjectTriageCarry` operationId).
+	PutProjectTriageCarry(ctx context.Context, projectID ProjectID, body PutProjectTriageCarryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListProjectVersions A project's branches and releases
 	//
@@ -16406,6 +16800,93 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /users/{userID}/transfer-ownership (the `TransferOwnership` operationId).
 	TransferOwnership(ctx context.Context, userID UserID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListVexDocuments Stored, versioned VEX documents
+	//
+	// A document has a format (OpenVEX, CSAF, CycloneDX), a scope (one project
+	// version, several versions/branches of one project, or one vulnerability
+	// across every project), publisher metadata, and a revision history. Lists
+	// every document on the caller's visible projects; an instance admin also
+	// sees vulnerability-scope documents (cross-project, admin-only to create).
+	//
+	// Corresponds with GET /vex-documents (the `ListVexDocuments` operationId).
+	ListVexDocuments(ctx context.Context, params *ListVexDocumentsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateVexDocumentWithBody Create a VEX document
+	//
+	// Stores an unpublished document; `POST .../publish` renders and freezes its
+	// first revision. `scope_kind: vulnerability` (`vuln_id` required) spans
+	// every project and is instance-admin only. CycloneDX only supports
+	// `scope_kind: project` with exactly one target (its single-BOM-subject
+	// model doesn't generalize to several versions or projects).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /vex-documents (the `CreateVexDocument` operationId).
+	CreateVexDocumentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateVexDocument Create a VEX document
+	//
+	// Stores an unpublished document; `POST .../publish` renders and freezes its
+	// first revision. `scope_kind: vulnerability` (`vuln_id` required) spans
+	// every project and is instance-admin only. CycloneDX only supports
+	// `scope_kind: project` with exactly one target (its single-BOM-subject
+	// model doesn't generalize to several versions or projects).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /vex-documents (the `CreateVexDocument` operationId).
+	CreateVexDocument(ctx context.Context, body CreateVexDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteVexDocument Delete a document (and its revisions)
+	//
+	// Corresponds with DELETE /vex-documents/{documentID} (the `DeleteVexDocument` operationId).
+	DeleteVexDocument(ctx context.Context, documentID DocumentID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetVexDocument One VEX document
+	//
+	// Corresponds with GET /vex-documents/{documentID} (the `GetVexDocument` operationId).
+	GetVexDocument(ctx context.Context, documentID DocumentID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateVexDocumentWithBody Edit a document's scope, format or publisher metadata
+	//
+	// Its version, content hash and revision history are untouched; a scope or
+	// metadata change takes effect on the next publish.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /vex-documents/{documentID} (the `UpdateVexDocument` operationId).
+	UpdateVexDocumentWithBody(ctx context.Context, documentID DocumentID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateVexDocument Edit a document's scope, format or publisher metadata
+	//
+	// Its version, content hash and revision history are untouched; a scope or
+	// metadata change takes effect on the next publish.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /vex-documents/{documentID} (the `UpdateVexDocument` operationId).
+	UpdateVexDocument(ctx context.Context, documentID DocumentID, body UpdateVexDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PublishVexDocument Publish (re-render from current data)
+	//
+	// Re-renders the document from the project's current findings and stored VEX
+	// statements (the same mapping `GET /projects/{id}/vex/export` uses). A new
+	// revision and tracking version are appended only when the rendered content
+	// actually changed since the last publish (`changed: false` otherwise).
+	//
+	// Corresponds with POST /vex-documents/{documentID}/publish (the `PublishVexDocument` operationId).
+	PublishVexDocument(ctx context.Context, documentID DocumentID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListVexDocumentRevisions A document's revision history
+	//
+	// Corresponds with GET /vex-documents/{documentID}/revisions (the `ListVexDocumentRevisions` operationId).
+	ListVexDocumentRevisions(ctx context.Context, documentID DocumentID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DownloadVexDocumentRevision Download one revision's frozen, rendered document
+	//
+	// Corresponds with GET /vex-documents/{documentID}/revisions/{number}/download (the `DownloadVexDocumentRevision` operationId).
+	DownloadVexDocumentRevision(ctx context.Context, documentID DocumentID, number int, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteVexStatement Remove a VEX statement
 	//
@@ -20047,6 +20528,65 @@ func (c *Client) UpdateFindingDetails(ctx context.Context, findingID FindingID, 
 	return c.Client.Do(req)
 }
 
+// UnmarkFindingDuplicate Undo a manual duplicate mark
+//
+// Corresponds with DELETE /findings/{findingID}/duplicate-of (the `UnmarkFindingDuplicate` operationId).
+func (c *Client) UnmarkFindingDuplicate(ctx context.Context, findingID FindingID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUnmarkFindingDuplicateRequest(c.Server, findingID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// MarkFindingDuplicateWithBody Mark by hand as a duplicate of another finding
+//
+// Same project and version as the primary. A manual override: automatic
+// dedup (`Deduplicate`) never rewrites it, and the finding behaves exactly
+// like an automatic duplicate everywhere (excluded from counts, lists,
+// metrics) until unmarked.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /findings/{findingID}/duplicate-of (the `MarkFindingDuplicate` operationId).
+func (c *Client) MarkFindingDuplicateWithBody(ctx context.Context, findingID FindingID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewMarkFindingDuplicateRequestWithBody(c.Server, findingID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// MarkFindingDuplicate Mark by hand as a duplicate of another finding
+//
+// Same project and version as the primary. A manual override: automatic
+// dedup (`Deduplicate`) never rewrites it, and the finding behaves exactly
+// like an automatic duplicate everywhere (excluded from counts, lists,
+// metrics) until unmarked.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /findings/{findingID}/duplicate-of (the `MarkFindingDuplicate` operationId).
+func (c *Client) MarkFindingDuplicate(ctx context.Context, findingID FindingID, body MarkFindingDuplicateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewMarkFindingDuplicateRequest(c.Server, findingID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListFindingDuplicates The other tools that reported this same issue
 //
 // Cross-tool duplicates collapsed into this finding, with their own scanner and lifecycle preserved.
@@ -20755,6 +21295,83 @@ func (c *Client) Mcp(ctx context.Context, body McpJSONRequestBody, reqEditors ..
 // Corresponds with GET /me (the `GetMe` operationId).
 func (c *Client) GetMe(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetMeRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetMeInbox Your in-app notification inbox
+//
+// Any signed-in person (not a service account). One row per event that reached
+// you: the assignee of a finding assigned to you, someone who @mentioned you in a
+// finding comment, an event on a project you watch, or (for events naming no
+// project) an instance admin. Visibility is re-checked on every call — an item
+// whose project you can no longer see is skipped, even though the row stays.
+// `?filter=unread|mentions|assigned` narrows the list; omitted returns everything.
+//
+// Corresponds with GET /me/inbox (the `GetMeInbox` operationId).
+func (c *Client) GetMeInbox(ctx context.Context, params *GetMeInboxParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetMeInboxRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetMeInboxCount Your unread inbox count
+//
+// Cheap — for a header bell badge. Same visibility re-check as the list.
+//
+// Corresponds with GET /me/inbox/count (the `GetMeInboxCount` operationId).
+func (c *Client) GetMeInboxCount(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetMeInboxCountRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PostMeInboxReadWithBody Mark inbox items read
+//
+// Pass `ids`, or `all: true` for every unread item still visible to you.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /me/inbox/read (the `PostMeInboxRead` operationId).
+func (c *Client) PostMeInboxReadWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostMeInboxReadRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PostMeInboxRead Mark inbox items read
+//
+// Pass `ids`, or `all: true` for every unread item still visible to you.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /me/inbox/read (the `PostMeInboxRead` operationId).
+func (c *Client) PostMeInboxRead(ctx context.Context, body PostMeInboxReadJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostMeInboxReadRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -23375,6 +23992,129 @@ func (c *Client) TestProjectIssueTracker(ctx context.Context, projectID ProjectI
 	return c.Client.Do(req)
 }
 
+// ListLicenseOverrides The project's curated concluded licenses
+//
+// Corresponds with GET /projects/{projectID}/license-overrides (the `ListLicenseOverrides` operationId).
+func (c *Client) ListLicenseOverrides(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListLicenseOverridesRequest(c.Server, projectID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateLicenseOverrideWithBody Curate a package's concluded license
+//
+// Owner. Applied at the project's next ingest instead of the SBOM's
+// declared license, and immediately to its current snapshots; the
+// project's component policies re-evaluate right after. Kept across
+// re-uploads. `purl` is matched without version, qualifiers or subpath.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /projects/{projectID}/license-overrides (the `CreateLicenseOverride` operationId).
+func (c *Client) CreateLicenseOverrideWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateLicenseOverrideRequestWithBody(c.Server, projectID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateLicenseOverride Curate a package's concluded license
+//
+// Owner. Applied at the project's next ingest instead of the SBOM's
+// declared license, and immediately to its current snapshots; the
+// project's component policies re-evaluate right after. Kept across
+// re-uploads. `purl` is matched without version, qualifiers or subpath.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /projects/{projectID}/license-overrides (the `CreateLicenseOverride` operationId).
+func (c *Client) CreateLicenseOverride(ctx context.Context, projectID ProjectID, body CreateLicenseOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateLicenseOverrideRequest(c.Server, projectID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteLicenseOverride Remove a curated license, reverting to the SBOM's declared one
+//
+// Corresponds with DELETE /projects/{projectID}/license-overrides/{overrideID} (the `DeleteLicenseOverride` operationId).
+func (c *Client) DeleteLicenseOverride(ctx context.Context, projectID ProjectID, overrideID OverrideID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteLicenseOverrideRequest(c.Server, projectID, overrideID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetLicenseOverride One curated concluded license
+//
+// Corresponds with GET /projects/{projectID}/license-overrides/{overrideID} (the `GetLicenseOverride` operationId).
+func (c *Client) GetLicenseOverride(ctx context.Context, projectID ProjectID, overrideID OverrideID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetLicenseOverrideRequest(c.Server, projectID, overrideID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateLicenseOverrideWithBody Change a curated license
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /projects/{projectID}/license-overrides/{overrideID} (the `UpdateLicenseOverride` operationId).
+func (c *Client) UpdateLicenseOverrideWithBody(ctx context.Context, projectID ProjectID, overrideID OverrideID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateLicenseOverrideRequestWithBody(c.Server, projectID, overrideID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateLicenseOverride Change a curated license
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /projects/{projectID}/license-overrides/{overrideID} (the `UpdateLicenseOverride` operationId).
+func (c *Client) UpdateLicenseOverride(ctx context.Context, projectID ProjectID, overrideID OverrideID, body UpdateLicenseOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateLicenseOverrideRequest(c.Server, projectID, overrideID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListProjectMembers A project's direct members
 //
 // The grants made **on this project** — not everyone who can reach it through
@@ -24282,6 +25022,65 @@ func (c *Client) PutProjectSlaPolicy(ctx context.Context, projectID ProjectID, b
 // Corresponds with GET /projects/{projectID}/summary (the `GetProjectSummary` operationId).
 func (c *Client) GetProjectSummary(ctx context.Context, projectID ProjectID, params *GetProjectSummaryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetProjectSummaryRequest(c.Server, projectID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetProjectTriageCarry The project's triage-carry setting
+//
+// Whether a manual triage decision (`false_positive`, `wont_fix`, or
+// reopening) on one version of this project is copied to its other
+// in-scope versions, and applied to a matching finding a later scan
+// creates there. Risk acceptances never carry; they are a decision
+// about one version's exposure, not a fact about the code.
+//
+// Corresponds with GET /projects/{projectID}/triage-carry (the `GetProjectTriageCarry` operationId).
+func (c *Client) GetProjectTriageCarry(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetProjectTriageCarryRequest(c.Server, projectID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutProjectTriageCarryWithBody Turn triage carry on or off, and scope it by branch
+//
+// Owner. `branch_regex` empty matches every version of the project.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /projects/{projectID}/triage-carry (the `PutProjectTriageCarry` operationId).
+func (c *Client) PutProjectTriageCarryWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutProjectTriageCarryRequestWithBody(c.Server, projectID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutProjectTriageCarry Turn triage carry on or off, and scope it by branch
+//
+// Owner. `branch_regex` empty matches every version of the project.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /projects/{projectID}/triage-carry (the `PutProjectTriageCarry` operationId).
+func (c *Client) PutProjectTriageCarry(ctx context.Context, projectID ProjectID, body PutProjectTriageCarryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutProjectTriageCarryRequest(c.Server, projectID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -27275,6 +28074,193 @@ func (c *Client) ReactivateUser(ctx context.Context, userID UserID, reqEditors .
 // Corresponds with POST /users/{userID}/transfer-ownership (the `TransferOwnership` operationId).
 func (c *Client) TransferOwnership(ctx context.Context, userID UserID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewTransferOwnershipRequest(c.Server, userID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListVexDocuments Stored, versioned VEX documents
+//
+// A document has a format (OpenVEX, CSAF, CycloneDX), a scope (one project
+// version, several versions/branches of one project, or one vulnerability
+// across every project), publisher metadata, and a revision history. Lists
+// every document on the caller's visible projects; an instance admin also
+// sees vulnerability-scope documents (cross-project, admin-only to create).
+//
+// Corresponds with GET /vex-documents (the `ListVexDocuments` operationId).
+func (c *Client) ListVexDocuments(ctx context.Context, params *ListVexDocumentsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListVexDocumentsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateVexDocumentWithBody Create a VEX document
+//
+// Stores an unpublished document; `POST .../publish` renders and freezes its
+// first revision. `scope_kind: vulnerability` (`vuln_id` required) spans
+// every project and is instance-admin only. CycloneDX only supports
+// `scope_kind: project` with exactly one target (its single-BOM-subject
+// model doesn't generalize to several versions or projects).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /vex-documents (the `CreateVexDocument` operationId).
+func (c *Client) CreateVexDocumentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateVexDocumentRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateVexDocument Create a VEX document
+//
+// Stores an unpublished document; `POST .../publish` renders and freezes its
+// first revision. `scope_kind: vulnerability` (`vuln_id` required) spans
+// every project and is instance-admin only. CycloneDX only supports
+// `scope_kind: project` with exactly one target (its single-BOM-subject
+// model doesn't generalize to several versions or projects).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /vex-documents (the `CreateVexDocument` operationId).
+func (c *Client) CreateVexDocument(ctx context.Context, body CreateVexDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateVexDocumentRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteVexDocument Delete a document (and its revisions)
+//
+// Corresponds with DELETE /vex-documents/{documentID} (the `DeleteVexDocument` operationId).
+func (c *Client) DeleteVexDocument(ctx context.Context, documentID DocumentID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteVexDocumentRequest(c.Server, documentID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetVexDocument One VEX document
+//
+// Corresponds with GET /vex-documents/{documentID} (the `GetVexDocument` operationId).
+func (c *Client) GetVexDocument(ctx context.Context, documentID DocumentID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetVexDocumentRequest(c.Server, documentID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateVexDocumentWithBody Edit a document's scope, format or publisher metadata
+//
+// Its version, content hash and revision history are untouched; a scope or
+// metadata change takes effect on the next publish.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /vex-documents/{documentID} (the `UpdateVexDocument` operationId).
+func (c *Client) UpdateVexDocumentWithBody(ctx context.Context, documentID DocumentID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateVexDocumentRequestWithBody(c.Server, documentID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateVexDocument Edit a document's scope, format or publisher metadata
+//
+// Its version, content hash and revision history are untouched; a scope or
+// metadata change takes effect on the next publish.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /vex-documents/{documentID} (the `UpdateVexDocument` operationId).
+func (c *Client) UpdateVexDocument(ctx context.Context, documentID DocumentID, body UpdateVexDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateVexDocumentRequest(c.Server, documentID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PublishVexDocument Publish (re-render from current data)
+//
+// Re-renders the document from the project's current findings and stored VEX
+// statements (the same mapping `GET /projects/{id}/vex/export` uses). A new
+// revision and tracking version are appended only when the rendered content
+// actually changed since the last publish (`changed: false` otherwise).
+//
+// Corresponds with POST /vex-documents/{documentID}/publish (the `PublishVexDocument` operationId).
+func (c *Client) PublishVexDocument(ctx context.Context, documentID DocumentID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPublishVexDocumentRequest(c.Server, documentID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListVexDocumentRevisions A document's revision history
+//
+// Corresponds with GET /vex-documents/{documentID}/revisions (the `ListVexDocumentRevisions` operationId).
+func (c *Client) ListVexDocumentRevisions(ctx context.Context, documentID DocumentID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListVexDocumentRevisionsRequest(c.Server, documentID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DownloadVexDocumentRevision Download one revision's frozen, rendered document
+//
+// Corresponds with GET /vex-documents/{documentID}/revisions/{number}/download (the `DownloadVexDocumentRevision` operationId).
+func (c *Client) DownloadVexDocumentRevision(ctx context.Context, documentID DocumentID, number int, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDownloadVexDocumentRevisionRequest(c.Server, documentID, number)
 	if err != nil {
 		return nil, err
 	}
@@ -34414,6 +35400,87 @@ func NewUpdateFindingDetailsRequestWithBody(server string, findingID FindingID, 
 	return req, nil
 }
 
+// NewUnmarkFindingDuplicateRequest constructs an http.Request for the UnmarkFindingDuplicate method
+func NewUnmarkFindingDuplicateRequest(server string, findingID FindingID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "findingID", findingID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/findings/%s/duplicate-of", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewMarkFindingDuplicateRequest calls the generic MarkFindingDuplicate builder with application/json body
+func NewMarkFindingDuplicateRequest(server string, findingID FindingID, body MarkFindingDuplicateJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewMarkFindingDuplicateRequestWithBody(server, findingID, "application/json", bodyReader)
+}
+
+// NewMarkFindingDuplicateRequestWithBody constructs an http.Request for the MarkFindingDuplicate method, with any body, and a specified content type
+func NewMarkFindingDuplicateRequestWithBody(server string, findingID FindingID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "findingID", findingID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/findings/%s/duplicate-of", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListFindingDuplicatesRequest constructs an http.Request for the ListFindingDuplicates method
 func NewListFindingDuplicatesRequest(server string, findingID FindingID) (*http.Request, error) {
 	var err error
@@ -35574,6 +36641,151 @@ func NewGetMeRequest(server string) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewGetMeInboxRequest constructs an http.Request for the GetMeInbox method
+func NewGetMeInboxRequest(server string, params *GetMeInboxParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/me/inbox")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Filter != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "filter", *params.Filter, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "offset", *params.Offset, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetMeInboxCountRequest constructs an http.Request for the GetMeInboxCount method
+func NewGetMeInboxCountRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/me/inbox/count")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPostMeInboxReadRequest calls the generic PostMeInboxRead builder with application/json body
+func NewPostMeInboxReadRequest(server string, body PostMeInboxReadJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostMeInboxReadRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPostMeInboxReadRequestWithBody constructs an http.Request for the PostMeInboxRead method, with any body, and a specified content type
+func NewPostMeInboxReadRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/me/inbox/read")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -41144,6 +42356,223 @@ func NewTestProjectIssueTrackerRequest(server string, projectID ProjectID) (*htt
 	return req, nil
 }
 
+// NewListLicenseOverridesRequest constructs an http.Request for the ListLicenseOverrides method
+func NewListLicenseOverridesRequest(server string, projectID ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/license-overrides", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateLicenseOverrideRequest calls the generic CreateLicenseOverride builder with application/json body
+func NewCreateLicenseOverrideRequest(server string, projectID ProjectID, body CreateLicenseOverrideJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateLicenseOverrideRequestWithBody(server, projectID, "application/json", bodyReader)
+}
+
+// NewCreateLicenseOverrideRequestWithBody constructs an http.Request for the CreateLicenseOverride method, with any body, and a specified content type
+func NewCreateLicenseOverrideRequestWithBody(server string, projectID ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/license-overrides", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteLicenseOverrideRequest constructs an http.Request for the DeleteLicenseOverride method
+func NewDeleteLicenseOverrideRequest(server string, projectID ProjectID, overrideID OverrideID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "overrideID", overrideID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/license-overrides/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetLicenseOverrideRequest constructs an http.Request for the GetLicenseOverride method
+func NewGetLicenseOverrideRequest(server string, projectID ProjectID, overrideID OverrideID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "overrideID", overrideID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/license-overrides/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateLicenseOverrideRequest calls the generic UpdateLicenseOverride builder with application/json body
+func NewUpdateLicenseOverrideRequest(server string, projectID ProjectID, overrideID OverrideID, body UpdateLicenseOverrideJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateLicenseOverrideRequestWithBody(server, projectID, overrideID, "application/json", bodyReader)
+}
+
+// NewUpdateLicenseOverrideRequestWithBody constructs an http.Request for the UpdateLicenseOverride method, with any body, and a specified content type
+func NewUpdateLicenseOverrideRequestWithBody(server string, projectID ProjectID, overrideID OverrideID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "overrideID", overrideID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/license-overrides/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListProjectMembersRequest constructs an http.Request for the ListProjectMembers method
 func NewListProjectMembersRequest(server string, projectID ProjectID) (*http.Request, error) {
 	var err error
@@ -43074,6 +44503,87 @@ func NewGetProjectSummaryRequest(server string, projectID ProjectID, params *Get
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewGetProjectTriageCarryRequest constructs an http.Request for the GetProjectTriageCarry method
+func NewGetProjectTriageCarryRequest(server string, projectID ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/triage-carry", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutProjectTriageCarryRequest calls the generic PutProjectTriageCarry builder with application/json body
+func NewPutProjectTriageCarryRequest(server string, projectID ProjectID, body PutProjectTriageCarryJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutProjectTriageCarryRequestWithBody(server, projectID, "application/json", bodyReader)
+}
+
+// NewPutProjectTriageCarryRequestWithBody constructs an http.Request for the PutProjectTriageCarry method, with any body, and a specified content type
+func NewPutProjectTriageCarryRequestWithBody(server string, projectID ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/triage-carry", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -48425,6 +49935,336 @@ func NewTransferOwnershipRequest(server string, userID UserID) (*http.Request, e
 	return req, nil
 }
 
+// NewListVexDocumentsRequest constructs an http.Request for the ListVexDocuments method
+func NewListVexDocumentsRequest(server string, params *ListVexDocumentsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/vex-documents")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "offset", *params.Offset, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateVexDocumentRequest calls the generic CreateVexDocument builder with application/json body
+func NewCreateVexDocumentRequest(server string, body CreateVexDocumentJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateVexDocumentRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateVexDocumentRequestWithBody constructs an http.Request for the CreateVexDocument method, with any body, and a specified content type
+func NewCreateVexDocumentRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/vex-documents")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteVexDocumentRequest constructs an http.Request for the DeleteVexDocument method
+func NewDeleteVexDocumentRequest(server string, documentID DocumentID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "documentID", documentID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/vex-documents/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetVexDocumentRequest constructs an http.Request for the GetVexDocument method
+func NewGetVexDocumentRequest(server string, documentID DocumentID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "documentID", documentID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/vex-documents/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateVexDocumentRequest calls the generic UpdateVexDocument builder with application/json body
+func NewUpdateVexDocumentRequest(server string, documentID DocumentID, body UpdateVexDocumentJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateVexDocumentRequestWithBody(server, documentID, "application/json", bodyReader)
+}
+
+// NewUpdateVexDocumentRequestWithBody constructs an http.Request for the UpdateVexDocument method, with any body, and a specified content type
+func NewUpdateVexDocumentRequestWithBody(server string, documentID DocumentID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "documentID", documentID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/vex-documents/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPublishVexDocumentRequest constructs an http.Request for the PublishVexDocument method
+func NewPublishVexDocumentRequest(server string, documentID DocumentID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "documentID", documentID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/vex-documents/%s/publish", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListVexDocumentRevisionsRequest constructs an http.Request for the ListVexDocumentRevisions method
+func NewListVexDocumentRevisionsRequest(server string, documentID DocumentID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "documentID", documentID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/vex-documents/%s/revisions", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDownloadVexDocumentRevisionRequest constructs an http.Request for the DownloadVexDocumentRevision method
+func NewDownloadVexDocumentRevisionRequest(server string, documentID DocumentID, number int) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "documentID", documentID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "number", number, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/vex-documents/%s/revisions/%s/download", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewDeleteVexStatementRequest constructs an http.Request for the DeleteVexStatement method
 func NewDeleteVexStatementRequest(server string, vexID VexID) (*http.Request, error) {
 	var err error
@@ -51027,6 +52867,37 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with PATCH /findings/{findingID}/details (the `UpdateFindingDetails` operationId).
 	UpdateFindingDetailsWithResponse(ctx context.Context, findingID FindingID, body UpdateFindingDetailsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateFindingDetailsResponse, error)
 
+	// UnmarkFindingDuplicateWithResponse Undo a manual duplicate mark
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /findings/{findingID}/duplicate-of (the `UnmarkFindingDuplicate` operationId).
+	UnmarkFindingDuplicateWithResponse(ctx context.Context, findingID FindingID, reqEditors ...RequestEditorFn) (*UnmarkFindingDuplicateResponse, error)
+
+	// MarkFindingDuplicateWithBodyWithResponse Mark by hand as a duplicate of another finding
+	//
+	// Same project and version as the primary. A manual override: automatic
+	// dedup (`Deduplicate`) never rewrites it, and the finding behaves exactly
+	// like an automatic duplicate everywhere (excluded from counts, lists,
+	// metrics) until unmarked.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /findings/{findingID}/duplicate-of (the `MarkFindingDuplicate` operationId).
+	MarkFindingDuplicateWithBodyWithResponse(ctx context.Context, findingID FindingID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*MarkFindingDuplicateResponse, error)
+
+	// MarkFindingDuplicateWithResponse Mark by hand as a duplicate of another finding
+	//
+	// Same project and version as the primary. A manual override: automatic
+	// dedup (`Deduplicate`) never rewrites it, and the finding behaves exactly
+	// like an automatic duplicate everywhere (excluded from counts, lists,
+	// metrics) until unmarked.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /findings/{findingID}/duplicate-of (the `MarkFindingDuplicate` operationId).
+	MarkFindingDuplicateWithResponse(ctx context.Context, findingID FindingID, body MarkFindingDuplicateJSONRequestBody, reqEditors ...RequestEditorFn) (*MarkFindingDuplicateResponse, error)
+
 	// ListFindingDuplicatesWithResponse The other tools that reported this same issue
 	//
 	// Cross-tool duplicates collapsed into this finding, with their own scanner and lifecycle preserved.
@@ -51428,6 +53299,47 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /me (the `GetMe` operationId).
 	GetMeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMeResponse, error)
+
+	// GetMeInboxWithResponse Your in-app notification inbox
+	//
+	// Any signed-in person (not a service account). One row per event that reached
+	// you: the assignee of a finding assigned to you, someone who @mentioned you in a
+	// finding comment, an event on a project you watch, or (for events naming no
+	// project) an instance admin. Visibility is re-checked on every call — an item
+	// whose project you can no longer see is skipped, even though the row stays.
+	// `?filter=unread|mentions|assigned` narrows the list; omitted returns everything.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /me/inbox (the `GetMeInbox` operationId).
+	GetMeInboxWithResponse(ctx context.Context, params *GetMeInboxParams, reqEditors ...RequestEditorFn) (*GetMeInboxResponse, error)
+
+	// GetMeInboxCountWithResponse Your unread inbox count
+	//
+	// Cheap — for a header bell badge. Same visibility re-check as the list.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /me/inbox/count (the `GetMeInboxCount` operationId).
+	GetMeInboxCountWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMeInboxCountResponse, error)
+
+	// PostMeInboxReadWithBodyWithResponse Mark inbox items read
+	//
+	// Pass `ids`, or `all: true` for every unread item still visible to you.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /me/inbox/read (the `PostMeInboxRead` operationId).
+	PostMeInboxReadWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostMeInboxReadResponse, error)
+
+	// PostMeInboxReadWithResponse Mark inbox items read
+	//
+	// Pass `ids`, or `all: true` for every unread item still visible to you.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /me/inbox/read (the `PostMeInboxRead` operationId).
+	PostMeInboxReadWithResponse(ctx context.Context, body PostMeInboxReadJSONRequestBody, reqEditors ...RequestEditorFn) (*PostMeInboxReadResponse, error)
 
 	// LogoutWithResponse Sign out (and start SAML Single Logout)
 	//
@@ -52839,6 +54751,65 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /projects/{projectID}/issue-tracker/test (the `TestProjectIssueTracker` operationId).
 	TestProjectIssueTrackerWithResponse(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*TestProjectIssueTrackerResponse, error)
 
+	// ListLicenseOverridesWithResponse The project's curated concluded licenses
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /projects/{projectID}/license-overrides (the `ListLicenseOverrides` operationId).
+	ListLicenseOverridesWithResponse(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*ListLicenseOverridesResponse, error)
+
+	// CreateLicenseOverrideWithBodyWithResponse Curate a package's concluded license
+	//
+	// Owner. Applied at the project's next ingest instead of the SBOM's
+	// declared license, and immediately to its current snapshots; the
+	// project's component policies re-evaluate right after. Kept across
+	// re-uploads. `purl` is matched without version, qualifiers or subpath.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /projects/{projectID}/license-overrides (the `CreateLicenseOverride` operationId).
+	CreateLicenseOverrideWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateLicenseOverrideResponse, error)
+
+	// CreateLicenseOverrideWithResponse Curate a package's concluded license
+	//
+	// Owner. Applied at the project's next ingest instead of the SBOM's
+	// declared license, and immediately to its current snapshots; the
+	// project's component policies re-evaluate right after. Kept across
+	// re-uploads. `purl` is matched without version, qualifiers or subpath.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /projects/{projectID}/license-overrides (the `CreateLicenseOverride` operationId).
+	CreateLicenseOverrideWithResponse(ctx context.Context, projectID ProjectID, body CreateLicenseOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateLicenseOverrideResponse, error)
+
+	// DeleteLicenseOverrideWithResponse Remove a curated license, reverting to the SBOM's declared one
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /projects/{projectID}/license-overrides/{overrideID} (the `DeleteLicenseOverride` operationId).
+	DeleteLicenseOverrideWithResponse(ctx context.Context, projectID ProjectID, overrideID OverrideID, reqEditors ...RequestEditorFn) (*DeleteLicenseOverrideResponse, error)
+
+	// GetLicenseOverrideWithResponse One curated concluded license
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /projects/{projectID}/license-overrides/{overrideID} (the `GetLicenseOverride` operationId).
+	GetLicenseOverrideWithResponse(ctx context.Context, projectID ProjectID, overrideID OverrideID, reqEditors ...RequestEditorFn) (*GetLicenseOverrideResponse, error)
+
+	// UpdateLicenseOverrideWithBodyWithResponse Change a curated license
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /projects/{projectID}/license-overrides/{overrideID} (the `UpdateLicenseOverride` operationId).
+	UpdateLicenseOverrideWithBodyWithResponse(ctx context.Context, projectID ProjectID, overrideID OverrideID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLicenseOverrideResponse, error)
+
+	// UpdateLicenseOverrideWithResponse Change a curated license
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /projects/{projectID}/license-overrides/{overrideID} (the `UpdateLicenseOverride` operationId).
+	UpdateLicenseOverrideWithResponse(ctx context.Context, projectID ProjectID, overrideID OverrideID, body UpdateLicenseOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLicenseOverrideResponse, error)
+
 	// ListProjectMembersWithResponse A project's direct members
 	//
 	// The grants made **on this project** — not everyone who can reach it through
@@ -53355,6 +55326,37 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /projects/{projectID}/summary (the `GetProjectSummary` operationId).
 	GetProjectSummaryWithResponse(ctx context.Context, projectID ProjectID, params *GetProjectSummaryParams, reqEditors ...RequestEditorFn) (*GetProjectSummaryResponse, error)
+
+	// GetProjectTriageCarryWithResponse The project's triage-carry setting
+	//
+	// Whether a manual triage decision (`false_positive`, `wont_fix`, or
+	// reopening) on one version of this project is copied to its other
+	// in-scope versions, and applied to a matching finding a later scan
+	// creates there. Risk acceptances never carry; they are a decision
+	// about one version's exposure, not a fact about the code.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /projects/{projectID}/triage-carry (the `GetProjectTriageCarry` operationId).
+	GetProjectTriageCarryWithResponse(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*GetProjectTriageCarryResponse, error)
+
+	// PutProjectTriageCarryWithBodyWithResponse Turn triage carry on or off, and scope it by branch
+	//
+	// Owner. `branch_regex` empty matches every version of the project.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /projects/{projectID}/triage-carry (the `PutProjectTriageCarry` operationId).
+	PutProjectTriageCarryWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutProjectTriageCarryResponse, error)
+
+	// PutProjectTriageCarryWithResponse Turn triage carry on or off, and scope it by branch
+	//
+	// Owner. `branch_regex` empty matches every version of the project.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /projects/{projectID}/triage-carry (the `PutProjectTriageCarry` operationId).
+	PutProjectTriageCarryWithResponse(ctx context.Context, projectID ProjectID, body PutProjectTriageCarryJSONRequestBody, reqEditors ...RequestEditorFn) (*PutProjectTriageCarryResponse, error)
 
 	// ListProjectVersionsWithResponse A project's branches and releases
 	//
@@ -54940,6 +56942,105 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /users/{userID}/transfer-ownership (the `TransferOwnership` operationId).
 	TransferOwnershipWithResponse(ctx context.Context, userID UserID, reqEditors ...RequestEditorFn) (*TransferOwnershipResponse, error)
+
+	// ListVexDocumentsWithResponse Stored, versioned VEX documents
+	//
+	// A document has a format (OpenVEX, CSAF, CycloneDX), a scope (one project
+	// version, several versions/branches of one project, or one vulnerability
+	// across every project), publisher metadata, and a revision history. Lists
+	// every document on the caller's visible projects; an instance admin also
+	// sees vulnerability-scope documents (cross-project, admin-only to create).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /vex-documents (the `ListVexDocuments` operationId).
+	ListVexDocumentsWithResponse(ctx context.Context, params *ListVexDocumentsParams, reqEditors ...RequestEditorFn) (*ListVexDocumentsResponse, error)
+
+	// CreateVexDocumentWithBodyWithResponse Create a VEX document
+	//
+	// Stores an unpublished document; `POST .../publish` renders and freezes its
+	// first revision. `scope_kind: vulnerability` (`vuln_id` required) spans
+	// every project and is instance-admin only. CycloneDX only supports
+	// `scope_kind: project` with exactly one target (its single-BOM-subject
+	// model doesn't generalize to several versions or projects).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /vex-documents (the `CreateVexDocument` operationId).
+	CreateVexDocumentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateVexDocumentResponse, error)
+
+	// CreateVexDocumentWithResponse Create a VEX document
+	//
+	// Stores an unpublished document; `POST .../publish` renders and freezes its
+	// first revision. `scope_kind: vulnerability` (`vuln_id` required) spans
+	// every project and is instance-admin only. CycloneDX only supports
+	// `scope_kind: project` with exactly one target (its single-BOM-subject
+	// model doesn't generalize to several versions or projects).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /vex-documents (the `CreateVexDocument` operationId).
+	CreateVexDocumentWithResponse(ctx context.Context, body CreateVexDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateVexDocumentResponse, error)
+
+	// DeleteVexDocumentWithResponse Delete a document (and its revisions)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /vex-documents/{documentID} (the `DeleteVexDocument` operationId).
+	DeleteVexDocumentWithResponse(ctx context.Context, documentID DocumentID, reqEditors ...RequestEditorFn) (*DeleteVexDocumentResponse, error)
+
+	// GetVexDocumentWithResponse One VEX document
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /vex-documents/{documentID} (the `GetVexDocument` operationId).
+	GetVexDocumentWithResponse(ctx context.Context, documentID DocumentID, reqEditors ...RequestEditorFn) (*GetVexDocumentResponse, error)
+
+	// UpdateVexDocumentWithBodyWithResponse Edit a document's scope, format or publisher metadata
+	//
+	// Its version, content hash and revision history are untouched; a scope or
+	// metadata change takes effect on the next publish.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /vex-documents/{documentID} (the `UpdateVexDocument` operationId).
+	UpdateVexDocumentWithBodyWithResponse(ctx context.Context, documentID DocumentID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateVexDocumentResponse, error)
+
+	// UpdateVexDocumentWithResponse Edit a document's scope, format or publisher metadata
+	//
+	// Its version, content hash and revision history are untouched; a scope or
+	// metadata change takes effect on the next publish.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /vex-documents/{documentID} (the `UpdateVexDocument` operationId).
+	UpdateVexDocumentWithResponse(ctx context.Context, documentID DocumentID, body UpdateVexDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateVexDocumentResponse, error)
+
+	// PublishVexDocumentWithResponse Publish (re-render from current data)
+	//
+	// Re-renders the document from the project's current findings and stored VEX
+	// statements (the same mapping `GET /projects/{id}/vex/export` uses). A new
+	// revision and tracking version are appended only when the rendered content
+	// actually changed since the last publish (`changed: false` otherwise).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /vex-documents/{documentID}/publish (the `PublishVexDocument` operationId).
+	PublishVexDocumentWithResponse(ctx context.Context, documentID DocumentID, reqEditors ...RequestEditorFn) (*PublishVexDocumentResponse, error)
+
+	// ListVexDocumentRevisionsWithResponse A document's revision history
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /vex-documents/{documentID}/revisions (the `ListVexDocumentRevisions` operationId).
+	ListVexDocumentRevisionsWithResponse(ctx context.Context, documentID DocumentID, reqEditors ...RequestEditorFn) (*ListVexDocumentRevisionsResponse, error)
+
+	// DownloadVexDocumentRevisionWithResponse Download one revision's frozen, rendered document
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /vex-documents/{documentID}/revisions/{number}/download (the `DownloadVexDocumentRevision` operationId).
+	DownloadVexDocumentRevisionWithResponse(ctx context.Context, documentID DocumentID, number int, reqEditors ...RequestEditorFn) (*DownloadVexDocumentRevisionResponse, error)
 
 	// DeleteVexStatementWithResponse Remove a VEX statement
 	//
@@ -62045,6 +64146,109 @@ func (r UpdateFindingDetailsResponse) ContentType() string {
 	return ""
 }
 
+type UnmarkFindingDuplicateResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Finding
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UnmarkFindingDuplicateResponse) GetJSON200() *Finding {
+	return r.JSON200
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r UnmarkFindingDuplicateResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r UnmarkFindingDuplicateResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UnmarkFindingDuplicateResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UnmarkFindingDuplicateResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UnmarkFindingDuplicateResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type MarkFindingDuplicateResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Finding
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r MarkFindingDuplicateResponse) GetJSON200() *Finding {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r MarkFindingDuplicateResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r MarkFindingDuplicateResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r MarkFindingDuplicateResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r MarkFindingDuplicateResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r MarkFindingDuplicateResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r MarkFindingDuplicateResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListFindingDuplicatesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -63594,6 +65798,186 @@ func (r GetMeResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetMeResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetMeInboxResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Items *[]InboxItem `json:"items,omitempty"`
+
+		// Pagination `has_more` tells you whether another page exists, without a count query.
+		//
+		// Example: {"count":1,"has_more":true,"limit":1,"offset":0}
+		Pagination *Pagination `json:"pagination,omitempty"`
+	}
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetMeInboxResponse) GetJSON200() *struct {
+	Items *[]InboxItem `json:"items,omitempty"`
+
+	// Pagination `has_more` tells you whether another page exists, without a count query.
+	//
+	// Example: {"count":1,"has_more":true,"limit":1,"offset":0}
+	Pagination *Pagination `json:"pagination,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r GetMeInboxResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r GetMeInboxResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r GetMeInboxResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetMeInboxResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetMeInboxResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetMeInboxResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetMeInboxCountResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Unread *int `json:"unread,omitempty"`
+	}
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetMeInboxCountResponse) GetJSON200() *struct {
+	Unread *int `json:"unread,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r GetMeInboxCountResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r GetMeInboxCountResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetMeInboxCountResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetMeInboxCountResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetMeInboxCountResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PostMeInboxReadResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Marked *int `json:"marked,omitempty"`
+	}
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PostMeInboxReadResponse) GetJSON200() *struct {
+	Marked *int `json:"marked,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r PostMeInboxReadResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r PostMeInboxReadResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r PostMeInboxReadResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PostMeInboxReadResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostMeInboxReadResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostMeInboxReadResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -68814,6 +71198,243 @@ func (r TestProjectIssueTrackerResponse) ContentType() string {
 	return ""
 }
 
+type ListLicenseOverridesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		LicenseOverrides *[]LicenseOverride `json:"license_overrides,omitempty"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListLicenseOverridesResponse) GetJSON200() *struct {
+	LicenseOverrides *[]LicenseOverride `json:"license_overrides,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ListLicenseOverridesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListLicenseOverridesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListLicenseOverridesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListLicenseOverridesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateLicenseOverrideResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *LicenseOverride
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateLicenseOverrideResponse) GetJSON201() *LicenseOverride {
+	return r.JSON201
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r CreateLicenseOverrideResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateLicenseOverrideResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateLicenseOverrideResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateLicenseOverrideResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateLicenseOverrideResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteLicenseOverrideResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r DeleteLicenseOverrideResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteLicenseOverrideResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteLicenseOverrideResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteLicenseOverrideResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteLicenseOverrideResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetLicenseOverrideResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *LicenseOverride
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetLicenseOverrideResponse) GetJSON200() *LicenseOverride {
+	return r.JSON200
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r GetLicenseOverrideResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetLicenseOverrideResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetLicenseOverrideResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetLicenseOverrideResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetLicenseOverrideResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateLicenseOverrideResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *LicenseOverride
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateLicenseOverrideResponse) GetJSON200() *LicenseOverride {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r UpdateLicenseOverrideResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r UpdateLicenseOverrideResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateLicenseOverrideResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateLicenseOverrideResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateLicenseOverrideResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateLicenseOverrideResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListProjectMembersResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -70547,6 +73168,109 @@ func (r GetProjectSummaryResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetProjectSummaryResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetProjectTriageCarryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *TriageCarrySettings
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetProjectTriageCarryResponse) GetJSON200() *TriageCarrySettings {
+	return r.JSON200
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r GetProjectTriageCarryResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetProjectTriageCarryResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetProjectTriageCarryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetProjectTriageCarryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetProjectTriageCarryResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PutProjectTriageCarryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *TriageCarrySettings
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PutProjectTriageCarryResponse) GetJSON200() *TriageCarrySettings {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r PutProjectTriageCarryResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r PutProjectTriageCarryResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r PutProjectTriageCarryResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PutProjectTriageCarryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutProjectTriageCarryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PutProjectTriageCarryResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -77021,6 +79745,465 @@ func (r TransferOwnershipResponse) ContentType() string {
 	return ""
 }
 
+type ListVexDocumentsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Documents *[]VexDocument `json:"documents,omitempty"`
+
+		// Pagination `has_more` tells you whether another page exists, without a count query.
+		//
+		// Example: {"count":1,"has_more":true,"limit":1,"offset":0}
+		Pagination *Pagination `json:"pagination,omitempty"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListVexDocumentsResponse) GetJSON200() *struct {
+	Documents *[]VexDocument `json:"documents,omitempty"`
+
+	// Pagination `has_more` tells you whether another page exists, without a count query.
+	//
+	// Example: {"count":1,"has_more":true,"limit":1,"offset":0}
+	Pagination *Pagination `json:"pagination,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ListVexDocumentsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListVexDocumentsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListVexDocumentsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListVexDocumentsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateVexDocumentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *VexDocument
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateVexDocumentResponse) GetJSON201() *VexDocument {
+	return r.JSON201
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r CreateVexDocumentResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r CreateVexDocumentResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateVexDocumentResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateVexDocumentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateVexDocumentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateVexDocumentResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteVexDocumentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r DeleteVexDocumentResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r DeleteVexDocumentResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteVexDocumentResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteVexDocumentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteVexDocumentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteVexDocumentResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetVexDocumentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *VexDocument
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetVexDocumentResponse) GetJSON200() *VexDocument {
+	return r.JSON200
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r GetVexDocumentResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r GetVexDocumentResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetVexDocumentResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetVexDocumentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetVexDocumentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetVexDocumentResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateVexDocumentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *VexDocument
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateVexDocumentResponse) GetJSON200() *VexDocument {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r UpdateVexDocumentResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r UpdateVexDocumentResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r UpdateVexDocumentResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateVexDocumentResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateVexDocumentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateVexDocumentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateVexDocumentResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PublishVexDocumentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Changed Whether a new revision was appended.
+		Changed  *bool        `json:"changed,omitempty"`
+		Document *VexDocument `json:"document,omitempty"`
+	}
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PublishVexDocumentResponse) GetJSON200() *struct {
+	// Changed Whether a new revision was appended.
+	Changed  *bool        `json:"changed,omitempty"`
+	Document *VexDocument `json:"document,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r PublishVexDocumentResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r PublishVexDocumentResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r PublishVexDocumentResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r PublishVexDocumentResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PublishVexDocumentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PublishVexDocumentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PublishVexDocumentResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListVexDocumentRevisionsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Revisions *[]VexDocumentRevision `json:"revisions,omitempty"`
+	}
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListVexDocumentRevisionsResponse) GetJSON200() *struct {
+	Revisions *[]VexDocumentRevision `json:"revisions,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r ListVexDocumentRevisionsResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r ListVexDocumentRevisionsResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListVexDocumentRevisionsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListVexDocumentRevisionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListVexDocumentRevisionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListVexDocumentRevisionsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DownloadVexDocumentRevisionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *map[string]interface{}
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DownloadVexDocumentRevisionResponse) GetJSON200() *map[string]interface{} {
+	return r.JSON200
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r DownloadVexDocumentRevisionResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r DownloadVexDocumentRevisionResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r DownloadVexDocumentRevisionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DownloadVexDocumentRevisionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DownloadVexDocumentRevisionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DownloadVexDocumentRevisionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type DeleteVexStatementResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -80769,6 +83952,55 @@ func (c *ClientWithResponses) UpdateFindingDetailsWithResponse(ctx context.Conte
 	return ParseUpdateFindingDetailsResponse(rsp)
 }
 
+// UnmarkFindingDuplicateWithResponse Undo a manual duplicate mark
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /findings/{findingID}/duplicate-of (the `UnmarkFindingDuplicate` operationId).
+func (c *ClientWithResponses) UnmarkFindingDuplicateWithResponse(ctx context.Context, findingID FindingID, reqEditors ...RequestEditorFn) (*UnmarkFindingDuplicateResponse, error) {
+	rsp, err := c.UnmarkFindingDuplicate(ctx, findingID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUnmarkFindingDuplicateResponse(rsp)
+}
+
+// MarkFindingDuplicateWithBodyWithResponse Mark by hand as a duplicate of another finding
+//
+// Same project and version as the primary. A manual override: automatic
+// dedup (`Deduplicate`) never rewrites it, and the finding behaves exactly
+// like an automatic duplicate everywhere (excluded from counts, lists,
+// metrics) until unmarked.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /findings/{findingID}/duplicate-of (the `MarkFindingDuplicate` operationId).
+func (c *ClientWithResponses) MarkFindingDuplicateWithBodyWithResponse(ctx context.Context, findingID FindingID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*MarkFindingDuplicateResponse, error) {
+	rsp, err := c.MarkFindingDuplicateWithBody(ctx, findingID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseMarkFindingDuplicateResponse(rsp)
+}
+
+// MarkFindingDuplicateWithResponse Mark by hand as a duplicate of another finding
+//
+// Same project and version as the primary. A manual override: automatic
+// dedup (`Deduplicate`) never rewrites it, and the finding behaves exactly
+// like an automatic duplicate everywhere (excluded from counts, lists,
+// metrics) until unmarked.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /findings/{findingID}/duplicate-of (the `MarkFindingDuplicate` operationId).
+func (c *ClientWithResponses) MarkFindingDuplicateWithResponse(ctx context.Context, findingID FindingID, body MarkFindingDuplicateJSONRequestBody, reqEditors ...RequestEditorFn) (*MarkFindingDuplicateResponse, error) {
+	rsp, err := c.MarkFindingDuplicate(ctx, findingID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseMarkFindingDuplicateResponse(rsp)
+}
+
 // ListFindingDuplicatesWithResponse The other tools that reported this same issue
 //
 // Cross-tool duplicates collapsed into this finding, with their own scanner and lifecycle preserved.
@@ -81385,6 +84617,71 @@ func (c *ClientWithResponses) GetMeWithResponse(ctx context.Context, reqEditors 
 		return nil, err
 	}
 	return ParseGetMeResponse(rsp)
+}
+
+// GetMeInboxWithResponse Your in-app notification inbox
+//
+// Any signed-in person (not a service account). One row per event that reached
+// you: the assignee of a finding assigned to you, someone who @mentioned you in a
+// finding comment, an event on a project you watch, or (for events naming no
+// project) an instance admin. Visibility is re-checked on every call — an item
+// whose project you can no longer see is skipped, even though the row stays.
+// `?filter=unread|mentions|assigned` narrows the list; omitted returns everything.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /me/inbox (the `GetMeInbox` operationId).
+func (c *ClientWithResponses) GetMeInboxWithResponse(ctx context.Context, params *GetMeInboxParams, reqEditors ...RequestEditorFn) (*GetMeInboxResponse, error) {
+	rsp, err := c.GetMeInbox(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetMeInboxResponse(rsp)
+}
+
+// GetMeInboxCountWithResponse Your unread inbox count
+//
+// Cheap — for a header bell badge. Same visibility re-check as the list.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /me/inbox/count (the `GetMeInboxCount` operationId).
+func (c *ClientWithResponses) GetMeInboxCountWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMeInboxCountResponse, error) {
+	rsp, err := c.GetMeInboxCount(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetMeInboxCountResponse(rsp)
+}
+
+// PostMeInboxReadWithBodyWithResponse Mark inbox items read
+//
+// Pass `ids`, or `all: true` for every unread item still visible to you.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /me/inbox/read (the `PostMeInboxRead` operationId).
+func (c *ClientWithResponses) PostMeInboxReadWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostMeInboxReadResponse, error) {
+	rsp, err := c.PostMeInboxReadWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostMeInboxReadResponse(rsp)
+}
+
+// PostMeInboxReadWithResponse Mark inbox items read
+//
+// Pass `ids`, or `all: true` for every unread item still visible to you.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /me/inbox/read (the `PostMeInboxRead` operationId).
+func (c *ClientWithResponses) PostMeInboxReadWithResponse(ctx context.Context, body PostMeInboxReadJSONRequestBody, reqEditors ...RequestEditorFn) (*PostMeInboxReadResponse, error) {
+	rsp, err := c.PostMeInboxRead(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostMeInboxReadResponse(rsp)
 }
 
 // LogoutWithResponse Sign out (and start SAML Single Logout)
@@ -83601,6 +86898,107 @@ func (c *ClientWithResponses) TestProjectIssueTrackerWithResponse(ctx context.Co
 	return ParseTestProjectIssueTrackerResponse(rsp)
 }
 
+// ListLicenseOverridesWithResponse The project's curated concluded licenses
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /projects/{projectID}/license-overrides (the `ListLicenseOverrides` operationId).
+func (c *ClientWithResponses) ListLicenseOverridesWithResponse(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*ListLicenseOverridesResponse, error) {
+	rsp, err := c.ListLicenseOverrides(ctx, projectID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListLicenseOverridesResponse(rsp)
+}
+
+// CreateLicenseOverrideWithBodyWithResponse Curate a package's concluded license
+//
+// Owner. Applied at the project's next ingest instead of the SBOM's
+// declared license, and immediately to its current snapshots; the
+// project's component policies re-evaluate right after. Kept across
+// re-uploads. `purl` is matched without version, qualifiers or subpath.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /projects/{projectID}/license-overrides (the `CreateLicenseOverride` operationId).
+func (c *ClientWithResponses) CreateLicenseOverrideWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateLicenseOverrideResponse, error) {
+	rsp, err := c.CreateLicenseOverrideWithBody(ctx, projectID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateLicenseOverrideResponse(rsp)
+}
+
+// CreateLicenseOverrideWithResponse Curate a package's concluded license
+//
+// Owner. Applied at the project's next ingest instead of the SBOM's
+// declared license, and immediately to its current snapshots; the
+// project's component policies re-evaluate right after. Kept across
+// re-uploads. `purl` is matched without version, qualifiers or subpath.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /projects/{projectID}/license-overrides (the `CreateLicenseOverride` operationId).
+func (c *ClientWithResponses) CreateLicenseOverrideWithResponse(ctx context.Context, projectID ProjectID, body CreateLicenseOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateLicenseOverrideResponse, error) {
+	rsp, err := c.CreateLicenseOverride(ctx, projectID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateLicenseOverrideResponse(rsp)
+}
+
+// DeleteLicenseOverrideWithResponse Remove a curated license, reverting to the SBOM's declared one
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /projects/{projectID}/license-overrides/{overrideID} (the `DeleteLicenseOverride` operationId).
+func (c *ClientWithResponses) DeleteLicenseOverrideWithResponse(ctx context.Context, projectID ProjectID, overrideID OverrideID, reqEditors ...RequestEditorFn) (*DeleteLicenseOverrideResponse, error) {
+	rsp, err := c.DeleteLicenseOverride(ctx, projectID, overrideID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteLicenseOverrideResponse(rsp)
+}
+
+// GetLicenseOverrideWithResponse One curated concluded license
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /projects/{projectID}/license-overrides/{overrideID} (the `GetLicenseOverride` operationId).
+func (c *ClientWithResponses) GetLicenseOverrideWithResponse(ctx context.Context, projectID ProjectID, overrideID OverrideID, reqEditors ...RequestEditorFn) (*GetLicenseOverrideResponse, error) {
+	rsp, err := c.GetLicenseOverride(ctx, projectID, overrideID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetLicenseOverrideResponse(rsp)
+}
+
+// UpdateLicenseOverrideWithBodyWithResponse Change a curated license
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /projects/{projectID}/license-overrides/{overrideID} (the `UpdateLicenseOverride` operationId).
+func (c *ClientWithResponses) UpdateLicenseOverrideWithBodyWithResponse(ctx context.Context, projectID ProjectID, overrideID OverrideID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLicenseOverrideResponse, error) {
+	rsp, err := c.UpdateLicenseOverrideWithBody(ctx, projectID, overrideID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateLicenseOverrideResponse(rsp)
+}
+
+// UpdateLicenseOverrideWithResponse Change a curated license
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /projects/{projectID}/license-overrides/{overrideID} (the `UpdateLicenseOverride` operationId).
+func (c *ClientWithResponses) UpdateLicenseOverrideWithResponse(ctx context.Context, projectID ProjectID, overrideID OverrideID, body UpdateLicenseOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLicenseOverrideResponse, error) {
+	rsp, err := c.UpdateLicenseOverride(ctx, projectID, overrideID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateLicenseOverrideResponse(rsp)
+}
+
 // ListProjectMembersWithResponse A project's direct members
 //
 // The grants made **on this project** — not everyone who can reach it through
@@ -84380,6 +87778,55 @@ func (c *ClientWithResponses) GetProjectSummaryWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseGetProjectSummaryResponse(rsp)
+}
+
+// GetProjectTriageCarryWithResponse The project's triage-carry setting
+//
+// Whether a manual triage decision (`false_positive`, `wont_fix`, or
+// reopening) on one version of this project is copied to its other
+// in-scope versions, and applied to a matching finding a later scan
+// creates there. Risk acceptances never carry; they are a decision
+// about one version's exposure, not a fact about the code.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /projects/{projectID}/triage-carry (the `GetProjectTriageCarry` operationId).
+func (c *ClientWithResponses) GetProjectTriageCarryWithResponse(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*GetProjectTriageCarryResponse, error) {
+	rsp, err := c.GetProjectTriageCarry(ctx, projectID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetProjectTriageCarryResponse(rsp)
+}
+
+// PutProjectTriageCarryWithBodyWithResponse Turn triage carry on or off, and scope it by branch
+//
+// Owner. `branch_regex` empty matches every version of the project.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /projects/{projectID}/triage-carry (the `PutProjectTriageCarry` operationId).
+func (c *ClientWithResponses) PutProjectTriageCarryWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutProjectTriageCarryResponse, error) {
+	rsp, err := c.PutProjectTriageCarryWithBody(ctx, projectID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutProjectTriageCarryResponse(rsp)
+}
+
+// PutProjectTriageCarryWithResponse Turn triage carry on or off, and scope it by branch
+//
+// Owner. `branch_regex` empty matches every version of the project.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /projects/{projectID}/triage-carry (the `PutProjectTriageCarry` operationId).
+func (c *ClientWithResponses) PutProjectTriageCarryWithResponse(ctx context.Context, projectID ProjectID, body PutProjectTriageCarryJSONRequestBody, reqEditors ...RequestEditorFn) (*PutProjectTriageCarryResponse, error) {
+	rsp, err := c.PutProjectTriageCarry(ctx, projectID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutProjectTriageCarryResponse(rsp)
 }
 
 // ListProjectVersionsWithResponse A project's branches and releases
@@ -86919,6 +90366,165 @@ func (c *ClientWithResponses) TransferOwnershipWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseTransferOwnershipResponse(rsp)
+}
+
+// ListVexDocumentsWithResponse Stored, versioned VEX documents
+//
+// A document has a format (OpenVEX, CSAF, CycloneDX), a scope (one project
+// version, several versions/branches of one project, or one vulnerability
+// across every project), publisher metadata, and a revision history. Lists
+// every document on the caller's visible projects; an instance admin also
+// sees vulnerability-scope documents (cross-project, admin-only to create).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /vex-documents (the `ListVexDocuments` operationId).
+func (c *ClientWithResponses) ListVexDocumentsWithResponse(ctx context.Context, params *ListVexDocumentsParams, reqEditors ...RequestEditorFn) (*ListVexDocumentsResponse, error) {
+	rsp, err := c.ListVexDocuments(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListVexDocumentsResponse(rsp)
+}
+
+// CreateVexDocumentWithBodyWithResponse Create a VEX document
+//
+// Stores an unpublished document; `POST .../publish` renders and freezes its
+// first revision. `scope_kind: vulnerability` (`vuln_id` required) spans
+// every project and is instance-admin only. CycloneDX only supports
+// `scope_kind: project` with exactly one target (its single-BOM-subject
+// model doesn't generalize to several versions or projects).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /vex-documents (the `CreateVexDocument` operationId).
+func (c *ClientWithResponses) CreateVexDocumentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateVexDocumentResponse, error) {
+	rsp, err := c.CreateVexDocumentWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateVexDocumentResponse(rsp)
+}
+
+// CreateVexDocumentWithResponse Create a VEX document
+//
+// Stores an unpublished document; `POST .../publish` renders and freezes its
+// first revision. `scope_kind: vulnerability` (`vuln_id` required) spans
+// every project and is instance-admin only. CycloneDX only supports
+// `scope_kind: project` with exactly one target (its single-BOM-subject
+// model doesn't generalize to several versions or projects).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /vex-documents (the `CreateVexDocument` operationId).
+func (c *ClientWithResponses) CreateVexDocumentWithResponse(ctx context.Context, body CreateVexDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateVexDocumentResponse, error) {
+	rsp, err := c.CreateVexDocument(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateVexDocumentResponse(rsp)
+}
+
+// DeleteVexDocumentWithResponse Delete a document (and its revisions)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /vex-documents/{documentID} (the `DeleteVexDocument` operationId).
+func (c *ClientWithResponses) DeleteVexDocumentWithResponse(ctx context.Context, documentID DocumentID, reqEditors ...RequestEditorFn) (*DeleteVexDocumentResponse, error) {
+	rsp, err := c.DeleteVexDocument(ctx, documentID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteVexDocumentResponse(rsp)
+}
+
+// GetVexDocumentWithResponse One VEX document
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /vex-documents/{documentID} (the `GetVexDocument` operationId).
+func (c *ClientWithResponses) GetVexDocumentWithResponse(ctx context.Context, documentID DocumentID, reqEditors ...RequestEditorFn) (*GetVexDocumentResponse, error) {
+	rsp, err := c.GetVexDocument(ctx, documentID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetVexDocumentResponse(rsp)
+}
+
+// UpdateVexDocumentWithBodyWithResponse Edit a document's scope, format or publisher metadata
+//
+// Its version, content hash and revision history are untouched; a scope or
+// metadata change takes effect on the next publish.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /vex-documents/{documentID} (the `UpdateVexDocument` operationId).
+func (c *ClientWithResponses) UpdateVexDocumentWithBodyWithResponse(ctx context.Context, documentID DocumentID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateVexDocumentResponse, error) {
+	rsp, err := c.UpdateVexDocumentWithBody(ctx, documentID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateVexDocumentResponse(rsp)
+}
+
+// UpdateVexDocumentWithResponse Edit a document's scope, format or publisher metadata
+//
+// Its version, content hash and revision history are untouched; a scope or
+// metadata change takes effect on the next publish.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /vex-documents/{documentID} (the `UpdateVexDocument` operationId).
+func (c *ClientWithResponses) UpdateVexDocumentWithResponse(ctx context.Context, documentID DocumentID, body UpdateVexDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateVexDocumentResponse, error) {
+	rsp, err := c.UpdateVexDocument(ctx, documentID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateVexDocumentResponse(rsp)
+}
+
+// PublishVexDocumentWithResponse Publish (re-render from current data)
+//
+// Re-renders the document from the project's current findings and stored VEX
+// statements (the same mapping `GET /projects/{id}/vex/export` uses). A new
+// revision and tracking version are appended only when the rendered content
+// actually changed since the last publish (`changed: false` otherwise).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /vex-documents/{documentID}/publish (the `PublishVexDocument` operationId).
+func (c *ClientWithResponses) PublishVexDocumentWithResponse(ctx context.Context, documentID DocumentID, reqEditors ...RequestEditorFn) (*PublishVexDocumentResponse, error) {
+	rsp, err := c.PublishVexDocument(ctx, documentID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePublishVexDocumentResponse(rsp)
+}
+
+// ListVexDocumentRevisionsWithResponse A document's revision history
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /vex-documents/{documentID}/revisions (the `ListVexDocumentRevisions` operationId).
+func (c *ClientWithResponses) ListVexDocumentRevisionsWithResponse(ctx context.Context, documentID DocumentID, reqEditors ...RequestEditorFn) (*ListVexDocumentRevisionsResponse, error) {
+	rsp, err := c.ListVexDocumentRevisions(ctx, documentID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListVexDocumentRevisionsResponse(rsp)
+}
+
+// DownloadVexDocumentRevisionWithResponse Download one revision's frozen, rendered document
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /vex-documents/{documentID}/revisions/{number}/download (the `DownloadVexDocumentRevision` operationId).
+func (c *ClientWithResponses) DownloadVexDocumentRevisionWithResponse(ctx context.Context, documentID DocumentID, number int, reqEditors ...RequestEditorFn) (*DownloadVexDocumentRevisionResponse, error) {
+	rsp, err := c.DownloadVexDocumentRevision(ctx, documentID, number, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDownloadVexDocumentRevisionResponse(rsp)
 }
 
 // DeleteVexStatementWithResponse Remove a VEX statement
@@ -91969,6 +95575,79 @@ func ParseUpdateFindingDetailsResponse(rsp *http.Response) (*UpdateFindingDetail
 	return response, nil
 }
 
+// ParseUnmarkFindingDuplicateResponse parses an HTTP response from a UnmarkFindingDuplicateWithResponse call
+func ParseUnmarkFindingDuplicateResponse(rsp *http.Response) (*UnmarkFindingDuplicateResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UnmarkFindingDuplicateResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Finding
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseMarkFindingDuplicateResponse parses an HTTP response from a MarkFindingDuplicateWithResponse call
+func ParseMarkFindingDuplicateResponse(rsp *http.Response) (*MarkFindingDuplicateResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &MarkFindingDuplicateResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Finding
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListFindingDuplicatesResponse parses an HTTP response from a ListFindingDuplicatesWithResponse call
 func ParseListFindingDuplicatesResponse(rsp *http.Response) (*ListFindingDuplicatesResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -93017,6 +96696,130 @@ func ParseGetMeResponse(rsp *http.Response) (*GetMeResponse, error) {
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetMeInboxResponse parses an HTTP response from a GetMeInboxWithResponse call
+func ParseGetMeInboxResponse(rsp *http.Response) (*GetMeInboxResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetMeInboxResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Items *[]InboxItem `json:"items,omitempty"`
+
+			// Pagination `has_more` tells you whether another page exists, without a count query.
+			//
+			// Example: {"count":1,"has_more":true,"limit":1,"offset":0}
+			Pagination *Pagination `json:"pagination,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetMeInboxCountResponse parses an HTTP response from a GetMeInboxCountWithResponse call
+func ParseGetMeInboxCountResponse(rsp *http.Response) (*GetMeInboxCountResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetMeInboxCountResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Unread *int `json:"unread,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostMeInboxReadResponse parses an HTTP response from a PostMeInboxReadWithResponse call
+func ParsePostMeInboxReadResponse(rsp *http.Response) (*PostMeInboxReadResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostMeInboxReadResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Marked *int `json:"marked,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	}
 
@@ -96586,6 +100389,169 @@ func ParseTestProjectIssueTrackerResponse(rsp *http.Response) (*TestProjectIssue
 	return response, nil
 }
 
+// ParseListLicenseOverridesResponse parses an HTTP response from a ListLicenseOverridesWithResponse call
+func ParseListLicenseOverridesResponse(rsp *http.Response) (*ListLicenseOverridesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListLicenseOverridesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			LicenseOverrides *[]LicenseOverride `json:"license_overrides,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateLicenseOverrideResponse parses an HTTP response from a CreateLicenseOverrideWithResponse call
+func ParseCreateLicenseOverrideResponse(rsp *http.Response) (*CreateLicenseOverrideResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateLicenseOverrideResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest LicenseOverride
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteLicenseOverrideResponse parses an HTTP response from a DeleteLicenseOverrideWithResponse call
+func ParseDeleteLicenseOverrideResponse(rsp *http.Response) (*DeleteLicenseOverrideResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteLicenseOverrideResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetLicenseOverrideResponse parses an HTTP response from a GetLicenseOverrideWithResponse call
+func ParseGetLicenseOverrideResponse(rsp *http.Response) (*GetLicenseOverrideResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetLicenseOverrideResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LicenseOverride
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateLicenseOverrideResponse parses an HTTP response from a UpdateLicenseOverrideWithResponse call
+func ParseUpdateLicenseOverrideResponse(rsp *http.Response) (*UpdateLicenseOverrideResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateLicenseOverrideResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LicenseOverride
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListProjectMembersResponse parses an HTTP response from a ListProjectMembersWithResponse call
 func ParseListProjectMembersResponse(rsp *http.Response) (*ListProjectMembersResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -97810,6 +101776,79 @@ func ParseGetProjectSummaryResponse(rsp *http.Response) (*GetProjectSummaryRespo
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetProjectTriageCarryResponse parses an HTTP response from a GetProjectTriageCarryWithResponse call
+func ParseGetProjectTriageCarryResponse(rsp *http.Response) (*GetProjectTriageCarryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetProjectTriageCarryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TriageCarrySettings
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutProjectTriageCarryResponse parses an HTTP response from a PutProjectTriageCarryWithResponse call
+func ParsePutProjectTriageCarryResponse(rsp *http.Response) (*PutProjectTriageCarryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutProjectTriageCarryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TriageCarrySettings
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	}
 
@@ -102328,6 +106367,335 @@ func ParseTransferOwnershipResponse(rsp *http.Response) (*TransferOwnershipRespo
 			Message *string `json:"message,omitempty"`
 			Owner   *User   `json:"owner,omitempty"`
 		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListVexDocumentsResponse parses an HTTP response from a ListVexDocumentsWithResponse call
+func ParseListVexDocumentsResponse(rsp *http.Response) (*ListVexDocumentsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListVexDocumentsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Documents *[]VexDocument `json:"documents,omitempty"`
+
+			// Pagination `has_more` tells you whether another page exists, without a count query.
+			//
+			// Example: {"count":1,"has_more":true,"limit":1,"offset":0}
+			Pagination *Pagination `json:"pagination,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateVexDocumentResponse parses an HTTP response from a CreateVexDocumentWithResponse call
+func ParseCreateVexDocumentResponse(rsp *http.Response) (*CreateVexDocumentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateVexDocumentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest VexDocument
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteVexDocumentResponse parses an HTTP response from a DeleteVexDocumentWithResponse call
+func ParseDeleteVexDocumentResponse(rsp *http.Response) (*DeleteVexDocumentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteVexDocumentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetVexDocumentResponse parses an HTTP response from a GetVexDocumentWithResponse call
+func ParseGetVexDocumentResponse(rsp *http.Response) (*GetVexDocumentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetVexDocumentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest VexDocument
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateVexDocumentResponse parses an HTTP response from a UpdateVexDocumentWithResponse call
+func ParseUpdateVexDocumentResponse(rsp *http.Response) (*UpdateVexDocumentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateVexDocumentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest VexDocument
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePublishVexDocumentResponse parses an HTTP response from a PublishVexDocumentWithResponse call
+func ParsePublishVexDocumentResponse(rsp *http.Response) (*PublishVexDocumentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PublishVexDocumentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Changed Whether a new revision was appended.
+			Changed  *bool        `json:"changed,omitempty"`
+			Document *VexDocument `json:"document,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListVexDocumentRevisionsResponse parses an HTTP response from a ListVexDocumentRevisionsWithResponse call
+func ParseListVexDocumentRevisionsResponse(rsp *http.Response) (*ListVexDocumentRevisionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListVexDocumentRevisionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Revisions *[]VexDocumentRevision `json:"revisions,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDownloadVexDocumentRevisionResponse parses an HTTP response from a DownloadVexDocumentRevisionWithResponse call
+func ParseDownloadVexDocumentRevisionResponse(rsp *http.Response) (*DownloadVexDocumentRevisionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DownloadVexDocumentRevisionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest map[string]interface{}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

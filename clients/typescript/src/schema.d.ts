@@ -1035,6 +1035,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{projectID}/triage-carry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The project's triage-carry setting
+         * @description Whether a manual triage decision (`false_positive`, `wont_fix`, or
+         *     reopening) on one version of this project is copied to its other
+         *     in-scope versions, and applied to a matching finding a later scan
+         *     creates there. Risk acceptances never carry; they are a decision
+         *     about one version's exposure, not a fact about the code.
+         */
+        get: operations["getProjectTriageCarry"];
+        /**
+         * Turn triage carry on or off, and scope it by branch
+         * @description Owner. `branch_regex` empty matches every version of the project.
+         */
+        put: operations["putProjectTriageCarry"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{projectID}/versions": {
         parameters: {
             query?: never;
@@ -2072,6 +2100,49 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectID}/license-overrides": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The project's curated concluded licenses */
+        get: operations["listLicenseOverrides"];
+        put?: never;
+        /**
+         * Curate a package's concluded license
+         * @description Owner. Applied at the project's next ingest instead of the SBOM's
+         *     declared license, and immediately to its current snapshots; the
+         *     project's component policies re-evaluate right after. Kept across
+         *     re-uploads. `purl` is matched without version, qualifiers or subpath.
+         */
+        post: operations["createLicenseOverride"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectID}/license-overrides/{overrideID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One curated concluded license */
+        get: operations["getLicenseOverride"];
+        /** Change a curated license */
+        put: operations["updateLicenseOverride"];
+        post?: never;
+        /** Remove a curated license, reverting to the SBOM's declared one */
+        delete: operations["deleteLicenseOverride"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3181,6 +3252,30 @@ export interface paths {
          */
         post: operations["syncExploitIntel"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/findings/{findingID}/duplicate-of": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark by hand as a duplicate of another finding
+         * @description Same project and version as the primary. A manual override: automatic
+         *     dedup (`Deduplicate`) never rewrites it, and the finding behaves exactly
+         *     like an automatic duplicate everywhere (excluded from counts, lists,
+         *     metrics) until unmarked.
+         */
+        post: operations["markFindingDuplicate"];
+        /** Undo a manual duplicate mark */
+        delete: operations["unmarkFindingDuplicate"];
         options?: never;
         head?: never;
         patch?: never;
@@ -4522,6 +4617,118 @@ export interface paths {
          * @description The verdict stops being asserted; a future scan may reopen what it suppressed.
          */
         delete: operations["deleteVexStatement"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vex-documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stored, versioned VEX documents
+         * @description A document has a format (OpenVEX, CSAF, CycloneDX), a scope (one project
+         *     version, several versions/branches of one project, or one vulnerability
+         *     across every project), publisher metadata, and a revision history. Lists
+         *     every document on the caller's visible projects; an instance admin also
+         *     sees vulnerability-scope documents (cross-project, admin-only to create).
+         */
+        get: operations["listVexDocuments"];
+        put?: never;
+        /**
+         * Create a VEX document
+         * @description Stores an unpublished document; `POST .../publish` renders and freezes its
+         *     first revision. `scope_kind: vulnerability` (`vuln_id` required) spans
+         *     every project and is instance-admin only. CycloneDX only supports
+         *     `scope_kind: project` with exactly one target (its single-BOM-subject
+         *     model doesn't generalize to several versions or projects).
+         */
+        post: operations["createVexDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vex-documents/{documentID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One VEX document */
+        get: operations["getVexDocument"];
+        /**
+         * Edit a document's scope, format or publisher metadata
+         * @description Its version, content hash and revision history are untouched; a scope or
+         *     metadata change takes effect on the next publish.
+         */
+        put: operations["updateVexDocument"];
+        post?: never;
+        /** Delete a document (and its revisions) */
+        delete: operations["deleteVexDocument"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vex-documents/{documentID}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish (re-render from current data)
+         * @description Re-renders the document from the project's current findings and stored VEX
+         *     statements (the same mapping `GET /projects/{id}/vex/export` uses). A new
+         *     revision and tracking version are appended only when the rendered content
+         *     actually changed since the last publish (`changed: false` otherwise).
+         */
+        post: operations["publishVexDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vex-documents/{documentID}/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A document's revision history */
+        get: operations["listVexDocumentRevisions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vex-documents/{documentID}/revisions/{number}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download one revision's frozen, rendered document */
+        get: operations["downloadVexDocumentRevision"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -6456,6 +6663,71 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/inbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your in-app notification inbox
+         * @description Any signed-in person (not a service account). One row per event that reached
+         *     you: the assignee of a finding assigned to you, someone who @mentioned you in a
+         *     finding comment, an event on a project you watch, or (for events naming no
+         *     project) an instance admin. Visibility is re-checked on every call — an item
+         *     whose project you can no longer see is skipped, even though the row stays.
+         *     `?filter=unread|mentions|assigned` narrows the list; omitted returns everything.
+         */
+        get: operations["getMeInbox"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/inbox/count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your unread inbox count
+         * @description Cheap — for a header bell badge. Same visibility re-check as the list.
+         */
+        get: operations["getMeInboxCount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/inbox/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark inbox items read
+         * @description Pass `ids`, or `all: true` for every unread item still visible to you.
+         */
+        post: operations["postMeInboxRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/psirt/advisories": {
         parameters: {
             query?: never;
@@ -7077,6 +7349,29 @@ export interface components {
                 project_name?: string;
             }[];
         };
+        /** @description One row in the in-app notification inbox (GET /me/inbox). */
+        InboxItem: {
+            /** Format: uuid */
+            id?: string;
+            /**
+             * @example mention
+             * @example finding.assigned
+             * @example finding.critical
+             */
+            event_type?: string;
+            title?: string;
+            body?: string;
+            /** @description The finding or project this item is about, e.g. /findings/{id}. */
+            link?: string;
+            /** Format: uuid */
+            project_id?: string | null;
+            /** Format: uuid */
+            finding_id?: string | null;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            read_at?: string | null;
+        };
         PSIRTAdvisory: {
             /** Format: uuid */
             readonly id?: string;
@@ -7693,6 +7988,39 @@ export interface components {
         /** @description A SCIM 2.0 User or Group (RFC 7643), `application/scim+json`. */
         SCIMResource: {
             [key: string]: unknown;
+        };
+        TriageCarrySettings: {
+            enabled?: boolean;
+            /** @description Empty matches every version of the project. */
+            branch_regex?: string;
+        };
+        LicenseOverride: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            project_id?: string;
+            /** @description Without version, qualifiers or subpath ("npm/lodash"). */
+            purl?: string;
+            /** @description Component-policy-style range (">=1.2.0, <2.0.0"); empty = every version. */
+            version_range?: string;
+            /** @description The concluded SPDX expression. */
+            license?: string;
+            comment?: string;
+            /** Format: uuid */
+            created_by?: string | null;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        LicenseOverrideInput: {
+            /** @example pkg:npm/lodash */
+            purl: string;
+            /** @example >=4.17.0, <5.0.0 */
+            version_range?: string;
+            /** @example MIT */
+            license: string;
+            comment?: string;
         };
         /** @description The factors of a finding's priority (severity weight × exploitability × reachability × exposure). */
         PriorityWeights: {
@@ -9666,6 +9994,62 @@ export interface components {
             /** Format: date-time */
             created_at?: string;
         };
+        /** @description One project version a project/versions-scope document names. Neither field = the default version. */
+        VexDocumentTarget: {
+            /** Format: uuid */
+            version_id?: string;
+            /** @description Resolved to a version by name on every publish. */
+            branch?: string;
+        };
+        VexDocument: {
+            /** Format: uuid */
+            readonly id?: string;
+            /** @description `<VEX_DOCUMENT_PREFIX>-<year>-<NNNN>`, e.g. `XILA-2026-0001`. */
+            readonly document_id?: string;
+            /** @enum {string} */
+            format: "openvex" | "csaf" | "cyclonedx";
+            /** @description Only for `cyclonedx`: `1.6` (default) or `1.7`. */
+            spec_version?: string;
+            /**
+             * @description `project`: one version of `project_id` (`targets` has exactly one entry).
+             *     `versions`: several versions/branches of `project_id` (`targets` has 1+).
+             *     `vulnerability`: one `vuln_id` across every project (`project_id`/`targets`
+             *     empty; instance-admin only to create, edit, delete or publish).
+             *     `cyclonedx` only supports `project` with a single target.
+             * @enum {string}
+             */
+            scope_kind: "project" | "versions" | "vulnerability";
+            /** Format: uuid */
+            project_id?: string | null;
+            readonly project_slug?: string;
+            readonly project_name?: string;
+            targets?: components["schemas"]["VexDocumentTarget"][];
+            /** @description CVE/GHSA; only for `scope_kind: vulnerability`. */
+            vuln_id?: string;
+            /** @description Document author (OpenVEX `author` */
+            author?: string;
+            /** @description Empty = "Xila". */
+            publisher_name?: string;
+            /** @description Publisher's URL. Empty = `PUBLIC_URL` */
+            publisher_namespace?: string;
+            publisher_contact?: string;
+            /** @description Tracking version; 0 = never published. */
+            readonly version?: number;
+            /** Format: date-time */
+            readonly published_at?: string | null;
+            readonly revisions?: components["schemas"]["VexDocumentRevision"][];
+            /** Format: uuid */
+            readonly created_by?: string | null;
+            /** Format: date-time */
+            readonly created_at?: string;
+            /** Format: date-time */
+            readonly updated_at?: string;
+        };
+        VexDocumentRevision: {
+            number?: number;
+            /** Format: date-time */
+            published_at?: string;
+        };
         /** @enum {string} */
         AssetType: "repository" | "container_image" | "cloud_resource" | "host" | "kubernetes" | "serverless";
         Asset: {
@@ -10735,6 +11119,7 @@ export interface components {
         OrgID: string;
         TeamID: string;
         ProjectID: string;
+        OverrideID: string;
         CRACaseID: string;
         EngagementID: string;
         ActionID: string;
@@ -10823,6 +11208,7 @@ export interface components {
         PolicyID: string;
         ChannelID: string;
         VexID: string;
+        DocumentID: string;
         ConnectorID: string;
         /** @description The provider's slug (`/sso/providers`). */
         SSOSlug: string;
@@ -12248,6 +12634,57 @@ export interface operations {
             /** @description You are not the owner */
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
+        };
+    };
+    getProjectTriageCarry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TriageCarrySettings"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    putProjectTriageCarry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TriageCarrySettings"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TriageCarrySettings"];
+                };
+            };
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
         };
     };
     listProjectVersions: {
@@ -14516,6 +14953,132 @@ export interface operations {
             };
         };
     };
+    listLicenseOverrides: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        license_overrides?: components["schemas"]["LicenseOverride"][];
+                    };
+                };
+            };
+        };
+    };
+    createLicenseOverride: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LicenseOverrideInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LicenseOverride"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    getLicenseOverride: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+                overrideID: components["parameters"]["OverrideID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LicenseOverride"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    updateLicenseOverride: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+                overrideID: components["parameters"]["OverrideID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LicenseOverrideInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LicenseOverride"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    deleteLicenseOverride: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+                overrideID: components["parameters"]["OverrideID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
     listProjectPriorityWeights: {
         parameters: {
             query?: never;
@@ -16620,6 +17183,60 @@ export interface operations {
                 };
             };
             409: components["responses"]["Error"];
+        };
+    };
+    markFindingDuplicate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                findingID: components["parameters"]["FindingID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    primary_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Finding"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    unmarkFindingDuplicate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                findingID: components["parameters"]["FindingID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Finding"];
+                };
+            };
+            404: components["responses"]["Error"];
         };
     };
     listFindingDuplicates: {
@@ -18804,6 +19421,214 @@ export interface operations {
                 };
                 content?: never;
             };
+            404: components["responses"]["Error"];
+        };
+    };
+    listVexDocuments: {
+        parameters: {
+            query?: {
+                /** @description Page size (max 200). */
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        documents?: components["schemas"]["VexDocument"][];
+                        pagination?: components["schemas"]["Pagination"];
+                    };
+                };
+            };
+        };
+    };
+    createVexDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VexDocument"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VexDocument"];
+                };
+            };
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    getVexDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentID: components["parameters"]["DocumentID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VexDocument"];
+                };
+            };
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    updateVexDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentID: components["parameters"]["DocumentID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VexDocument"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VexDocument"];
+                };
+            };
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    deleteVexDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentID: components["parameters"]["DocumentID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    publishVexDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentID: components["parameters"]["DocumentID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        document?: components["schemas"]["VexDocument"];
+                        /** @description Whether a new revision was appended. */
+                        changed?: boolean;
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    listVexDocumentRevisions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentID: components["parameters"]["DocumentID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        revisions?: components["schemas"]["VexDocumentRevision"][];
+                    };
+                };
+            };
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    downloadVexDocumentRevision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentID: components["parameters"]["DocumentID"];
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The frozen document, as an attachment. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            403: components["responses"]["Error"];
             404: components["responses"]["Error"];
         };
     };
@@ -21920,6 +22745,90 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: components["responses"]["Watching"];
+        };
+    };
+    getMeInbox: {
+        parameters: {
+            query?: {
+                filter?: "" | "unread" | "mentions" | "assigned";
+                /** @description Page size (max 200). */
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items?: components["schemas"]["InboxItem"][];
+                        pagination?: components["schemas"]["Pagination"];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    getMeInboxCount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        unread?: number;
+                    };
+                };
+            };
+            403: components["responses"]["Error"];
+        };
+    };
+    postMeInboxRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    ids?: string[];
+                    all?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        marked?: number;
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
         };
     };
     listPsirtAdvisories: {

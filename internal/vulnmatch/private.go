@@ -84,8 +84,8 @@ func (a *Affected) validate() error {
 	p.Ecosystem, p.Name, p.Purl = strings.TrimSpace(p.Ecosystem), strings.TrimSpace(p.Name), strings.TrimSpace(p.Purl)
 	switch {
 	case p.Ecosystem != "" && p.Name != "":
-		if !osvEcosystemNames[p.Ecosystem] {
-			return fmt.Errorf("unknown ecosystem %q (use an OSV ecosystem name such as npm, PyPI, Maven, Go — or a purl)", p.Ecosystem)
+		if !validEcosystemName(p.Ecosystem) {
+			return fmt.Errorf("unknown ecosystem %q (use an OSV ecosystem name such as npm, PyPI, Maven, Go, a distro ecosystem such as Debian, Debian:12, Alpine:v3.18 — or a purl)", p.Ecosystem)
 		}
 	case p.Purl != "":
 		pp, ok := parsePurl(p.Purl)

@@ -361,6 +361,9 @@ func (r *Repository) ApproveAssessment(ctx context.Context, id, approver, note s
 		}); err != nil {
 			return Assessment{}, Finding{}, err
 		}
+		if err := stampStatusDecided(ctx, tx, a.FindingID, time.Now()); err != nil {
+			return Assessment{}, Finding{}, err
+		}
 	}
 	if a.Severity != nil {
 		if err := applyChange(ctx, tx, []string{a.FindingID}, Change{Severity: a.Severity}, actor); err != nil {
@@ -388,6 +391,11 @@ func (r *Repository) ApproveAssessment(ctx context.Context, id, approver, note s
 		}
 		if f, err = r.Get(ctx, a.FindingID); err != nil {
 			return Assessment{}, Finding{}, err
+		}
+	}
+	if a.Status != nil && r.carrier != nil {
+		if err := r.carrier.Carry(ctx, f, actor); err != nil {
+			return Assessment{}, Finding{}, fmt.Errorf("carry triage: %w", err)
 		}
 	}
 	return a, f, nil

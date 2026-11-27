@@ -3,7 +3,7 @@
 	// per ScanCode category, or the raw string marked "unresolved".
 	import { t, labelOf } from '#lib/i18n.js';
 
-	/** @type {{ c: { license?: string, license_expression?: string, license_ids?: string[], license_categories?: string[], license_resolved?: boolean|null } }} */
+	/** @type {{ c: { license?: string, license_expression?: string, license_ids?: string[], license_categories?: string[], license_resolved?: boolean|null, license_override_id?: string|null, license_declared_expression?: string } }} */
 	let { c } = $props();
 
 	/** @type {Record<string, string>} */
@@ -38,6 +38,10 @@
 		{#each c.license_categories ?? [] as cat (cat)}
 			<span class="badge badge-xs {licenseCategoryClass(cat)} whitespace-nowrap">{$labelOf('licenseCategory', cat)}</span>
 		{/each}
+		{#if c.license_override_id}
+			<span class="badge badge-xs badge-info badge-outline whitespace-nowrap"
+				title={$t('badge.concludedTitle', { declared: c.license_declared_expression || c.license || '—' })}>{$t('badge.concluded')}</span>
+		{/if}
 		{#if unresolved}
 			<span class="badge badge-xs badge-outline whitespace-nowrap" title={$t('badge.unresolvedTitle')}>{$t('badge.unresolved')}</span>
 		{/if}

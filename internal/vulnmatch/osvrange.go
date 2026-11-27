@@ -48,16 +48,14 @@ func (a Affected) key() string {
 	return ""
 }
 
-// ecosystem is the OSV ecosystem whose version ordering applies.
+// ecosystem is the OSV ecosystem family whose version ordering applies
+// ("Debian:12" and "Debian" both order by dpkg rules).
 func (a Affected) ecosystem() string {
 	if e := a.Package.Ecosystem; e != "" {
-		if i := strings.IndexByte(e, ':'); i >= 0 {
-			e = e[:i]
-		}
-		return e
+		return packageFamily(e)
 	}
 	if p, ok := parsePurl(a.Package.Purl); ok {
-		return ecosystemOf(p)
+		return packageFamily(ecosystemOf(p))
 	}
 	return ""
 }

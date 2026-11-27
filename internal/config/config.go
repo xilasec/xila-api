@@ -120,6 +120,9 @@ type Config struct {
 	// modified version for users over a network must offer them its source
 	// (section 13), so point this at your fork.
 	SourceURL string
+	// VexDocumentPrefix (VEX_DOCUMENT_PREFIX, default "XILA") is the prefix of
+	// stored VEX documents' ids: <prefix>-<year>-<NNNN>.
+	VexDocumentPrefix string
 	// IssueSyncInterval is how often issue-tracker state is synced both ways and
 	// auto-create runs (0 = off).
 	IssueSyncInterval time.Duration
@@ -213,6 +216,9 @@ type Retention struct {
 	// them; ARCHIVE_RETENTION then purges them. A fixed finding that comes back
 	// is unarchived by the next upsert.
 	FindingArchiveAfter time.Duration
+	// InboxAge (INBOX_RETENTION) purges read in-app inbox items (internal/inbox)
+	// older than this (default 90 days); unread items are never purged.
+	InboxAge time.Duration
 }
 
 // Notify governs durable notification delivery (the outbox). The leader's
@@ -932,6 +938,7 @@ func Load() (Config, error) {
 			AuditAge:            getdur("AUDIT_RETENTION", 365*24*time.Hour),
 			ArchiveAge:          getdur("ARCHIVE_RETENTION", 30*24*time.Hour),
 			FindingArchiveAfter: getdur("FINDING_ARCHIVE_AFTER", 0),
+			InboxAge:            getdur("INBOX_RETENTION", 90*24*time.Hour),
 		},
 		TriageRulesRequireApproval:     getbool("TRIAGE_RULES_REQUIRE_APPROVAL", false),
 		SBOMStrictValidation:           getbool("SBOM_STRICT_VALIDATION", false),
@@ -942,6 +949,7 @@ func Load() (Config, error) {
 		IntegrationSecretKeyPrevious:   strings.TrimSpace(sec.get("INTEGRATION_SECRET_KEY_PREVIOUS", "")),
 		PublicURL:                      strings.TrimRight(strings.TrimSpace(getenv("PUBLIC_URL", "")), "/"),
 		SourceURL:                      strings.TrimSpace(getenv("SOURCE_URL", DefaultSourceURL)),
+		VexDocumentPrefix:              getenv("VEX_DOCUMENT_PREFIX", "XILA"),
 		IssueSyncInterval:              getdur("ISSUE_SYNC_INTERVAL", 15*time.Minute),
 		RemediationSweepInterval:       getdur("REMEDIATION_SWEEP_INTERVAL", 15*time.Minute),
 		RemediationAutoCreate:          getbool("REMEDIATION_AUTO_CREATE", false),
@@ -1079,6 +1087,9 @@ func (c Config) validate() error {
 	}
 	if err := c.validatePSIRT(); err != nil {
 		return err
+	}
+	if !psirtPrefixRe.MatchString(c.VexDocumentPrefix) {
+		return errors.New("VEX_DOCUMENT_PREFIX must be letters, digits and dashes, starting with a letter (e.g. ACME)")
 	}
 	return nil
 }

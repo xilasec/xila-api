@@ -34,6 +34,7 @@ export const LOCALES = [
 // of it is translated.
 export const TRANSLATED_ROUTES = new Set([
 	'/',
+	'/settings',
 	'/features',
 	'/login',
 	'/reset-password',
@@ -57,6 +58,7 @@ export const TRANSLATED_ROUTES = new Set([
 	'/advisories/[id]',
 	'/approvals',
 	'/my-work',
+	'/inbox',
 	'/groups',
 	'/components',
 	'/cra',

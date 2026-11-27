@@ -480,6 +480,14 @@ export const api = {
 	/** @param {string} projectId @param {boolean} on */
 	watchProject: (projectId, on) =>
 		request(on ? 'PUT' : 'DELETE', `/projects/${projectId}/watch`).then((d) => !!d.watching),
+	// In-app notification inbox (13.8): assignments, @mentions, watched-project
+	// events, and (project-less) admin events, re-checked for visibility on
+	// every call. filters: unread / mentions / assigned, limit, offset.
+	/** @param {Query} [filters] */
+	listInbox: (filters) => request('GET', '/me/inbox', { query: filters }),
+	inboxCount: () => request('GET', '/me/inbox/count').then((d) => d.unread ?? 0),
+	/** @param {{ ids?: string[], all?: boolean }} body */
+	markInboxRead: (body) => request('POST', '/me/inbox/read', { body }),
 	// Permission audit (admin). filters: user, user_id, project_id, team_id,
 	// org_id, role, source, principal_kind, limit, offset.
 	/** @param {Query} [filters] */
@@ -645,6 +653,15 @@ export const api = {
 	// only the factors to override.
 	/** @param {string} projectId */
 	priorityWeights: (projectId) => request('GET', `/projects/${projectId}/priority-weights`),
+
+	/** @param {string} projectId */
+	getTriageCarry: (projectId) => request('GET', `/projects/${projectId}/triage-carry`),
+	/** @param {string} projectId @param {{enabled: boolean, branch_regex: string}} data */
+	setTriageCarry: (projectId, data) => request('PUT', `/projects/${projectId}/triage-carry`, { body: data }),
+	/** @param {string} findingId @param {string} primaryId */
+	markDuplicate: (findingId, primaryId) => request('POST', `/findings/${findingId}/duplicate-of`, { body: { primary_id: primaryId } }),
+	/** @param {string} findingId */
+	unmarkDuplicate: (findingId) => request('DELETE', `/findings/${findingId}/duplicate-of`),
 	/** @param {string} projectId @param {Record<string, number>} weights */
 	setPriorityWeights: (projectId, weights) => request('PUT', `/projects/${projectId}/priority-weights`, { body: weights }),
 	/** @param {string} projectId */
@@ -805,6 +822,16 @@ export const api = {
 	/** @param {string} projectId @param {Record<string, any>} [filters] @param {string} [format] */
 	exportProjectComponents: (projectId, filters, format) =>
 		exportTable(`/projects/${projectId}/components/export`, 'xila-components', filters, format),
+	/** @param {string} projectId */
+	listLicenseOverrides: (projectId) => request('GET', `/projects/${projectId}/license-overrides`),
+	/** @param {string} projectId @param {string} id */
+	getLicenseOverride: (projectId, id) => request('GET', `/projects/${projectId}/license-overrides/${id}`),
+	/** @param {string} projectId @param {any} data */
+	createLicenseOverride: (projectId, data) => request('POST', `/projects/${projectId}/license-overrides`, { body: data }),
+	/** @param {string} projectId @param {string} id @param {any} data */
+	updateLicenseOverride: (projectId, id, data) => request('PUT', `/projects/${projectId}/license-overrides/${id}`, { body: data }),
+	/** @param {string} projectId @param {string} id */
+	deleteLicenseOverride: (projectId, id) => request('DELETE', `/projects/${projectId}/license-overrides/${id}`),
 	/** @param {string} id @param {Record<string, any>} [filters] @param {string} [format] */
 	exportSbomComponents: (id, filters, format) =>
 		exportTable(`/sboms/${id}/components/export`, 'xila-components', filters, format),
@@ -849,6 +876,26 @@ export const api = {
 		if (versionId) q.set('version_id', versionId);
 		return download(`/projects/${projectId}/vex/export?${q}`, filename);
 	},
+
+	// --- vex-documents: stored, versioned VEX documents ---
+	/** @param {{ limit?: number, offset?: number }} [page] */
+	listVexDocuments: (page = {}) =>
+		request('GET', '/vex-documents', { query: { limit: 200, ...page } }).then((d) => d.documents ?? []),
+	/** @param {string} id */
+	getVexDocument: (id) => request('GET', `/vex-documents/${id}`),
+	/** @param {any} d */
+	createVexDocument: (d) => request('POST', '/vex-documents', { body: d }),
+	/** @param {string} id @param {any} d */
+	updateVexDocument: (id, d) => request('PUT', `/vex-documents/${id}`, { body: d }),
+	/** @param {string} id */
+	deleteVexDocument: (id) => request('DELETE', `/vex-documents/${id}`),
+	/** @param {string} id */
+	publishVexDocument: (id) => request('POST', `/vex-documents/${id}/publish`),
+	/** @param {string} id */
+	listVexDocumentRevisions: (id) =>
+		request('GET', `/vex-documents/${id}/revisions`).then((d) => d.revisions ?? []),
+	/** @param {string} id @param {number} number @param {string} filename */
+	downloadVexDocumentRevision: (id, number, filename) => download(`/vex-documents/${id}/revisions/${number}/download`, filename),
 
 	// --- global component search ---
 	/** @param {Record<string, any>} [filters] */

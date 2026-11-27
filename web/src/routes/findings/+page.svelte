@@ -1,6 +1,7 @@
 <script>
 	import { onMount, untrack } from 'svelte';
 	import ExploitBadge from '#lib/components/ExploitBadge.svelte';
+	import Icon from '#lib/components/Icon.svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api, ApiError, errorMessage } from '#lib/api.js';
@@ -91,8 +92,15 @@
 	const anyFilter = $derived(
 		filters.severity || filters.status || filters.category || filters.project_id || filters.sla || filters.exploit || filters.assignee ||
 			filters.scanner || filters.rule_id || filters.q || filters.tag ||
-			filters.kev || filters.reachable || filters.include_duplicates || filters.all_versions || (cf.key && cf.value)
+			filters.kev || filters.kev_ransomware || filters.reachable || filters.include_duplicates || filters.all_versions || (cf.key && cf.value)
 	);
+	// Filters behind "More filters": the panel opens by itself when a link or
+	// a reload arrives with one of them set, so nothing active is hidden.
+	const moreCount = $derived(
+		[filters.category, filters.sla, filters.exploit, filters.tag, filters.kev_ransomware, filters.reachable,
+			filters.include_duplicates, filters.all_versions, cf.key && cf.value].filter(Boolean).length
+	);
+	let showMore = $state(untrack(() => moreCount > 0));
 
 	// A finding stays in view after triage only if it still matches the active
 	// status filter (e.g. filtering "open" and marking it FP should drop it).
@@ -117,14 +125,14 @@
 	}
 
 	// Quick-triage actions available for a finding, given its current state.
-	/** @type {{ status: string, label: import('#lib/i18n.js').MessageKey, title: import('#lib/i18n.js').MessageKey }[]} */
+	/** @type {{ status: string, title: import('#lib/i18n.js').MessageKey }[]} */
 	const OPEN_ACTIONS = [
-		{ status: 'false_positive', label: 'findings.actFP', title: 'findings.actFPTitle' },
-		{ status: 'risk_accepted', label: 'findings.actAccept', title: 'findings.actAcceptTitle' },
-		{ status: 'wont_fix', label: 'findings.actWont', title: 'findings.actWontTitle' }
+		{ status: 'false_positive', title: 'findings.actFPTitle' },
+		{ status: 'risk_accepted', title: 'findings.actAcceptTitle' },
+		{ status: 'wont_fix', title: 'findings.actWontTitle' }
 	];
 	/** @type {typeof OPEN_ACTIONS} */
-	const REOPEN_ACTIONS = [{ status: 'open', label: 'findings.actReopen', title: 'findings.actReopenTitle' }];
+	const REOPEN_ACTIONS = [{ status: 'open', title: 'findings.actReopenTitle' }];
 	/** @param {any} f */
 	const actionsFor = (f) => (f.status === 'open' || f.status === 'confirmed' ? OPEN_ACTIONS : REOPEN_ACTIONS);
 
@@ -400,24 +408,62 @@
 	</div>
 </div>
 
-<form class="mb-2 flex gap-2" onsubmit={search} role="search">
-	<input
-		type="search"
-		bind:this={searchEl}
-		bind:value={searchText}
-		placeholder={$t('findings.searchPlaceholder')}
-		class="input input-bordered input-sm w-full max-w-xl"
-		aria-label={$t('findings.searchAria')}
-	/>
-	<button class="btn btn-sm">{$t('findings.search')}</button>
-</form>
-
-<div class="mb-3 flex flex-wrap items-center gap-2">
-	<select bind:value={filters.sort} onchange={applyFilters} class="select select-bordered select-sm">
+<div class="mb-2 flex flex-wrap items-center gap-2">
+	<form class="flex min-w-64 flex-1 gap-2" onsubmit={search} role="search">
+		<input
+			type="search"
+			bind:this={searchEl}
+			bind:value={searchText}
+			placeholder={$t('findings.searchPlaceholder')}
+			class="input input-bordered input-sm w-full max-w-xl"
+			aria-label={$t('findings.searchAria')}
+		/>
+		<button class="btn btn-sm">{$t('findings.search')}</button>
+	</form>
+	<select bind:value={filters.sort} onchange={applyFilters} class="select select-bordered select-sm w-auto" aria-label={$t('findings.sortLabel')}>
 		<option value="priority">{$t('findings.sortPriority')}</option>
 		<option value="sla_due">{$t('findings.sortSla')}</option>
 		<option value="">{filters.q ? $t('findings.sortRelevance') : $t('findings.sortRecent')}</option>
 	</select>
+	<button class="btn btn-sm gap-1" class:btn-active={showMore} onclick={() => (showMore = !showMore)} aria-expanded={showMore} aria-controls="more-filters">
+		<Icon name="filter" />{$t('findings.moreFilters')}
+		{#if moreCount > 0}<span class="badge badge-primary badge-sm">{moreCount}</span>{/if}
+	</button>
+	{#if anyFilter}
+		<button class="btn btn-ghost btn-sm" onclick={clearFilters}>{$t('findings.clear')}</button>
+	{/if}
+</div>
+
+<div class="mb-2 flex flex-wrap items-center gap-2">
+	<select bind:value={filters.status} onchange={applyFilters} class="select select-bordered select-sm w-auto">
+		<option value="">{$t('findings.allStatuses')}</option>
+		{#each STATUSES as s}<option value={s}>{$labelOf('status', s)}</option>{/each}
+	</select>
+	<select bind:value={filters.severity} onchange={applyFilters} class="select select-bordered select-sm w-auto">
+		<option value="">{$t('findings.allSeverities')}</option>
+		{#each SEVERITIES as s}<option value={s}>{$labelOf('severity', s)}</option>{/each}
+	</select>
+	<select bind:value={filters.project_id} onchange={applyFilters} class="select select-bordered select-sm w-auto max-w-48">
+		<option value="">{$t('findings.allProjects')}</option>
+		{#each projects as pr}<option value={pr.id}>{pr.name}</option>{/each}
+	</select>
+	<select bind:value={filters.assignee} onchange={applyFilters} class="select select-bordered select-sm w-auto">
+		<option value="">{$t('findings.anyone')}</option>
+		<option value="me">{$t('findings.assignedToMe')}</option>
+		<option value="none">{$t('findings.unassigned')}</option>
+	</select>
+	<label class="label cursor-pointer gap-2">
+		<input type="checkbox" bind:checked={filters.kev} onchange={applyFilters} class="checkbox checkbox-sm" />
+		<span class="label-text">{$t('findings.kevOnly')}</span>
+	</label>
+	{#if filters.scanner || filters.rule_id}
+		<span class="badge badge-ghost gap-1" title={$t('findings.linkFilterTitle')}>
+			{filters.scanner ? $t('findings.linkScanner', { name: filters.scanner }) : ''}{filters.scanner && filters.rule_id ? ' · ' : ''}{filters.rule_id ? $t('findings.linkRule', { id: filters.rule_id.slice(0, 8) }) : ''}
+		</span>
+	{/if}
+</div>
+
+<div id="more-filters" class="mb-3 flex flex-wrap items-center gap-2 rounded-box border border-base-300 bg-base-100 p-3" hidden={!showMore}>
 	{#if cfFields.length > 0}
 		{@const cfDef = cfFields.find((f) => f.key === cf.key)}
 		<div class="join">
@@ -440,47 +486,26 @@
 		</div>
 	{/if}
 	{#if tags.length > 0 || filters.tag}
-		<select bind:value={filters.tag} onchange={applyFilters} class="select select-bordered select-sm max-w-40">
+		<select bind:value={filters.tag} onchange={applyFilters} class="select select-bordered select-sm w-auto max-w-48">
 			<option value="">{$t('findings.anyTag')}</option>
 			{#each tags as tg (tg.tag)}<option value={tg.tag}>{tg.tag} ({fmtNumber(tg.count)})</option>{/each}
 			{#if filters.tag && !tags.some((tg) => tg.tag === filters.tag)}<option value={filters.tag}>{filters.tag}</option>{/if}
 		</select>
 	{/if}
-	<select bind:value={filters.status} onchange={applyFilters} class="select select-bordered select-sm">
-		<option value="">{$t('findings.allStatuses')}</option>
-		{#each STATUSES as s}<option value={s}>{$labelOf('status', s)}</option>{/each}
-	</select>
-	<select bind:value={filters.severity} onchange={applyFilters} class="select select-bordered select-sm">
-		<option value="">{$t('findings.allSeverities')}</option>
-		{#each SEVERITIES as s}<option value={s}>{$labelOf('severity', s)}</option>{/each}
-	</select>
-	<select bind:value={filters.category} onchange={applyFilters} class="select select-bordered select-sm">
+	<select bind:value={filters.category} onchange={applyFilters} class="select select-bordered select-sm w-auto">
 		<option value="">{$t('findings.allCategories')}</option>
 		{#each CATEGORIES as c}<option value={c}>{$labelOf('category', c)}</option>{/each}
 	</select>
-	<select bind:value={filters.sla} onchange={applyFilters} class="select select-bordered select-sm">
+	<select bind:value={filters.sla} onchange={applyFilters} class="select select-bordered select-sm w-auto">
 		<option value="">{$t('findings.anySla')}</option>
 		{#each SLA_STATUSES as v}<option value={v}>{$labelOf('sla', v)}</option>{/each}
 	</select>
-	<select bind:value={filters.exploit} onchange={applyFilters} class="select select-bordered select-sm" title={$t('findings.exploitTitle')}>
+	<select bind:value={filters.exploit} onchange={applyFilters} class="select select-bordered select-sm w-auto" title={$t('findings.exploitTitle')}>
 		<option value="">{$t('findings.anyExploit')}</option>
 		<option value="any">{$t('findings.publicExploit')}</option>
 		<option value="weaponized">{$t('findings.weaponized')}</option>
 		<option value="poc">{$t('findings.poc')}</option>
 	</select>
-	<select bind:value={filters.assignee} onchange={applyFilters} class="select select-bordered select-sm">
-		<option value="">{$t('findings.anyone')}</option>
-		<option value="me">{$t('findings.assignedToMe')}</option>
-		<option value="none">{$t('findings.unassigned')}</option>
-	</select>
-	<select bind:value={filters.project_id} onchange={applyFilters} class="select select-bordered select-sm max-w-40">
-		<option value="">{$t('findings.allProjects')}</option>
-		{#each projects as pr}<option value={pr.id}>{pr.name}</option>{/each}
-	</select>
-	<label class="label cursor-pointer gap-2">
-		<input type="checkbox" bind:checked={filters.kev} onchange={applyFilters} class="checkbox checkbox-sm" />
-		<span class="label-text">{$t('findings.kevOnly')}</span>
-	</label>
 	<label class="label cursor-pointer gap-2" title={$t('finding.ransomwareTitle')}>
 		<input type="checkbox" bind:checked={filters.kev_ransomware} onchange={applyFilters} class="checkbox checkbox-sm" />
 		<span class="label-text">{$t('findings.ransomwareOnly')}</span>
@@ -497,14 +522,6 @@
 		<input type="checkbox" bind:checked={filters.all_versions} onchange={applyFilters} class="checkbox checkbox-sm" />
 		<span class="label-text">{$t('findings.allBranches')}</span>
 	</label>
-	{#if filters.scanner || filters.rule_id}
-		<span class="badge badge-ghost gap-1" title={$t('findings.linkFilterTitle')}>
-			{filters.scanner ? $t('findings.linkScanner', { name: filters.scanner }) : ''}{filters.scanner && filters.rule_id ? ' · ' : ''}{filters.rule_id ? $t('findings.linkRule', { id: filters.rule_id.slice(0, 8) }) : ''}
-		</span>
-	{/if}
-	{#if anyFilter}
-		<button class="btn btn-ghost btn-sm" onclick={clearFilters}>{$t('findings.clear')}</button>
-	{/if}
 </div>
 
 <State {loading} {error} empty={!loading && !error && findings.length === 0}
@@ -518,7 +535,7 @@
 					<th class="w-8">
 						<input bind:this={selectAllEl} type="checkbox" class="checkbox checkbox-sm" checked={allSelected} onchange={toggleAll} aria-label={$t('findings.selectAll')} />
 					</th>
-					<th>{$t('findings.colPriority')}</th><th>{$t('findings.colSeverity')}</th><th>{$t('findings.colTitle')}</th><th>{$t('findings.colProject')}</th><th>{$t('findings.colPackage')}</th><th>{$t('findings.colScanner')}</th><th>{$t('findings.colStatus')}</th><th>{$t('findings.colSla')}</th><th>{$t('findings.colOwner')}</th><th></th>
+					<th>{$t('findings.colPriority')}</th><th>{$t('findings.colSeverity')}</th><th>{$t('findings.colTitle')}</th><th>{$t('findings.colProject')}</th><th>{$t('findings.colPackage')}</th><th>{$t('findings.colScanner')}</th><th>{$t('findings.colStatus')}</th><th>{$t('findings.colSla')}</th><th class="hidden 2xl:table-cell">{$t('findings.colOwner')}</th><th class="w-10"><span class="sr-only">{$t('findings.colActions')}</span></th>
 				</tr>
 			</thead>
 			<tbody>
@@ -536,8 +553,8 @@
 							{#if f.epss}<span class="ml-1 text-xs text-base-content/40" title="EPSS">{fmtNumber(f.epss, { style: 'percent' })}</span>{/if}
 						</td>
 						<td><Badge kind="severity" value={f.severity} /></td>
-						<td class="max-w-sm">
-							<div class="truncate">{f.title}</div>
+						<td class="max-w-72">
+							<a href={`/findings/${f.id}`} class="block truncate hover:underline" onclick={(e) => e.stopPropagation()}>{f.title}</a>
 							{#if f.tags?.length}
 								<div class="mt-0.5 flex flex-wrap gap-1">
 									{#each f.tags as tg (tg)}
@@ -547,9 +564,9 @@
 								</div>
 							{/if}
 						</td>
-						<td class="text-xs">{projectName(f.project_id)}</td>
-						<td class="text-xs">
-							{f.package_name || '—'}{#if f.package_version}<span class="text-base-content/50"> @{f.package_version}</span>{/if}
+						<td class="max-w-28 text-xs"><div class="truncate" title={projectName(f.project_id)}>{projectName(f.project_id)}</div></td>
+						<td class="max-w-40 text-xs">
+							<div class="truncate" title={f.package_version ? `${f.package_name}@${f.package_version}` : f.package_name}>{f.package_name || '—'}{#if f.package_version}<span class="text-base-content/50"> @{f.package_version}</span>{/if}</div>
 							{#if f.dep_scope === 'dev'}<span class="badge badge-ghost badge-xs ml-1" title={$t('findings.devTitle')}>{$t('findings.dev')}</span>
 							{:else if f.dep_scope === 'optional'}<span class="badge badge-ghost badge-xs ml-1" title={$t('findings.optionalTitle')}>{$t('findings.optional')}</span>{/if}
 							{#if f.dep_direct === false}<span class="badge badge-ghost badge-xs ml-1" title="{$t('findings.transitiveTitle')}{f.dep_depth ? ' ' + $t('findings.depth', { depth: f.dep_depth }) : ''}">{$t('findings.transitive')}</span>{/if}
@@ -564,20 +581,22 @@
 								onedit={() => (editing = f.id)} onpick={(s) => triage(f, s)} oncancel={() => (editing = '')} />
 						</td>
 						<td><SlaBadge status={f.sla_status} due={f.sla_due_at} /></td>
-						<td class="max-w-32 truncate text-xs" title={f.assignee_email ?? $t('findings.unassigned')}>
+						<td class="hidden max-w-32 truncate text-xs 2xl:table-cell" title={f.assignee_email ?? $t('findings.unassigned')}>
 							{#if f.assignee_email}{f.assignee_email.split('@')[0]}{:else}<span class="text-base-content/30">—</span>{/if}
 						</td>
 						<td class="text-right" onclick={(e) => e.stopPropagation()}>
-							<div class="flex justify-end gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
+							<!-- A popover, not a CSS dropdown: the table scrolls sideways, and
+							     its overflow would clip a positioned menu. -->
+							<button class="btn btn-ghost btn-xs btn-square" disabled={busy === f.id} aria-label={$t('findings.rowActions')} title={$t('findings.rowActions')}
+								popovertarget={`acts-${f.id}`} style={`anchor-name: --acts-${i}`}>
+								<Icon name="more" />
+							</button>
+							<ul id={`acts-${f.id}`} popover class="dropdown dropdown-end menu menu-sm w-48 rounded-box border border-base-300 bg-base-100 p-1 shadow-lg"
+								style={`position-anchor: --acts-${i}`}>
 								{#each actionsFor(f) as a (a.status)}
-									<button
-										class="btn btn-ghost btn-xs whitespace-nowrap"
-										disabled={busy === f.id}
-										title={$t(a.title)}
-										onclick={() => triage(f, a.status)}
-									>{$t(a.label)}</button>
+									<li><button onclick={(e) => { /** @type {HTMLElement} */ (e.currentTarget.closest('[popover]'))?.hidePopover(); triage(f, a.status); }}>{$t(a.title)}</button></li>
 								{/each}
-							</div>
+							</ul>
 						</td>
 					</tr>
 				{/each}

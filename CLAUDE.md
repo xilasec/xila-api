@@ -154,6 +154,24 @@ Components carry `license_expression` / `license_ids` / `license_categories` /
 `license_resolved`, computed at ingest by `license.Resolve`. Do not match licenses
 by substring. Use `Expr.Satisfies` (`MIT OR GPL-3.0` satisfies "no GPL").
 
+Manual concluded-license override (M13 13.12): `license_overrides` (per
+project, keyed by base purl plus an optional version range) lets an admin
+correct a component's license. `sbom.Service.WithLicenseOverrides` applies
+it at ingest (`internal/sbom/license.go`'s `applyLicenseOverrides`), copying
+the SBOM's own resolution into `license_declared_*` before overwriting the
+live `license_expression`/`license_ids`/`license_categories`/`license_resolved`
+with the override's (re-resolved through `license.Resolve`, so the two paths
+can never disagree on what counts as "known"). `sbom.Repository.ReapplyLicenseOverrides`
+redoes this for every current snapshot's components without a re-upload,
+re-deriving the declared value from the stored raw `license` string with the
+same recovery the startup backfill uses (`legacyLicenseTerms`), so it never
+drifts regardless of how many times an override has since changed. Call it,
+then `policy.Service.Reevaluate`, on every override create/update/delete
+(`license.OverrideHandler` does both). `license.Matcher` holds every
+project's overrides at once (the whole curated set is small); its
+`byProject` lookup is why one load serves both the ingest hook and a
+reapply scoped to one project.
+
 Package freshness: `internal/pkgmeta` caches registry metadata per base purl
 (leader cron `PKGMETA_*`, per-ecosystem mirror URLs) and writes `package_status`
 per exact purl on fetch. Component queries join it. "Latest" means the newest stable,
@@ -476,6 +494,14 @@ Add a notification event: add a constant in `internal/notify/notify.go`
 spot via `go notifier.Notify(context.Background(), …)`, and add it to the UI
 event dropdowns (`web/src/routes/notifications/+page.svelte` and the project
 Alerts tab). Events with a `ProjectID` route to global and that project's channels.
+It also, automatically, reaches the in-app inbox (13.8, `internal/inbox`):
+`notify.Service.Notify` fills it in the same call, so a new event needs no
+extra wiring there. Recipients follow the event shape: a project's watchers by
+default, the finding's assignee for `EventFindingAssigned`, instance admins for
+an event with no `ProjectID`, or (set `Event.UserIDs`) exactly those people —
+`EventMention` (comment @mentions, resolved in `finding.Handler.notifyMentions`
+against `membership.UsersWithProjectAccess`) is the worked example of that last
+kind. A person can mute an event type per `user_notification_prefs.muted_events`.
 
 SLA: `internal/sla` owns policies (`sla_policies`: global / org / project;
 the most specific wins as a whole; the built-in 7/30/90/120 lives in the SQL function
@@ -722,6 +748,26 @@ predates the location key; keep its SQL in sync with this function if the
 formula changes again (see migration 000057/000056 for the CVE-location
 precedent).
 
+**Carry triage across branches**: a project's `triage_carry_enabled` /
+`triage_carry_branch_regex` (`internal/triagecarry`) copy a manual
+`false_positive`/`wont_fix`/reopen decision made on one version to its other
+matching versions, and apply it to a matching fingerprint a later scan
+creates there. It runs as a `scan.Applier` after VEX and vulnerability
+policies and before the triage rules (a carried decision is itself subject
+to the project's rules, same as an ingest-found one), and immediately after
+a direct status PATCH. The most recent decision per fingerprint always
+wins, so a carry never overturns a newer manual call; a small
+`triage_carries` table records the shared decision so this is idempotent
+and explainable. Risk acceptances never carry: an acceptance is a decision
+about one version's exposure, not a fact about the code.
+
+**Mark as duplicate by hand**: `findings.duplicate_manual` (set by
+`POST /findings/{id}/duplicate-of`, cleared by the `DELETE`) flags a
+`duplicate_of` link a person made rather than `Deduplicate` itself, so the
+automatic pass's `UPDATE`s and `scanner_counts` grouping skip that row (see
+the correlation-key paragraph above). A manual duplicate behaves exactly
+like an automatic one everywhere else: hidden from lists, counts and alerts.
+
 **Archive instead of delete**: projects, engagements, scans and findings are
 archived (`archived_at`), not deleted by a user DELETE (`internal/archive`;
 `?purge=true` is admin-only, and the retention job purges past
@@ -794,7 +840,13 @@ and `internal/server/smoke_test.go` (missing smoke wiring causes a nil panic in 
 - UI build: `web/build` is gitignored and only a `-tags embedfrontend` build
   serves the UI. `make run`/`go run` serve the API only. After editing Svelte,
   run `pnpm build` in `web/` (or `make bundle` / `make up`) and hard-refresh
-  the browser (hashed assets cache). Nav pages live under `web/src/routes/`.
+  the browser (hashed assets cache). Pages live under `web/src/routes/`; the
+  navigation is data in `web/src/lib/nav.js` (sidebar sections, the Settings
+  hub, the command palette and switchable-feature gating all read it), so a
+  new page gets one entry there, never a hand-written link in the layout.
+  Daily work goes in `MAIN_NAV`; configuration goes in `SETTINGS_NAV` (it
+  then gets the Settings breadcrumb). A project-page tab goes into one of
+  the `SECTIONS` of `routes/projects/[id]/+page.svelte`.
 - The ingest queue has backpressure. `scan.QueueMonitor` samples `scan_jobs`
   on an interval (one query per tick, not per request) and feeds both the OTel
   gauges and the upload handler's `429` shed at `INGEST_MAX_QUEUE_DEPTH`. A failed

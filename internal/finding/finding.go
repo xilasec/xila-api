@@ -131,6 +131,18 @@ type Finding struct {
 	// the project and carries neither. Re-reported by a scan, it is live again.
 	ArchivedAt *time.Time `json:"archived_at"`
 	ArchivedBy *string    `json:"archived_by"`
+	// StatusDecidedAt is when this instance's status was last deliberately
+	// decided — by a person (SetStatusManual, an approved assessment, a bulk
+	// edit, an accepted AI proposal) or by triage carry copying a decision
+	// from another version. nil means never decided directly: a carried
+	// decision may always apply. Automated passes (VEX, vulnerability
+	// policies, triage rules, connectors) never set it. See
+	// internal/triagecarry.
+	StatusDecidedAt *time.Time `json:"status_decided_at"`
+	// DuplicateManual marks DuplicateOf as a hand-made decision (M13 13.15):
+	// Deduplicate never rewrites it. Cleared by UnmarkDuplicateManual, which
+	// hands the finding back to automatic grouping.
+	DuplicateManual bool `json:"duplicate_manual"`
 }
 
 // Reachability is how much this finding's dependency can actually hurt us — the
@@ -142,6 +154,10 @@ func (f Finding) Reachability() domain.Reachability {
 // Repository provides access to the findings table.
 type Repository struct {
 	db *pgxpool.Pool
+	// carrier propagates a manual status decision across a project's other
+	// in-scope branches (internal/triagecarry.Service satisfies it). Optional:
+	// WithCarrier wires it once at startup; nil means triage carry is off.
+	carrier Carrier
 }
 
 // NewRepository constructs a Repository.
@@ -166,7 +182,8 @@ const findingColumns = `id, project_id, version_id, fingerprint, scanner, catego
 	assignee_id, (SELECT email FROM users WHERE users.id = assignee_id),
 	(SELECT exposure FROM assets WHERE assets.id = asset_id),
 	` + acceptanceRefSQL + `,
-	title_manual, severity_manual, planned_remediation_at, archived_at, archived_by`
+	title_manual, severity_manual, planned_remediation_at, archived_at, archived_by,
+	status_decided_at, duplicate_manual`
 
 // assetExposureSQL reads a finding's asset exposure (table alias-free; ” when
 // unknown or there is no asset) — the fourth domain.Priority input.
@@ -184,7 +201,8 @@ func scanFinding(row pgx.Row, extra ...any) (Finding, error) {
 		&f.CorrelationKey, &f.DuplicateOf, &f.DepDirect, &f.DepDepth, &f.DepScope,
 		&f.SLADays, &f.SLADueAt, &f.Tags, &f.Custom, &f.ExploitMaturity,
 		&f.AssigneeID, &f.AssigneeEmail, &f.AssetExposure, &f.RiskAcceptance,
-		&f.TitleManual, &f.SeverityManual, &f.PlannedRemediationAt, &f.ArchivedAt, &f.ArchivedBy}, extra...)...)
+		&f.TitleManual, &f.SeverityManual, &f.PlannedRemediationAt, &f.ArchivedAt, &f.ArchivedBy,
+		&f.StatusDecidedAt, &f.DuplicateManual}, extra...)...)
 	if err == nil {
 		f.SLAStatus = domain.SLAStatusAt(f.Status, f.SLADays, f.SLADueAt, f.ResolvedAt, time.Now())
 	}
@@ -932,6 +950,131 @@ func setStatusTx(ctx context.Context, tx pgx.Tx, id string, t Triage) (Finding, 
 	return f, nil
 }
 
+// Carrier propagates a manual status decision (false_positive, wont_fix, or a
+// reopen to open) to a project's other in-scope versions, when the project has
+// triage carry enabled (internal/triagecarry.Service satisfies it).
+type Carrier interface {
+	Carry(ctx context.Context, f Finding, actor string) error
+}
+
+// WithCarrier enables triage-carry propagation on every manual status change:
+// SetStatusManual, an approved assessment, a bulk edit (Apply) and an
+// accepted AI proposal (ApplyProposed). Automated passes that call SetStatus
+// directly (VEX, vulnerability policies, triage rules, connectors) are never
+// carried — only a person's decision is.
+func (r *Repository) WithCarrier(c Carrier) *Repository {
+	r.carrier = c
+	return r
+}
+
+// stampStatusDecided records when a finding's current status was deliberately
+// decided, so a later triage-carry propagation can tell this instance has its
+// own, possibly newer, decision and must not be overturned by an older one.
+// Only a manual decision or a carry application calls this — never an
+// automated pass.
+func stampStatusDecided(ctx context.Context, tx pgx.Tx, id string, at time.Time) error {
+	if _, err := tx.Exec(ctx, `UPDATE findings SET status_decided_at = $2 WHERE id = $1`, id, at); err != nil {
+		return fmt.Errorf("record status decided_at: %w", err)
+	}
+	return nil
+}
+
+// SetStatusManual is SetStatus for a decision a person just made directly
+// (PATCH /findings/{id}), as opposed to an automated pass that calls
+// SetStatus itself. It additionally stamps status_decided_at and, when
+// WithCarrier configured one, runs the Carrier so the decision reaches the
+// project's other in-scope branches.
+func (r *Repository) SetStatusManual(ctx context.Context, id string, t Triage) (Finding, error) {
+	if t.Status == domain.FindingRiskAccepted {
+		return Finding{}, ErrRiskAcceptanceRequired
+	}
+	now := time.Now()
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return Finding{}, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck // no-op after commit
+	if err := withActor(ctx, tx, t.Actor, t.Reason); err != nil {
+		return Finding{}, err
+	}
+	f, err := setStatusTx(ctx, tx, id, t)
+	if err != nil {
+		return Finding{}, err
+	}
+	if err := stampStatusDecided(ctx, tx, id, now); err != nil {
+		return Finding{}, err
+	}
+	f.StatusDecidedAt = &now
+	if err := tx.Commit(ctx); err != nil {
+		return Finding{}, fmt.Errorf("commit: %w", err)
+	}
+	if r.carrier != nil {
+		if err := r.carrier.Carry(ctx, f, t.Actor); err != nil {
+			return f, fmt.Errorf("carry triage: %w", err)
+		}
+	}
+	return f, nil
+}
+
+// SetStatusCarried applies a decision made elsewhere in the project to id: it
+// writes exactly what SetStatus does, but records decidedAt (the source
+// decision's own time) instead of now() — so a later, actually newer decision
+// elsewhere can still tell its own writes apart from a carried one — and
+// attributes the history to note (e.g. "carried from main") instead of the
+// reason.
+func (r *Repository) SetStatusCarried(ctx context.Context, id string, t Triage, decidedAt time.Time, note string) (Finding, error) {
+	if t.Status == domain.FindingRiskAccepted {
+		return Finding{}, ErrRiskAcceptanceRequired
+	}
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return Finding{}, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck // no-op after commit
+	if err := withActor(ctx, tx, t.Actor, note); err != nil {
+		return Finding{}, err
+	}
+	f, err := setStatusTx(ctx, tx, id, t)
+	if err != nil {
+		return Finding{}, err
+	}
+	if err := stampStatusDecided(ctx, tx, id, decidedAt); err != nil {
+		return Finding{}, err
+	}
+	f.StatusDecidedAt = &decidedAt
+	if err := tx.Commit(ctx); err != nil {
+		return Finding{}, fmt.Errorf("commit: %w", err)
+	}
+	return f, nil
+}
+
+// ListByFingerprint returns a project's other non-duplicate, non-archived
+// findings sharing fingerprint whose status is one of statuses — triage
+// carry's candidates to propagate a decision to ("every other version's
+// report of the same issue"). A false_positive/wont_fix decision targets
+// currently open/confirmed findings; a reopen (open) targets currently
+// suppressed ones (false_positive/wont_fix), so the reopen reaches exactly
+// what an earlier carry (or independent triage) suppressed.
+func (r *Repository) ListByFingerprint(ctx context.Context, projectID, fingerprint, excludeID string, statuses []domain.FindingStatus) ([]Finding, error) {
+	q := `SELECT ` + findingColumns + ` FROM findings
+		WHERE project_id = $1 AND fingerprint = $2 AND id <> $3
+		  AND status = ANY($4) AND duplicate_of IS NULL AND` + archive.Finding("")
+	rows, err := r.db.Query(ctx, q, projectID, fingerprint, excludeID, statuses)
+	if err != nil {
+		return nil, fmt.Errorf("list by fingerprint: %w", err)
+	}
+	defer rows.Close()
+	out := []Finding{}
+	for rows.Next() {
+		f, err := scanFinding(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan finding: %w", err)
+		}
+		out = append(out, f)
+	}
+	return out, rows.Err()
+}
+
 // ExpireExceptions reopens false_positive / wont_fix findings whose exception
 // has passed its expiry, recording an "expired" audit event. Returns the
 // number reopened. (Risk acceptances expire as a whole: ExpireAcceptances.)
@@ -1643,6 +1786,7 @@ func (r *Repository) deduplicate(ctx context.Context, projectID, scanID string, 
 			FROM findings
 			WHERE project_id = $1
 			  AND ($2::uuid IS NULL OR last_scan_id = $2 OR id = ANY($3))
+			  AND NOT duplicate_manual
 		) k
 		WHERE findings.id = k.id AND findings.correlation_key IS DISTINCT FROM k.key
 		RETURNING k.version_id::text || '|' || k.old_key`,
@@ -1682,12 +1826,16 @@ func (r *Repository) deduplicate(ctx context.Context, projectID, scanID string, 
 		scoped AS (
 			-- The affected groups, plus the touched findings themselves: one whose
 			-- CVE was dropped has no key at all now, and still has to lose its
-			-- duplicate_of.
+			-- duplicate_of. A manually-flagged duplicate (duplicate_manual) is
+			-- entirely excluded: automatic dedup must never rewrite a hand-made
+			-- decision (M13 13.15), so it is invisible to election here, exactly
+			-- like an archived finding.
 			SELECT * FROM findings f
 			WHERE f.project_id = $1
 			  AND ($2::uuid IS NULL
 			       OR f.version_id::text || '|' || f.correlation_key IN (SELECT grp FROM affected)
 			       OR f.last_scan_id = $2 OR f.id = ANY($3))
+			  AND NOT f.duplicate_manual
 		),
 		scanner_counts AS (
 			-- Per correlation group among electable (open/confirmed, non-archived)

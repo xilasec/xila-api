@@ -2,8 +2,9 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { api } from '#lib/api.js';
-	import { me } from '#lib/stores.js';
+	import { me, features, isOn } from '#lib/stores.js';
 	import { locale, translate } from '#lib/i18n.js';
+	import { MAIN_NAV, SETTINGS_NAV, visible } from '#lib/nav.js';
 
 	// Part of the app shell: speaks the user's language on every page.
 	/** @param {import('#lib/i18n.js').MessageKey} key @param {import('#lib/i18n.js').MessageParams} [params] */
@@ -43,8 +44,22 @@
 			: [])
 	]);
 
+	// Every other page the navigation knows, so nothing is unreachable by
+	// keyboard; the curated entries above keep their keywords and shortcuts.
+	const navPages = $derived.by(() => {
+		const who = { admin: !!$me?.is_admin, on: (/** @type {string} */ f) => isOn($features, f) };
+		const known = new Set(pages.map((p) => p.href));
+		return visible([...MAIN_NAV, ...SETTINGS_NAV], who).flatMap((sec) =>
+			sec.items
+				.filter((i) => !known.has(i.href))
+				.map((i) => ({ label: ts(i.key), hint: sec.key ? ts(sec.key) : '', href: i.href, keywords: '' }))
+		);
+	});
+
 	const items = $derived([
 		...pages,
+		...navPages,
+		{ label: ts('nav.settings'), hint: '', href: '/settings', keywords: 'admin configuration preferences' },
 		...projects.map((p) => ({ label: p.name, hint: ts('palette.hint.project'), href: `/projects/${p.id}`, keywords: p.slug }))
 	]);
 
