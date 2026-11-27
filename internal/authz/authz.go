@@ -506,6 +506,14 @@ func baseScope(path, method string) routeScope {
 		// resource to check; creating checks editor on each project in the
 		// handler, like POST /findings/bulk.
 		return routeScope{globalList: true}
+	case "vex-documents":
+		// Stored VEX documents (M13 13.14): a project/versions-scope document is
+		// authorized against its own project (editor to create/edit/publish,
+		// viewer to read); a vulnerability-scope document spans every project
+		// and is admin-only. No single project owns the list or a document that
+		// may have none, so this is handler-authorized like /findings/bulk and
+		// /root-causes, not a path resource lookup.
+		return routeScope{globalList: true}
 	case "findings":
 		if len(segs) == 1 {
 			return routeScope{globalList: true}

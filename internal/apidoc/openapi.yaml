@@ -6176,6 +6176,148 @@ paths:
         "204": { description: Removed }
         "404": { $ref: "#/components/responses/Error" }
 
+  /vex-documents:
+    get:
+      operationId: listVexDocuments
+      tags: [VEX]
+      summary: Stored, versioned VEX documents
+      description: |
+        A document has a format (OpenVEX, CSAF, CycloneDX), a scope (one project
+        version, several versions/branches of one project, or one vulnerability
+        across every project), publisher metadata, and a revision history. Lists
+        every document on the caller's visible projects; an instance admin also
+        sees vulnerability-scope documents (cross-project, admin-only to create).
+      parameters:
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Offset" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  documents: { type: array, items: { $ref: "#/components/schemas/VexDocument" } }
+                  pagination: { $ref: "#/components/schemas/Pagination" }
+    post:
+      operationId: createVexDocument
+      tags: [VEX]
+      summary: Create a VEX document
+      description: |
+        Stores an unpublished document; `POST .../publish` renders and freezes its
+        first revision. `scope_kind: vulnerability` (`vuln_id` required) spans
+        every project and is instance-admin only. CycloneDX only supports
+        `scope_kind: project` with exactly one target (its single-BOM-subject
+        model doesn't generalize to several versions or projects).
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/VexDocument" } } } }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VexDocument" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+  /vex-documents/{documentID}:
+    get:
+      operationId: getVexDocument
+      tags: [VEX]
+      summary: One VEX document
+      parameters: [{ $ref: "#/components/parameters/DocumentID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VexDocument" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      operationId: updateVexDocument
+      tags: [VEX]
+      summary: Edit a document's scope, format or publisher metadata
+      description: |
+        Its version, content hash and revision history are untouched; a scope or
+        metadata change takes effect on the next publish.
+      parameters: [{ $ref: "#/components/parameters/DocumentID" }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/VexDocument" } } } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VexDocument" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deleteVexDocument
+      tags: [VEX]
+      summary: Delete a document (and its revisions)
+      parameters: [{ $ref: "#/components/parameters/DocumentID" }]
+      responses:
+        "204": { description: Deleted }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /vex-documents/{documentID}/publish:
+    post:
+      operationId: publishVexDocument
+      tags: [VEX]
+      summary: Publish (re-render from current data)
+      description: |
+        Re-renders the document from the project's current findings and stored VEX
+        statements (the same mapping `GET /projects/{id}/vex/export` uses). A new
+        revision and tracking version are appended only when the rendered content
+        actually changed since the last publish (`changed: false` otherwise).
+      parameters: [{ $ref: "#/components/parameters/DocumentID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  document: { $ref: "#/components/schemas/VexDocument" }
+                  changed: { type: boolean, description: Whether a new revision was appended. }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /vex-documents/{documentID}/revisions:
+    get:
+      operationId: listVexDocumentRevisions
+      tags: [VEX]
+      summary: A document's revision history
+      parameters: [{ $ref: "#/components/parameters/DocumentID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revisions: { type: array, items: { $ref: "#/components/schemas/VexDocumentRevision" } }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /vex-documents/{documentID}/revisions/{number}/download:
+    get:
+      operationId: downloadVexDocumentRevision
+      tags: [VEX]
+      summary: Download one revision's frozen, rendered document
+      parameters:
+        - { $ref: "#/components/parameters/DocumentID" }
+        - { name: number, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        "200":
+          description: The frozen document, as an attachment.
+          content:
+            application/json:
+              schema: { type: object }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+
   /projects/{projectID}/assets:
     post:
       operationId: createProjectAsset
@@ -9548,6 +9690,7 @@ components:
     PolicyID: { name: policyID, in: path, required: true, schema: { type: string, format: uuid } }
     ChannelID: { name: channelID, in: path, required: true, schema: { type: string, format: uuid } }
     VexID: { name: vexID, in: path, required: true, schema: { type: string, format: uuid } }
+    DocumentID: { name: documentID, in: path, required: true, schema: { type: string, format: uuid } }
     ConnectorID: { name: connectorID, in: path, required: true, schema: { type: string, format: uuid } }
     SSOSlug:
       name: slug
@@ -11762,6 +11905,52 @@ components:
         detail: { type: string }
         source: { type: string, enum: [openvex, cyclonedx] }
         created_at: { type: string, format: date-time }
+
+    VexDocumentTarget:
+      type: object
+      description: One project version a project/versions-scope document names. Neither field = the default version.
+      properties:
+        version_id: { type: string, format: uuid }
+        branch: { type: string, description: Resolved to a version by name on every publish. }
+
+    VexDocument:
+      type: object
+      required: [format, scope_kind]
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        document_id: { type: string, readOnly: true, description: "`<VEX_DOCUMENT_PREFIX>-<year>-<NNNN>`, e.g. `XILA-2026-0001`." }
+        format: { type: string, enum: [openvex, csaf, cyclonedx] }
+        spec_version: { type: string, description: "Only for `cyclonedx`: `1.6` (default) or `1.7`." }
+        scope_kind:
+          type: string
+          enum: [project, versions, vulnerability]
+          description: |
+            `project`: one version of `project_id` (`targets` has exactly one entry).
+            `versions`: several versions/branches of `project_id` (`targets` has 1+).
+            `vulnerability`: one `vuln_id` across every project (`project_id`/`targets`
+            empty; instance-admin only to create, edit, delete or publish).
+            `cyclonedx` only supports `project` with a single target.
+        project_id: { type: [string, "null"], format: uuid }
+        project_slug: { type: string, readOnly: true }
+        project_name: { type: string, readOnly: true }
+        targets: { type: array, items: { $ref: "#/components/schemas/VexDocumentTarget" } }
+        vuln_id: { type: string, description: "CVE/GHSA; only for `scope_kind: vulnerability`." }
+        author: { type: string, description: Document author (OpenVEX `author`, CSAF contact). Empty = the publishing user. }
+        publisher_name: { type: string, description: Empty = "Xila". }
+        publisher_namespace: { type: string, description: Publisher's URL. Empty = `PUBLIC_URL`, else `urn:xila`. }
+        publisher_contact: { type: string }
+        version: { type: integer, readOnly: true, description: Tracking version; 0 = never published. }
+        published_at: { type: [string, "null"], format: date-time, readOnly: true }
+        revisions: { type: array, readOnly: true, items: { $ref: "#/components/schemas/VexDocumentRevision" } }
+        created_by: { type: [string, "null"], format: uuid, readOnly: true }
+        created_at: { type: string, format: date-time, readOnly: true }
+        updated_at: { type: string, format: date-time, readOnly: true }
+
+    VexDocumentRevision:
+      type: object
+      properties:
+        number: { type: integer }
+        published_at: { type: string, format: date-time }
 
     AssetType:
       type: string

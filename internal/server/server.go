@@ -129,6 +129,7 @@ type Handlers struct {
 	Gate         *gate.Handler
 	SLA          *sla.Handler
 	Vex          *vex.Handler
+	VexDocuments *vex.DocumentHandler
 	IssueTracker *issuetracker.Handler
 	Connector    *connector.Handler
 	VulnMatch    *vulnmatch.Handler
@@ -351,6 +352,7 @@ func New(cfg config.Config, h Handlers) *Server {
 	h.Gate.Register(secured)
 	h.SLA.Register(secured)
 	h.Vex.Register(secured)
+	h.VexDocuments.Register(secured)
 	h.IssueTracker.Register(secured)
 	h.Connector.Register(secured)
 	h.Report.Register(secured)

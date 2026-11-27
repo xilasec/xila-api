@@ -869,6 +869,26 @@ export const api = {
 		return download(`/projects/${projectId}/vex/export?${q}`, filename);
 	},
 
+	// --- vex-documents: stored, versioned VEX documents ---
+	/** @param {{ limit?: number, offset?: number }} [page] */
+	listVexDocuments: (page = {}) =>
+		request('GET', '/vex-documents', { query: { limit: 200, ...page } }).then((d) => d.documents ?? []),
+	/** @param {string} id */
+	getVexDocument: (id) => request('GET', `/vex-documents/${id}`),
+	/** @param {any} d */
+	createVexDocument: (d) => request('POST', '/vex-documents', { body: d }),
+	/** @param {string} id @param {any} d */
+	updateVexDocument: (id, d) => request('PUT', `/vex-documents/${id}`, { body: d }),
+	/** @param {string} id */
+	deleteVexDocument: (id) => request('DELETE', `/vex-documents/${id}`),
+	/** @param {string} id */
+	publishVexDocument: (id) => request('POST', `/vex-documents/${id}/publish`),
+	/** @param {string} id */
+	listVexDocumentRevisions: (id) =>
+		request('GET', `/vex-documents/${id}/revisions`).then((d) => d.revisions ?? []),
+	/** @param {string} id @param {number} number @param {string} filename */
+	downloadVexDocumentRevision: (id, number, filename) => download(`/vex-documents/${id}/revisions/${number}/download`, filename),
+
 	// --- global component search ---
 	/** @param {Record<string, any>} [filters] */
 	searchComponents: (filters = {}) => request('GET', '/components', { query: filters }),

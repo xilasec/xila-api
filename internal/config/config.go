@@ -120,6 +120,9 @@ type Config struct {
 	// modified version for users over a network must offer them its source
 	// (section 13), so point this at your fork.
 	SourceURL string
+	// VexDocumentPrefix (VEX_DOCUMENT_PREFIX, default "XILA") is the prefix of
+	// stored VEX documents' ids: <prefix>-<year>-<NNNN>.
+	VexDocumentPrefix string
 	// IssueSyncInterval is how often issue-tracker state is synced both ways and
 	// auto-create runs (0 = off).
 	IssueSyncInterval time.Duration
@@ -942,6 +945,7 @@ func Load() (Config, error) {
 		IntegrationSecretKeyPrevious:   strings.TrimSpace(sec.get("INTEGRATION_SECRET_KEY_PREVIOUS", "")),
 		PublicURL:                      strings.TrimRight(strings.TrimSpace(getenv("PUBLIC_URL", "")), "/"),
 		SourceURL:                      strings.TrimSpace(getenv("SOURCE_URL", DefaultSourceURL)),
+		VexDocumentPrefix:              getenv("VEX_DOCUMENT_PREFIX", "XILA"),
 		IssueSyncInterval:              getdur("ISSUE_SYNC_INTERVAL", 15*time.Minute),
 		RemediationSweepInterval:       getdur("REMEDIATION_SWEEP_INTERVAL", 15*time.Minute),
 		RemediationAutoCreate:          getbool("REMEDIATION_AUTO_CREATE", false),
@@ -1079,6 +1083,9 @@ func (c Config) validate() error {
 	}
 	if err := c.validatePSIRT(); err != nil {
 		return err
+	}
+	if !psirtPrefixRe.MatchString(c.VexDocumentPrefix) {
+		return errors.New("VEX_DOCUMENT_PREFIX must be letters, digits and dashes, starting with a letter (e.g. ACME)")
 	}
 	return nil
 }

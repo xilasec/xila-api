@@ -335,6 +335,8 @@ func run() error {
 	reacher := correlation.NewReacher(findingRepo, findingRepo)
 	vexRepo := vex.NewRepository(db)
 	vexSvc := vex.NewService(vexRepo, findingRepo, projectRepo)
+	vexDocsRepo := vex.NewDocumentRepository(db, vexRepo)
+	vexDocsSvc := vex.NewDocumentService(vexDocsRepo, membershipRepo, cfg.VexDocumentPrefix)
 	vulnPolicyRepo := vulnpolicy.NewRepository(db)
 	vulnPolicySvc := vulnpolicy.NewService(vulnPolicyRepo, findingRepo, findingRepo)
 	carryRepo := triagecarry.NewRepository(db)
@@ -581,6 +583,7 @@ func run() error {
 		Gate:         gate.NewHandler(gateRepo, findingRepo, projectRepo),
 		SLA:          sla.NewHandler(slaRepo, slaSvc),
 		Vex:          vex.NewHandler(vexRepo, vexSvc).WithPublicURL(cfg.PublicURL),
+		VexDocuments: vex.NewDocumentHandler(vexDocsSvc),
 		IssueTracker: issuetracker.NewHandler(issueSvc),
 		Connector:    connector.NewHandler(connectorSvc),
 		VulnMatch:    vulnmatch.NewHandler(vulnSvc, vulnSources.Names(), osvMirrorRepo, osvMirror).WithJVN(jvnMirror),

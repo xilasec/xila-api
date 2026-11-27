@@ -2627,6 +2627,48 @@ func (e UserKind) Valid() bool {
 	}
 }
 
+// Defines values for VexDocumentFormat.
+const (
+	VexDocumentFormatCsaf      VexDocumentFormat = "csaf"
+	VexDocumentFormatCyclonedx VexDocumentFormat = "cyclonedx"
+	VexDocumentFormatOpenvex   VexDocumentFormat = "openvex"
+)
+
+// Valid indicates whether the value is a known member of the VexDocumentFormat enum.
+func (e VexDocumentFormat) Valid() bool {
+	switch e {
+	case VexDocumentFormatCsaf:
+		return true
+	case VexDocumentFormatCyclonedx:
+		return true
+	case VexDocumentFormatOpenvex:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VexDocumentScopeKind.
+const (
+	VexDocumentScopeKindProject       VexDocumentScopeKind = "project"
+	VexDocumentScopeKindVersions      VexDocumentScopeKind = "versions"
+	VexDocumentScopeKindVulnerability VexDocumentScopeKind = "vulnerability"
+)
+
+// Valid indicates whether the value is a known member of the VexDocumentScopeKind enum.
+func (e VexDocumentScopeKind) Valid() bool {
+	switch e {
+	case VexDocumentScopeKindProject:
+		return true
+	case VexDocumentScopeKindVersions:
+		return true
+	case VexDocumentScopeKindVulnerability:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for VexStatementSource.
 const (
 	VexStatementSourceCyclonedx VexStatementSource = "cyclonedx"
@@ -8219,6 +8261,72 @@ type UserGroup struct {
 	UpdatedAt   *time.Time          `json:"updated_at,omitempty"`
 }
 
+// VexDocument defines model for VexDocument.
+type VexDocument struct {
+	// Author Document author (OpenVEX `author`
+	Author    *string             `json:"author,omitempty"`
+	CreatedAt *time.Time          `json:"created_at,omitempty"`
+	CreatedBy *openapi_types.UUID `json:"created_by,omitempty"`
+
+	// DocumentId `<VEX_DOCUMENT_PREFIX>-<year>-<NNNN>`, e.g. `XILA-2026-0001`.
+	DocumentId       *string             `json:"document_id,omitempty"`
+	Format           VexDocumentFormat   `json:"format"`
+	Id               *openapi_types.UUID `json:"id,omitempty"`
+	ProjectId        *openapi_types.UUID `json:"project_id,omitempty"`
+	ProjectName      *string             `json:"project_name,omitempty"`
+	ProjectSlug      *string             `json:"project_slug,omitempty"`
+	PublishedAt      *time.Time          `json:"published_at,omitempty"`
+	PublisherContact *string             `json:"publisher_contact,omitempty"`
+
+	// PublisherName Empty = "Xila".
+	PublisherName *string `json:"publisher_name,omitempty"`
+
+	// PublisherNamespace Publisher's URL. Empty = `PUBLIC_URL`
+	PublisherNamespace *string                `json:"publisher_namespace,omitempty"`
+	Revisions          *[]VexDocumentRevision `json:"revisions,omitempty"`
+
+	// ScopeKind `project`: one version of `project_id` (`targets` has exactly one entry).
+	// `versions`: several versions/branches of `project_id` (`targets` has 1+).
+	// `vulnerability`: one `vuln_id` across every project (`project_id`/`targets`
+	// empty; instance-admin only to create, edit, delete or publish).
+	// `cyclonedx` only supports `project` with a single target.
+	ScopeKind VexDocumentScopeKind `json:"scope_kind"`
+
+	// SpecVersion Only for `cyclonedx`: `1.6` (default) or `1.7`.
+	SpecVersion *string              `json:"spec_version,omitempty"`
+	Targets     *[]VexDocumentTarget `json:"targets,omitempty"`
+	UpdatedAt   *time.Time           `json:"updated_at,omitempty"`
+
+	// Version Tracking version; 0 = never published.
+	Version *int `json:"version,omitempty"`
+
+	// VulnId CVE/GHSA; only for `scope_kind: vulnerability`.
+	VulnId *string `json:"vuln_id,omitempty"`
+}
+
+// VexDocumentFormat defines model for VexDocument.Format.
+type VexDocumentFormat string
+
+// VexDocumentScopeKind `project`: one version of `project_id` (`targets` has exactly one entry).
+// `versions`: several versions/branches of `project_id` (`targets` has 1+).
+// `vulnerability`: one `vuln_id` across every project (`project_id`/`targets`
+// empty; instance-admin only to create, edit, delete or publish).
+// `cyclonedx` only supports `project` with a single target.
+type VexDocumentScopeKind string
+
+// VexDocumentRevision defines model for VexDocumentRevision.
+type VexDocumentRevision struct {
+	Number      *int       `json:"number,omitempty"`
+	PublishedAt *time.Time `json:"published_at,omitempty"`
+}
+
+// VexDocumentTarget One project version a project/versions-scope document names. Neither field = the default version.
+type VexDocumentTarget struct {
+	// Branch Resolved to a version by name on every publish.
+	Branch    *string             `json:"branch,omitempty"`
+	VersionId *openapi_types.UUID `json:"version_id,omitempty"`
+}
+
 // VexStatement defines model for VexStatement.
 type VexStatement struct {
 	CreatedAt *time.Time          `json:"created_at,omitempty"`
@@ -8412,6 +8520,9 @@ type CustomFieldID = openapi_types.UUID
 
 // CustomParserID defines model for CustomParserID.
 type CustomParserID = openapi_types.UUID
+
+// DocumentID defines model for DocumentID.
+type DocumentID = openapi_types.UUID
 
 // EngagementFilter defines model for EngagementFilter.
 type EngagementFilter = openapi_types.UUID
@@ -10646,6 +10757,13 @@ type UpdateUserJSONBody struct {
 	IsAdmin *bool `json:"is_admin,omitempty"`
 }
 
+// ListVexDocumentsParams defines parameters for ListVexDocuments.
+type ListVexDocumentsParams struct {
+	// Limit Page size (max 200).
+	Limit  *Limit  `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
 // ExportVulnPolicyBundleParams defines parameters for ExportVulnPolicyBundle.
 type ExportVulnPolicyBundleParams struct {
 	Format *ExportVulnPolicyBundleParamsFormat `form:"format,omitempty" json:"format,omitempty"`
@@ -11095,6 +11213,12 @@ type CreateUserJSONRequestBody CreateUserJSONBody
 
 // UpdateUserJSONRequestBody defines body for UpdateUser for application/json ContentType.
 type UpdateUserJSONRequestBody UpdateUserJSONBody
+
+// CreateVexDocumentJSONRequestBody defines body for CreateVexDocument for application/json ContentType.
+type CreateVexDocumentJSONRequestBody = VexDocument
+
+// UpdateVexDocumentJSONRequestBody defines body for UpdateVexDocument for application/json ContentType.
+type UpdateVexDocumentJSONRequestBody = VexDocument
 
 // CreateVulnPolicyJSONRequestBody defines body for CreateVulnPolicy for application/json ContentType.
 type CreateVulnPolicyJSONRequestBody = VulnPolicy
@@ -16575,6 +16699,93 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /users/{userID}/transfer-ownership (the `TransferOwnership` operationId).
 	TransferOwnership(ctx context.Context, userID UserID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListVexDocuments Stored, versioned VEX documents
+	//
+	// A document has a format (OpenVEX, CSAF, CycloneDX), a scope (one project
+	// version, several versions/branches of one project, or one vulnerability
+	// across every project), publisher metadata, and a revision history. Lists
+	// every document on the caller's visible projects; an instance admin also
+	// sees vulnerability-scope documents (cross-project, admin-only to create).
+	//
+	// Corresponds with GET /vex-documents (the `ListVexDocuments` operationId).
+	ListVexDocuments(ctx context.Context, params *ListVexDocumentsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateVexDocumentWithBody Create a VEX document
+	//
+	// Stores an unpublished document; `POST .../publish` renders and freezes its
+	// first revision. `scope_kind: vulnerability` (`vuln_id` required) spans
+	// every project and is instance-admin only. CycloneDX only supports
+	// `scope_kind: project` with exactly one target (its single-BOM-subject
+	// model doesn't generalize to several versions or projects).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /vex-documents (the `CreateVexDocument` operationId).
+	CreateVexDocumentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateVexDocument Create a VEX document
+	//
+	// Stores an unpublished document; `POST .../publish` renders and freezes its
+	// first revision. `scope_kind: vulnerability` (`vuln_id` required) spans
+	// every project and is instance-admin only. CycloneDX only supports
+	// `scope_kind: project` with exactly one target (its single-BOM-subject
+	// model doesn't generalize to several versions or projects).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /vex-documents (the `CreateVexDocument` operationId).
+	CreateVexDocument(ctx context.Context, body CreateVexDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteVexDocument Delete a document (and its revisions)
+	//
+	// Corresponds with DELETE /vex-documents/{documentID} (the `DeleteVexDocument` operationId).
+	DeleteVexDocument(ctx context.Context, documentID DocumentID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetVexDocument One VEX document
+	//
+	// Corresponds with GET /vex-documents/{documentID} (the `GetVexDocument` operationId).
+	GetVexDocument(ctx context.Context, documentID DocumentID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateVexDocumentWithBody Edit a document's scope, format or publisher metadata
+	//
+	// Its version, content hash and revision history are untouched; a scope or
+	// metadata change takes effect on the next publish.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /vex-documents/{documentID} (the `UpdateVexDocument` operationId).
+	UpdateVexDocumentWithBody(ctx context.Context, documentID DocumentID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateVexDocument Edit a document's scope, format or publisher metadata
+	//
+	// Its version, content hash and revision history are untouched; a scope or
+	// metadata change takes effect on the next publish.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /vex-documents/{documentID} (the `UpdateVexDocument` operationId).
+	UpdateVexDocument(ctx context.Context, documentID DocumentID, body UpdateVexDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PublishVexDocument Publish (re-render from current data)
+	//
+	// Re-renders the document from the project's current findings and stored VEX
+	// statements (the same mapping `GET /projects/{id}/vex/export` uses). A new
+	// revision and tracking version are appended only when the rendered content
+	// actually changed since the last publish (`changed: false` otherwise).
+	//
+	// Corresponds with POST /vex-documents/{documentID}/publish (the `PublishVexDocument` operationId).
+	PublishVexDocument(ctx context.Context, documentID DocumentID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListVexDocumentRevisions A document's revision history
+	//
+	// Corresponds with GET /vex-documents/{documentID}/revisions (the `ListVexDocumentRevisions` operationId).
+	ListVexDocumentRevisions(ctx context.Context, documentID DocumentID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DownloadVexDocumentRevision Download one revision's frozen, rendered document
+	//
+	// Corresponds with GET /vex-documents/{documentID}/revisions/{number}/download (the `DownloadVexDocumentRevision` operationId).
+	DownloadVexDocumentRevision(ctx context.Context, documentID DocumentID, number int, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteVexStatement Remove a VEX statement
 	//
@@ -27683,6 +27894,193 @@ func (c *Client) ReactivateUser(ctx context.Context, userID UserID, reqEditors .
 // Corresponds with POST /users/{userID}/transfer-ownership (the `TransferOwnership` operationId).
 func (c *Client) TransferOwnership(ctx context.Context, userID UserID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewTransferOwnershipRequest(c.Server, userID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListVexDocuments Stored, versioned VEX documents
+//
+// A document has a format (OpenVEX, CSAF, CycloneDX), a scope (one project
+// version, several versions/branches of one project, or one vulnerability
+// across every project), publisher metadata, and a revision history. Lists
+// every document on the caller's visible projects; an instance admin also
+// sees vulnerability-scope documents (cross-project, admin-only to create).
+//
+// Corresponds with GET /vex-documents (the `ListVexDocuments` operationId).
+func (c *Client) ListVexDocuments(ctx context.Context, params *ListVexDocumentsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListVexDocumentsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateVexDocumentWithBody Create a VEX document
+//
+// Stores an unpublished document; `POST .../publish` renders and freezes its
+// first revision. `scope_kind: vulnerability` (`vuln_id` required) spans
+// every project and is instance-admin only. CycloneDX only supports
+// `scope_kind: project` with exactly one target (its single-BOM-subject
+// model doesn't generalize to several versions or projects).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /vex-documents (the `CreateVexDocument` operationId).
+func (c *Client) CreateVexDocumentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateVexDocumentRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateVexDocument Create a VEX document
+//
+// Stores an unpublished document; `POST .../publish` renders and freezes its
+// first revision. `scope_kind: vulnerability` (`vuln_id` required) spans
+// every project and is instance-admin only. CycloneDX only supports
+// `scope_kind: project` with exactly one target (its single-BOM-subject
+// model doesn't generalize to several versions or projects).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /vex-documents (the `CreateVexDocument` operationId).
+func (c *Client) CreateVexDocument(ctx context.Context, body CreateVexDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateVexDocumentRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteVexDocument Delete a document (and its revisions)
+//
+// Corresponds with DELETE /vex-documents/{documentID} (the `DeleteVexDocument` operationId).
+func (c *Client) DeleteVexDocument(ctx context.Context, documentID DocumentID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteVexDocumentRequest(c.Server, documentID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetVexDocument One VEX document
+//
+// Corresponds with GET /vex-documents/{documentID} (the `GetVexDocument` operationId).
+func (c *Client) GetVexDocument(ctx context.Context, documentID DocumentID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetVexDocumentRequest(c.Server, documentID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateVexDocumentWithBody Edit a document's scope, format or publisher metadata
+//
+// Its version, content hash and revision history are untouched; a scope or
+// metadata change takes effect on the next publish.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /vex-documents/{documentID} (the `UpdateVexDocument` operationId).
+func (c *Client) UpdateVexDocumentWithBody(ctx context.Context, documentID DocumentID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateVexDocumentRequestWithBody(c.Server, documentID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateVexDocument Edit a document's scope, format or publisher metadata
+//
+// Its version, content hash and revision history are untouched; a scope or
+// metadata change takes effect on the next publish.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /vex-documents/{documentID} (the `UpdateVexDocument` operationId).
+func (c *Client) UpdateVexDocument(ctx context.Context, documentID DocumentID, body UpdateVexDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateVexDocumentRequest(c.Server, documentID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PublishVexDocument Publish (re-render from current data)
+//
+// Re-renders the document from the project's current findings and stored VEX
+// statements (the same mapping `GET /projects/{id}/vex/export` uses). A new
+// revision and tracking version are appended only when the rendered content
+// actually changed since the last publish (`changed: false` otherwise).
+//
+// Corresponds with POST /vex-documents/{documentID}/publish (the `PublishVexDocument` operationId).
+func (c *Client) PublishVexDocument(ctx context.Context, documentID DocumentID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPublishVexDocumentRequest(c.Server, documentID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListVexDocumentRevisions A document's revision history
+//
+// Corresponds with GET /vex-documents/{documentID}/revisions (the `ListVexDocumentRevisions` operationId).
+func (c *Client) ListVexDocumentRevisions(ctx context.Context, documentID DocumentID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListVexDocumentRevisionsRequest(c.Server, documentID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DownloadVexDocumentRevision Download one revision's frozen, rendered document
+//
+// Corresponds with GET /vex-documents/{documentID}/revisions/{number}/download (the `DownloadVexDocumentRevision` operationId).
+func (c *Client) DownloadVexDocumentRevision(ctx context.Context, documentID DocumentID, number int, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDownloadVexDocumentRevisionRequest(c.Server, documentID, number)
 	if err != nil {
 		return nil, err
 	}
@@ -49212,6 +49610,336 @@ func NewTransferOwnershipRequest(server string, userID UserID) (*http.Request, e
 	return req, nil
 }
 
+// NewListVexDocumentsRequest constructs an http.Request for the ListVexDocuments method
+func NewListVexDocumentsRequest(server string, params *ListVexDocumentsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/vex-documents")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "offset", *params.Offset, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateVexDocumentRequest calls the generic CreateVexDocument builder with application/json body
+func NewCreateVexDocumentRequest(server string, body CreateVexDocumentJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateVexDocumentRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateVexDocumentRequestWithBody constructs an http.Request for the CreateVexDocument method, with any body, and a specified content type
+func NewCreateVexDocumentRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/vex-documents")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteVexDocumentRequest constructs an http.Request for the DeleteVexDocument method
+func NewDeleteVexDocumentRequest(server string, documentID DocumentID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "documentID", documentID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/vex-documents/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetVexDocumentRequest constructs an http.Request for the GetVexDocument method
+func NewGetVexDocumentRequest(server string, documentID DocumentID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "documentID", documentID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/vex-documents/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateVexDocumentRequest calls the generic UpdateVexDocument builder with application/json body
+func NewUpdateVexDocumentRequest(server string, documentID DocumentID, body UpdateVexDocumentJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateVexDocumentRequestWithBody(server, documentID, "application/json", bodyReader)
+}
+
+// NewUpdateVexDocumentRequestWithBody constructs an http.Request for the UpdateVexDocument method, with any body, and a specified content type
+func NewUpdateVexDocumentRequestWithBody(server string, documentID DocumentID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "documentID", documentID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/vex-documents/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPublishVexDocumentRequest constructs an http.Request for the PublishVexDocument method
+func NewPublishVexDocumentRequest(server string, documentID DocumentID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "documentID", documentID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/vex-documents/%s/publish", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListVexDocumentRevisionsRequest constructs an http.Request for the ListVexDocumentRevisions method
+func NewListVexDocumentRevisionsRequest(server string, documentID DocumentID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "documentID", documentID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/vex-documents/%s/revisions", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDownloadVexDocumentRevisionRequest constructs an http.Request for the DownloadVexDocumentRevision method
+func NewDownloadVexDocumentRevisionRequest(server string, documentID DocumentID, number int) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "documentID", documentID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "number", number, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/vex-documents/%s/revisions/%s/download", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewDeleteVexStatementRequest constructs an http.Request for the DeleteVexStatement method
 func NewDeleteVexStatementRequest(server string, vexID VexID) (*http.Request, error) {
 	var err error
@@ -55846,6 +56574,105 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /users/{userID}/transfer-ownership (the `TransferOwnership` operationId).
 	TransferOwnershipWithResponse(ctx context.Context, userID UserID, reqEditors ...RequestEditorFn) (*TransferOwnershipResponse, error)
+
+	// ListVexDocumentsWithResponse Stored, versioned VEX documents
+	//
+	// A document has a format (OpenVEX, CSAF, CycloneDX), a scope (one project
+	// version, several versions/branches of one project, or one vulnerability
+	// across every project), publisher metadata, and a revision history. Lists
+	// every document on the caller's visible projects; an instance admin also
+	// sees vulnerability-scope documents (cross-project, admin-only to create).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /vex-documents (the `ListVexDocuments` operationId).
+	ListVexDocumentsWithResponse(ctx context.Context, params *ListVexDocumentsParams, reqEditors ...RequestEditorFn) (*ListVexDocumentsResponse, error)
+
+	// CreateVexDocumentWithBodyWithResponse Create a VEX document
+	//
+	// Stores an unpublished document; `POST .../publish` renders and freezes its
+	// first revision. `scope_kind: vulnerability` (`vuln_id` required) spans
+	// every project and is instance-admin only. CycloneDX only supports
+	// `scope_kind: project` with exactly one target (its single-BOM-subject
+	// model doesn't generalize to several versions or projects).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /vex-documents (the `CreateVexDocument` operationId).
+	CreateVexDocumentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateVexDocumentResponse, error)
+
+	// CreateVexDocumentWithResponse Create a VEX document
+	//
+	// Stores an unpublished document; `POST .../publish` renders and freezes its
+	// first revision. `scope_kind: vulnerability` (`vuln_id` required) spans
+	// every project and is instance-admin only. CycloneDX only supports
+	// `scope_kind: project` with exactly one target (its single-BOM-subject
+	// model doesn't generalize to several versions or projects).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /vex-documents (the `CreateVexDocument` operationId).
+	CreateVexDocumentWithResponse(ctx context.Context, body CreateVexDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateVexDocumentResponse, error)
+
+	// DeleteVexDocumentWithResponse Delete a document (and its revisions)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /vex-documents/{documentID} (the `DeleteVexDocument` operationId).
+	DeleteVexDocumentWithResponse(ctx context.Context, documentID DocumentID, reqEditors ...RequestEditorFn) (*DeleteVexDocumentResponse, error)
+
+	// GetVexDocumentWithResponse One VEX document
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /vex-documents/{documentID} (the `GetVexDocument` operationId).
+	GetVexDocumentWithResponse(ctx context.Context, documentID DocumentID, reqEditors ...RequestEditorFn) (*GetVexDocumentResponse, error)
+
+	// UpdateVexDocumentWithBodyWithResponse Edit a document's scope, format or publisher metadata
+	//
+	// Its version, content hash and revision history are untouched; a scope or
+	// metadata change takes effect on the next publish.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /vex-documents/{documentID} (the `UpdateVexDocument` operationId).
+	UpdateVexDocumentWithBodyWithResponse(ctx context.Context, documentID DocumentID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateVexDocumentResponse, error)
+
+	// UpdateVexDocumentWithResponse Edit a document's scope, format or publisher metadata
+	//
+	// Its version, content hash and revision history are untouched; a scope or
+	// metadata change takes effect on the next publish.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /vex-documents/{documentID} (the `UpdateVexDocument` operationId).
+	UpdateVexDocumentWithResponse(ctx context.Context, documentID DocumentID, body UpdateVexDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateVexDocumentResponse, error)
+
+	// PublishVexDocumentWithResponse Publish (re-render from current data)
+	//
+	// Re-renders the document from the project's current findings and stored VEX
+	// statements (the same mapping `GET /projects/{id}/vex/export` uses). A new
+	// revision and tracking version are appended only when the rendered content
+	// actually changed since the last publish (`changed: false` otherwise).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /vex-documents/{documentID}/publish (the `PublishVexDocument` operationId).
+	PublishVexDocumentWithResponse(ctx context.Context, documentID DocumentID, reqEditors ...RequestEditorFn) (*PublishVexDocumentResponse, error)
+
+	// ListVexDocumentRevisionsWithResponse A document's revision history
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /vex-documents/{documentID}/revisions (the `ListVexDocumentRevisions` operationId).
+	ListVexDocumentRevisionsWithResponse(ctx context.Context, documentID DocumentID, reqEditors ...RequestEditorFn) (*ListVexDocumentRevisionsResponse, error)
+
+	// DownloadVexDocumentRevisionWithResponse Download one revision's frozen, rendered document
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /vex-documents/{documentID}/revisions/{number}/download (the `DownloadVexDocumentRevision` operationId).
+	DownloadVexDocumentRevisionWithResponse(ctx context.Context, documentID DocumentID, number int, reqEditors ...RequestEditorFn) (*DownloadVexDocumentRevisionResponse, error)
 
 	// DeleteVexStatementWithResponse Remove a VEX statement
 	//
@@ -78370,6 +79197,465 @@ func (r TransferOwnershipResponse) ContentType() string {
 	return ""
 }
 
+type ListVexDocumentsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Documents *[]VexDocument `json:"documents,omitempty"`
+
+		// Pagination `has_more` tells you whether another page exists, without a count query.
+		//
+		// Example: {"count":1,"has_more":true,"limit":1,"offset":0}
+		Pagination *Pagination `json:"pagination,omitempty"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListVexDocumentsResponse) GetJSON200() *struct {
+	Documents *[]VexDocument `json:"documents,omitempty"`
+
+	// Pagination `has_more` tells you whether another page exists, without a count query.
+	//
+	// Example: {"count":1,"has_more":true,"limit":1,"offset":0}
+	Pagination *Pagination `json:"pagination,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ListVexDocumentsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListVexDocumentsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListVexDocumentsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListVexDocumentsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateVexDocumentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *VexDocument
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateVexDocumentResponse) GetJSON201() *VexDocument {
+	return r.JSON201
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r CreateVexDocumentResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r CreateVexDocumentResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateVexDocumentResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateVexDocumentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateVexDocumentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateVexDocumentResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteVexDocumentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r DeleteVexDocumentResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r DeleteVexDocumentResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteVexDocumentResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteVexDocumentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteVexDocumentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteVexDocumentResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetVexDocumentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *VexDocument
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetVexDocumentResponse) GetJSON200() *VexDocument {
+	return r.JSON200
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r GetVexDocumentResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r GetVexDocumentResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetVexDocumentResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetVexDocumentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetVexDocumentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetVexDocumentResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateVexDocumentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *VexDocument
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateVexDocumentResponse) GetJSON200() *VexDocument {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r UpdateVexDocumentResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r UpdateVexDocumentResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r UpdateVexDocumentResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateVexDocumentResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateVexDocumentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateVexDocumentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateVexDocumentResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PublishVexDocumentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Changed Whether a new revision was appended.
+		Changed  *bool        `json:"changed,omitempty"`
+		Document *VexDocument `json:"document,omitempty"`
+	}
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PublishVexDocumentResponse) GetJSON200() *struct {
+	// Changed Whether a new revision was appended.
+	Changed  *bool        `json:"changed,omitempty"`
+	Document *VexDocument `json:"document,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r PublishVexDocumentResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r PublishVexDocumentResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r PublishVexDocumentResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r PublishVexDocumentResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PublishVexDocumentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PublishVexDocumentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PublishVexDocumentResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListVexDocumentRevisionsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Revisions *[]VexDocumentRevision `json:"revisions,omitempty"`
+	}
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListVexDocumentRevisionsResponse) GetJSON200() *struct {
+	Revisions *[]VexDocumentRevision `json:"revisions,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r ListVexDocumentRevisionsResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r ListVexDocumentRevisionsResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListVexDocumentRevisionsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListVexDocumentRevisionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListVexDocumentRevisionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListVexDocumentRevisionsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DownloadVexDocumentRevisionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *map[string]interface{}
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DownloadVexDocumentRevisionResponse) GetJSON200() *map[string]interface{} {
+	return r.JSON200
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r DownloadVexDocumentRevisionResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r DownloadVexDocumentRevisionResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r DownloadVexDocumentRevisionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DownloadVexDocumentRevisionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DownloadVexDocumentRevisionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DownloadVexDocumentRevisionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type DeleteVexStatementResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -88465,6 +89751,165 @@ func (c *ClientWithResponses) TransferOwnershipWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseTransferOwnershipResponse(rsp)
+}
+
+// ListVexDocumentsWithResponse Stored, versioned VEX documents
+//
+// A document has a format (OpenVEX, CSAF, CycloneDX), a scope (one project
+// version, several versions/branches of one project, or one vulnerability
+// across every project), publisher metadata, and a revision history. Lists
+// every document on the caller's visible projects; an instance admin also
+// sees vulnerability-scope documents (cross-project, admin-only to create).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /vex-documents (the `ListVexDocuments` operationId).
+func (c *ClientWithResponses) ListVexDocumentsWithResponse(ctx context.Context, params *ListVexDocumentsParams, reqEditors ...RequestEditorFn) (*ListVexDocumentsResponse, error) {
+	rsp, err := c.ListVexDocuments(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListVexDocumentsResponse(rsp)
+}
+
+// CreateVexDocumentWithBodyWithResponse Create a VEX document
+//
+// Stores an unpublished document; `POST .../publish` renders and freezes its
+// first revision. `scope_kind: vulnerability` (`vuln_id` required) spans
+// every project and is instance-admin only. CycloneDX only supports
+// `scope_kind: project` with exactly one target (its single-BOM-subject
+// model doesn't generalize to several versions or projects).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /vex-documents (the `CreateVexDocument` operationId).
+func (c *ClientWithResponses) CreateVexDocumentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateVexDocumentResponse, error) {
+	rsp, err := c.CreateVexDocumentWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateVexDocumentResponse(rsp)
+}
+
+// CreateVexDocumentWithResponse Create a VEX document
+//
+// Stores an unpublished document; `POST .../publish` renders and freezes its
+// first revision. `scope_kind: vulnerability` (`vuln_id` required) spans
+// every project and is instance-admin only. CycloneDX only supports
+// `scope_kind: project` with exactly one target (its single-BOM-subject
+// model doesn't generalize to several versions or projects).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /vex-documents (the `CreateVexDocument` operationId).
+func (c *ClientWithResponses) CreateVexDocumentWithResponse(ctx context.Context, body CreateVexDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateVexDocumentResponse, error) {
+	rsp, err := c.CreateVexDocument(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateVexDocumentResponse(rsp)
+}
+
+// DeleteVexDocumentWithResponse Delete a document (and its revisions)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /vex-documents/{documentID} (the `DeleteVexDocument` operationId).
+func (c *ClientWithResponses) DeleteVexDocumentWithResponse(ctx context.Context, documentID DocumentID, reqEditors ...RequestEditorFn) (*DeleteVexDocumentResponse, error) {
+	rsp, err := c.DeleteVexDocument(ctx, documentID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteVexDocumentResponse(rsp)
+}
+
+// GetVexDocumentWithResponse One VEX document
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /vex-documents/{documentID} (the `GetVexDocument` operationId).
+func (c *ClientWithResponses) GetVexDocumentWithResponse(ctx context.Context, documentID DocumentID, reqEditors ...RequestEditorFn) (*GetVexDocumentResponse, error) {
+	rsp, err := c.GetVexDocument(ctx, documentID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetVexDocumentResponse(rsp)
+}
+
+// UpdateVexDocumentWithBodyWithResponse Edit a document's scope, format or publisher metadata
+//
+// Its version, content hash and revision history are untouched; a scope or
+// metadata change takes effect on the next publish.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /vex-documents/{documentID} (the `UpdateVexDocument` operationId).
+func (c *ClientWithResponses) UpdateVexDocumentWithBodyWithResponse(ctx context.Context, documentID DocumentID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateVexDocumentResponse, error) {
+	rsp, err := c.UpdateVexDocumentWithBody(ctx, documentID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateVexDocumentResponse(rsp)
+}
+
+// UpdateVexDocumentWithResponse Edit a document's scope, format or publisher metadata
+//
+// Its version, content hash and revision history are untouched; a scope or
+// metadata change takes effect on the next publish.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /vex-documents/{documentID} (the `UpdateVexDocument` operationId).
+func (c *ClientWithResponses) UpdateVexDocumentWithResponse(ctx context.Context, documentID DocumentID, body UpdateVexDocumentJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateVexDocumentResponse, error) {
+	rsp, err := c.UpdateVexDocument(ctx, documentID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateVexDocumentResponse(rsp)
+}
+
+// PublishVexDocumentWithResponse Publish (re-render from current data)
+//
+// Re-renders the document from the project's current findings and stored VEX
+// statements (the same mapping `GET /projects/{id}/vex/export` uses). A new
+// revision and tracking version are appended only when the rendered content
+// actually changed since the last publish (`changed: false` otherwise).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /vex-documents/{documentID}/publish (the `PublishVexDocument` operationId).
+func (c *ClientWithResponses) PublishVexDocumentWithResponse(ctx context.Context, documentID DocumentID, reqEditors ...RequestEditorFn) (*PublishVexDocumentResponse, error) {
+	rsp, err := c.PublishVexDocument(ctx, documentID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePublishVexDocumentResponse(rsp)
+}
+
+// ListVexDocumentRevisionsWithResponse A document's revision history
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /vex-documents/{documentID}/revisions (the `ListVexDocumentRevisions` operationId).
+func (c *ClientWithResponses) ListVexDocumentRevisionsWithResponse(ctx context.Context, documentID DocumentID, reqEditors ...RequestEditorFn) (*ListVexDocumentRevisionsResponse, error) {
+	rsp, err := c.ListVexDocumentRevisions(ctx, documentID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListVexDocumentRevisionsResponse(rsp)
+}
+
+// DownloadVexDocumentRevisionWithResponse Download one revision's frozen, rendered document
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /vex-documents/{documentID}/revisions/{number}/download (the `DownloadVexDocumentRevision` operationId).
+func (c *ClientWithResponses) DownloadVexDocumentRevisionWithResponse(ctx context.Context, documentID DocumentID, number int, reqEditors ...RequestEditorFn) (*DownloadVexDocumentRevisionResponse, error) {
+	rsp, err := c.DownloadVexDocumentRevision(ctx, documentID, number, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDownloadVexDocumentRevisionResponse(rsp)
 }
 
 // DeleteVexStatementWithResponse Remove a VEX statement
@@ -104183,6 +105628,335 @@ func ParseTransferOwnershipResponse(rsp *http.Response) (*TransferOwnershipRespo
 			Message *string `json:"message,omitempty"`
 			Owner   *User   `json:"owner,omitempty"`
 		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListVexDocumentsResponse parses an HTTP response from a ListVexDocumentsWithResponse call
+func ParseListVexDocumentsResponse(rsp *http.Response) (*ListVexDocumentsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListVexDocumentsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Documents *[]VexDocument `json:"documents,omitempty"`
+
+			// Pagination `has_more` tells you whether another page exists, without a count query.
+			//
+			// Example: {"count":1,"has_more":true,"limit":1,"offset":0}
+			Pagination *Pagination `json:"pagination,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateVexDocumentResponse parses an HTTP response from a CreateVexDocumentWithResponse call
+func ParseCreateVexDocumentResponse(rsp *http.Response) (*CreateVexDocumentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateVexDocumentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest VexDocument
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteVexDocumentResponse parses an HTTP response from a DeleteVexDocumentWithResponse call
+func ParseDeleteVexDocumentResponse(rsp *http.Response) (*DeleteVexDocumentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteVexDocumentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetVexDocumentResponse parses an HTTP response from a GetVexDocumentWithResponse call
+func ParseGetVexDocumentResponse(rsp *http.Response) (*GetVexDocumentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetVexDocumentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest VexDocument
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateVexDocumentResponse parses an HTTP response from a UpdateVexDocumentWithResponse call
+func ParseUpdateVexDocumentResponse(rsp *http.Response) (*UpdateVexDocumentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateVexDocumentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest VexDocument
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePublishVexDocumentResponse parses an HTTP response from a PublishVexDocumentWithResponse call
+func ParsePublishVexDocumentResponse(rsp *http.Response) (*PublishVexDocumentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PublishVexDocumentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Changed Whether a new revision was appended.
+			Changed  *bool        `json:"changed,omitempty"`
+			Document *VexDocument `json:"document,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListVexDocumentRevisionsResponse parses an HTTP response from a ListVexDocumentRevisionsWithResponse call
+func ParseListVexDocumentRevisionsResponse(rsp *http.Response) (*ListVexDocumentRevisionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListVexDocumentRevisionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Revisions *[]VexDocumentRevision `json:"revisions,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDownloadVexDocumentRevisionResponse parses an HTTP response from a DownloadVexDocumentRevisionWithResponse call
+func ParseDownloadVexDocumentRevisionResponse(rsp *http.Response) (*DownloadVexDocumentRevisionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DownloadVexDocumentRevisionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest map[string]interface{}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

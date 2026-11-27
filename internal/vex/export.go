@@ -6,6 +6,7 @@ import (
 	"maps"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -25,6 +26,12 @@ var ExportFormats = []string{FormatOpenVEX, FormatCycloneDX, FormatCSAF}
 
 // ExportScope is the product a VEX export speaks about: one project version,
 // plus who is asking and where this instance lives (for document identity).
+//
+// The Doc* / Publisher* fields are overrides a stored VEX document (M13
+// 13.14) sets to make the builders below render its frozen identity (a
+// stable id, its own tracking version, its real revision history, its
+// configured publisher) instead of the ad hoc export's derived defaults — the
+// same mapping logic, never forked.
 type ExportScope struct {
 	ProjectID   string
 	ProjectSlug string
@@ -36,6 +43,29 @@ type ExportScope struct {
 	// instance origin ("" = not configured).
 	Author    string
 	PublicURL string
+	// DocID overrides the derived documentID/tracking id. "" = derive.
+	DocID string
+	// Title overrides CSAF's default "VEX for <project> (<version>)". "" = derive.
+	Title string
+	// TrackVersion overrides the OpenVEX/CycloneDX "version" int and CSAF
+	// tracking.version. 0 = 1 (an ad hoc export is always "version 1").
+	TrackVersion int
+	// Revisions overrides the single synthetic CSAF revision_history entry
+	// with the document's real history. Empty = the synthetic one.
+	Revisions []DocRevision
+	// PublisherName/Namespace/Contact override "Xila" / PublicURL / Author as
+	// the CSAF publisher and CycloneDX metadata author name. Empty = derive.
+	PublisherName      string
+	PublisherNamespace string
+	PublisherContact   string
+}
+
+// DocRevision is one entry of a stored VEX document's revision history, for
+// CSAF's tracking.revision_history.
+type DocRevision struct {
+	Number  int
+	Date    time.Time
+	Summary string
 }
 
 // ProjectProduct is the product identifier used for findings that carry no
@@ -420,10 +450,66 @@ func BuildStatements(scope ExportScope, findings []ExportFinding, stmts []Statem
 	return out
 }
 
+// MergeStatements combines several already-deduped ExportStatement lists (one
+// per version or project a stored VEX document's scope spans) into one, using
+// the same (vulnerability, product) key and Combine rule BuildStatements uses
+// within a single scope — so a document naming several versions or projects
+// still asserts the most cautious verdict when more than one speaks about the
+// same product.
+func MergeStatements(groups ...[]ExportStatement) []ExportStatement {
+	type key struct{ vuln, product string }
+	byKey := map[key]*ExportStatement{}
+	for _, g := range groups {
+		for _, s := range g {
+			k := key{strings.ToUpper(s.VulnID), s.Product}
+			cur, ok := byKey[k]
+			if !ok {
+				cp := s
+				byKey[k] = &cp
+				continue
+			}
+			cur.Verdict = Combine(cur.Verdict, s.Verdict)
+			if s.Severity.Weight() > cur.Severity.Weight() {
+				cur.Severity = s.Severity
+			}
+			for _, a := range s.Aliases {
+				if !strings.EqualFold(a, cur.VulnID) && !slices.Contains(cur.Aliases, a) {
+					cur.Aliases = append(cur.Aliases, a)
+				}
+			}
+		}
+	}
+	out := make([]ExportStatement, 0, len(byKey))
+	for _, s := range byKey {
+		out = append(out, *s)
+	}
+	slices.SortFunc(out, func(a, b ExportStatement) int {
+		return cmp.Or(cmp.Compare(strings.ToUpper(a.VulnID), strings.ToUpper(b.VulnID)), cmp.Compare(a.Product, b.Product))
+	})
+	return out
+}
+
+// FilterByVuln keeps only the statements about vulnID (by its own id or one of
+// its aliases) — how a vulnerability-scope document narrows a project's full
+// statement list down to the one it documents.
+func FilterByVuln(stmts []ExportStatement, vulnID string) []ExportStatement {
+	out := make([]ExportStatement, 0, len(stmts))
+	for _, s := range stmts {
+		if strings.EqualFold(s.VulnID, vulnID) || slices.ContainsFunc(s.Aliases, func(a string) bool { return strings.EqualFold(a, vulnID) }) {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
 func rfc3339(t time.Time) string { return t.UTC().Format(time.RFC3339) }
 
-// documentID is the stable identity of a project version's VEX document.
+// documentID is the stable identity of a project version's VEX document, or
+// scope.DocID when a stored document overrides it.
 func documentID(scope ExportScope) string {
+	if scope.DocID != "" {
+		return scope.DocID
+	}
 	version := cmp.Or(scope.VersionID, "default")
 	if scope.PublicURL != "" {
 		return scope.PublicURL + "/api/v1/projects/" + scope.ProjectID + "/vex/export?version_id=" + version
@@ -434,6 +520,9 @@ func documentID(scope ExportScope) string {
 func author(scope ExportScope) string {
 	if scope.Author != "" {
 		return scope.Author
+	}
+	if scope.PublisherName != "" {
+		return scope.PublisherName
 	}
 	if scope.PublicURL != "" {
 		return "Xila (" + scope.PublicURL + ")"
@@ -481,7 +570,7 @@ func OpenVEX(scope ExportScope, stmts []ExportStatement, now time.Time) any {
 		Author:     author(scope),
 		Role:       "Document Creator",
 		Timestamp:  rfc3339(now),
-		Version:    1,
+		Version:    cmp.Or(scope.TrackVersion, 1),
 		Tooling:    "Xila",
 		Statements: []openVEXStmtsOut{},
 	}
@@ -683,7 +772,7 @@ func CycloneDXVEX(scope ExportScope, stmts []ExportStatement, serial, spec strin
 		BomFormat:    "CycloneDX",
 		SpecVersion:  spec,
 		SerialNumber: "urn:uuid:" + serial,
-		Version:      1,
+		Version:      cmp.Or(scope.TrackVersion, 1),
 		Metadata: cdxMetadata{
 			Timestamp: rfc3339(now),
 			Tools:     cdxTools{Components: []CDXComponent{{Type: "application", Name: "Xila"}}},
@@ -693,8 +782,8 @@ func CycloneDXVEX(scope ExportScope, stmts []ExportStatement, serial, spec strin
 		Components:      []CDXComponent{},
 		Vulnerabilities: []CDXVulnerability{},
 	}
-	if scope.Author != "" {
-		doc.Metadata.Authors = []cdxAuthor{{Email: scope.Author}}
+	if scope.PublisherName != "" || scope.Author != "" {
+		doc.Metadata.Authors = []cdxAuthor{{Name: scope.PublisherName, Email: scope.Author}}
 	}
 	seen := map[string]bool{projectRef: true}
 	for _, s := range stmts {
@@ -842,22 +931,39 @@ func csafIDSystem(id string) string {
 // known_affected one, as the profile requires.
 func CSAFVEX(scope ExportScope, stmts []ExportStatement, now time.Time) any {
 	date := rfc3339(now)
-	publisher := cmp.Or(scope.PublicURL, "urn:xila")
+	publisherURL := cmp.Or(scope.PublisherNamespace, scope.PublicURL, "urn:xila")
+	title := cmp.Or(scope.Title, fmt.Sprintf("VEX for %s (%s)", cmp.Or(scope.ProjectName, scope.ProjectSlug), scope.VersionName))
+	trackingID := cmp.Or(scope.DocID, "xila-vex-"+scope.ProjectID+"-"+cmp.Or(scope.VersionID, "default"))
+
+	version := cmp.Or(scope.TrackVersion, 1)
+	hist := []csafRevision{{Date: date, Number: "1", Summary: "Generated by Xila from the project's triage."}}
+	initialDate, currentDate := date, date
+	if len(scope.Revisions) > 0 {
+		version = scope.Revisions[len(scope.Revisions)-1].Number
+		initialDate = rfc3339(scope.Revisions[0].Date)
+		currentDate = rfc3339(scope.Revisions[len(scope.Revisions)-1].Date)
+		hist = hist[:0]
+		for _, r := range scope.Revisions {
+			hist = append(hist, csafRevision{Date: rfc3339(r.Date), Number: strconv.Itoa(r.Number),
+				Summary: cmp.Or(r.Summary, "Generated by Xila from the project's data.")})
+		}
+	}
+
 	doc := csafOut{
 		Document: csafDocument{
 			Category:    "csaf_vex",
 			CSAFVersion: "2.0",
 			Lang:        "en",
-			Publisher: csafPublisher{Category: "vendor", Name: "Xila", Namespace: publisher,
-				ContactDetails: scope.Author},
-			Title: fmt.Sprintf("VEX for %s (%s)", cmp.Or(scope.ProjectName, scope.ProjectSlug), scope.VersionName),
+			Publisher: csafPublisher{Category: "vendor", Name: cmp.Or(scope.PublisherName, "Xila"), Namespace: publisherURL,
+				ContactDetails: cmp.Or(scope.PublisherContact, scope.Author)},
+			Title: title,
 			Tracking: csafTracking{
-				ID:                 "xila-vex-" + scope.ProjectID + "-" + cmp.Or(scope.VersionID, "default"),
+				ID:                 trackingID,
 				Status:             "final",
-				Version:            "1",
-				InitialReleaseDate: date,
-				CurrentReleaseDate: date,
-				RevisionHistory:    []csafRevision{{Date: date, Number: "1", Summary: "Generated by Xila from the project's triage."}},
+				Version:            strconv.Itoa(version),
+				InitialReleaseDate: initialDate,
+				CurrentReleaseDate: currentDate,
+				RevisionHistory:    hist,
 			},
 		},
 		ProductTree:     csafTree{FullProductNames: []csafProduct{}},
