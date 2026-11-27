@@ -967,7 +967,16 @@ Tier 2:
     it, and it behaves exactly like an automatic duplicate everywhere else.
 - ⬜ 13.16 Idle timeout with a session-expiry warning; a personal-data filter
   for MCP results (DefectDojo Pro).
-- ⬜ 13.17 Scheduled report delivery; expected scans per project (DefectDojo Pro).
+- 13.17 Scheduled report delivery; expected scans per project (DefectDojo Pro).
+  Done so far:
+  - Scheduled report delivery: a user's own recurring project, portfolio or
+    evidence report (`report_schedules`), rendered as the owner (their RBAC
+    scope at send time) and delivered by email (HTML attachment) or as a
+    link-only channel notification, on a daily/weekly/monthly cadence. CRUD at
+    `/report-schedules`, a leader-run due sweep, per-run history, and a
+    Settings page. Migration 000120.
+  - Still open: expected scans per project (an alert when a project's regular
+    scan has not arrived on time).
 - ⬜ 13.18 Issue-tracker comments, ticket templates and webhook receivers
   (DefectDojo Pro).
 - ⬜ 13.19 Connectors: AWS Security Hub, Microsoft Defender, Qualys, Trivy

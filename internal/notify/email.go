@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"html"
@@ -255,4 +256,71 @@ func (s *Service) SendText(ctx context.Context, to, subject, body string) error 
 	msg.WriteString("MIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\n")
 	msg.WriteString(strings.ReplaceAll(body, "\n", "\r\n"))
 	return s.sendMail(ctx, []string{addr.Address}, msg.Bytes())
+}
+
+// Attachment is one file attached to an email sent via SendAttachment.
+type Attachment struct {
+	Name string
+	MIME string
+	Data []byte
+}
+
+// SendAttachment sends a plain-text email with one file attached (scheduled
+// report delivery, internal/reportschedule). Like SendText it goes straight
+// out, not through a channel or the delivery log.
+func (s *Service) SendAttachment(ctx context.Context, to []string, subject, body string, att Attachment) error {
+	if !s.smtp.Configured() {
+		return ErrSMTPNotConfigured
+	}
+	rcpts := make([]string, 0, len(to))
+	for _, t := range to {
+		addr, err := mail.ParseAddress(t)
+		if err != nil {
+			return fmt.Errorf("recipient %q: %w", t, err)
+		}
+		rcpts = append(rcpts, addr.Address)
+	}
+	if len(rcpts) == 0 {
+		return errors.New("no recipients")
+	}
+
+	var parts bytes.Buffer
+	mw := multipart.NewWriter(&parts)
+	tw, err := mw.CreatePart(textproto.MIMEHeader{
+		"Content-Type":              {"text/plain; charset=utf-8"},
+		"Content-Transfer-Encoding": {"8bit"},
+	})
+	if err != nil {
+		return err
+	}
+	tw.Write([]byte(strings.ReplaceAll(strings.ReplaceAll(body, "\r\n", "\n"), "\n", "\r\n")))
+
+	aw, err := mw.CreatePart(textproto.MIMEHeader{
+		"Content-Type":              {att.MIME},
+		"Content-Transfer-Encoding": {"base64"},
+		"Content-Disposition":       {fmt.Sprintf("attachment; filename=%q", att.Name)},
+	})
+	if err != nil {
+		return err
+	}
+	enc := base64.NewEncoder(base64.StdEncoding, aw)
+	if _, err := enc.Write(att.Data); err != nil {
+		return err
+	}
+	if err := enc.Close(); err != nil {
+		return err
+	}
+	if err := mw.Close(); err != nil {
+		return err
+	}
+
+	var msg bytes.Buffer
+	fmt.Fprintf(&msg, "From: %s\r\n", s.smtp.From)
+	fmt.Fprintf(&msg, "To: %s\r\n", strings.Join(rcpts, ", "))
+	fmt.Fprintf(&msg, "Subject: %s\r\n", mime.QEncoding.Encode("utf-8", subject))
+	fmt.Fprintf(&msg, "Date: %s\r\n", time.Now().Format(time.RFC1123Z))
+	msg.WriteString("MIME-Version: 1.0\r\n")
+	fmt.Fprintf(&msg, "Content-Type: multipart/mixed; boundary=%q\r\n\r\n", mw.Boundary())
+	msg.Write(parts.Bytes())
+	return s.sendMail(ctx, rcpts, msg.Bytes())
 }

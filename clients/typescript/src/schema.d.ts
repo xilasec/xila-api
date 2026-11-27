@@ -2747,6 +2747,98 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/report-schedules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List report schedules
+         * @description Each user sees their own schedules; instance admins see every schedule.
+         */
+        get: operations["listReportSchedules"];
+        put?: never;
+        /**
+         * Create a report schedule
+         * @description Owned by the caller. A leader job renders and delivers it as the caller, in their RBAC scope at send time.
+         */
+        post: operations["createReportSchedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/report-schedules/{scheduleID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a report schedule
+         * @description Its owner, or an instance admin.
+         */
+        get: operations["getReportSchedule"];
+        /**
+         * Replace a report schedule
+         * @description Its owner, or an instance admin.
+         */
+        put: operations["putReportSchedule"];
+        post?: never;
+        /**
+         * Delete a report schedule
+         * @description Its owner, or an instance admin.
+         */
+        delete: operations["deleteReportSchedule"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/report-schedules/{scheduleID}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A report schedule's run history
+         * @description Its owner, or an instance admin. Newest first, up to 20 runs.
+         */
+        get: operations["listReportScheduleRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/report-schedules/{scheduleID}/send-now": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Render and deliver a report schedule immediately
+         * @description Its owner, or an instance admin. Synchronous; outside its cadence.
+         */
+        post: operations["sendReportScheduleNow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{projectID}/findings/export": {
         parameters: {
             query?: never;
@@ -8957,6 +9049,73 @@ export interface components {
             /** Format: date-time */
             readonly updated_at?: string;
         };
+        ReportSchedule: {
+            /** Format: uuid */
+            readonly id?: string;
+            /** Format: uuid */
+            readonly owner_id?: string;
+            readonly owner_email?: string;
+            name: string;
+            /**
+             * @description What it renders; portfolio is the owner's whole visible scope.
+             * @enum {string}
+             */
+            kind: "project" | "portfolio" | "evidence";
+            /**
+             * Format: uuid
+             * @description Required for project and evidence.
+             */
+            project_id?: string | null;
+            readonly project_name?: string;
+            /** @description A compliance framework key (e.g. eu-cra); required for an evidence report. */
+            framework_key?: string;
+            /**
+             * Format: uuid
+             * @description A report template (project/portfolio only).
+             */
+            template_id?: string | null;
+            /**
+             * Format: uuid
+             * @description Scopes a project report to one engagement.
+             */
+            engagement_id?: string | null;
+            /** @enum {string} */
+            cadence: "daily" | "weekly" | "monthly";
+            /** @description Hour of day */
+            hour: number;
+            /** @description Required for a weekly cadence (0 = Sunday). */
+            weekday?: number | null;
+            /** @description Required for a monthly cadence. */
+            day_of_month?: number | null;
+            recipient_emails?: string[];
+            /** @description Notification channels; get a link to the report, never the HTML file itself. */
+            recipient_channel_ids?: string[];
+            /** @default true */
+            enabled: boolean;
+            /** Format: date-time */
+            readonly last_run_at?: string | null;
+            /** @enum {string} */
+            readonly last_run_status?: "" | "success" | "failure";
+            readonly last_run_error?: string;
+            /** Format: date-time */
+            readonly created_at?: string;
+            /** Format: date-time */
+            readonly updated_at?: string;
+        };
+        ReportScheduleRun: {
+            /** Format: uuid */
+            readonly id?: string;
+            /** Format: uuid */
+            readonly schedule_id?: string;
+            /** Format: date-time */
+            readonly started_at?: string;
+            /** Format: date-time */
+            readonly finished_at?: string | null;
+            /** @enum {string} */
+            readonly status?: "success" | "failure";
+            readonly error?: string;
+            readonly recipients?: number;
+        };
         /**
          * @example {
          *       "id": "4077d267-587a-415b-bf7d-36858ba00837",
@@ -11130,6 +11289,7 @@ export interface components {
         /** @description The change's key, base64url-encoded (no padding) — it can contain slashes and "@". */
         RootCauseKey: string;
         TemplateID: string;
+        ScheduleID: string;
         /** @description Only findings with a public exploit — `weaponized`, `poc`, or `any` (either). */
         ExploitFilter: "any" | "poc" | "weaponized";
         /** @description Only findings an engagement's scans or manual reports found (first or last seen in one of them), on any version. */
@@ -16375,6 +16535,172 @@ export interface operations {
                 };
                 content?: never;
             };
+        };
+    };
+    listReportSchedules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        report_schedules?: components["schemas"]["ReportSchedule"][];
+                    };
+                };
+            };
+        };
+    };
+    createReportSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportSchedule"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportSchedule"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    getReportSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scheduleID: components["parameters"]["ScheduleID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportSchedule"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    putReportSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scheduleID: components["parameters"]["ScheduleID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportSchedule"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportSchedule"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    deleteReportSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scheduleID: components["parameters"]["ScheduleID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    listReportScheduleRuns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scheduleID: components["parameters"]["ScheduleID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        runs?: components["schemas"]["ReportScheduleRun"][];
+                    };
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    sendReportScheduleNow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scheduleID: components["parameters"]["ScheduleID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sent */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
         };
     };
     exportProjectFindings: {

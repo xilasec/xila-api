@@ -65,6 +65,7 @@ import (
 	"github.com/xilasec/xila-api/internal/ratelimit"
 	"github.com/xilasec/xila-api/internal/remediation"
 	"github.com/xilasec/xila-api/internal/report"
+	"github.com/xilasec/xila-api/internal/reportschedule"
 	"github.com/xilasec/xila-api/internal/retention"
 	"github.com/xilasec/xila-api/internal/rootcause"
 	"github.com/xilasec/xila-api/internal/saml"
@@ -84,59 +85,60 @@ import (
 
 // Handlers bundles the HTTP handlers the server mounts.
 type Handlers struct {
-	Features     *feature.Handler
-	Access       *access.Handler
-	MCP          *mcp.Handler
-	Personal     *notify.PersonalHandler
-	Inbox        *inbox.Handler
-	Auth         *auth.Handler
-	Account      *account.Handler
-	Org          *org.Handler
-	Team         *team.Handler
-	TeamMembers  *membership.Handler
-	Project      *project.Handler
-	Scan         *scan.Handler
-	Finding      *finding.Handler
-	AITriage     *aitriage.Handler
-	Sbom         *sbom.Handler
-	Asset        *asset.Handler
-	Compliance   *compliance.Handler
-	Portfolio    *portfolio.Handler
-	Metrics      *metrics.Handler
-	Report       *report.Handler
-	Correlation  *correlation.Handler
-	ApiToken     *apitoken.Handler
-	SvcAccount   *serviceaccount.Handler
-	Federation   *federation.Handler
-	SCIM         *scim.Handler
-	Enrichment   *enrichment.Handler
-	Notify       *notify.Handler
-	Retention    *retention.Handler
-	Archive      *archive.Handler
-	Audit        *audit.Handler
-	IngestHealth *ingesthealth.Handler
-	Engagement   *engagement.Handler
-	Badge        *badge.Handler
-	FixPlan      *fixplan.Handler
-	Remediation  *remediation.Handler
-	RootCauses   *rootcause.Handler
-	Exploits     *exploitintel.Handler
-	Evidence     *evidence.Handler
-	CRACases     *cra.CaseHandler
-	FindingTmpl  *findingtemplate.Handler
-	ReportTmpl   *report.TemplateHandler
-	CustomFields *customfield.Handler
-	CustomParser *customparser.Handler
-	Triage       *triage.Handler
-	Gate         *gate.Handler
-	SLA          *sla.Handler
-	Vex          *vex.Handler
-	VexDocuments *vex.DocumentHandler
-	IssueTracker *issuetracker.Handler
-	Connector    *connector.Handler
-	VulnMatch    *vulnmatch.Handler
-	Advisory     *vulnmatch.AdvisoryHandler
-	FeedRules    *vulnmatch.FeedRuleHandler
+	Features       *feature.Handler
+	Access         *access.Handler
+	MCP            *mcp.Handler
+	Personal       *notify.PersonalHandler
+	Inbox          *inbox.Handler
+	Auth           *auth.Handler
+	Account        *account.Handler
+	Org            *org.Handler
+	Team           *team.Handler
+	TeamMembers    *membership.Handler
+	Project        *project.Handler
+	Scan           *scan.Handler
+	Finding        *finding.Handler
+	AITriage       *aitriage.Handler
+	Sbom           *sbom.Handler
+	Asset          *asset.Handler
+	Compliance     *compliance.Handler
+	Portfolio      *portfolio.Handler
+	Metrics        *metrics.Handler
+	Report         *report.Handler
+	ReportSchedule *reportschedule.Handler
+	Correlation    *correlation.Handler
+	ApiToken       *apitoken.Handler
+	SvcAccount     *serviceaccount.Handler
+	Federation     *federation.Handler
+	SCIM           *scim.Handler
+	Enrichment     *enrichment.Handler
+	Notify         *notify.Handler
+	Retention      *retention.Handler
+	Archive        *archive.Handler
+	Audit          *audit.Handler
+	IngestHealth   *ingesthealth.Handler
+	Engagement     *engagement.Handler
+	Badge          *badge.Handler
+	FixPlan        *fixplan.Handler
+	Remediation    *remediation.Handler
+	RootCauses     *rootcause.Handler
+	Exploits       *exploitintel.Handler
+	Evidence       *evidence.Handler
+	CRACases       *cra.CaseHandler
+	FindingTmpl    *findingtemplate.Handler
+	ReportTmpl     *report.TemplateHandler
+	CustomFields   *customfield.Handler
+	CustomParser   *customparser.Handler
+	Triage         *triage.Handler
+	Gate           *gate.Handler
+	SLA            *sla.Handler
+	Vex            *vex.Handler
+	VexDocuments   *vex.DocumentHandler
+	IssueTracker   *issuetracker.Handler
+	Connector      *connector.Handler
+	VulnMatch      *vulnmatch.Handler
+	Advisory       *vulnmatch.AdvisoryHandler
+	FeedRules      *vulnmatch.FeedRuleHandler
 	// PSIRT serves CSAF advisory publishing (admin) and the public CSAF
 	// provider directory (404 unless PSIRT_PUBLIC).
 	PSIRT           *psirt.Handler
@@ -359,6 +361,7 @@ func New(cfg config.Config, h Handlers) *Server {
 	h.IssueTracker.Register(secured)
 	h.Connector.Register(secured)
 	h.Report.Register(secured)
+	h.ReportSchedule.Register(secured)
 	h.License.Register(secured)
 	h.LicenseOverride.Register(secured)
 	h.Policy.Register(secured)
