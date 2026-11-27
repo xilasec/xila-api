@@ -49,6 +49,9 @@ type Policy struct {
 	// (0 = off), taking them out of every live query; ArchiveAge then purges
 	// them. A finding reported again is unarchived by the upsert.
 	FindingArchiveAfter time.Duration
+	// InboxAge deletes read in-app inbox items (internal/inbox) older than
+	// this; unread items are never purged regardless of age.
+	InboxAge time.Duration
 }
 
 // Result counts what one run deleted.
@@ -67,11 +70,13 @@ type Result struct {
 	ArchivedEngagements int64 `json:"archived_engagements"`
 	ArchivedScans       int64 `json:"archived_scans"`
 	ArchivedFindings    int64 `json:"archived_findings"`
+	// InboxItems is read in-app inbox items purged past INBOX_RETENTION.
+	InboxItems int64 `json:"inbox_items"`
 }
 
 func (r Result) total() int64 {
 	return r.Branches + r.Releases + r.SBOMSnapshots + r.Scans + r.Deliveries + r.FailedJobs + r.AuditEntries + r.FixedFindingsArchived +
-		r.ArchivedProjects + r.ArchivedEngagements + r.ArchivedScans + r.ArchivedFindings
+		r.ArchivedProjects + r.ArchivedEngagements + r.ArchivedScans + r.ArchivedFindings + r.InboxItems
 }
 
 // versionPruner deletes stale versions (project.Repository).
@@ -136,6 +141,9 @@ func (s *Service) Run(ctx context.Context) (Result, error) {
 	})
 	step("fixed findings", p.FindingArchiveAfter > 0, &res.FixedFindingsArchived, func() (int64, error) {
 		return s.archiveFixed(ctx, p.FindingArchiveAfter)
+	})
+	step("inbox items", p.InboxAge > 0, &res.InboxItems, func() (int64, error) {
+		return s.exec(ctx, `DELETE FROM inbox_items WHERE read_at IS NOT NULL AND read_at < now() - make_interval(secs => $1)`, p.InboxAge.Seconds())
 	})
 	if p.ArchiveAge > 0 {
 		// Through the same delete paths an explicit purge takes.

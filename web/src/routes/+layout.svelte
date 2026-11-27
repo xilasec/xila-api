@@ -8,6 +8,7 @@
 	import CommandPalette from '#lib/components/CommandPalette.svelte';
 	import { locale, contentLocale, routeLocale, translate, LOCALES } from '#lib/i18n.js';
 	import Icon from '#lib/components/Icon.svelte';
+	import InboxBell from '#lib/components/InboxBell.svelte';
 	import { MAIN_NAV, PAGE_FEATURE, visible, settingsItemFor, isCurrent } from '#lib/nav.js';
 
 	let { children } = $props();
@@ -138,6 +139,7 @@
 					<span class="hidden md:inline">{ts('nav.search')}</span>
 					<kbd class="kbd kbd-xs hidden md:inline">⌘K</kbd>
 				</button>
+				<InboxBell />
 				{#if $me}
 					<div class="dropdown dropdown-end">
 						<button tabindex="0" class="btn btn-ghost btn-sm gap-2 px-1.5" aria-label={ts('nav.userMenu')}>

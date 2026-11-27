@@ -47,6 +47,7 @@ import (
 	"github.com/xilasec/xila-api/internal/findingtemplate"
 	"github.com/xilasec/xila-api/internal/fixplan"
 	"github.com/xilasec/xila-api/internal/gate"
+	"github.com/xilasec/xila-api/internal/inbox"
 	"github.com/xilasec/xila-api/internal/ingesthealth"
 	"github.com/xilasec/xila-api/internal/issuetracker"
 	"github.com/xilasec/xila-api/internal/license"
@@ -87,6 +88,7 @@ type Handlers struct {
 	Access       *access.Handler
 	MCP          *mcp.Handler
 	Personal     *notify.PersonalHandler
+	Inbox        *inbox.Handler
 	Auth         *auth.Handler
 	Account      *account.Handler
 	Org          *org.Handler
@@ -316,6 +318,7 @@ func New(cfg config.Config, h Handlers) *Server {
 	h.Access.Register(secured)
 	h.MCP.Register(secured)
 	h.Personal.Register(secured)
+	h.Inbox.Register(secured)
 	h.MCP.Attach(app)      // its tools are sub-requests through this app
 	h.AuditLog.Attach(app) // describes requests refused before a route matched
 	h.Scan.Register(secured)

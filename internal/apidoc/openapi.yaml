@@ -8728,6 +8728,71 @@ paths:
       responses:
         "200": { $ref: "#/components/responses/Watching" }
 
+  /me/inbox:
+    get:
+      operationId: getMeInbox
+      tags: [Notifications]
+      summary: Your in-app notification inbox
+      description: |
+        Any signed-in person (not a service account). One row per event that reached
+        you: the assignee of a finding assigned to you, someone who @mentioned you in a
+        finding comment, an event on a project you watch, or (for events naming no
+        project) an instance admin. Visibility is re-checked on every call — an item
+        whose project you can no longer see is skipped, even though the row stays.
+        `?filter=unread|mentions|assigned` narrows the list; omitted returns everything.
+      parameters:
+        - { name: filter, in: query, schema: { type: string, enum: ["", unread, mentions, assigned] } }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Offset" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/InboxItem" } }
+                  pagination: { $ref: "#/components/schemas/Pagination" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+  /me/inbox/count:
+    get:
+      operationId: getMeInboxCount
+      tags: [Notifications]
+      summary: Your unread inbox count
+      description: Cheap — for a header bell badge. Same visibility re-check as the list.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, properties: { unread: { type: integer } } }
+        "403": { $ref: "#/components/responses/Error" }
+  /me/inbox/read:
+    post:
+      operationId: postMeInboxRead
+      tags: [Notifications]
+      summary: Mark inbox items read
+      description: 'Pass `ids`, or `all: true` for every unread item still visible to you.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids: { type: array, items: { type: string, format: uuid } }
+                all: { type: boolean }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, properties: { marked: { type: integer } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+
   /psirt/advisories:
     get:
       operationId: listPsirtAdvisories
@@ -9827,6 +9892,19 @@ components:
             properties:
               project_id: { type: string, format: uuid }
               project_name: { type: string }
+    InboxItem:
+      type: object
+      description: One row in the in-app notification inbox (GET /me/inbox).
+      properties:
+        id: { type: string, format: uuid }
+        event_type: { type: string, examples: [mention, finding.assigned, finding.critical] }
+        title: { type: string }
+        body: { type: string }
+        link: { type: string, description: "The finding or project this item is about, e.g. /findings/{id}." }
+        project_id: { type: [string, "null"], format: uuid }
+        finding_id: { type: [string, "null"], format: uuid }
+        created_at: { type: string, format: date-time }
+        read_at: { type: [string, "null"], format: date-time }
     PSIRTAdvisory:
       type: object
       properties:

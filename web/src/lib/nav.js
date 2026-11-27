@@ -22,7 +22,8 @@ export const MAIN_NAV = [
 	{
 		items: [
 			{ href: '/', key: 'nav.projects', icon: 'home' },
-			{ href: '/my-work', key: 'nav.myWork', icon: 'inbox' }
+			{ href: '/my-work', key: 'nav.myWork', icon: 'inbox' },
+			{ href: '/inbox', key: 'nav.inbox', icon: 'bell' }
 		]
 	},
 	{

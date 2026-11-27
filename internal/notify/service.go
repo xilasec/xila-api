@@ -29,6 +29,12 @@ type deliveryLogger interface {
 	LogDelivery(ctx context.Context, d Delivery) error
 }
 
+// inboxFiller writes one inbox_items row per recipient of an event
+// (internal/inbox.Repository.Fill). Optional: nil skips the in-app inbox.
+type inboxFiller interface {
+	Fill(ctx context.Context, e Event) error
+}
+
 // Service dispatches events to matching channels and logs the outcome. Events
 // go through the durable outbox (Notify → RunDispatcher); the channel Test
 // button sends synchronously (SendTo).
@@ -46,6 +52,7 @@ type Service struct {
 	backoff     time.Duration      // SendTo's first retry wait
 	cipher      *secretbox.Keyring // webhook signing secrets (unconfigured: none can be stored or used)
 	features    Features           // optional; nil = every feature on
+	inbox       inboxFiller        // optional; nil = no in-app inbox
 }
 
 // NewService wires the dispatcher against the repository. smtp may be the zero
@@ -98,6 +105,13 @@ func (s *Service) WithFeatures(f Features) *Service {
 	return s
 }
 
+// WithInbox turns on the in-app notification inbox (internal/inbox): every
+// event Notify enqueues also gets a row per recipient there.
+func (s *Service) WithInbox(f inboxFiller) *Service {
+	s.inbox = f
+	return s
+}
+
 func (s *Service) personalOn(ctx context.Context) bool {
 	return s.features == nil || s.features.Enabled(ctx, "personal_notifications")
 }
@@ -124,6 +138,14 @@ func (s *Service) Notify(ctx context.Context, e Event) {
 			slog.WarnContext(ctx, "notify: personal routing failed", "error", err, "event", e.Type)
 		}
 		channels = append(channels, personal...)
+	}
+	// The in-app inbox (internal/inbox): one row per recipient, filled right
+	// here so every current and future event reaches it, the same way every
+	// channel does.
+	if s.inbox != nil {
+		if err := s.inbox.Fill(ctx, e); err != nil {
+			slog.WarnContext(ctx, "notify: inbox fill failed", "error", err, "event", e.Type)
+		}
 	}
 	ids := make([]string, len(channels))
 	for i, ch := range channels {

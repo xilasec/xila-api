@@ -47,6 +47,7 @@ import (
 	"github.com/xilasec/xila-api/internal/findingtemplate"
 	"github.com/xilasec/xila-api/internal/fixplan"
 	"github.com/xilasec/xila-api/internal/gate"
+	"github.com/xilasec/xila-api/internal/inbox"
 	"github.com/xilasec/xila-api/internal/ingesthealth"
 	"github.com/xilasec/xila-api/internal/issuetracker"
 	"github.com/xilasec/xila-api/internal/ldap"
@@ -271,8 +272,9 @@ func run() error {
 	metricsReadRepo := metrics.NewRepository(readDB)
 	portfolioParts := portfolio.NewRepository(jobDB)
 	notifyRepo := notify.NewRepository(db)
+	inboxRepo := inbox.NewRepository(db)
 	features := feature.NewStore(db, feature.Unavailable(cfg)...)
-	notifySvc := notify.NewService(notifyRepo, notify.SMTPConfig(cfg.SMTP)).WithFeatures(features).
+	notifySvc := notify.NewService(notifyRepo, notify.SMTPConfig(cfg.SMTP)).WithFeatures(features).WithInbox(inboxRepo).
 		WithSMTPPassword(cfg.SecretGetter("SMTP_PASSWORD", cfg.SMTP.Password))
 	notifySvc.SetDeliveryPolicy(notify.DeliveryPolicy{
 		MaxAttempts: cfg.Notify.MaxAttempts, RetryBase: cfg.Notify.RetryBase,
@@ -542,6 +544,7 @@ func run() error {
 		TeamMembers: membership.NewHandler(membershipRepo, userRepo),
 		Membership:  membershipRepo,
 		Personal:    notify.NewPersonalHandler(notifyRepo, notifySvc),
+		Inbox:       inbox.NewHandler(inboxRepo),
 		MCP:         mcp.NewHandler(cfg.MCPEnabled, version),
 		Access:      access.NewHandler(access.NewRepository(db)),
 		Project: project.NewHandler(projectRepo, findingRepo, membershipRepo).WithTagsChanged(func(id string) {
