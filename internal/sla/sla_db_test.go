@@ -94,7 +94,7 @@ func TestPolicyPrecedenceReappliesToFindings(t *testing.T) {
 
 	put := func(target sla.Target, d sla.Days) {
 		t.Helper()
-		if _, err := repo.Put(ctx, target, d); err != nil {
+		if _, err := repo.Put(ctx, target, d, false); err != nil {
 			t.Fatalf("put: %v", err)
 		}
 	}
@@ -163,6 +163,87 @@ func TestClockPausesDuringExceptionAndFollowsSeverity(t *testing.T) {
 	}
 	if w := window(low); w < 123*day || w > 123*day+time.Minute {
 		t.Errorf("window after downgrade = %v, want 120d + the 3d already paused", w)
+	}
+}
+
+// Exploit-aware SLA: a KEV or weaponized-exploit window overrides the
+// severity window when it's shorter (the earliest applicable window wins),
+// a policy change reapplies to existing findings, a published KEV due date
+// caps the deadline, and pausing still works underneath whichever window
+// governs.
+func TestExploitAwareDeadlines(t *testing.T) {
+	pool := pgtest.Pool(t)
+	ctx := context.Background()
+	findings := finding.NewRepository(pool)
+	repo := sla.NewRepository(pool)
+	_, projectID := seed(t, pool)
+
+	markKEV := func(id string) {
+		t.Helper()
+		if _, err := pool.Exec(ctx, `UPDATE findings SET kev = true, kev_sources = '{cisa}' WHERE id = $1`, id); err != nil {
+			t.Fatalf("mark kev: %v", err)
+		}
+	}
+
+	// medium_days defaults to 90; kev_days shortens it once the finding is KEV.
+	f := upsert(t, findings, projectID, "f", domain.SeverityMedium)
+	if got := get(t, findings, f.ID); got.SLADays == nil || *got.SLADays != 90 {
+		t.Fatalf("medium sla_days = %v, want 90 (default)", got.SLADays)
+	}
+	if _, err := repo.Put(ctx, sla.Global, sla.Days{Medium: new(90), KEV: new(7), Exploited: new(14)}, false); err != nil {
+		t.Fatalf("put policy: %v", err)
+	}
+	markKEV(f.ID)
+	if got := get(t, findings, f.ID); got.SLADays == nil || *got.SLADays != 7 {
+		t.Errorf("kev medium sla_days = %v, want 7 (kev_days, the earliest window)", got.SLADays)
+	}
+
+	// The earliest window wins: a low severity (no low_days set) that is
+	// weaponized (not KEV) gets exploited_days, not kev_days (which only
+	// applies while KEV).
+	low := upsert(t, findings, projectID, "low", domain.SeverityLow)
+	if _, err := pool.Exec(ctx, `UPDATE findings SET exploit_maturity = 'weaponized' WHERE id = $1`, low.ID); err != nil {
+		t.Fatalf("mark weaponized: %v", err)
+	}
+	if got := get(t, findings, low.ID); got.SLADays == nil || *got.SLADays != 14 {
+		t.Errorf("weaponized low sla_days = %v, want 14 (exploited_days)", got.SLADays)
+	}
+
+	// use_kev_due_date caps the deadline at CISA's published date, even when
+	// it's earlier than every configured window — an absolute ceiling.
+	if _, err := repo.Put(ctx, sla.Global, sla.Days{Medium: new(90), KEV: new(30), Exploited: new(30)}, true); err != nil {
+		t.Fatalf("put policy with due date: %v", err)
+	}
+	due := upsert(t, findings, projectID, "due", domain.SeverityMedium)
+	dueDate := due.FirstSeenAt.Add(3 * day)
+	if _, err := pool.Exec(ctx, `UPDATE findings SET kev = true, kev_sources = '{cisa}', kev_due_date = $2 WHERE id = $1`,
+		due.ID, dueDate); err != nil {
+		t.Fatalf("mark kev with due date: %v", err)
+	}
+	if got := get(t, findings, due.ID); got.SLADueAt == nil || !got.SLADueAt.Equal(dueDate) {
+		t.Errorf("due date cap: sla_due_at = %v, want %v (CISA due date, earlier than the 30-day kev window)", got.SLADueAt, dueDate)
+	}
+
+	// Reapply on policy change: shortening kev_days moves f's deadline again.
+	if _, err := repo.Put(ctx, sla.Global, sla.Days{Medium: new(90), KEV: new(2), Exploited: new(30)}, true); err != nil {
+		t.Fatalf("shorten kev_days: %v", err)
+	}
+	if got := get(t, findings, f.ID); got.SLADays == nil || *got.SLADays != 2 {
+		t.Errorf("after shortening kev_days, f.sla_days = %v, want 2", got.SLADays)
+	}
+
+	// Pause/resume still correct underneath whichever window governs.
+	if _, err := findings.SetStatus(ctx, f.ID, finding.Triage{Status: domain.FindingWontFix, Reason: "later"}); err != nil {
+		t.Fatalf("accept: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE findings SET sla_paused_at = sla_paused_at - interval '48 hours' WHERE id = $1`, f.ID); err != nil {
+		t.Fatalf("backdate pause: %v", err)
+	}
+	if _, err := findings.SetStatus(ctx, f.ID, finding.Triage{Status: domain.FindingOpen}); err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	if w := window(get(t, findings, f.ID)); w < 4*day || w > 4*day+time.Minute {
+		t.Errorf("window after a 2-day pause on a 2-day kev window = %v, want 2d + 2d", w)
 	}
 }
 

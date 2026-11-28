@@ -190,6 +190,9 @@
 	}
 
 	let scans = $state(/** @type {any[]} */ ([]));
+	let scanExpectations = $state(/** @type {any[]} */ ([]));
+	let expectForm = $state({ kind: 'scanner', value: '', branch: '', max_age_hours: 24 });
+	let expectBusy = $state(false);
 	let sboms = $state(/** @type {any[]} */ ([]));
 	let components = $state(/** @type {any[]} */ ([]));
 	let compSearch = $state('');
@@ -461,7 +464,8 @@
 			block_sla_breach: policy.block_sla_breach ?? false,
 			new_only: policy.new_only ?? false,
 			baseline_branch: policy.baseline_branch ?? '',
-			max_risk_score: policy.max_risk_score ?? null
+			max_risk_score: policy.max_risk_score ?? null,
+			require_expected_scans: policy.require_expected_scans ?? false
 		};
 		await runGate();
 	}
@@ -487,6 +491,7 @@
 			body.block_license = gatePolicy.block_license;
 			body.block_sla_breach = gatePolicy.block_sla_breach;
 			body.new_only = gatePolicy.new_only;
+			body.require_expected_scans = gatePolicy.require_expected_scans;
 			body.baseline_branch = gatePolicy.baseline_branch.trim() === '' ? null : gatePolicy.baseline_branch.trim();
 			await api.setGatePolicy(id, body);
 			notify($t('proj.gateSaved'), 'success');
@@ -495,6 +500,30 @@
 			notify(errorMessage(err));
 		} finally {
 			saving = false;
+		}
+	}
+	async function addExpectation() {
+		expectBusy = true;
+		try {
+			/** @type {Record<string, any>} */
+			const body = { branch: expectForm.branch.trim(), max_age_hours: Number(expectForm.max_age_hours) };
+			body[expectForm.kind] = expectForm.value.trim();
+			await api.createScanExpectation(id, body);
+			scanExpectations = await api.scanExpectations(id);
+			expectForm = { kind: 'scanner', value: '', branch: '', max_age_hours: 24 };
+		} catch (err) {
+			notify(errorMessage(err));
+		} finally {
+			expectBusy = false;
+		}
+	}
+	/** @param {string} expectationId */
+	async function removeExpectation(expectationId) {
+		try {
+			await api.deleteScanExpectation(id, expectationId);
+			scanExpectations = scanExpectations.filter((e) => e.id !== expectationId);
+		} catch (err) {
+			notify(errorMessage(err));
 		}
 	}
 
@@ -765,7 +794,10 @@
 		if (loaded[name]) return;
 		tabLoading = true;
 		try {
-			if (name === 'scans') scans = await api.listScans(id);
+			if (name === 'scans') {
+				scans = await api.listScans(id);
+				scanExpectations = await api.scanExpectations(id);
+			}
 			else if (name === 'sboms') sboms = await api.listSboms(id);
 			else if (name === 'vex') vexStatements = await api.listVex(id);
 			else if (name === 'members') {
@@ -1274,6 +1306,47 @@
 				</table>
 			</div>
 		{/if}
+		{#if !tabLoading}
+			<div class="bg-base-100 rounded-box shadow-sm p-4 mt-4 max-w-2xl">
+				<h3 class="font-semibold">{$t('proj.expectTitle')}</h3>
+				<p class="text-xs text-base-content/60 mt-1">{$t('proj.expectIntro')}</p>
+				{#if scanExpectations.length > 0}
+					<ul class="mt-3 divide-y divide-base-200">
+						{#each scanExpectations as e (e.id)}
+							<li class="flex items-center justify-between gap-2 py-1.5 text-sm">
+								<span>
+									<span class="font-mono">{e.scanner || e.category}</span>
+									<span class="text-xs text-base-content/50">· {e.branch || $t('proj.expectDefaultBranch')} · {$t('proj.expectWithin', { hours: e.max_age_hours })}</span>
+								</span>
+								<button class="btn btn-ghost btn-xs" onclick={() => removeExpectation(e.id)} aria-label={$t('common.remove')}><Icon name="more" /></button>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+				<div class="mt-3 flex flex-wrap items-end gap-2">
+					<label class="form-control">
+						<span class="label-text text-xs">{$t('proj.expectKind')}</span>
+						<select bind:value={expectForm.kind} class="select select-bordered select-sm">
+							<option value="scanner">{$t('proj.colScanner')}</option>
+							<option value="category">{$t('proj.colCategory')}</option>
+						</select>
+					</label>
+					<label class="form-control">
+						<span class="label-text text-xs">{expectForm.kind === 'scanner' ? $t('proj.colScanner') : $t('proj.colCategory')}</span>
+						<input type="text" bind:value={expectForm.value} placeholder={expectForm.kind === 'scanner' ? 'trivy' : 'sca'} class="input input-bordered input-sm" />
+					</label>
+					<label class="form-control">
+						<span class="label-text text-xs">{$t('proj.colBranch')}</span>
+						<input type="text" bind:value={expectForm.branch} placeholder={$t('proj.expectDefaultBranch')} class="input input-bordered input-sm w-28" />
+					</label>
+					<label class="form-control">
+						<span class="label-text text-xs">{$t('proj.expectMaxAge')}</span>
+						<input type="number" min="1" bind:value={expectForm.max_age_hours} class="input input-bordered input-sm w-24" />
+					</label>
+					<button class="btn btn-primary btn-sm" disabled={expectBusy || expectForm.value.trim() === ''} onclick={addExpectation}>{$t('common.add')}</button>
+				</div>
+			</div>
+		{/if}
 	{:else if tab === 'sboms'}
 		{#if !tabLoading && sboms.length > 0}
 			<div class="mb-3 flex justify-end">
@@ -1710,6 +1783,10 @@
 				<label class="sm:col-span-2 label cursor-pointer justify-start gap-2 py-1" title={$t('proj.newOnlyTitle')}>
 					<input type="checkbox" bind:checked={gatePolicy.new_only} class="checkbox checkbox-sm" />
 					<span class="label-text">{$t('proj.newOnlyLabel')}</span>
+				</label>
+				<label class="sm:col-span-2 label cursor-pointer justify-start gap-2 py-1" title={$t('proj.gateExpectedTitle')}>
+					<input type="checkbox" bind:checked={gatePolicy.require_expected_scans} class="checkbox checkbox-sm" />
+					<span class="label-text">{$t('proj.gateExpectedLabel')}</span>
 				</label>
 				<Field label={$t('proj.gateBaselineBranch')} hint={$t('proj.gateBaselineHint')}>
 					<input type="text" bind:value={gatePolicy.baseline_branch} placeholder="main" class="input input-bordered input-sm w-full" />

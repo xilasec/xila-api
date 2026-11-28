@@ -37,9 +37,13 @@ func (r *KEVRepository) Replace(ctx context.Context, source string, list KEVList
 	}
 	rows := make([][]any, len(list.IDs))
 	for i, id := range list.IDs {
-		rows[i] = []any{source, id, list.Ransomware[id]}
+		var due *time.Time
+		if d, ok := list.DueDates[id]; ok {
+			due = &d
+		}
+		rows[i] = []any{source, id, list.Ransomware[id], due}
 	}
-	if _, err := tx.CopyFrom(ctx, pgx.Identifier{"kev_catalog_entries"}, []string{"source", "vuln_id", "ransomware"},
+	if _, err := tx.CopyFrom(ctx, pgx.Identifier{"kev_catalog_entries"}, []string{"source", "vuln_id", "ransomware", "due_date"},
 		pgx.CopyFromRows(rows)); err != nil {
 		return fmt.Errorf("store %s: %w", source, err)
 	}
@@ -60,19 +64,21 @@ func (r *KEVRepository) Failed(ctx context.Context, source string, cause error) 
 }
 
 // KEVAssertions is what the configured catalogs assert: the catalogs listing
-// each vulnerability id, and the ids any of them marks as used in ransomware
-// campaigns.
+// each vulnerability id, the ids any of them marks as used in ransomware
+// campaigns, and the earliest required-action due date any of them publishes
+// for an id.
 type KEVAssertions struct {
 	Sources    map[string][]string
 	Ransomware map[string]bool
+	DueDates   map[string]time.Time
 }
 
 // Assertions maps every stored vulnerability id to the catalogs asserting it,
 // restricted to sources (the configured catalogs: one dropped from
 // KEV_SOURCES stops asserting).
 func (r *KEVRepository) Assertions(ctx context.Context, sources []string) (KEVAssertions, error) {
-	out := KEVAssertions{Sources: map[string][]string{}, Ransomware: map[string]bool{}}
-	rows, err := r.db.Query(ctx, `SELECT vuln_id, array_agg(source ORDER BY source), bool_or(ransomware)
+	out := KEVAssertions{Sources: map[string][]string{}, Ransomware: map[string]bool{}, DueDates: map[string]time.Time{}}
+	rows, err := r.db.Query(ctx, `SELECT vuln_id, array_agg(source ORDER BY source), bool_or(ransomware), min(due_date)
 		FROM kev_catalog_entries WHERE source = ANY($1) GROUP BY vuln_id`, sources)
 	if err != nil {
 		return out, fmt.Errorf("kev assertions: %w", err)
@@ -82,12 +88,16 @@ func (r *KEVRepository) Assertions(ctx context.Context, sources []string) (KEVAs
 		var id string
 		var src []string
 		var ransomware bool
-		if err := rows.Scan(&id, &src, &ransomware); err != nil {
+		var due *time.Time
+		if err := rows.Scan(&id, &src, &ransomware, &due); err != nil {
 			return out, err
 		}
 		out.Sources[id] = src
 		if ransomware {
 			out.Ransomware[id] = true
+		}
+		if due != nil {
+			out.DueDates[id] = *due
 		}
 	}
 	return out, rows.Err()

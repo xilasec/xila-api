@@ -2,6 +2,7 @@ package ingesthealth_test
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -119,5 +120,98 @@ func TestCheckAndSweep(t *testing.T) {
 	pool.QueryRow(ctx, `SELECT count(*) FROM ingestion_anomalies`).Scan(&open)
 	if open != 2 {
 		t.Errorf("open anomalies after trivy recovered = %d, want 2", open)
+	}
+}
+
+// A declared scan expectation (scanner, category, or a named branch) is
+// "missing" until a matching completed scan lands within its window,
+// including one that never ran; it ages back out if the scan gets too old.
+func TestExpectations(t *testing.T) {
+	pool := pgtest.Pool(t)
+	ctx := context.Background()
+	var projectID string
+	if err := pool.QueryRow(ctx, `WITH o AS (INSERT INTO organizations (slug,name) VALUES ('o-exp','o') RETURNING id),
+		tm AS (INSERT INTO teams (org_id,slug,name) SELECT id,'t','t' FROM o RETURNING id)
+		INSERT INTO projects (team_id, slug, name) SELECT id,'p','p' FROM tm RETURNING id`).Scan(&projectID); err != nil {
+		t.Fatal(err)
+	}
+	repo := ingesthealth.NewRepository(pool)
+	scanner, category, branch := "trivy", "sast", "release"
+
+	e1, err := repo.CreateExpectation(ctx, ingesthealth.Expectation{ProjectID: projectID, Scanner: &scanner, MaxAgeHours: 48})
+	if err != nil {
+		t.Fatalf("create scanner expectation: %v", err)
+	}
+	if _, err := repo.CreateExpectation(ctx, ingesthealth.Expectation{ProjectID: projectID, Category: &category, MaxAgeHours: 24}); err != nil {
+		t.Fatalf("create category expectation: %v", err)
+	}
+	if _, err := repo.CreateExpectation(ctx, ingesthealth.Expectation{ProjectID: projectID, Scanner: &scanner, Branch: branch, MaxAgeHours: 24}); err != nil {
+		t.Fatalf("create branch expectation: %v", err)
+	}
+	if _, err := repo.CreateExpectation(ctx, ingesthealth.Expectation{ProjectID: projectID, Scanner: &scanner, MaxAgeHours: 1}); !errors.Is(err, ingesthealth.ErrDuplicateExpectation) {
+		t.Errorf("duplicate scanner+branch = %v, want ErrDuplicateExpectation", err)
+	}
+	if _, err := repo.CreateExpectation(ctx, ingesthealth.Expectation{ProjectID: projectID, Scanner: &scanner, Category: &category, MaxAgeHours: 1}); !errors.Is(err, ingesthealth.ErrInvalidExpectation) {
+		t.Errorf("both scanner and category = %v, want ErrInvalidExpectation", err)
+	}
+
+	if list, err := repo.ListExpectations(ctx, projectID); err != nil || len(list) != 3 {
+		t.Fatalf("list = %+v, %v, want 3", list, err)
+	}
+
+	now := time.Now()
+	missing := func() map[string]bool {
+		t.Helper()
+		a, err := repo.Check(ctx, []string{projectID}, now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		out := map[string]bool{}
+		for _, x := range a {
+			if x.Kind == ingesthealth.KindMissing {
+				out[x.Scanner+"|"+x.Branch] = true
+			}
+		}
+		return out
+	}
+
+	// Nothing has ever run: all three are missing.
+	if got := missing(); len(got) != 3 {
+		t.Errorf("before any scan: %v, want 3 missing", got)
+	}
+
+	// A completed trivy/sast scan on the default version satisfies the scanner
+	// and category expectations, but not the one pinned to the 'release' branch.
+	if _, err := pool.Exec(ctx, `INSERT INTO scans (project_id, version_id, scanner, category, status, finished_at, branch)
+		VALUES ($1, project_version($1, '', 'branch'), $2, $3, 'completed', now(), '')`, projectID, scanner, category); err != nil {
+		t.Fatal(err)
+	}
+	if got := missing(); len(got) != 1 || !got["trivy|release"] {
+		t.Errorf("after default-version scan: %v, want only trivy|release missing", got)
+	}
+
+	// A completed scan on the 'release' branch satisfies the last one too.
+	if _, err := pool.Exec(ctx, `INSERT INTO scans (project_id, version_id, scanner, category, status, finished_at, branch)
+		VALUES ($1, project_version($1, $4, 'branch'), $2, $3, 'completed', now(), $4)`, projectID, scanner, category, branch); err != nil {
+		t.Fatal(err)
+	}
+	if got := missing(); len(got) != 0 {
+		t.Errorf("after release-branch scan: %v, want none missing", got)
+	}
+
+	// Backdating the default-version scan past its window brings those two back.
+	if _, err := pool.Exec(ctx, `UPDATE scans SET finished_at = now() - interval '72 hours' WHERE project_id = $1 AND branch = ''`, projectID); err != nil {
+		t.Fatal(err)
+	}
+	if got := missing(); len(got) != 2 {
+		t.Errorf("after the default-version scan aged out: %v, want 2 missing (scanner + category)", got)
+	}
+
+	// Delete removes it; a second delete reports not found.
+	if ok, err := repo.DeleteExpectation(ctx, projectID, e1.ID); err != nil || !ok {
+		t.Fatalf("delete: ok=%v, err=%v", ok, err)
+	}
+	if ok, err := repo.DeleteExpectation(ctx, projectID, e1.ID); err != nil || ok {
+		t.Errorf("second delete ok=%v, want false", ok)
 	}
 }

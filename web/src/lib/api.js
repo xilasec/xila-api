@@ -1079,6 +1079,15 @@ export const api = {
 	// Edit name / events / enabled / min_severity / summary schedule.
 	// Ingestion problems: silent scanners, collapsed uploads, failing connectors.
 	ingestionHealth: () => request('GET', '/ingestion-health').then((d) => d.anomalies ?? []),
+	/** @param {string} projectId */
+	scanExpectations: (projectId) =>
+		request('GET', `/projects/${projectId}/scan-expectations`).then((d) => d.expectations ?? []),
+	/** @param {string} projectId @param {Record<string, any>} data */
+	createScanExpectation: (projectId, data) =>
+		request('POST', `/projects/${projectId}/scan-expectations`, { body: data }),
+	/** @param {string} projectId @param {string} expectationId */
+	deleteScanExpectation: (projectId, expectationId) =>
+		request('DELETE', `/projects/${projectId}/scan-expectations/${expectationId}`),
 	/** @param {string} id @param {Record<string, any>} data */
 	updateChannel: (id, data) => request('PATCH', `/notifications/channels/${id}`, { body: data }),
 	/** @param {string} id */

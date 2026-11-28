@@ -36,20 +36,24 @@ const (
 // deadline nobody will ever see.
 const MaxDays = 3650
 
-// Days is the window per severity. nil means no SLA for that severity.
+// Days is the window per severity, plus the two exploit-aware windows: KEV
+// (the finding is known-exploited by any configured catalog) and Exploited
+// (KEV or a weaponized public exploit). nil means no SLA / no shorter window.
 type Days struct {
-	Critical *int `json:"critical_days"`
-	High     *int `json:"high_days"`
-	Medium   *int `json:"medium_days"`
-	Low      *int `json:"low_days"`
-	Info     *int `json:"info_days"`
+	Critical  *int `json:"critical_days"`
+	High      *int `json:"high_days"`
+	Medium    *int `json:"medium_days"`
+	Low       *int `json:"low_days"`
+	Info      *int `json:"info_days"`
+	KEV       *int `json:"kev_days"`
+	Exploited *int `json:"exploited_days"`
 }
 
 // Validate checks every window is within 1..MaxDays.
 func (d Days) Validate() error {
 	for name, v := range map[string]*int{
 		"critical_days": d.Critical, "high_days": d.High, "medium_days": d.Medium,
-		"low_days": d.Low, "info_days": d.Info,
+		"low_days": d.Low, "info_days": d.Info, "kev_days": d.KEV, "exploited_days": d.Exploited,
 	} {
 		if v != nil && (*v < 1 || *v > MaxDays) {
 			return fmt.Errorf("%s must be between 1 and %d (or null for no SLA)", name, MaxDays)
@@ -67,11 +71,14 @@ type Target struct {
 // Global is the instance-wide target.
 var Global = Target{}
 
-// Policy is a stored SLA policy.
+// Policy is a stored SLA policy. UseKEVDueDate caps the deadline at the
+// earliest required-action due date a configured KEV catalog (CISA,
+// VulnCheck) publishes for the finding's CVE, when it's KEV and one exists.
 type Policy struct {
-	OrgID     *string    `json:"org_id"`
-	ProjectID *string    `json:"project_id"`
-	UpdatedAt *time.Time `json:"updated_at,omitempty"`
+	OrgID         *string    `json:"org_id"`
+	ProjectID     *string    `json:"project_id"`
+	UpdatedAt     *time.Time `json:"updated_at,omitempty"`
+	UseKEVDueDate bool       `json:"use_kev_due_date"`
 	Days
 }
 
@@ -81,8 +88,9 @@ type Policy struct {
 type Effective struct {
 	Scope string `json:"scope"`
 	Days
-	Criticality string `json:"criticality,omitempty"`
-	Applied     *Days  `json:"applied,omitempty"`
+	Criticality   string `json:"criticality,omitempty"`
+	Applied       *Days  `json:"applied,omitempty"`
+	UseKEVDueDate bool   `json:"use_kev_due_date"`
 }
 
 // Repository stores SLA policies and re-applies them to findings.
@@ -95,11 +103,12 @@ func NewRepository(db *pgxpool.Pool) *Repository {
 	return &Repository{db: db}
 }
 
-const policyColumns = `org_id, project_id, updated_at, critical_days, high_days, medium_days, low_days, info_days`
+const policyColumns = `org_id, project_id, updated_at, critical_days, high_days, medium_days, low_days, info_days, kev_days, exploited_days, use_kev_due_date`
 
 func scanPolicy(row pgx.Row) (Policy, error) {
 	var p Policy
-	err := row.Scan(&p.OrgID, &p.ProjectID, &p.UpdatedAt, &p.Critical, &p.High, &p.Medium, &p.Low, &p.Info)
+	err := row.Scan(&p.OrgID, &p.ProjectID, &p.UpdatedAt, &p.Critical, &p.High, &p.Medium, &p.Low, &p.Info,
+		&p.KEV, &p.Exploited, &p.UseKEVDueDate)
 	return p, err
 }
 
@@ -126,9 +135,9 @@ func (r *Repository) EffectiveFor(ctx context.Context, t Target) (Effective, err
 		e   Effective
 		err error
 	)
-	const cols = `scope, critical_days, high_days, medium_days, low_days, info_days`
+	const cols = `scope, critical_days, high_days, medium_days, low_days, info_days, kev_days, exploited_days, use_kev_due_date`
 	scan := func(row pgx.Row) error {
-		return row.Scan(&e.Scope, &e.Critical, &e.High, &e.Medium, &e.Low, &e.Info)
+		return row.Scan(&e.Scope, &e.Critical, &e.High, &e.Medium, &e.Low, &e.Info, &e.KEV, &e.Exploited, &e.UseKEVDueDate)
 	}
 	switch {
 	case t.ProjectID != nil:
@@ -140,7 +149,7 @@ func (r *Repository) EffectiveFor(ctx context.Context, t Target) (Effective, err
 		if p, ok, gerr := r.Get(ctx, t); gerr != nil {
 			return Effective{}, gerr
 		} else if ok {
-			return Effective{Scope: ScopeOrg, Days: p.Days}, nil
+			return Effective{Scope: ScopeOrg, Days: p.Days, UseKEVDueDate: p.UseKEVDueDate}, nil
 		}
 		// No org policy: the org inherits whatever a project without one would.
 		err = scan(r.db.QueryRow(ctx, `SELECT `+cols+` FROM sla_policy_for(NULL)`))
@@ -165,10 +174,11 @@ func (r *Repository) applied(ctx context.Context, projectID string, e *Effective
 		SELECT COALESCE((SELECT scale_by_criticality FROM sla_settings), false), p.business_criticality,
 		       sla_scaled_days($2, p.business_criticality), sla_scaled_days($3, p.business_criticality),
 		       sla_scaled_days($4, p.business_criticality), sla_scaled_days($5, p.business_criticality),
-		       sla_scaled_days($6, p.business_criticality)
+		       sla_scaled_days($6, p.business_criticality), sla_scaled_days($7, p.business_criticality),
+		       sla_scaled_days($8, p.business_criticality)
 		FROM projects p WHERE p.id = $1`,
-		projectID, e.Critical, e.High, e.Medium, e.Low, e.Info).
-		Scan(&on, &crit, &d.Critical, &d.High, &d.Medium, &d.Low, &d.Info)
+		projectID, e.Critical, e.High, e.Medium, e.Low, e.Info, e.KEV, e.Exploited).
+		Scan(&on, &crit, &d.Critical, &d.High, &d.Medium, &d.Low, &d.Info, &d.KEV, &d.Exploited)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil
 	}
@@ -184,21 +194,22 @@ func (r *Repository) applied(ctx context.Context, projectID string, e *Effective
 // Put stores the policy for a target and re-applies the result to the findings
 // it governs, in one transaction — a policy that's saved but not applied would
 // show deadlines nobody is held to.
-func (r *Repository) Put(ctx context.Context, t Target, d Days) (Policy, error) {
+func (r *Repository) Put(ctx context.Context, t Target, d Days, useKEVDueDate bool) (Policy, error) {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return Policy{}, fmt.Errorf("begin: %w", err)
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck // no-op after commit
 
-	args := []any{t.OrgID, t.ProjectID, d.Critical, d.High, d.Medium, d.Low, d.Info}
+	args := []any{t.OrgID, t.ProjectID, d.Critical, d.High, d.Medium, d.Low, d.Info, d.KEV, d.Exploited, useKEVDueDate}
 	p, err := scanPolicy(tx.QueryRow(ctx, `
-		UPDATE sla_policies SET critical_days=$3, high_days=$4, medium_days=$5, low_days=$6, info_days=$7, updated_at=now()
+		UPDATE sla_policies SET critical_days=$3, high_days=$4, medium_days=$5, low_days=$6, info_days=$7,
+			kev_days=$8, exploited_days=$9, use_kev_due_date=$10, updated_at=now()
 		WHERE `+targetWhere+` RETURNING `+policyColumns, args...))
 	if errors.Is(err, pgx.ErrNoRows) {
 		p, err = scanPolicy(tx.QueryRow(ctx, `
-			INSERT INTO sla_policies (org_id, project_id, critical_days, high_days, medium_days, low_days, info_days)
-			VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING `+policyColumns, args...))
+			INSERT INTO sla_policies (org_id, project_id, critical_days, high_days, medium_days, low_days, info_days, kev_days, exploited_days, use_kev_due_date)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING `+policyColumns, args...))
 	}
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23503" {
@@ -262,7 +273,8 @@ func reapply(ctx context.Context, tx pgx.Tx, t Target) error {
 	}
 	const q = `
 		UPDATE findings f SET sla_days = d.days
-		FROM (SELECT id, sla_days_for(project_id, severity) AS days FROM findings WHERE project_id = $1) d
+		FROM (SELECT id, sla_window_days_for(project_id, severity, kev, exploit_maturity) AS days
+		      FROM findings WHERE project_id = $1) d
 		WHERE f.id = d.id AND f.sla_days IS DISTINCT FROM d.days`
 	for _, pid := range projectIDs {
 		if _, err := tx.Exec(ctx, q, pid); err != nil {

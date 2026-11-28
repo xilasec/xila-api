@@ -40,7 +40,7 @@ func TestGatePolicyLifecycle(t *testing.T) {
 	}
 
 	// No policy anywhere -> scope "none" -> passes.
-	if p, scope, _ := grepo.Effective(ctx, projectID); scope != "none" || !gate.Evaluate(p, stats).Passed {
+	if p, scope, _ := grepo.Effective(ctx, projectID); scope != "none" || !gate.Evaluate(p, stats, nil).Passed {
 		t.Errorf("no policy should pass with scope none, got scope=%q", scope)
 	}
 
@@ -53,7 +53,7 @@ func TestGatePolicyLifecycle(t *testing.T) {
 	if scope != "project" {
 		t.Errorf("scope = %q, want project", scope)
 	}
-	if res := gate.Evaluate(p, stats); res.Passed || len(res.Violations) != 1 || res.Violations[0].Rule != "max_critical" {
+	if res := gate.Evaluate(p, stats, nil); res.Passed || len(res.Violations) != 1 || res.Violations[0].Rule != "max_critical" {
 		t.Errorf("expected a max_critical failure, got %+v", res)
 	}
 
@@ -66,7 +66,7 @@ func TestGatePolicyLifecycle(t *testing.T) {
 		t.Fatalf("upsert global policy: %v", err)
 	}
 	p, scope, _ = grepo.Effective(ctx, projectID)
-	if scope != "global" || !gate.Evaluate(p, stats).Passed {
+	if scope != "global" || !gate.Evaluate(p, stats, nil).Passed {
 		t.Errorf("should inherit lenient global and pass, got scope=%q", scope)
 	}
 
@@ -115,11 +115,11 @@ func TestGateMaxRiskScoreThreshold(t *testing.T) {
 	}
 
 	low := 10.0
-	if res := gate.Evaluate(gate.Policy{MaxRiskScore: &low}, stats); res.Passed {
+	if res := gate.Evaluate(gate.Policy{MaxRiskScore: &low}, stats, nil); res.Passed {
 		t.Errorf("risk 14 should fail a max_risk_score of 10, got %+v", res)
 	}
 	high := 20.0
-	if res := gate.Evaluate(gate.Policy{MaxRiskScore: &high}, stats); !res.Passed {
+	if res := gate.Evaluate(gate.Policy{MaxRiskScore: &high}, stats, nil); !res.Passed {
 		t.Errorf("risk 14 should pass a max_risk_score of 20, got %+v", res)
 	}
 }

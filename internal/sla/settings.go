@@ -107,7 +107,8 @@ func (r *Repository) Matrix(ctx context.Context) (Matrix, error) {
 		SELECT c.crit,
 		       sla_scaled_days(p.critical_days, c.crit), sla_scaled_days(p.high_days, c.crit),
 		       sla_scaled_days(p.medium_days, c.crit), sla_scaled_days(p.low_days, c.crit),
-		       sla_scaled_days(p.info_days, c.crit)
+		       sla_scaled_days(p.info_days, c.crit),
+		       sla_scaled_days(p.kev_days, c.crit), sla_scaled_days(p.exploited_days, c.crit)
 		FROM sla_policy_for(NULL) p
 		CROSS JOIN unnest(ARRAY['critical', 'high', 'medium', 'low']) AS c(crit)`)
 	if err != nil {
@@ -118,7 +119,7 @@ func (r *Repository) Matrix(ctx context.Context) (Matrix, error) {
 	for rows.Next() {
 		var crit string
 		var d Days
-		if err := rows.Scan(&crit, &d.Critical, &d.High, &d.Medium, &d.Low, &d.Info); err != nil {
+		if err := rows.Scan(&crit, &d.Critical, &d.High, &d.Medium, &d.Low, &d.Info, &d.KEV, &d.Exploited); err != nil {
 			return nil, fmt.Errorf("scan sla matrix: %w", err)
 		}
 		m[crit] = d

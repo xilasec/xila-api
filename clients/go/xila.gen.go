@@ -6359,6 +6359,9 @@ type GatePolicy struct {
 
 	// NewOnly Ignore pre-existing debt; gate only on what this scan introduced.
 	NewOnly *bool `json:"new_only,omitempty"`
+
+	// RequireExpectedScans Fail if the project has a declared scan expectation with no recent completed scan.
+	RequireExpectedScans *bool `json:"require_expected_scans,omitempty"`
 }
 
 // GatePolicyKevSources defines model for GatePolicy.KevSources.
@@ -7774,10 +7777,16 @@ type SCIMToken struct {
 // null one means no SLA for that severity at this scope. 1–3650.
 type SLADays struct {
 	CriticalDays *int `json:"critical_days,omitempty"`
-	HighDays     *int `json:"high_days,omitempty"`
-	InfoDays     *int `json:"info_days,omitempty"`
-	LowDays      *int `json:"low_days,omitempty"`
-	MediumDays   *int `json:"medium_days,omitempty"`
+
+	// ExploitedDays Deadline for a finding with a weaponized exploit, when shorter than its severity window.
+	ExploitedDays *int `json:"exploited_days,omitempty"`
+	HighDays      *int `json:"high_days,omitempty"`
+	InfoDays      *int `json:"info_days,omitempty"`
+
+	// KevDays Deadline for a KEV finding, when shorter than its severity window.
+	KevDays    *int `json:"kev_days,omitempty"`
+	LowDays    *int `json:"low_days,omitempty"`
+	MediumDays *int `json:"medium_days,omitempty"`
 }
 
 // SLAFactors Multiplier per project business criticality (0.1–10). Defaults 0.5 / 0.75 / 1 / 1.5.
@@ -7797,12 +7806,21 @@ type SLAPolicy struct {
 	CriticalDays *int     `json:"critical_days,omitempty"`
 
 	// Criticality Project policies only, while criticality scaling is on — the project's business criticality.
-	Criticality *string         `json:"criticality,omitempty"`
-	HighDays    *int            `json:"high_days,omitempty"`
-	InfoDays    *int            `json:"info_days,omitempty"`
-	LowDays     *int            `json:"low_days,omitempty"`
-	MediumDays  *int            `json:"medium_days,omitempty"`
-	Scope       *SLAPolicyScope `json:"scope,omitempty"`
+	Criticality *string `json:"criticality,omitempty"`
+
+	// ExploitedDays Deadline for a finding with a weaponized exploit, when shorter than its severity window.
+	ExploitedDays *int `json:"exploited_days,omitempty"`
+	HighDays      *int `json:"high_days,omitempty"`
+	InfoDays      *int `json:"info_days,omitempty"`
+
+	// KevDays Deadline for a KEV finding, when shorter than its severity window.
+	KevDays    *int            `json:"kev_days,omitempty"`
+	LowDays    *int            `json:"low_days,omitempty"`
+	MediumDays *int            `json:"medium_days,omitempty"`
+	Scope      *SLAPolicyScope `json:"scope,omitempty"`
+
+	// UseKevDueDate Cap a KEV finding deadline at CISA published due date when it is sooner.
+	UseKevDueDate *bool `json:"use_kev_due_date,omitempty"`
 }
 
 // SLAPolicyScope defines model for SLAPolicy.Scope.
@@ -8230,6 +8248,32 @@ type Scan struct {
 
 	// VersionId The branch / release this scan is of.
 	VersionId *openapi_types.UUID `json:"version_id,omitempty"`
+}
+
+// ScanExpectation A declared scan cadence for a project: a scanner or category that must report within max_age_hours on a branch.
+type ScanExpectation struct {
+	// Branch Empty means the project default version.
+	Branch      *string             `json:"branch,omitempty"`
+	Category    *string             `json:"category,omitempty"`
+	CreatedAt   *time.Time          `json:"created_at,omitempty"`
+	Id          *openapi_types.UUID `json:"id,omitempty"`
+	MaxAgeHours *int                `json:"max_age_hours,omitempty"`
+	ProjectId   *openapi_types.UUID `json:"project_id,omitempty"`
+
+	// Scanner Exactly one of scanner or category is set.
+	Scanner   *string    `json:"scanner,omitempty"`
+	UpdatedAt *time.Time `json:"updated_at,omitempty"`
+}
+
+// ScanExpectationInput defines model for ScanExpectationInput.
+type ScanExpectationInput struct {
+	// Branch Optional; empty = the project default version.
+	Branch      *string `json:"branch,omitempty"`
+	Category    *string `json:"category,omitempty"`
+	MaxAgeHours int     `json:"max_age_hours"`
+
+	// Scanner Set exactly one of scanner or category.
+	Scanner *string `json:"scanner,omitempty"`
 }
 
 // ScanStatus defines model for ScanStatus.
@@ -8757,6 +8801,9 @@ type EngagementFilter = openapi_types.UUID
 
 // EngagementID defines model for EngagementID.
 type EngagementID = openapi_types.UUID
+
+// ExpectationID defines model for ExpectationID.
+type ExpectationID = openapi_types.UUID
 
 // ExploitFilter defines model for ExploitFilter.
 type ExploitFilter string
@@ -11366,6 +11413,9 @@ type RevokeProjectRiskAcceptanceJSONRequestBody RevokeProjectRiskAcceptanceJSONB
 
 // CreateProjectSbomJSONRequestBody defines body for CreateProjectSbom for application/json ContentType.
 type CreateProjectSbomJSONRequestBody = CreateProjectSbomJSONBody
+
+// CreateScanExpectationJSONRequestBody defines body for CreateScanExpectation for application/json ContentType.
+type CreateScanExpectationJSONRequestBody = ScanExpectationInput
 
 // CreateProjectScanJSONRequestBody defines body for CreateProjectScan for application/json ContentType.
 type CreateProjectScanJSONRequestBody = CreateProjectScanJSONBody
@@ -15462,6 +15512,36 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /projects/{projectID}/sboms (the `CreateProjectSbom` operationId).
 	CreateProjectSbom(ctx context.Context, projectID ProjectID, params *CreateProjectSbomParams, body CreateProjectSbomJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListScanExpectations A project's declared scan expectations
+	//
+	// Corresponds with GET /projects/{projectID}/scan-expectations (the `ListScanExpectations` operationId).
+	ListScanExpectations(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateScanExpectationWithBody Declare a scan expectation
+	//
+	// Project editor. Declares a scanner or category that must report within max_age_hours on a branch (empty = the project default version); a missing scan raises an ingestion anomaly and can fail the gate.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /projects/{projectID}/scan-expectations (the `CreateScanExpectation` operationId).
+	CreateScanExpectationWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateScanExpectation Declare a scan expectation
+	//
+	// Project editor. Declares a scanner or category that must report within max_age_hours on a branch (empty = the project default version); a missing scan raises an ingestion anomaly and can fail the gate.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /projects/{projectID}/scan-expectations (the `CreateScanExpectation` operationId).
+	CreateScanExpectation(ctx context.Context, projectID ProjectID, body CreateScanExpectationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteScanExpectation Remove a scan expectation
+	//
+	// Project editor.
+	//
+	// Corresponds with DELETE /projects/{projectID}/scan-expectations/{expectationID} (the `DeleteScanExpectation` operationId).
+	DeleteScanExpectation(ctx context.Context, projectID ProjectID, expectationID ExpectationID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListProjectScans Scan history for a project
 	//
@@ -25097,6 +25177,76 @@ func (c *Client) CreateProjectSbomWithBody(ctx context.Context, projectID Projec
 // Corresponds with POST /projects/{projectID}/sboms (the `CreateProjectSbom` operationId).
 func (c *Client) CreateProjectSbom(ctx context.Context, projectID ProjectID, params *CreateProjectSbomParams, body CreateProjectSbomJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateProjectSbomRequest(c.Server, projectID, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListScanExpectations A project's declared scan expectations
+//
+// Corresponds with GET /projects/{projectID}/scan-expectations (the `ListScanExpectations` operationId).
+func (c *Client) ListScanExpectations(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListScanExpectationsRequest(c.Server, projectID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateScanExpectationWithBody Declare a scan expectation
+//
+// Project editor. Declares a scanner or category that must report within max_age_hours on a branch (empty = the project default version); a missing scan raises an ingestion anomaly and can fail the gate.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /projects/{projectID}/scan-expectations (the `CreateScanExpectation` operationId).
+func (c *Client) CreateScanExpectationWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateScanExpectationRequestWithBody(c.Server, projectID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateScanExpectation Declare a scan expectation
+//
+// Project editor. Declares a scanner or category that must report within max_age_hours on a branch (empty = the project default version); a missing scan raises an ingestion anomaly and can fail the gate.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /projects/{projectID}/scan-expectations (the `CreateScanExpectation` operationId).
+func (c *Client) CreateScanExpectation(ctx context.Context, projectID ProjectID, body CreateScanExpectationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateScanExpectationRequest(c.Server, projectID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteScanExpectation Remove a scan expectation
+//
+// Project editor.
+//
+// Corresponds with DELETE /projects/{projectID}/scan-expectations/{expectationID} (the `DeleteScanExpectation` operationId).
+func (c *Client) DeleteScanExpectation(ctx context.Context, projectID ProjectID, expectationID ExpectationID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteScanExpectationRequest(c.Server, projectID, expectationID)
 	if err != nil {
 		return nil, err
 	}
@@ -44459,6 +44609,128 @@ func NewCreateProjectSbomRequestWithBody(server string, projectID ProjectID, par
 	return req, nil
 }
 
+// NewListScanExpectationsRequest constructs an http.Request for the ListScanExpectations method
+func NewListScanExpectationsRequest(server string, projectID ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/scan-expectations", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateScanExpectationRequest calls the generic CreateScanExpectation builder with application/json body
+func NewCreateScanExpectationRequest(server string, projectID ProjectID, body CreateScanExpectationJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateScanExpectationRequestWithBody(server, projectID, "application/json", bodyReader)
+}
+
+// NewCreateScanExpectationRequestWithBody constructs an http.Request for the CreateScanExpectation method, with any body, and a specified content type
+func NewCreateScanExpectationRequestWithBody(server string, projectID ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/scan-expectations", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteScanExpectationRequest constructs an http.Request for the DeleteScanExpectation method
+func NewDeleteScanExpectationRequest(server string, projectID ProjectID, expectationID ExpectationID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "expectationID", expectationID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/scan-expectations/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListProjectScansRequest constructs an http.Request for the ListProjectScans method
 func NewListProjectScansRequest(server string, projectID ProjectID, params *ListProjectScansParams) (*http.Request, error) {
 	var err error
@@ -55916,6 +56188,40 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /projects/{projectID}/sboms (the `CreateProjectSbom` operationId).
 	CreateProjectSbomWithResponse(ctx context.Context, projectID ProjectID, params *CreateProjectSbomParams, body CreateProjectSbomJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProjectSbomResponse, error)
+
+	// ListScanExpectationsWithResponse A project's declared scan expectations
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /projects/{projectID}/scan-expectations (the `ListScanExpectations` operationId).
+	ListScanExpectationsWithResponse(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*ListScanExpectationsResponse, error)
+
+	// CreateScanExpectationWithBodyWithResponse Declare a scan expectation
+	//
+	// Project editor. Declares a scanner or category that must report within max_age_hours on a branch (empty = the project default version); a missing scan raises an ingestion anomaly and can fail the gate.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /projects/{projectID}/scan-expectations (the `CreateScanExpectation` operationId).
+	CreateScanExpectationWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateScanExpectationResponse, error)
+
+	// CreateScanExpectationWithResponse Declare a scan expectation
+	//
+	// Project editor. Declares a scanner or category that must report within max_age_hours on a branch (empty = the project default version); a missing scan raises an ingestion anomaly and can fail the gate.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /projects/{projectID}/scan-expectations (the `CreateScanExpectation` operationId).
+	CreateScanExpectationWithResponse(ctx context.Context, projectID ProjectID, body CreateScanExpectationJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateScanExpectationResponse, error)
+
+	// DeleteScanExpectationWithResponse Remove a scan expectation
+	//
+	// Project editor.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /projects/{projectID}/scan-expectations/{expectationID} (the `DeleteScanExpectation` operationId).
+	DeleteScanExpectationWithResponse(ctx context.Context, projectID ProjectID, expectationID ExpectationID, reqEditors ...RequestEditorFn) (*DeleteScanExpectationResponse, error)
 
 	// ListProjectScansWithResponse Scan history for a project
 	//
@@ -73608,6 +73914,154 @@ func (r CreateProjectSbomResponse) ContentType() string {
 	return ""
 }
 
+type ListScanExpectationsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Expectations *[]ScanExpectation `json:"expectations,omitempty"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListScanExpectationsResponse) GetJSON200() *struct {
+	Expectations *[]ScanExpectation `json:"expectations,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ListScanExpectationsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListScanExpectationsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListScanExpectationsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListScanExpectationsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateScanExpectationResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *ScanExpectation
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateScanExpectationResponse) GetJSON201() *ScanExpectation {
+	return r.JSON201
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r CreateScanExpectationResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r CreateScanExpectationResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r CreateScanExpectationResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateScanExpectationResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateScanExpectationResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateScanExpectationResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateScanExpectationResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteScanExpectationResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r DeleteScanExpectationResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteScanExpectationResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteScanExpectationResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteScanExpectationResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteScanExpectationResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListProjectScansResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -88734,6 +89188,64 @@ func (c *ClientWithResponses) CreateProjectSbomWithResponse(ctx context.Context,
 	return ParseCreateProjectSbomResponse(rsp)
 }
 
+// ListScanExpectationsWithResponse A project's declared scan expectations
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /projects/{projectID}/scan-expectations (the `ListScanExpectations` operationId).
+func (c *ClientWithResponses) ListScanExpectationsWithResponse(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*ListScanExpectationsResponse, error) {
+	rsp, err := c.ListScanExpectations(ctx, projectID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListScanExpectationsResponse(rsp)
+}
+
+// CreateScanExpectationWithBodyWithResponse Declare a scan expectation
+//
+// Project editor. Declares a scanner or category that must report within max_age_hours on a branch (empty = the project default version); a missing scan raises an ingestion anomaly and can fail the gate.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /projects/{projectID}/scan-expectations (the `CreateScanExpectation` operationId).
+func (c *ClientWithResponses) CreateScanExpectationWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateScanExpectationResponse, error) {
+	rsp, err := c.CreateScanExpectationWithBody(ctx, projectID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateScanExpectationResponse(rsp)
+}
+
+// CreateScanExpectationWithResponse Declare a scan expectation
+//
+// Project editor. Declares a scanner or category that must report within max_age_hours on a branch (empty = the project default version); a missing scan raises an ingestion anomaly and can fail the gate.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /projects/{projectID}/scan-expectations (the `CreateScanExpectation` operationId).
+func (c *ClientWithResponses) CreateScanExpectationWithResponse(ctx context.Context, projectID ProjectID, body CreateScanExpectationJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateScanExpectationResponse, error) {
+	rsp, err := c.CreateScanExpectation(ctx, projectID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateScanExpectationResponse(rsp)
+}
+
+// DeleteScanExpectationWithResponse Remove a scan expectation
+//
+// Project editor.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /projects/{projectID}/scan-expectations/{expectationID} (the `DeleteScanExpectation` operationId).
+func (c *ClientWithResponses) DeleteScanExpectationWithResponse(ctx context.Context, projectID ProjectID, expectationID ExpectationID, reqEditors ...RequestEditorFn) (*DeleteScanExpectationResponse, error) {
+	rsp, err := c.DeleteScanExpectation(ctx, projectID, expectationID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteScanExpectationResponse(rsp)
+}
+
 // ListProjectScansWithResponse Scan history for a project
 //
 // Returns a wrapper object for the known response body format(s).
@@ -102799,6 +103311,110 @@ func ParseCreateProjectSbomResponse(rsp *http.Response) (*CreateProjectSbomRespo
 			return nil, err
 		}
 		response.JSON422 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListScanExpectationsResponse parses an HTTP response from a ListScanExpectationsWithResponse call
+func ParseListScanExpectationsResponse(rsp *http.Response) (*ListScanExpectationsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListScanExpectationsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Expectations *[]ScanExpectation `json:"expectations,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateScanExpectationResponse parses an HTTP response from a CreateScanExpectationWithResponse call
+func ParseCreateScanExpectationResponse(rsp *http.Response) (*CreateScanExpectationResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateScanExpectationResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ScanExpectation
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteScanExpectationResponse parses an HTTP response from a DeleteScanExpectationWithResponse call
+func ParseDeleteScanExpectationResponse(rsp *http.Response) (*DeleteScanExpectationResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteScanExpectationResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	}
 

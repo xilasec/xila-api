@@ -159,12 +159,13 @@ type fakeCatalog struct {
 	name       string
 	ids        []string
 	ransomware []string
+	dueDates   map[string]time.Time
 	err        error
 }
 
 func (f fakeCatalog) Name() string { return f.name }
 func (f fakeCatalog) Fetch(context.Context) (KEVList, error) {
-	l := KEVList{IDs: f.ids, Ransomware: map[string]bool{}}
+	l := KEVList{IDs: f.ids, Ransomware: map[string]bool{}, DueDates: f.dueDates}
 	for _, id := range f.ransomware {
 		l.Ransomware[id] = true
 	}
@@ -192,12 +193,17 @@ func (s *fakeKEVStore) Failed(_ context.Context, source string, cause error) err
 	return nil
 }
 func (s *fakeKEVStore) Assertions(_ context.Context, sources []string) (KEVAssertions, error) {
-	out := KEVAssertions{Sources: map[string][]string{}, Ransomware: map[string]bool{}}
+	out := KEVAssertions{Sources: map[string][]string{}, Ransomware: map[string]bool{}, DueDates: map[string]time.Time{}}
 	for _, src := range sources {
 		for _, id := range s.lists[src].IDs {
 			out.Sources[id] = append(out.Sources[id], src)
 			if s.lists[src].Ransomware[id] {
 				out.Ransomware[id] = true
+			}
+			if d, ok := s.lists[src].DueDates[id]; ok {
+				if existing, ok := out.DueDates[id]; !ok || d.Before(existing) {
+					out.DueDates[id] = d
+				}
 			}
 		}
 	}
@@ -215,6 +221,7 @@ type fakeStore struct {
 		kev        bool
 		sources    []string
 		ransomware bool
+		dueDate    *time.Time
 		priority   float64
 	}
 }
@@ -222,13 +229,14 @@ type fakeStore struct {
 func (s *fakeStore) ListEnrichable(context.Context) ([]finding.Enrichable, error) {
 	return s.items, nil
 }
-func (s *fakeStore) SetEnrichment(_ context.Context, id string, epss *float64, kevSources []string, ransomware bool, priority float64) error {
+func (s *fakeStore) SetEnrichment(_ context.Context, id string, epss *float64, kevSources []string, ransomware bool, kevDueDate *time.Time, priority float64) error {
 	if s.set == nil {
 		s.set = map[string]struct {
 			epss       *float64
 			kev        bool
 			sources    []string
 			ransomware bool
+			dueDate    *time.Time
 			priority   float64
 		}{}
 	}
@@ -237,8 +245,9 @@ func (s *fakeStore) SetEnrichment(_ context.Context, id string, epss *float64, k
 		kev        bool
 		sources    []string
 		ransomware bool
+		dueDate    *time.Time
 		priority   float64
-	}{epss, len(kevSources) > 0, kevSources, ransomware, priority}
+	}{epss, len(kevSources) > 0, kevSources, ransomware, kevDueDate, priority}
 	return nil
 }
 

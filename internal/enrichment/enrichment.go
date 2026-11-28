@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/xilasec/xila-api/internal/domain"
 	"github.com/xilasec/xila-api/internal/finding"
@@ -35,7 +36,7 @@ type kevStore interface {
 // findingStore is the slice of the finding repository enrichment needs.
 type findingStore interface {
 	ListEnrichable(ctx context.Context) ([]finding.Enrichable, error)
-	SetEnrichment(ctx context.Context, id string, epss *float64, kevSources []string, ransomware bool, priority float64) error
+	SetEnrichment(ctx context.Context, id string, epss *float64, kevSources []string, ransomware bool, kevDueDate *time.Time, priority float64) error
 }
 
 // eventNotifier dispatches events (notify.Service satisfies it). Optional.
@@ -158,6 +159,7 @@ func (s *Service) Enrich(ctx context.Context) (Result, error) {
 		}
 		kevSources := KEVSourcesFor(f.IDs, assertions.Sources)
 		ransomware := RansomwareFor(f.IDs, assertions.Ransomware)
+		kevDueDate := KEVDueDateFor(f.IDs, assertions.DueDates)
 		kev := len(kevSources) > 0
 		if kev {
 			anyKEV = true
@@ -179,7 +181,8 @@ func (s *Service) Enrich(ctx context.Context) (Result, error) {
 		}
 
 		x := domain.Exploitability{EPSS: maxEPSS, KEV: kev, Maturity: f.ExploitMaturity}
-		if err := s.findings.SetEnrichment(ctx, f.ID, epss, kevSources, ransomware, f.Weights.Priority(f.Severity, x, f.Reachability(), f.AssetExposure)); err != nil {
+		if err := s.findings.SetEnrichment(ctx, f.ID, epss, kevSources, ransomware, kevDueDate,
+			f.Weights.Priority(f.Severity, x, f.Reachability(), f.AssetExposure)); err != nil {
 			return res, err
 		}
 		res.Findings++
@@ -218,6 +221,22 @@ func RansomwareFor(ids []string, ransomware map[string]bool) bool {
 		}
 	}
 	return false
+}
+
+// KEVDueDateFor returns the earliest required-action due date any configured
+// catalog publishes for any of a finding's vulnerability ids, or nil when
+// none does.
+func KEVDueDateFor(ids []string, dueDates map[string]time.Time) *time.Time {
+	var best *time.Time
+	for _, id := range ids {
+		if d, ok := dueDates[strings.ToUpper(id)]; ok {
+			if best == nil || d.Before(*best) {
+				due := d
+				best = &due
+			}
+		}
+	}
+	return best
 }
 
 // notifyExploitable fires one summary alert when findings newly become

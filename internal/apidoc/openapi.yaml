@@ -8419,6 +8419,54 @@ paths:
                 properties:
                   anomalies: { type: array, items: { $ref: "#/components/schemas/IngestionAnomaly" } }
 
+  /projects/{projectID}/scan-expectations:
+    get:
+      operationId: listScanExpectations
+      tags: [Projects]
+      summary: A project's declared scan expectations
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  expectations: { type: array, items: { $ref: "#/components/schemas/ScanExpectation" } }
+    post:
+      operationId: createScanExpectation
+      tags: [Projects]
+      summary: Declare a scan expectation
+      description: "Project editor. Declares a scanner or category that must report within max_age_hours on a branch (empty = the project default version); a missing scan raises an ingestion anomaly and can fail the gate."
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ScanExpectationInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ScanExpectation" }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /projects/{projectID}/scan-expectations/{expectationID}:
+    delete:
+      operationId: deleteScanExpectation
+      tags: [Projects]
+      summary: Remove a scan expectation
+      description: Project editor.
+      parameters:
+        - { $ref: "#/components/parameters/ProjectID" }
+        - { $ref: "#/components/parameters/ExpectationID" }
+      responses:
+        "204": { description: No Content }
+        "404": { $ref: "#/components/responses/Error" }
+
   /retention:
     get:
       operationId: getRetention
@@ -9729,6 +9777,7 @@ components:
     OrgID: { name: orgID, in: path, required: true, schema: { type: string, format: uuid } }
     TeamID: { name: teamID, in: path, required: true, schema: { type: string, format: uuid } }
     ProjectID: { name: projectID, in: path, required: true, schema: { type: string, format: uuid } }
+    ExpectationID: { name: expectationID, in: path, required: true, schema: { type: string, format: uuid } }
     OverrideID: { name: overrideID, in: path, required: true, schema: { type: string, format: uuid } }
     CRACaseID: { name: caseID, in: path, required: true, schema: { type: string, format: uuid } }
     EngagementID: { name: engagementID, in: path, required: true, schema: { type: string, format: uuid } }
@@ -10732,6 +10781,26 @@ components:
         false positive, won't fix), which stops the clock; `met` / `missed` =
         remediated before / after the deadline; `none` = no SLA for its severity.
 
+    ScanExpectation:
+      type: object
+      description: "A declared scan cadence for a project: a scanner or category that must report within max_age_hours on a branch."
+      properties:
+        id: { type: string, format: uuid }
+        project_id: { type: string, format: uuid }
+        scanner: { type: [string, "null"], description: "Exactly one of scanner or category is set." }
+        category: { type: [string, "null"] }
+        branch: { type: string, description: "Empty means the project default version." }
+        max_age_hours: { type: integer, minimum: 1 }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    ScanExpectationInput:
+      type: object
+      required: [max_age_hours]
+      properties:
+        scanner: { type: [string, "null"], description: "Set exactly one of scanner or category." }
+        category: { type: [string, "null"] }
+        branch: { type: string, description: "Optional; empty = the project default version." }
+        max_age_hours: { type: integer, minimum: 1 }
     SLADays:
       type: object
       description: |
@@ -10743,6 +10812,8 @@ components:
         medium_days: { type: [integer, "null"], minimum: 1, maximum: 3650 }
         low_days: { type: [integer, "null"], minimum: 1, maximum: 3650 }
         info_days: { type: [integer, "null"], minimum: 1, maximum: 3650 }
+        kev_days: { type: [integer, "null"], minimum: 1, maximum: 3650, description: "Deadline for a KEV finding, when shorter than its severity window." }
+        exploited_days: { type: [integer, "null"], minimum: 1, maximum: 3650, description: "Deadline for a finding with a weaponized exploit, when shorter than its severity window." }
 
     SLAPolicy:
       description: |
@@ -10752,6 +10823,7 @@ components:
         - type: object
           properties:
             scope: { type: string, enum: [project, org, global, default] }
+            use_kev_due_date: { type: boolean, description: "Cap a KEV finding deadline at CISA published due date when it is sooner." }
             criticality:
               type: string
               description: Project policies only, while criticality scaling is on — the project's business criticality.
@@ -12520,6 +12592,7 @@ components:
         block_license: { type: boolean, description: Fail on any open license finding (e.g. a violation of a license-only component policy). }
         block_sla_breach: { type: boolean, description: Fail while any open finding is past its remediation SLA. }
         new_only: { type: boolean, description: Ignore pre-existing debt; gate only on what this scan introduced. }
+        require_expected_scans: { type: boolean, description: "Fail if the project has a declared scan expectation with no recent completed scan." }
         baseline_branch: { type: [string, "null"], description: "With new_only, compare against this branch/version instead of the single-scan heuristic — a finding is new only if it isn't already open there (by the same cross-scan identity Upsert/CloseMissing use). Overridable per request with ?baseline=." }
         max_risk_score: { type: [number, "null"], description: "Fail if the gated version's business-weighted risk score (the same figure the project summary shows) exceeds this." }
 

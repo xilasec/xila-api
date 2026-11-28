@@ -6431,6 +6431,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{projectID}/scan-expectations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A project's declared scan expectations */
+        get: operations["listScanExpectations"];
+        put?: never;
+        /**
+         * Declare a scan expectation
+         * @description Project editor. Declares a scanner or category that must report within max_age_hours on a branch (empty = the project default version); a missing scan raises an ingestion anomaly and can fail the gate.
+         */
+        post: operations["createScanExpectation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectID}/scan-expectations/{expectationID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a scan expectation
+         * @description Project editor.
+         */
+        delete: operations["deleteScanExpectation"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/retention": {
         parameters: {
             query?: never;
@@ -8429,6 +8470,31 @@ export interface components {
          * @enum {string}
          */
         SLAStatus: "none" | "on_track" | "due_soon" | "breached" | "paused" | "met" | "missed";
+        /** @description A declared scan cadence for a project: a scanner or category that must report within max_age_hours on a branch. */
+        ScanExpectation: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            project_id?: string;
+            /** @description Exactly one of scanner or category is set. */
+            scanner?: string | null;
+            category?: string | null;
+            /** @description Empty means the project default version. */
+            branch?: string;
+            max_age_hours?: number;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        ScanExpectationInput: {
+            /** @description Set exactly one of scanner or category. */
+            scanner?: string | null;
+            category?: string | null;
+            /** @description Optional; empty = the project default version. */
+            branch?: string;
+            max_age_hours: number;
+        };
         /**
          * @description Days to remediate, per severity. A policy states all five: an omitted or
          *     null one means no SLA for that severity at this scope. 1–3650.
@@ -8439,6 +8505,10 @@ export interface components {
             medium_days?: number | null;
             low_days?: number | null;
             info_days?: number | null;
+            /** @description Deadline for a KEV finding, when shorter than its severity window. */
+            kev_days?: number | null;
+            /** @description Deadline for a finding with a weaponized exploit, when shorter than its severity window. */
+            exploited_days?: number | null;
         };
         /**
          * @description A policy in force and where it comes from. The most specific stored policy
@@ -8447,6 +8517,8 @@ export interface components {
         SLAPolicy: {
             /** @enum {string} */
             scope?: "project" | "org" | "global" | "default";
+            /** @description Cap a KEV finding deadline at CISA published due date when it is sooner. */
+            use_kev_due_date?: boolean;
             /** @description Project policies only, while criticality scaling is on — the project's business criticality. */
             criticality?: string;
             /**
@@ -10603,6 +10675,8 @@ export interface components {
             block_sla_breach?: boolean;
             /** @description Ignore pre-existing debt; gate only on what this scan introduced. */
             new_only?: boolean;
+            /** @description Fail if the project has a declared scan expectation with no recent completed scan. */
+            require_expected_scans?: boolean;
             /** @description With new_only, compare against this branch/version instead of the single-scan heuristic — a finding is new only if it isn't already open there (by the same cross-scan identity Upsert/CloseMissing use). Overridable per request with ?baseline=. */
             baseline_branch?: string | null;
             /** @description Fail if the gated version's business-weighted risk score (the same figure the project summary shows) exceeds this. */
@@ -11289,6 +11363,7 @@ export interface components {
         OrgID: string;
         TeamID: string;
         ProjectID: string;
+        ExpectationID: string;
         OverrideID: string;
         CRACaseID: string;
         EngagementID: string;
@@ -22583,6 +22658,81 @@ export interface operations {
                     };
                 };
             };
+        };
+    };
+    listScanExpectations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        expectations?: components["schemas"]["ScanExpectation"][];
+                    };
+                };
+            };
+        };
+    };
+    createScanExpectation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScanExpectationInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScanExpectation"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    deleteScanExpectation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+                expectationID: components["parameters"]["ExpectationID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
         };
     };
     getRetention: {
