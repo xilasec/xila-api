@@ -2,16 +2,27 @@
 
 ## 0.1.0 (2026-11-28)
 
+The first release. Xila unifies scanner and SBOM output into deduplicated
+findings with a lifecycle, exploit-aware priority, compliance posture and
+cross-project rollups, in one Go binary with PostgreSQL.
 
-### Features
+### Highlights
 
-* **m13:** idle session timeout + MCP personal-data filter (13.16) ([#37](https://github.com/xilasec/xila-api/issues/37)) ([9a732c1](https://github.com/xilasec/xila-api/commit/9a732c181a464de3de6856ee9de7c45bc4e31d2f))
-* **m13:** issue-tracker comments, ticket templates, webhook receivers (13.18) ([#38](https://github.com/xilasec/xila-api/issues/38)) ([9f70ea2](https://github.com/xilasec/xila-api/commit/9f70ea2dd163ca4ed92823a1d28c34d62680f864))
-* malicious packages and risk acceptance extensions (M14 14.1, 14.2) ([#44](https://github.com/xilasec/xila-api/issues/44)) ([74bcee8](https://github.com/xilasec/xila-api/commit/74bcee887783eae91595cd8b07b8c52a6f9798b3))
-* SBOM originals, component attribution, license terms and notices (M14 14.3, 14.4) ([#45](https://github.com/xilasec/xila-api/issues/45)) ([bfc05ce](https://github.com/xilasec/xila-api/commit/bfc05cef77c10514af5523748398b11a6b76bdf3))
+* Ingestion: 60+ native scanner parsers plus SARIF and a no-code parser, CycloneDX (JSON and XML) and SPDX SBOMs, and pull connectors (Dependency-Track, DefectDojo, Snyk, GitHub, GitLab, Wiz, Tenable, AWS Security Hub, Microsoft Defender, Qualys, Trivy Operator).
+* Findings: cross-tool deduplication, branches and versions, triage with structured VEX analysis, risk acceptances with approval and extensions, SLAs, and priority from severity, EPSS, KEV, exploit maturity, reachability and asset exposure.
+* Supply chain: SBOM history with diff, dependency graph and vulnerability timeline; advisory matching (OSV, GitHub, a local mirror, private advisories, NVD by CPE); malicious-package detection; package freshness; license data and terms; component and vulnerability policies in CEL; VEX import and export; SBOMs kept as uploaded; third-party notices.
+* Governance: compliance frameworks, the portfolio view, EU CRA Article 14 cases, CI security gates with PR comments and check runs, issue-tracker sync, notifications and an in-app inbox.
+* Platform: organizations, teams, projects and roles, OIDC / SAML / LDAP single sign-on and SCIM, two-factor, service accounts with workload identity federation, the audit log, an MCP server for AI agents, and signed, immutable releases with provenance and SBOM attestations.
 
+### Features since v0.1.0-rc.1
+
+* M13: VEX analysis on triage and assessment approval per project ([#33](https://github.com/xilasec/xila-api/issues/33)), rule side actions and project-owned rules ([#34](https://github.com/xilasec/xila-api/issues/34)), internal components and private registries ([#35](https://github.com/xilasec/xila-api/issues/35)), notification events and stored gate state ([#36](https://github.com/xilasec/xila-api/issues/36)), idle session timeout and an MCP personal-data filter ([#37](https://github.com/xilasec/xila-api/issues/37)), issue-tracker comments, templates and webhooks ([#38](https://github.com/xilasec/xila-api/issues/38))
+* Malicious packages and risk acceptance extensions ([#44](https://github.com/xilasec/xila-api/issues/44))
+* SBOM originals, component attribution, license terms and notices ([#45](https://github.com/xilasec/xila-api/issues/45))
+* Automatic, immutable releases with signed provenance and SBOM attestations ([#46](https://github.com/xilasec/xila-api/issues/46), [#48](https://github.com/xilasec/xila-api/issues/48))
 
 ### Bug fixes
 
-* **ci:** grant the release workflow's security job security-events ([#47](https://github.com/xilasec/xila-api/issues/47)) ([c8da5e4](https://github.com/xilasec/xila-api/commit/c8da5e4aa039687f7d6eae802a9d025bbd1fe3a0))
-* the database URL now escapes its parts. A password containing /, ([4f7418d](https://github.com/xilasec/xila-api/commit/4f7418d1ec654d68241ba55e3d9b5ffc84aebc9b))
+* The database URL escapes its parts: a password containing `/`, `@`, `#` or `?` no longer breaks startup ([4f7418d](https://github.com/xilasec/xila-api/commit/4f7418d1ec654d68241ba55e3d9b5ffc84aebc9b))
+* Path ids are copied, so a handler that hands one to a goroutine can't read another request's id (the race fixed in [#38](https://github.com/xilasec/xila-api/issues/38))
+* The release workflow grants its security scans what they need ([#47](https://github.com/xilasec/xila-api/issues/47))
