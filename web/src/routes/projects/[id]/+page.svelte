@@ -46,6 +46,7 @@
 	import ManualControls from '#lib/components/ManualControls.svelte';
 	import PriorityWeights from '#lib/components/PriorityWeights.svelte';
 	import AssessmentApproval from '#lib/components/AssessmentApproval.svelte';
+	import ProjectRules from '#lib/components/ProjectRules.svelte';
 	import TriageCarry from '#lib/components/TriageCarry.svelte';
 	import { OPEN_BY_SEVERITY, RISK, FLOW, fmtCount, fmtRisk, windowStats } from '#lib/trends.js';
 	import { parentChoices } from '#lib/projectTree.js';
@@ -108,7 +109,7 @@
 	let serviceSummary = $state(/** @type {any} */ (null)); // declared services of the current SBOMs (default version)
 	let error = $state('');
 
-	const TABS = ['findings', 'fix-plan', 'remediation', 'trends', 'branches', 'scans', 'engagements', 'acceptances', 'sboms', 'components', 'policies', 'vex', 'assets', 'compliance', 'gate', 'sla', 'issues', 'connectors', 'alerts', 'members'];
+	const TABS = ['findings', 'fix-plan', 'remediation', 'trends', 'branches', 'scans', 'engagements', 'acceptances', 'sboms', 'components', 'policies', 'vex', 'assets', 'compliance', 'gate', 'sla', 'rules', 'issues', 'connectors', 'alerts', 'members'];
 	// Tabs that belong to a switchable feature (hidden while it is off).
 	/** @type {Record<string, string>} */
 	const TAB_FEATURE = { remediation: 'remediation', engagements: 'engagements' };
@@ -120,7 +121,7 @@
 		{ key: 'fix', tabs: ['fix-plan', 'remediation', 'engagements'] },
 		{ key: 'inventory', tabs: ['sboms', 'components', 'assets', 'branches', 'scans'] },
 		{ key: 'trends', tabs: ['trends'] },
-		{ key: 'governance', tabs: ['policies', 'compliance', 'gate', 'sla'] },
+		{ key: 'governance', tabs: ['policies', 'compliance', 'gate', 'sla', 'rules'] },
 		{ key: 'integrations', tabs: ['issues', 'connectors', 'alerts'] },
 		{ key: 'access', tabs: ['members'] }
 	];
@@ -1839,6 +1840,8 @@
 		{/if}
 		<PriorityWeights projectId={id} />
 		<TriageCarry projectId={id} />
+	{:else if tab === 'rules'}
+		<ProjectRules projectId={id} />
 	{:else if tab === 'sla'}
 		<p class="text-sm text-base-content/60 mb-3">
 			{$t('proj.slaIntro')}

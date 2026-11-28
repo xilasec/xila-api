@@ -162,6 +162,16 @@ func (f Finding) Reachability() domain.Reachability {
 	return domain.Reachability{Direct: f.DepDirect, Scope: f.DepScope}
 }
 
+// ChangeTrigger is told after a person's decision changed findings' status or
+// severity (decided), so auto-triage rules can react without this package
+// knowing about them. Automated writers (VEX, vulnerability policies,
+// connectors, triage rules themselves) never fire it: inside ingest the
+// triage applier runs right after them anyway. Best-effort: an implementation
+// logs its own failures; the decision already stands.
+type ChangeTrigger interface {
+	OnFindingsChanged(ctx context.Context, projectID string, findingIDs []string, actor string)
+}
+
 // Repository provides access to the findings table.
 type Repository struct {
 	db *pgxpool.Pool
@@ -169,11 +179,54 @@ type Repository struct {
 	// in-scope branches (internal/triagecarry.Service satisfies it). Optional:
 	// WithCarrier wires it once at startup; nil means triage carry is off.
 	carrier Carrier
+	// trigger re-runs triage rules after a finding write (internal/triage
+	// EventTrigger). Optional; nil means no finding-event trigger.
+	trigger ChangeTrigger
 }
 
 // NewRepository constructs a Repository.
 func NewRepository(db *pgxpool.Pool) *Repository {
 	return &Repository{db: db}
+}
+
+// WithChangeTrigger lets auto-triage rules react to a person's status or
+// severity decision: the finding-event trigger, alongside ingest and the
+// schedule.
+func (r *Repository) WithChangeTrigger(t ChangeTrigger) *Repository {
+	r.trigger = t
+	return r
+}
+
+// triggerTimeout bounds the rule run a decision sets off. It runs after the
+// write committed, detached from the request, so a client that disconnects
+// can't cut it short halfway.
+const triggerTimeout = time.Minute
+
+// decided is what follows a person's committed decision on found: triage carry
+// when the status changed (its error is the caller's), then the change
+// trigger, once per project and synchronously, so its cost is one bounded rule
+// run per write rather than a goroutine per finding.
+func (r *Repository) decided(ctx context.Context, found []Finding, actor string, statusChanged, severityChanged bool) error {
+	if statusChanged && r.carrier != nil {
+		for _, f := range found {
+			if err := r.carrier.Carry(ctx, f, actor); err != nil {
+				return fmt.Errorf("carry triage: %w", err)
+			}
+		}
+	}
+	if r.trigger == nil || len(found) == 0 || !(statusChanged || severityChanged) {
+		return nil
+	}
+	byProject := map[string][]string{}
+	for _, f := range found {
+		byProject[f.ProjectID] = append(byProject[f.ProjectID], f.ID)
+	}
+	tctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), triggerTimeout)
+	defer cancel()
+	for projectID, ids := range byProject {
+		r.trigger.OnFindingsChanged(tctx, projectID, ids, actor)
+	}
+	return nil
 }
 
 // onDefaultVersion restricts a findings query (table alias-free) to each
@@ -1043,12 +1096,7 @@ func (r *Repository) SetStatusManual(ctx context.Context, id string, t Triage) (
 	if err := tx.Commit(ctx); err != nil {
 		return Finding{}, fmt.Errorf("commit: %w", err)
 	}
-	if r.carrier != nil {
-		if err := r.carrier.Carry(ctx, f, t.Actor); err != nil {
-			return f, fmt.Errorf("carry triage: %w", err)
-		}
-	}
-	return f, nil
+	return f, r.decided(ctx, []Finding{f}, t.Actor, true, false)
 }
 
 // SetStatusCarried applies a decision made elsewhere in the project to id: it
@@ -1479,20 +1527,22 @@ func (r *Repository) ListEnrichable(ctx context.Context) ([]Enrichable, error) {
 // ListForTriage returns a project's active (open/confirmed) findings — the set
 // auto-triage rules evaluate.
 func (r *Repository) ListForTriage(ctx context.Context, projectID string) ([]Finding, error) {
-	return r.listForTriage(ctx, projectID, nil)
+	return r.listForTriage(ctx, projectID, nil, nil)
 }
 
 // ListForTriageScan is ListForTriage narrowed to the findings a given scan
 // reported — what the ingest path re-evaluates.
 func (r *Repository) ListForTriageScan(ctx context.Context, projectID, scanID string) ([]Finding, error) {
-	return r.listForTriage(ctx, projectID, &scanID)
+	return r.listForTriage(ctx, projectID, &scanID, nil)
 }
 
-func (r *Repository) listForTriage(ctx context.Context, projectID string, scanID *string) ([]Finding, error) {
+// listForTriage narrows the backlog to scanID's findings and/or ids when given.
+func (r *Repository) listForTriage(ctx context.Context, projectID string, scanID *string, ids []string) ([]Finding, error) {
 	q := `SELECT ` + findingColumns + ` FROM findings
 		WHERE project_id = $1 AND status IN ('open', 'confirmed') AND duplicate_of IS NULL AND` + archive.Finding("") + `
-		  AND ($2::uuid IS NULL OR last_scan_id = $2)`
-	rows, err := r.db.Query(ctx, q, projectID, scanID)
+		  AND ($2::uuid IS NULL OR last_scan_id = $2)
+		  AND ($3::uuid[] IS NULL OR id = ANY($3))`
+	rows, err := r.db.Query(ctx, q, projectID, scanID, ids)
 	if err != nil {
 		return nil, fmt.Errorf("list for triage: %w", err)
 	}
@@ -1508,16 +1558,28 @@ func (r *Repository) listForTriage(ctx context.Context, projectID string, scanID
 	return out, rows.Err()
 }
 
-// SetSeverity sets a finding's severity for a triage rule and recomputes its
-// priority from every input. A severity a person set (severity_manual) is
-// left alone: a generic rule never overrides an analyst's judgment.
+// ListForTriageIDs is ListForTriage narrowed to ids: what the finding-event
+// trigger re-evaluates after a person's decision on them. Ids no longer in
+// the active, non-duplicate backlog are simply absent.
+func (r *Repository) ListForTriageIDs(ctx context.Context, projectID string, ids []string) ([]Finding, error) {
+	if len(ids) == 0 {
+		return []Finding{}, nil // a nil ids would mean "no narrowing"
+	}
+	return r.listForTriage(ctx, projectID, nil, ids)
+}
+
+// SetSeverity sets a finding's severity and recomputes its priority from
+// every input. A severity a person
+// set (severity_manual) is left alone: a generic rule never overrides an
+// analyst's judgment.
 func (r *Repository) SetSeverity(ctx context.Context, id string, sev domain.Severity) (Finding, error) {
 	tag, err := r.db.Exec(ctx, `UPDATE findings SET severity = $2, updated_at = now()
 		WHERE id = $1 AND NOT severity_manual AND severity IS DISTINCT FROM $2`, id, sev)
 	if err != nil {
 		return Finding{}, fmt.Errorf("set severity: %w", err)
 	}
-	if tag.RowsAffected() > 0 {
+	changed := tag.RowsAffected() > 0
+	if changed {
 		if _, _, err := r.Reprioritize(ctx, PriorityScope{FindingIDs: []string{id}}); err != nil {
 			return Finding{}, err
 		}
@@ -1726,7 +1788,7 @@ const dedupLockNamespace = 1
 // reshuffle any group in the project (a triage-rule backfill, an enrichment pass);
 // the ingest path uses DeduplicateScan instead.
 func (r *Repository) Deduplicate(ctx context.Context, projectID string) (int, error) {
-	return r.deduplicate(ctx, projectID, "", nil)
+	return r.deduplicate(ctx, projectID, true, "", nil)
 }
 
 // DeduplicateScan is Deduplicate scoped to the correlation groups one scan could
@@ -1744,12 +1806,20 @@ func (r *Repository) Deduplicate(ctx context.Context, projectID string) (int, er
 // Anything outside those groups is untouched by definition, so skipping it is not
 // an approximation.
 func (r *Repository) DeduplicateScan(ctx context.Context, projectID, scanID string, closedIDs []string) (int, error) {
-	return r.deduplicate(ctx, projectID, scanID, closedIDs)
+	return r.deduplicate(ctx, projectID, false, scanID, closedIDs)
 }
 
-// deduplicate does the work for both. An empty scanID means "the whole project".
-// Returns how many findings had their grouping changed.
-func (r *Repository) deduplicate(ctx context.Context, projectID, scanID string, closedIDs []string) (int, error) {
+// DeduplicateFindings is Deduplicate scoped to the groups of exactly these
+// findings: what a status or severity change on them can disturb (both elect
+// a group's primary), without recomputing the rest of the project.
+func (r *Repository) DeduplicateFindings(ctx context.Context, projectID string, ids []string) (int, error) {
+	return r.deduplicate(ctx, projectID, false, "", ids)
+}
+
+// deduplicate does the work for all three: the whole project when full, else
+// the findings scanID last reported plus ids, and their groups. Returns how
+// many findings had their grouping changed.
+func (r *Repository) deduplicate(ctx context.Context, projectID string, full bool, scanID string, ids []string) (int, error) {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("begin dedup: %w", err)
@@ -1767,9 +1837,9 @@ func (r *Repository) deduplicate(ctx context.Context, projectID, scanID string, 
 		return 0, fmt.Errorf("dedup lock: %w", err)
 	}
 
-	// The findings whose key we recompute: this scan's (plus the ones just closed,
-	// whose key can't have changed but whose group must re-elect), or all of them.
-	// $4 is NULL for a full run, which makes the scan predicate a no-op.
+	// The findings whose key we recompute: this scan's (plus ids: the ones just
+	// closed or decided, whose key can't have changed but whose group must
+	// re-elect), or all of them when full.
 	var scan *string
 	if scanID != "" {
 		scan = &scanID
@@ -1820,12 +1890,12 @@ func (r *Repository) deduplicate(ctx context.Context, projectID, scanID string, 
 				ELSE NULL END AS key
 			FROM findings
 			WHERE project_id = $1
-			  AND ($2::uuid IS NULL OR last_scan_id = $2 OR id = ANY($3))
+			  AND ($4::boolean OR last_scan_id = $2 OR id = ANY($3))
 			  AND NOT duplicate_manual
 		) k
 		WHERE findings.id = k.id AND findings.correlation_key IS DISTINCT FROM k.key
 		RETURNING k.version_id::text || '|' || k.old_key`,
-		projectID, scan, closedIDs)
+		projectID, scan, ids, full)
 	if err != nil {
 		return 0, fmt.Errorf("dedup keys: %w", err)
 	}
@@ -1854,7 +1924,7 @@ func (r *Repository) deduplicate(ctx context.Context, projectID, scanID string, 
 		WITH affected AS (
 			SELECT DISTINCT version_id::text || '|' || correlation_key AS grp FROM findings
 			WHERE project_id = $1 AND correlation_key IS NOT NULL
-			  AND ($2::uuid IS NULL OR last_scan_id = $2 OR id = ANY($3))
+			  AND ($5::boolean OR last_scan_id = $2 OR id = ANY($3))
 			UNION
 			SELECT unnest($4::text[])
 		),
@@ -1867,7 +1937,7 @@ func (r *Repository) deduplicate(ctx context.Context, projectID, scanID string, 
 			-- like an archived finding.
 			SELECT * FROM findings f
 			WHERE f.project_id = $1
-			  AND ($2::uuid IS NULL
+			  AND ($5::boolean
 			       OR f.version_id::text || '|' || f.correlation_key IN (SELECT grp FROM affected)
 			       OR f.last_scan_id = $2 OR f.id = ANY($3))
 			  AND NOT f.duplicate_manual
@@ -1911,7 +1981,7 @@ func (r *Repository) deduplicate(ctx context.Context, projectID, scanID string, 
 		UPDATE findings f SET duplicate_of = t.dup
 		FROM target t
 		WHERE f.id = t.id AND f.duplicate_of IS DISTINCT FROM t.dup`,
-		projectID, scan, closedIDs, vacated)
+		projectID, scan, ids, vacated, full)
 	if err != nil {
 		return 0, fmt.Errorf("dedup elect: %w", err)
 	}

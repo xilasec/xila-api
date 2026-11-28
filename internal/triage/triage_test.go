@@ -3,6 +3,7 @@ package triage
 import (
 	"context"
 	"maps"
+	"reflect"
 	"slices"
 	"testing"
 	"time"
@@ -58,6 +59,10 @@ type recordingFindings struct {
 	statuses   map[string]domain.FindingStatus
 	severities map[string]domain.Severity
 	custom     map[string]map[string]any
+	// assigned/tagsAdded/comments record the side actions Apply/AddComment made.
+	assigned  map[string]*string
+	tagsAdded map[string][]string
+	comments  map[string][]string
 }
 
 func newRecording(items ...finding.Finding) *recordingFindings {
@@ -69,6 +74,15 @@ func (r *recordingFindings) ListForTriage(context.Context, string) ([]finding.Fi
 
 func (r *recordingFindings) ListForTriageScan(ctx context.Context, projectID, _ string) ([]finding.Finding, error) {
 	return r.ListForTriage(ctx, projectID)
+}
+func (r *recordingFindings) ListForTriageIDs(_ context.Context, _ string, ids []string) ([]finding.Finding, error) {
+	var out []finding.Finding
+	for _, f := range r.items {
+		if slices.Contains(ids, f.ID) {
+			out = append(out, f)
+		}
+	}
+	return out, nil
 }
 func (r *recordingFindings) SetStatus(_ context.Context, id string, t finding.Triage) (finding.Finding, error) {
 	r.statuses[id] = t.Status
@@ -96,6 +110,32 @@ func (r *recordingFindings) SetCustom(_ context.Context, id string, set map[stri
 }
 func (r *recordingFindings) ProjectIDsWithFindings(context.Context) ([]string, error) {
 	return []string{"p1"}, nil
+}
+func (r *recordingFindings) Apply(_ context.Context, ids []string, c finding.Change, _ string) ([]finding.Finding, error) {
+	out := make([]finding.Finding, 0, len(ids))
+	for _, id := range ids {
+		if c.SetAssignee {
+			if r.assigned == nil {
+				r.assigned = map[string]*string{}
+			}
+			r.assigned[id] = c.AssigneeID
+		}
+		if len(c.AddTags) > 0 {
+			if r.tagsAdded == nil {
+				r.tagsAdded = map[string][]string{}
+			}
+			r.tagsAdded[id] = append(r.tagsAdded[id], c.AddTags...)
+		}
+		out = append(out, finding.Finding{ID: id})
+	}
+	return out, nil
+}
+func (r *recordingFindings) AddComment(_ context.Context, findingID, _, body string) (finding.Comment, error) {
+	if r.comments == nil {
+		r.comments = map[string][]string{}
+	}
+	r.comments[findingID] = append(r.comments[findingID], body)
+	return finding.Comment{ID: "c", FindingID: findingID, Body: body}, nil
 }
 
 // acceptingFields is a customChecker that accepts every value except "bad".
@@ -178,6 +218,15 @@ func (staticRules) RecordHits(context.Context, map[string]int) error { return ni
 func (staticRules) ProjectFacts(context.Context, string) (ProjectFacts, error) {
 	return ProjectFacts{Criticality: domain.CriticalityMedium}, nil
 }
+func (staticRules) ProjectOwner(context.Context, string) (string, bool, error) { return "", false, nil }
+func (staticRules) CanAssign(context.Context, string, string) (bool, error)    { return true, nil }
+func (staticRules) FiredActions(context.Context, []string, []string) (map[string]bool, error) {
+	return map[string]bool{}, nil
+}
+func (staticRules) ClaimAction(context.Context, FiredAction) (bool, error)   { return true, nil }
+func (staticRules) ReleaseAction(context.Context, FiredAction) error         { return nil }
+func (staticRules) DueSchedules(context.Context, time.Time) ([]Rule, error)  { return nil, nil }
+func (staticRules) MarkScheduleRun(context.Context, string, time.Time) error { return nil }
 
 func TestApplyToProject(t *testing.T) {
 	ctx := context.Background()
@@ -367,6 +416,17 @@ func (c *countingRules) ProjectFacts(context.Context, string) (ProjectFacts, err
 	c.lookups++
 	return ProjectFacts{Criticality: c.crit}, nil
 }
+func (c *countingRules) ProjectOwner(context.Context, string) (string, bool, error) {
+	return "", false, nil
+}
+func (c *countingRules) CanAssign(context.Context, string, string) (bool, error) { return true, nil }
+func (c *countingRules) FiredActions(context.Context, []string, []string) (map[string]bool, error) {
+	return map[string]bool{}, nil
+}
+func (c *countingRules) ClaimAction(context.Context, FiredAction) (bool, error)   { return true, nil }
+func (c *countingRules) ReleaseAction(context.Context, FiredAction) error         { return nil }
+func (c *countingRules) DueSchedules(context.Context, time.Time) ([]Rule, error)  { return nil, nil }
+func (c *countingRules) MarkScheduleRun(context.Context, string, time.Time) error { return nil }
 
 func TestHitCountsAndCriticalityLookup(t *testing.T) {
 	ctx := context.Background()
@@ -431,7 +491,7 @@ func TestPreviewMatchesApply(t *testing.T) {
 	}
 	want := []PreviewItem{{ID: "a", ProjectID: "p1", Title: "A", Severity: domain.SeverityLow, Status: domain.FindingOpen,
 		NewSeverity: domain.SeverityLow, NewStatus: domain.FindingRiskAccepted}}
-	if pv.Total != 1 || !slices.Equal(pv.Findings, want) {
+	if pv.Total != 1 || !reflect.DeepEqual(pv.Findings, want) {
 		t.Fatalf("preview = %+v, want %+v (b is claimed by the earlier rule)", pv, want)
 	}
 

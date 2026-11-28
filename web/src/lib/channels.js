@@ -80,7 +80,8 @@ export const EVENT_TYPES = [
 	{ id: 'policy.violation', key: 'event.policyViolation' },
 	{ id: 'exception.expired', key: 'event.exceptionExpired' },
 	{ id: 'ingestion.anomaly', key: 'event.ingestionAnomaly' },
-	{ id: 'mention', key: 'event.mention' }
+	{ id: 'mention', key: 'event.mention' },
+	{ id: 'triage.rule', key: 'event.triageRule' }
 ];
 
 /**

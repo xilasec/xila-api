@@ -131,7 +131,7 @@ func (s *Service) evaluate(ctx context.Context, projectID string, findings []fin
 	regroup := false
 	for _, f := range findings {
 		doc := pairDoc(f, projectFacts)
-		elected, ok := Elect(ctx, policies, now, projectID, projectFacts.Tags, doc)
+		elected, ok := Elect(ctx, policies, now, projectID, projectFacts, doc)
 		m := matches[f.ID]
 		m.FindingID = f.ID
 
@@ -399,7 +399,7 @@ func (s *Service) Preview(ctx context.Context, candidate Policy, projectID strin
 		if err != nil {
 			continue // a stale/removed project id; skip rather than fail the whole preview
 		}
-		if !candidate.covers(pid, facts.Tags) {
+		if !candidate.covers(pid, facts) {
 			continue
 		}
 		ids, err := s.policies.CandidateFindingIDs(ctx, pid)
@@ -412,7 +412,7 @@ func (s *Service) Preview(ctx context.Context, candidate Policy, projectID strin
 		}
 		for _, f := range findings {
 			doc := pairDoc(f, facts)
-			if !candidate.AppliesNow(now, pid, facts.Tags) || !candidate.Match(ctx, doc) {
+			if !candidate.AppliesNow(now, pid, facts) || !candidate.Match(ctx, doc) {
 				continue
 			}
 			item := PreviewItem{

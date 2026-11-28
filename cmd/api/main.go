@@ -315,7 +315,9 @@ func run() error {
 	// (internal/computed) recompute their own value from a CEL expression.
 	customFieldRepo := customfield.NewRepository(db)
 	customFieldSvc := customfield.NewService(customFieldRepo, membershipRepo, findingRepo)
-	triageSvc := triage.NewService(triageRepo, findingRepo, findingRepo).WithCustomFields(customFieldSvc)
+	triageSvc := triage.NewService(triageRepo, findingRepo, findingRepo).WithCustomFields(customFieldSvc).WithNotifier(notifySvc)
+	// A person's status / severity decision gives the rules a chance to react.
+	findingRepo.WithChangeTrigger(triageSvc.EventTrigger())
 	computedSvc := computed.NewService(customFieldRepo, findingRepo, triageRepo, projectRepo, assetRepo)
 
 	parsers := newParserRegistry()
@@ -688,6 +690,8 @@ func run() error {
 		// field reads change without a new scan, so a sweep keeps every project,
 		// asset and finding fresh within COMPUTED_FIELDS_INTERVAL (0 = off).
 		job(func() { runComputedFields(ctx, computedSvc, cfg.ComputedFields.Interval) })
+		// Scheduled triage rules (a "daily" rule's time-based conditions).
+		job(func() { runTriageSchedules(ctx, triageSvc, cfg.TriageSchedule.Interval) })
 		// Periodically refresh EPSS/KEV and recompute priorities; then, with
 		// NVD_ENABLED, CVSS vectors from NVD (slow without a key: rate-limited).
 		if cfg.Enrich.Enabled {
@@ -1163,6 +1167,32 @@ func runVulnPolicyEval(ctx context.Context, svc *vulnpolicy.Service, interval ti
 		observability.RecordJob(ctx, "vuln_policy_eval", start, err)
 		if err != nil && ctx.Err() == nil {
 			slog.WarnContext(ctx, "vulnerability policy evaluation failed", "error", err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+// runTriageSchedules runs the triage rules whose schedule is due, checked
+// every TRIAGE_SCHEDULE_INTERVAL (0 = off; ingest and a person's decision
+// still run the rules).
+func runTriageSchedules(ctx context.Context, svc *triage.Service, interval time.Duration) {
+	if interval <= 0 {
+		return
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		start := time.Now()
+		n, err := svc.RunSchedules(ctx, start)
+		observability.RecordJob(ctx, "triage_schedules", start, err)
+		if err != nil && ctx.Err() == nil {
+			slog.WarnContext(ctx, "scheduled triage rules failed", "error", err)
+		} else if n > 0 {
+			slog.InfoContext(ctx, "scheduled triage rules complete", "changed", n)
 		}
 		select {
 		case <-ctx.Done():

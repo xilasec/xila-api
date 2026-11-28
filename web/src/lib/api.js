@@ -373,6 +373,30 @@ export const api = {
 	// --- account / rbac ---
 	me: () => request('GET', '/me'),
 	listUsers: () => request('GET', '/users').then((d) => d.users ?? []),
+	getTriageSettings: () => request('GET', '/triage-rules/settings'),
+	/** @param {{ allow_skip_global_rules: boolean }} data */
+	setTriageSettings: (data) => request('PUT', '/triage-rules/settings', { body: data }),
+	/** @param {string} projectId */
+	listProjectRules: (projectId) => request('GET', `/projects/${projectId}/triage-rules`).then((d) => d.rules ?? []),
+	/** @param {string} projectId @param {Record<string, any>} data */
+	createProjectRule: (projectId, data) => request('POST', `/projects/${projectId}/triage-rules`, { body: data }),
+	/** @param {string} projectId @param {string} id @param {Record<string, any>} data */
+	updateProjectRule: (projectId, id, data) => request('PATCH', `/projects/${projectId}/triage-rules/${id}`, { body: data }),
+	/** @param {string} projectId @param {string} id */
+	deleteProjectRule: (projectId, id) => request('DELETE', `/projects/${projectId}/triage-rules/${id}`),
+	/** @param {string} projectId */
+	applyProjectRules: (projectId) => request('POST', `/projects/${projectId}/triage-rules/apply`),
+	/** @param {string} projectId */
+	getProjectTriageSettings: (projectId) => request('GET', `/projects/${projectId}/triage-settings`),
+	/** @param {string} projectId @param {boolean} skip */
+	setProjectTriageSettings: (projectId, skip) =>
+		request('PUT', `/projects/${projectId}/triage-settings`, { body: { skip_global_rules: skip } }),
+	/** @param {string} projectId */
+	listProjectVulnPolicies: (projectId) => request('GET', `/projects/${projectId}/vuln-policies`).then((d) => d.policies ?? []),
+	/** @param {string} projectId @param {Record<string, any>} data */
+	createProjectVulnPolicy: (projectId, data) => request('POST', `/projects/${projectId}/vuln-policies`, { body: data }),
+	/** @param {string} projectId @param {string} id */
+	deleteProjectVulnPolicy: (projectId, id) => request('DELETE', `/projects/${projectId}/vuln-policies/${id}`),
 	// A passwordless account an SSO login links to (SSO_AUTO_CREATE_USERS=false).
 	/** @param {string} email */
 	createUser: (email) => request('POST', '/users', { body: { email } }),

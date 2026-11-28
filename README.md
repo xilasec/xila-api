@@ -345,6 +345,11 @@ roles, and password login can optionally be turned off. See [Single sign-on](#si
 | POST   | `/api/v1/triage-rules/{id}/preview` | Dry-run a stored rule (admin) |
 | POST   | `/api/v1/triage-rules/{id}/approve` | Approve a pending rule, not by its author/last editor (admin) |
 | POST   | `/api/v1/triage-rules/{id}/reject`  | Reject a pending rule (kept for audit) (admin) |
+| GET/PUT | `/api/v1/triage-rules/settings`    | Whether projects may opt out of global rules (admin) |
+| GET/POST/PATCH/DELETE | `/api/v1/projects/{id}/triage-rules` | A project's own rules (owner to change) |
+| POST   | `/api/v1/projects/{id}/triage-rules/apply` | Apply the project's rules to its backlog (owner) |
+| GET/PUT | `/api/v1/projects/{id}/triage-settings` | The project's opt-out of global rules and policies (owner to change) |
+| GET/POST/PATCH/DELETE | `/api/v1/projects/{id}/vuln-policies` | A project's own vulnerability policies (owner to change) |
 | GET/POST | `/api/v1/policies`                | Component policies (list: the ones covering your projects, with violation counts; create: admin) |
 | GET/PUT/DELETE | `/api/v1/policies/{id}`     | Read / replace / delete a policy (mutations admin) |
 | GET    | `/api/v1/policies/{id}/violations`  | A policy's open violation findings on your projects (`?project_id=`, `?all_versions=true`) |
@@ -997,6 +1002,28 @@ alert fires, so muted findings don't page anyone. Rules are instance policy
 (admin-managed) and can be global or scoped to one project. See
 `POST /api/v1/triage-rules` and the Triage Rules UI. Rules work the same way for
 appsec, SCA, and CSPM/KSPM findings.
+
+- Side actions: besides its action, a rule may assign the finding (to a person,
+  or `assign_owner_from: project_owner`), add tags, post a comment and send a
+  `triage.rule` notification (one per rule and run, listing the findings it newly
+  matched). An existing assignment is kept unless `only_if_unassigned` is false.
+  A comment or notification fires once per finding, even when runs overlap. A global
+  rule skips projects its assignee can't see. Action `none` makes a rule act
+  through its side actions alone ("assign every critical to the platform team").
+- Triggers: every ingest, every person's status or severity decision on a finding
+  (a manual change, a bulk edit, an approved assessment, an accepted AI
+  proposal; automated writers such as VEX or policies don't trigger), and with
+  `schedule: daily` once a day, which is what makes `age_days_gt` ("first seen
+  more than N days ago") take effect without a new scan.
+- Project rules: project owners manage their project's own rules at
+  `/api/v1/projects/{id}/triage-rules` (the project's Rules tab) and its own
+  vulnerability policies at `/api/v1/projects/{id}/vuln-policies`. An owner's
+  policy is scoped to that project and is never part of the GitOps bundle. When
+  an instance admin allows it (`PUT /api/v1/triage-rules/settings`,
+  `allow_skip_global_rules`), a project may opt out of global rules and global
+  policies (`PUT /api/v1/projects/{id}/triage-settings`); policies an admin aimed
+  at the project by id or tag still apply, and withdrawing the permission makes
+  every opt-out stop counting.
 
 - Dry run: `POST /api/v1/triage-rules/preview` (a draft rule body) or
   `POST /api/v1/triage-rules/{id}/preview` (a stored rule, in any state)
@@ -2833,6 +2860,7 @@ a warning, and the running keys stay.
 | `METRICS_TOKEN`               | *(empty)*            | bearer token scrapers must send. In production, `/metrics` on the main port refuses to boot without one; a separate `METRICS_ADDR` does not need it |
 | `POLICY_EVAL_INTERVAL`        | `6h`                 | re-evaluate component policies on every project (also on upload and policy edits); `0` = off. Replaces the removed `LICENSE_DENYLIST` (ignored, with a startup warning) |
 | `VULN_POLICY_EVAL_INTERVAL`   | `6h`                 | re-evaluate vulnerability policies on every project (also on ingest and policy edits); catches a validity window's expiry; `0` = off |
+| `TRIAGE_SCHEDULE_INTERVAL`    | `1h`                 | how often the leader runs triage rules whose `schedule` is due (`daily`: once a day); `0` = off |
 | `VULN_POLICY_BUNDLE_URL`      | *(empty)*            | fetch a GitOps vulnerability-policy bundle (YAML or JSON) from this URL and replace the whole set on `VULN_POLICY_BUNDLE_INTERVAL`; a failed fetch keeps the current set |
 | `VULN_POLICY_BUNDLE_INTERVAL` | `1h`                 | how often to re-fetch `VULN_POLICY_BUNDLE_URL` |
 | `ENRICH_ENABLED`              | `true`               | run periodic EPSS/KEV enrichment         |
