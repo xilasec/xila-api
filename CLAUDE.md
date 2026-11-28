@@ -970,7 +970,11 @@ and `internal/server/smoke_test.go` (missing smoke wiring causes a nil panic in 
   `$BUILDPLATFORM`; keep it that way, no QEMU), binaries (`-X main.version`),
   the chart (versioned from the tag) and an SBOM, and attests provenance and
   SBOMs for all of them. Inside it, the tag is `env.TAG`, never
-  `github.ref_name` (that's `main` when called).
+  `github.ref_name` (that's `main` when called). Releases are immutable once
+  published, so release-please creates a draft (`draft` + `force-tag-creation`)
+  and `release.yml` publishes it after uploading; never publish before the
+  files are in. It also refuses a tag not on `main` and an image or chart
+  version that already exists.
 - Actions: `uses:` lines are SHA pins only, never tags (`git ls-remote`; peel
   annotated tags with `^{}`; keep the `# vX.Y.Z` comment). Workflows are also
   recorded in `.github/workflows/actions.lock`: after adding or changing a

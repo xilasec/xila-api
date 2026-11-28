@@ -36,7 +36,28 @@ concurrency:
 jobs:
   # The same gate as every push: formatting, vet, the full race suite against
   # Postgres, the UI build + type ratchet, and the chart lint.
+  # Only reviewed code ships: the tag must be a semver tag on a commit of
+  # main. Anyone with write access can push a tag (a ruleset can't let
+  # Release Please create tags while refusing others), but not to a commit
+  # main never had. Another ruleset stops a release tag being moved or deleted.
+  tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.TAG }}
+          fetch-depth: 0
+      - name: The tag is a semver tag on main
+        run: |
+          set -euo pipefail
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || { echo "$TAG is not a release tag" >&2; exit 1; }
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "refs/tags/$TAG" origin/main || { echo "$TAG is not on main" >&2; exit 1; }
+
   ci:
+    needs: tag
     permissions:
       contents: read
     uses: ./.github/workflows/ci.yml
@@ -45,6 +66,7 @@ jobs:
   # the built image), opengrep and KICS must pass. A called workflow gets at
   # most what its caller job grants: it uploads SARIF.
   security:
+    needs: tag
     permissions:
       contents: read
       security-events: write
@@ -74,6 +96,19 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      # An exact version is written once: GHCR can't make a tag immutable, so
+      # the release refuses to replace one (the floating X.Y and latest tags
+      # move on purpose). Attestations name the digest either way.
+      - name: Refuse to overwrite a released image version
+        env:
+          IMAGE: ${{ steps.name.outputs.image }}
+        run: |
+          set -euo pipefail
+          if docker buildx imagetools inspect "$IMAGE:${TAG#v}" >/dev/null 2>&1; then
+            echo "$IMAGE:${TAG#v} already exists; released versions are immutable" >&2
+            exit 1
+          fi
 
       - id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
@@ -198,6 +233,11 @@ jobs:
           helm package deploy/helm/xila --version "$version" --app-version "$version" --destination dist
           owner=${GITHUB_REPOSITORY_OWNER,,}
           echo "$GH_TOKEN" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
+          # A released chart version is written once (see the image job).
+          if helm show chart "oci://ghcr.io/$owner/charts/xila" --version "$version" >/dev/null 2>&1; then
+            echo "chart $version already exists; released versions are immutable" >&2
+            exit 1
+          fi
           out=$(helm push "dist/xila-$version.tgz" "oci://ghcr.io/$owner/charts" 2>&1)
           echo "$out"
           digest=$(grep -oE 'sha256:[0-9a-f]{64}' <<<"$out" | tail -1)
@@ -248,15 +288,21 @@ jobs:
           sbom-path: dist/xila_${{ env.TAG }}.spdx.json
           push-to-registry: true
 
-      # Release Please already created the release (with its changelog) when
-      # it called this workflow; a hand-pushed tag has none yet.
-      - name: Publish the release files
+      # Releases are immutable once published (repository setting): the files
+      # go into a draft, which is published last. Release Please created the
+      # draft (with its changelog) before calling this workflow; a hand-pushed
+      # tag has none yet, and gh uploads to a draft before publishing too. A
+      # release that is already published is never touched: re-running a
+      # release fails here instead of replacing its files.
+      - name: Publish the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          if gh release view "$TAG" >/dev/null 2>&1; then
+          if draft=$(gh release view "$TAG" --json isDraft -q .isDraft 2>/dev/null); then
+            [ "$draft" = true ] || { echo "release $TAG is already published; it is immutable" >&2; exit 1; }
             gh release upload "$TAG" dist/* --clobber
+            gh release edit "$TAG" --draft=false
           else
             prerelease=""
             case "$TAG" in *-*) prerelease="--prerelease" ;; esac

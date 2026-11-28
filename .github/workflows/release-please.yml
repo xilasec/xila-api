@@ -4,7 +4,9 @@ name: Release Please
 # conventional commits since the last release (feat: minor, fix: patch, a "!"
 # a breaking change; minor while below 1.0), with the CHANGELOG entry it
 # would publish. Merging that PR tags vX.Y.Z, creates the GitHub release with
-# those notes, and then runs the release build below for the tag.
+# those notes as a draft, and then runs the release build below for the tag,
+# which uploads the files and publishes the release. Releases are immutable
+# once published (repository setting), hence the draft until every file is in.
 #
 # The build is called from here rather than triggered by the tag: a tag
 # pushed with GITHUB_TOKEN starts no workflow. A tag pushed by hand still
@@ -48,8 +50,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          branch=$(gh pr list -R "$GITHUB_REPOSITORY" --label "autorelease: pending" --state open \
-            --json headRefName -q '.[0].headRefName')
+          # The REST pulls list, not `gh pr list --label`: that goes through
+          # search, which doesn't see a PR labelled a moment ago.
+          branch=$(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&per_page=100" \
+            -q '[.[] | select(any(.labels[]; .name == "autorelease: pending"))][0].head.ref // empty')
           [ -n "$branch" ] || { echo "no open release PR found" >&2; exit 1; }
           gh workflow run ci.yml -R "$GITHUB_REPOSITORY" --ref "$branch"
           gh workflow run security.yml -R "$GITHUB_REPOSITORY" --ref "$branch"
