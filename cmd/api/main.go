@@ -595,7 +595,8 @@ func run() error {
 		Scan: scan.NewHandler(scanRepo, ingestSvc, cfg.Ingest.Async, queueMon, workerPool).
 			WithProjectByName(projectResolver, membershipRepo),
 		Finding: finding.NewHandler(findingRepo, notifySvc, membershipRepo, cfg.AssessmentRequiresApproval).
-			WithRiskAcceptanceApproval(cfg.RiskAcceptanceRequiresApproval).WithCustomFields(customFieldRepo),
+			WithRiskAcceptanceApproval(cfg.RiskAcceptanceRequiresApproval).WithCustomFields(customFieldRepo).
+			WithCommentListener(issueSvc),
 		AITriage: aitriage.NewHandler(aitriage.NewService(aitriage.NewRepository(db), findingRepo, aiProvider,
 			ratelimit.New(db, ratelimit.Limits{}), notifySvc,
 			aitriage.Options{RequireApproval: cfg.AssessmentRequiresApproval, RateLimit: cfg.AI.RateLimit})),
@@ -630,7 +631,7 @@ func run() error {
 		SLA:          sla.NewHandler(slaRepo, slaSvc),
 		Vex:          vex.NewHandler(vexRepo, vexSvc).WithPublicURL(cfg.PublicURL).WithNotifier(notifySvc),
 		VexDocuments: vex.NewDocumentHandler(vexDocsSvc),
-		IssueTracker: issuetracker.NewHandler(issueSvc),
+		IssueTracker: issuetracker.NewHandler(issueSvc).WithAudit(auditRepo),
 		Connector:    connector.NewHandler(connectorSvc),
 		VulnMatch:    vulnmatch.NewHandler(vulnSvc, vulnSources.Names(), osvMirrorRepo, osvMirror).WithJVN(jvnMirror),
 		Advisory:     vulnmatch.NewAdvisoryHandler(advisoryRepo, onAdvisoryChange),

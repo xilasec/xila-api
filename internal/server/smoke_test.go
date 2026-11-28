@@ -332,7 +332,8 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		}),
 		Scan: scan.NewHandler(scanRepo, ingestSvc, false, nil, nil).WithProjectByName(projectResolver, membershipRepo),
 		Finding: finding.NewHandler(findingRepo, notifySvc, membershipRepo, cfg.AssessmentRequiresApproval).
-			WithRiskAcceptanceApproval(cfg.RiskAcceptanceRequiresApproval).WithCustomFields(customFieldRepo),
+			WithRiskAcceptanceApproval(cfg.RiskAcceptanceRequiresApproval).WithCustomFields(customFieldRepo).
+			WithCommentListener(issueSvc),
 		AITriage: aitriage.NewHandler(aitriage.NewService(aitriage.NewRepository(pool), findingRepo, aiProvider,
 			ratelimit.New(pool, ratelimit.Limits{}), notifySvc,
 			aitriage.Options{RequireApproval: cfg.AssessmentRequiresApproval, RateLimit: cfg.AI.RateLimit})),
@@ -371,7 +372,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		SLA:          sla.NewHandler(slaRepo, sla.NewService(slaRepo, notifySvc)),
 		Vex:          vex.NewHandler(vexRepo, vexSvc).WithNotifier(notifySvc),
 		VexDocuments: vex.NewDocumentHandler(vexDocsSvc),
-		IssueTracker: issuetracker.NewHandler(issueSvc),
+		IssueTracker: issuetracker.NewHandler(issueSvc).WithAudit(auditRepo),
 		Connector:    connector.NewHandler(connector.NewService(connectorRepo, ingestSvc, trackerCipher)),
 		Correlation:  correlation.NewHandler(correlation.NewService(findingRepo, sbomRepo)),
 		ApiToken:     apitoken.NewHandler(tokenRepo, tokenSvc).WithReauthWindow(cfg.JWT.ReauthWindow),

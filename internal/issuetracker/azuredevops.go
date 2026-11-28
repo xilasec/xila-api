@@ -108,3 +108,16 @@ func (c *azureClient) Reopen(ctx context.Context, id string) error {
 func (c *azureClient) Check(ctx context.Context) error {
 	return c.do(ctx, http.MethodGet, "/_apis/projects/"+url.PathEscape(c.project)+"?api-version=7.1", nil, nil)
 }
+
+// Comment: https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/comments/add-work-item-comment?view=azure-devops-rest-7.1
+// (the comments API is still versioned as a preview).
+func (c *azureClient) Comment(ctx context.Context, id, body string) (string, error) {
+	var out struct {
+		ID int64 `json:"id"`
+	}
+	path := "/" + url.PathEscape(c.project) + "/_apis/wit/workItems/" + url.PathEscape(id) + "/comments?api-version=7.1-preview.4"
+	if err := c.do(ctx, http.MethodPost, path, map[string]string{"text": body}, &out); err != nil {
+		return "", err
+	}
+	return strconv.FormatInt(out.ID, 10), nil
+}

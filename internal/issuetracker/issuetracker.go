@@ -107,10 +107,22 @@ type Tracker struct {
 	AutoCreate       bool            `json:"auto_create"`
 	Labels           []string        `json:"labels"`
 	Enabled          bool            `json:"enabled"`
-	CreatedAt        time.Time       `json:"created_at"`
-	UpdatedAt        time.Time       `json:"updated_at"`
+	// TitleTemplate / BodyTemplate render finding issues ("" = built in).
+	TitleTemplate string `json:"title_template"`
+	BodyTemplate  string `json:"body_template"`
+	// SyncComments pushes finding comments to the issue and takes the
+	// tracker's in through the webhook.
+	SyncComments bool `json:"sync_comments"`
+	// HasWebhookSecret: the webhook receiver is on (the secret is write-only).
+	HasWebhookSecret bool `json:"has_webhook_secret"`
+	// WebhookURL is where to point the tracker's webhooks (PUBLIC_URL-based;
+	// a bare path when PUBLIC_URL is unset).
+	WebhookURL string    `json:"webhook_url"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
 
-	tokenEnc []byte
+	tokenEnc         []byte
+	webhookSecretEnc []byte
 }
 
 // Link ties a finding to its external issue.
@@ -144,14 +156,16 @@ func NewRepository(db *pgxpool.Pool) *Repository {
 }
 
 const trackerColumns = `id, project_id, kind, base_url, target, token_enc, jira_email, auth_user, issue_type,
-	done_transition, reopen_transition, min_severity, auto_create, labels, enabled, created_at, updated_at`
+	done_transition, reopen_transition, min_severity, auto_create, labels, enabled,
+	title_template, body_template, sync_comments, webhook_secret_enc, created_at, updated_at`
 
 func scanTracker(row pgx.Row) (Tracker, error) {
 	var t Tracker
 	err := row.Scan(&t.ID, &t.ProjectID, &t.Kind, &t.BaseURL, &t.Target, &t.tokenEnc, &t.JiraEmail, &t.AuthUser,
 		&t.IssueType, &t.DoneTransition, &t.ReopenTransition, &t.MinSeverity, &t.AutoCreate, &t.Labels,
-		&t.Enabled, &t.CreatedAt, &t.UpdatedAt)
+		&t.Enabled, &t.TitleTemplate, &t.BodyTemplate, &t.SyncComments, &t.webhookSecretEnc, &t.CreatedAt, &t.UpdatedAt)
 	t.HasToken = len(t.tokenEnc) > 0
+	t.HasWebhookSecret = len(t.webhookSecretEnc) > 0
 	if t.Labels == nil {
 		t.Labels = []string{}
 	}
@@ -232,19 +246,22 @@ func (r *Repository) Put(ctx context.Context, t Tracker, tokenEnc []byte) (Track
 
 	const q = `
 		INSERT INTO issue_trackers (project_id, kind, base_url, target, token_enc, jira_email, auth_user, issue_type,
-		    done_transition, reopen_transition, min_severity, auto_create, labels, enabled)
-		VALUES ($1, $2, $3, $4, COALESCE($5, ''::bytea), $6, $7, $8, $9, $10, $11, $12, $13, $14)
+		    done_transition, reopen_transition, min_severity, auto_create, labels, enabled,
+		    title_template, body_template, sync_comments)
+		VALUES ($1, $2, $3, $4, COALESCE($5, ''::bytea), $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
 		ON CONFLICT (project_id) DO UPDATE SET
 		    kind = EXCLUDED.kind, base_url = EXCLUDED.base_url, target = EXCLUDED.target,
 		    token_enc = COALESCE($5, issue_trackers.token_enc),
 		    jira_email = EXCLUDED.jira_email, auth_user = EXCLUDED.auth_user, issue_type = EXCLUDED.issue_type,
 		    done_transition = EXCLUDED.done_transition, reopen_transition = EXCLUDED.reopen_transition,
 		    min_severity = EXCLUDED.min_severity, auto_create = EXCLUDED.auto_create,
-		    labels = EXCLUDED.labels, enabled = EXCLUDED.enabled, updated_at = now()
+		    labels = EXCLUDED.labels, enabled = EXCLUDED.enabled,
+		    title_template = EXCLUDED.title_template, body_template = EXCLUDED.body_template,
+		    sync_comments = EXCLUDED.sync_comments, updated_at = now()
 		RETURNING ` + trackerColumns
 	out, err := scanTracker(tx.QueryRow(ctx, q, t.ProjectID, t.Kind, t.BaseURL, t.Target, tokenEnc,
 		t.JiraEmail, t.AuthUser, t.IssueType, t.DoneTransition, t.ReopenTransition, t.MinSeverity, t.AutoCreate,
-		t.Labels, t.Enabled))
+		t.Labels, t.Enabled, t.TitleTemplate, t.BodyTemplate, t.SyncComments))
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23503" {

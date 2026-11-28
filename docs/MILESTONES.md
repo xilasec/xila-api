@@ -1024,8 +1024,17 @@ Tier 1:
     `/projects/{id}/scan-expectations`); a missing scan becomes an ingestion
     anomaly and, with the `require_expected_scans` gate flag, fails the gate.
     Migration 000121.
-- ⬜ 13.18 Issue-tracker comments, ticket templates and webhook receivers
-  (DefectDojo Pro).
+- ✅ 13.18 Issue-tracker comments, ticket templates and webhook receivers
+  (DefectDojo Pro). `title_template` / `body_template` (`text/template` over a
+  flat `TemplateData`, `.Default` = built-in body; checked on save, size-capped,
+  built-in fallback). `sync_comments`: finding comments pushed once
+  (`finding_issue_comments`, immediate via `finding.CommentListener` plus the
+  sync), tracker comments taken in once by webhook, Xila's own echo skipped by
+  footer and remote id. `POST /issue-trackers/{id}/webhook` (public) verified
+  per tracker (GitHub/Jira/Linear HMAC, GitLab token, Azure DevOps basic auth,
+  ServiceNow bearer); issue changes re-read through the API under a per-link
+  lock shared with the sync. Comments in all six clients
+  (`Client.Comment`).
 - ✅ 13.19 Connectors: AWS Security Hub, Microsoft Defender, Qualys, Trivy
   Operator (DefectDojo Pro, SecObserve). Four pull connectors added next to the
   existing ones: each parses its stored JSON credential, fetches findings over

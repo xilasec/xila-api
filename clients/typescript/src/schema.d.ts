@@ -6026,6 +6026,69 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{projectID}/issue-tracker/webhook-secret": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn the webhook receiver on with a new secret
+         * @description Project `owner`. Issues a new webhook secret, returned this once, and
+         *     the URL to configure in the tracker; any previous secret stops working.
+         *     Trackers that generate the secret themselves (Linear; Jira optionally)
+         *     send it in the body instead.
+         *     Configure the secret the tracker's own way: the webhook secret (GitHub,
+         *     Jira admin webhooks, Linear), the secret token (GitLab), the basic-auth
+         *     password of the service hook (Azure DevOps), or a Bearer token on the
+         *     business rule's REST message (ServiceNow).
+         */
+        post: operations["rotateIssueTrackerWebhookSecret"];
+        /**
+         * Turn the webhook receiver off
+         * @description Project `owner`. Deletes the secret; deliveries then answer 404.
+         */
+        delete: operations["clearIssueTrackerWebhookSecret"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/issue-trackers/{trackerID}/webhook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Receive a tracker webhook
+         * @description Public: each delivery is verified with the tracker's webhook secret
+         *     instead (HMAC-SHA256 signature for GitHub `X-Hub-Signature-256`, Jira
+         *     `X-Hub-Signature` and Linear `Linear-Signature`; `X-Gitlab-Token` for
+         *     GitLab; basic auth for Azure DevOps; `Authorization: Bearer` for
+         *     ServiceNow). An issue change reconciles its linked findings the way a
+         *     sync run does, re-reading the issue through the API, so a delivery can
+         *     make Xila look but never decides a state itself. A new comment, with
+         *     `sync_comments` on, is added to the finding once (redeliveries and
+         *     Xila's own pushed comments are skipped). Linear deliveries older than 5
+         *     minutes are refused. The ServiceNow payload, sent by a business rule, is
+         *     `{"sys_id": "...", "comment": {"id", "author", "body"}}` (comment
+         *     optional). An unknown tracker, a disabled one and one without a secret
+         *     all answer 404.
+         */
+        post: operations["receiveIssueTrackerWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/findings/{findingID}/issue": {
         parameters: {
             query?: never;
@@ -6184,7 +6247,9 @@ export interface paths {
          *     reopens it if it is still present, which reopens the issue) and one reopened
          *     there reopens a remediated finding. Which side changed is decided against
          *     the last state both agreed on, so the directions never fight; an issue
-         *     reopened over an exception is closed again. Then auto-create files up to 50
+         *     reopened over an exception is closed again. With `sync_comments`, finding
+         *     comments posted since the issue was linked are added to it (each once).
+         *     Then auto-create files up to 50
          *     open findings per tracker at or above `min_severity`. A failing tracker or
          *     issue is logged and counted in `errors`, never aborts the run.
          */
@@ -9048,6 +9113,16 @@ export interface components {
             auto_create?: boolean;
             labels?: string[];
             enabled?: boolean;
+            /** @description Go text/template for a finding issue's title; empty uses the built-in one. */
+            title_template?: string;
+            /** @description Go text/template for a finding issue's body; empty uses the built-in one (available to templates as .Default). */
+            body_template?: string;
+            /** @description Push finding comments to the issue and take the tracker's in through the webhook. */
+            sync_comments?: boolean;
+            /** @description The webhook receiver is on. */
+            has_webhook_secret?: boolean;
+            /** @description Where to point the tracker's webhooks (a bare path when PUBLIC_URL is unset). */
+            webhook_url?: string;
             /** Format: date-time */
             created_at?: string;
             /** Format: date-time */
@@ -9077,6 +9152,20 @@ export interface components {
             labels?: string[];
             /** @default true */
             enabled: boolean;
+            /**
+             * @description Go text/template over the finding: .ID, .Title, .Description,
+             *     .Severity, .Status, .Scanner, .RuleID, .Package, .PackageVersion,
+             *     .FixedVersion, .FilePath, .Line, .Reference, .CVEs, .CWE, .CVSS,
+             *     .EPSS, .KEV, .XilaURL and .Default (the built-in body), with `join`
+             *     and `default`. Checked on save against a sample finding; one that
+             *     fails on a real finding (or renders over 64 KiB) files the built-in
+             *     text instead. Newlines are collapsed in a title.
+             */
+            title_template?: string;
+            /** @description Same data as title_template. */
+            body_template?: string;
+            /** @default false */
+            sync_comments: boolean;
         };
         FindingIssue: {
             /** Format: uuid */
@@ -9185,6 +9274,8 @@ export interface components {
             resolved_actions?: number;
             /** @description Remediation actions reopened because their ticket was reopened. */
             reopened_actions?: number;
+            /** @description Finding comments posted to their issue. */
+            pushed_comments?: number;
             errors?: number;
         };
         /** @enum {string} */
@@ -22831,6 +22922,102 @@ export interface operations {
             };
             404: components["responses"]["Error"];
             502: components["responses"]["Error"];
+        };
+    };
+    rotateIssueTrackerWebhookSecret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description The tracker's own secret; omit to generate one. */
+                    secret?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The new secret */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Shown once. */
+                        secret?: string;
+                        webhook_url?: string;
+                        kind?: string;
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    clearIssueTrackerWebhookSecret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Off */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    receiveIssueTrackerWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                trackerID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Applied */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description An event Xila does not act on */
+                        ignored?: boolean;
+                        /** @description Links reconciled. */
+                        links?: number;
+                        /** @description Comments added to findings. */
+                        comments?: number;
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            413: components["responses"]["Error"];
         };
     };
     getFindingIssue: {

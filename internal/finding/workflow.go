@@ -121,6 +121,31 @@ func addCommentTx(ctx context.Context, tx pgx.Tx, findingID, authorID, body stri
 	return c, nil
 }
 
+// AddExternalCommentTx stores, in tx, a comment written outside Xila (an
+// issue tracker's): no Xila author, author is the label shown for it, and the
+// history records actor.
+func AddExternalCommentTx(ctx context.Context, tx pgx.Tx, findingID, author, body, actor string) (Comment, error) {
+	var c Comment
+	err := tx.QueryRow(ctx, `
+		INSERT INTO finding_comments (finding_id, project_id, author_id, author, body)
+		SELECT f.id, f.project_id, NULL, $2, $3 FROM findings f WHERE f.id = $1
+		RETURNING id, finding_id, author_id, author, body, created_at`, findingID, author, body).
+		Scan(&c.ID, &c.FindingID, &c.AuthorID, &c.Author, &c.Body, &c.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Comment{}, ErrNotFound
+	}
+	if err != nil {
+		return Comment{}, fmt.Errorf("add external comment: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO finding_events (finding_id, project_id, kind, to_value, actor)
+		SELECT id, project_id, 'comment', $2, $3 FROM findings WHERE id = $1`,
+		findingID, c.ID, actor); err != nil {
+		return Comment{}, fmt.Errorf("record external comment: %w", err)
+	}
+	return c, nil
+}
+
 // Comments lists a finding's comments, oldest first.
 func (r *Repository) Comments(ctx context.Context, findingID string) ([]Comment, error) {
 	rows, err := r.db.Query(ctx, `SELECT id, finding_id, author_id, author, body, created_at

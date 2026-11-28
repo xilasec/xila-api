@@ -698,6 +698,9 @@ func (h *Handler) AddComment(c *fiber.Ctx) error {
 		return err
 	}
 	go h.notifyMentions(cm)
+	if h.comments != nil {
+		go h.comments.CommentAdded(context.WithoutCancel(c.UserContext()), id)
+	}
 	return c.Status(fiber.StatusCreated).JSON(cm)
 }
 

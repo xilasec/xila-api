@@ -71,3 +71,14 @@ func (c *gitlabClient) Reopen(ctx context.Context, iid string) error {
 func (c *gitlabClient) Check(ctx context.Context) error {
 	return c.do(ctx, http.MethodGet, c.projectPath(), nil, nil)
 }
+
+// Comment: https://docs.gitlab.com/api/notes/#create-new-issue-note
+func (c *gitlabClient) Comment(ctx context.Context, iid, body string) (string, error) {
+	var out struct {
+		ID int64 `json:"id"`
+	}
+	if err := c.do(ctx, http.MethodPost, c.issuePath(iid)+"/notes", map[string]string{"body": body}, &out); err != nil {
+		return "", err
+	}
+	return strconv.FormatInt(out.ID, 10), nil
+}

@@ -719,7 +719,9 @@ Audit log: `internal/audit` records every mutating request on `secured`
 (middleware between auth and authz, so refusals are logged) and the public
 sign-in endpoints (`Recorder.Auth`, matched in `authAction`; a new public auth
 endpoint must be added there). New secured routes are covered automatically
-(`TestAuditLogCoversEveryMutatingRoute` walks the route table). A handler that
+(`TestAuditLogCoversEveryMutatingRoute` walks the route table). Public
+mutating routes outside `secured` audit themselves like SCIM
+(`issuetracker.Handler.auditDelivery` for tracker webhooks). A handler that
 knows the prior state calls `audit.SetChanges(c, before, after)`. Otherwise the
 request body is stored redacted, so a new request field holding a credential
 must match the one policy in `audit/redact.go` (add it there and to its test).

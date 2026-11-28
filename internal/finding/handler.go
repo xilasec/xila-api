@@ -39,6 +39,21 @@ type Handler struct {
 	// customFields lists the finding custom fields an export adds a column for
 	// (optional: nil = none).
 	customFields customFieldLister
+	// comments is told about every comment a person posts (optional).
+	comments CommentListener
+}
+
+// CommentListener is told when a person comments on a finding, after the
+// comment is stored (issuetracker.Service pushes it to the linked issue). It
+// runs detached from the request: it must bound its own work.
+type CommentListener interface {
+	CommentAdded(ctx context.Context, findingID string)
+}
+
+// WithCommentListener registers l for new comments.
+func (h *Handler) WithCommentListener(l CommentListener) *Handler {
+	h.comments = l
+	return h
 }
 
 // customFieldLister lists custom-field definitions (customfield.Repository).

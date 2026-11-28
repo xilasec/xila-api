@@ -7975,6 +7975,95 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "502": { $ref: "#/components/responses/Error" }
 
+  /projects/{projectID}/issue-tracker/webhook-secret:
+    post:
+      operationId: rotateIssueTrackerWebhookSecret
+      tags: [Issue trackers]
+      summary: Turn the webhook receiver on with a new secret
+      description: |
+        Project `owner`. Issues a new webhook secret, returned this once, and
+        the URL to configure in the tracker; any previous secret stops working.
+        Trackers that generate the secret themselves (Linear; Jira optionally)
+        send it in the body instead.
+        Configure the secret the tracker's own way: the webhook secret (GitHub,
+        Jira admin webhooks, Linear), the secret token (GitLab), the basic-auth
+        password of the service hook (Azure DevOps), or a Bearer token on the
+        business rule's REST message (ServiceNow).
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                secret: { type: string, minLength: 16, maxLength: 512, writeOnly: true, description: "The tracker's own secret; omit to generate one." }
+      responses:
+        "200":
+          description: The new secret
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  secret: { type: string, description: Shown once. }
+                  webhook_url: { type: string }
+                  kind: { type: string }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: clearIssueTrackerWebhookSecret
+      tags: [Issue trackers]
+      summary: Turn the webhook receiver off
+      description: Project `owner`. Deletes the secret; deliveries then answer 404.
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }]
+      responses:
+        "204": { description: Off }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /issue-trackers/{trackerID}/webhook:
+    post:
+      operationId: receiveIssueTrackerWebhook
+      tags: [Issue trackers]
+      summary: Receive a tracker webhook
+      security: []
+      description: |
+        Public: each delivery is verified with the tracker's webhook secret
+        instead (HMAC-SHA256 signature for GitHub `X-Hub-Signature-256`, Jira
+        `X-Hub-Signature` and Linear `Linear-Signature`; `X-Gitlab-Token` for
+        GitLab; basic auth for Azure DevOps; `Authorization: Bearer` for
+        ServiceNow). An issue change reconciles its linked findings the way a
+        sync run does, re-reading the issue through the API, so a delivery can
+        make Xila look but never decides a state itself. A new comment, with
+        `sync_comments` on, is added to the finding once (redeliveries and
+        Xila's own pushed comments are skipped). Linear deliveries older than 5
+        minutes are refused. The ServiceNow payload, sent by a business rule, is
+        `{"sys_id": "...", "comment": {"id", "author", "body"}}` (comment
+        optional). An unknown tracker, a disabled one and one without a secret
+        all answer 404.
+      parameters:
+        - { name: trackerID, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        "200":
+          description: Applied
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ignored: { type: boolean, description: An event Xila does not act on, or an issue with no link. }
+                  links: { type: integer, description: Links reconciled. }
+                  comments: { type: integer, description: Comments added to findings. }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
+
   /findings/{findingID}/issue:
     get:
       operationId: getFindingIssue
@@ -8164,7 +8253,9 @@ paths:
         reopens it if it is still present, which reopens the issue) and one reopened
         there reopens a remediated finding. Which side changed is decided against
         the last state both agreed on, so the directions never fight; an issue
-        reopened over an exception is closed again. Then auto-create files up to 50
+        reopened over an exception is closed again. With `sync_comments`, finding
+        comments posted since the issue was linked are added to it (each once).
+        Then auto-create files up to 50
         open findings per tracker at or above `min_severity`. A failing tracker or
         issue is logged and counted in `errors`, never aborts the run.
       responses:
@@ -11579,6 +11670,11 @@ components:
         auto_create: { type: boolean }
         labels: { type: array, items: { type: string } }
         enabled: { type: boolean }
+        title_template: { type: string, description: "Go text/template for a finding issue's title; empty uses the built-in one." }
+        body_template: { type: string, description: "Go text/template for a finding issue's body; empty uses the built-in one (available to templates as .Default)." }
+        sync_comments: { type: boolean, description: Push finding comments to the issue and take the tracker's in through the webhook. }
+        has_webhook_secret: { type: boolean, description: The webhook receiver is on. }
+        webhook_url: { type: string, description: "Where to point the tracker's webhooks (a bare path when PUBLIC_URL is unset)." }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
 
@@ -11599,6 +11695,19 @@ components:
         auto_create: { type: boolean, default: false }
         labels: { type: array, items: { type: string }, maxItems: 20 }
         enabled: { type: boolean, default: true }
+        title_template:
+          type: string
+          maxLength: 10000
+          description: |
+            Go text/template over the finding: .ID, .Title, .Description,
+            .Severity, .Status, .Scanner, .RuleID, .Package, .PackageVersion,
+            .FixedVersion, .FilePath, .Line, .Reference, .CVEs, .CWE, .CVSS,
+            .EPSS, .KEV, .XilaURL and .Default (the built-in body), with `join`
+            and `default`. Checked on save against a sample finding; one that
+            fails on a real finding (or renders over 64 KiB) files the built-in
+            text instead. Newlines are collapsed in a title.
+        body_template: { type: string, maxLength: 10000, description: Same data as title_template. }
+        sync_comments: { type: boolean, default: false }
 
     FindingIssue:
       type: object
@@ -11685,6 +11794,7 @@ components:
         reopened_findings: { type: integer }
         resolved_actions: { type: integer, description: Remediation actions closed because their ticket was closed. }
         reopened_actions: { type: integer, description: Remediation actions reopened because their ticket was reopened. }
+        pushed_comments: { type: integer, description: Finding comments posted to their issue. }
         errors: { type: integer }
 
     Severity:

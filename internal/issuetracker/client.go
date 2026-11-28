@@ -35,6 +35,9 @@ type Client interface {
 	Close(ctx context.Context, externalID string) error
 	// Reopen reopens a closed issue.
 	Reopen(ctx context.Context, externalID string) error
+	// Comment adds a comment to the issue and returns the tracker's id for it
+	// ("" when the tracker has none, like a ServiceNow journal entry).
+	Comment(ctx context.Context, externalID, body string) (string, error)
 	// Check verifies the credentials and target with a cheap read.
 	Check(ctx context.Context) error
 }

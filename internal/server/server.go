@@ -306,6 +306,9 @@ func New(cfg config.Config, h Handlers) *Server {
 	h.SAML.Register(authGroup)
 	// README badges: public, resolved by an unguessable per-project token.
 	h.Badge.RegisterPublic(v1)
+	// Issue-tracker webhooks: public, each delivery verified with the
+	// tracker's own webhook secret.
+	h.IssueTracker.RegisterPublic(v1)
 	// SCIM provisioning: its own bearer tokens, never a session or API token,
 	// so it is mounted before the secured group. Changes are audited by the
 	// handler (actor kind scim).

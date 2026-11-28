@@ -6899,6 +6899,9 @@ type IssueSyncResult struct {
 	Created      *int `json:"created,omitempty"`
 	Errors       *int `json:"errors,omitempty"`
 
+	// PushedComments Finding comments posted to their issue.
+	PushedComments *int `json:"pushed_comments,omitempty"`
+
 	// ReopenedActions Remediation actions reopened because their ticket was reopened.
 	ReopenedActions  *int `json:"reopened_actions,omitempty"`
 	ReopenedFindings *int `json:"reopened_findings,omitempty"`
@@ -6920,14 +6923,20 @@ type IssueTracker struct {
 	AutoCreate *bool   `json:"auto_create,omitempty"`
 
 	// BaseUrl Jira site, GitHub API (https://api.github.com, or https://host/api/v3 for Enterprise), GitLab instance (https://gitlab.com), Azure DevOps organization/collection (https://dev.azure.com/your-org), Linear API (https://api.linear.app), or ServiceNow instance (https://your-instance.service-now.com).
-	BaseUrl   *string    `json:"base_url,omitempty"`
-	CreatedAt *time.Time `json:"created_at,omitempty"`
+	BaseUrl *string `json:"base_url,omitempty"`
+
+	// BodyTemplate Go text/template for a finding issue's body; empty uses the built-in one (available to templates as .Default).
+	BodyTemplate *string    `json:"body_template,omitempty"`
+	CreatedAt    *time.Time `json:"created_at,omitempty"`
 
 	// DoneTransition Jira transition (or target status), Azure DevOps System.State value, Linear workflow state type, or ServiceNow state value used to close.
-	DoneTransition *string             `json:"done_transition,omitempty"`
-	Enabled        *bool               `json:"enabled,omitempty"`
-	HasToken       *bool               `json:"has_token,omitempty"`
-	Id             *openapi_types.UUID `json:"id,omitempty"`
+	DoneTransition *string `json:"done_transition,omitempty"`
+	Enabled        *bool   `json:"enabled,omitempty"`
+	HasToken       *bool   `json:"has_token,omitempty"`
+
+	// HasWebhookSecret The webhook receiver is on.
+	HasWebhookSecret *bool               `json:"has_webhook_secret,omitempty"`
+	Id               *openapi_types.UUID `json:"id,omitempty"`
 
 	// IssueType Jira issue type
 	IssueType *string `json:"issue_type,omitempty"`
@@ -6942,9 +6951,18 @@ type IssueTracker struct {
 	// ReopenTransition Jira transition (or target status), Azure DevOps System.State value, Linear workflow state type, or ServiceNow state value used to reopen.
 	ReopenTransition *string `json:"reopen_transition,omitempty"`
 
+	// SyncComments Push finding comments to the issue and take the tracker's in through the webhook.
+	SyncComments *bool `json:"sync_comments,omitempty"`
+
 	// Target Jira project key, GitHub owner/repo, GitLab project id or full path, Azure DevOps project name, Linear team id, or ServiceNow table name (default incident).
-	Target    *string    `json:"target,omitempty"`
-	UpdatedAt *time.Time `json:"updated_at,omitempty"`
+	Target *string `json:"target,omitempty"`
+
+	// TitleTemplate Go text/template for a finding issue's title; empty uses the built-in one.
+	TitleTemplate *string    `json:"title_template,omitempty"`
+	UpdatedAt     *time.Time `json:"updated_at,omitempty"`
+
+	// WebhookUrl Where to point the tracker's webhooks (a bare path when PUBLIC_URL is unset).
+	WebhookUrl *string `json:"webhook_url,omitempty"`
 }
 
 // IssueTrackerKind defines model for IssueTracker.Kind.
@@ -6957,7 +6975,10 @@ type IssueTrackerInput struct {
 	AutoCreate *bool   `json:"auto_create,omitempty"`
 
 	// BaseUrl Defaults to https://api.github.com / https://gitlab.com / https://api.linear.app; required for Jira, Azure DevOps and ServiceNow.
-	BaseUrl          *string               `json:"base_url,omitempty"`
+	BaseUrl *string `json:"base_url,omitempty"`
+
+	// BodyTemplate Same data as title_template.
+	BodyTemplate     *string               `json:"body_template,omitempty"`
 	DoneTransition   *string               `json:"done_transition,omitempty"`
 	Enabled          *bool                 `json:"enabled,omitempty"`
 	IssueType        *string               `json:"issue_type,omitempty"`
@@ -6966,7 +6987,17 @@ type IssueTrackerInput struct {
 	Labels           *[]string             `json:"labels,omitempty"`
 	MinSeverity      *Severity             `json:"min_severity,omitempty"`
 	ReopenTransition *string               `json:"reopen_transition,omitempty"`
+	SyncComments     *bool                 `json:"sync_comments,omitempty"`
 	Target           string                `json:"target"`
+
+	// TitleTemplate Go text/template over the finding: .ID, .Title, .Description,
+	// .Severity, .Status, .Scanner, .RuleID, .Package, .PackageVersion,
+	// .FixedVersion, .FilePath, .Line, .Reference, .CVEs, .CWE, .CVSS,
+	// .EPSS, .KEV, .XilaURL and .Default (the built-in body), with `join`
+	// and `default`. Checked on save against a sample finding; one that
+	// fails on a real finding (or renders over 64 KiB) files the built-in
+	// text instead. Newlines are collapsed in a title.
+	TitleTemplate *string `json:"title_template,omitempty"`
 
 	// Token Required when creating; omit to keep the stored token.
 	Token *string `json:"token,omitempty"`
@@ -10488,6 +10519,9 @@ type PutIngestSettingsJSONBody struct {
 	Workers       *int `json:"workers,omitempty"`
 }
 
+// ReceiveIssueTrackerWebhookJSONBody defines parameters for ReceiveIssueTrackerWebhook.
+type ReceiveIssueTrackerWebhookJSONBody map[string]interface{}
+
 // ListLicenseGroupsParams defines parameters for ListLicenseGroups.
 type ListLicenseGroupsParams struct {
 	// Limit Page size (max 200).
@@ -11152,6 +11186,12 @@ type GetGateStatusParams struct {
 	Branch    *string             `form:"branch,omitempty" json:"branch,omitempty"`
 	Release   *string             `form:"release,omitempty" json:"release,omitempty"`
 	VersionId *openapi_types.UUID `form:"version_id,omitempty" json:"version_id,omitempty"`
+}
+
+// RotateIssueTrackerWebhookSecretJSONBody defines parameters for RotateIssueTrackerWebhookSecret.
+type RotateIssueTrackerWebhookSecretJSONBody struct {
+	// Secret The tracker's own secret; omit to generate one.
+	Secret *string `json:"secret,omitempty"`
 }
 
 // CreateProjectMemberJSONBody defines parameters for CreateProjectMember.
@@ -12037,6 +12077,9 @@ type PutGatePolicyJSONRequestBody = GatePolicy
 // PutIngestSettingsJSONRequestBody defines body for PutIngestSettings for application/json ContentType.
 type PutIngestSettingsJSONRequestBody PutIngestSettingsJSONBody
 
+// ReceiveIssueTrackerWebhookJSONRequestBody defines body for ReceiveIssueTrackerWebhook for application/json ContentType.
+type ReceiveIssueTrackerWebhookJSONRequestBody ReceiveIssueTrackerWebhookJSONBody
+
 // CreateLicenseGroupJSONRequestBody defines body for CreateLicenseGroup for application/json ContentType.
 type CreateLicenseGroupJSONRequestBody = LicenseGroupInput
 
@@ -12153,6 +12196,9 @@ type PutProjectGatePolicyJSONRequestBody = GatePolicy
 
 // PutProjectIssueTrackerJSONRequestBody defines body for PutProjectIssueTracker for application/json ContentType.
 type PutProjectIssueTrackerJSONRequestBody = IssueTrackerInput
+
+// RotateIssueTrackerWebhookSecretJSONRequestBody defines body for RotateIssueTrackerWebhookSecret for application/json ContentType.
+type RotateIssueTrackerWebhookSecretJSONRequestBody RotateIssueTrackerWebhookSecretJSONBody
 
 // CreateLicenseOverrideJSONRequestBody defines body for CreateLicenseOverride for application/json ContentType.
 type CreateLicenseOverrideJSONRequestBody = LicenseOverrideInput
@@ -14572,12 +14618,56 @@ type ClientInterface interface {
 	// reopens it if it is still present, which reopens the issue) and one reopened
 	// there reopens a remediated finding. Which side changed is decided against
 	// the last state both agreed on, so the directions never fight; an issue
-	// reopened over an exception is closed again. Then auto-create files up to 50
+	// reopened over an exception is closed again. With `sync_comments`, finding
+	// comments posted since the issue was linked are added to it (each once).
+	// Then auto-create files up to 50
 	// open findings per tracker at or above `min_severity`. A failing tracker or
 	// issue is logged and counted in `errors`, never aborts the run.
 	//
 	// Corresponds with POST /issue-trackers/sync (the `SyncIssueTrackers` operationId).
 	SyncIssueTrackers(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ReceiveIssueTrackerWebhookWithBody Receive a tracker webhook
+	//
+	// Public: each delivery is verified with the tracker's webhook secret
+	// instead (HMAC-SHA256 signature for GitHub `X-Hub-Signature-256`, Jira
+	// `X-Hub-Signature` and Linear `Linear-Signature`; `X-Gitlab-Token` for
+	// GitLab; basic auth for Azure DevOps; `Authorization: Bearer` for
+	// ServiceNow). An issue change reconciles its linked findings the way a
+	// sync run does, re-reading the issue through the API, so a delivery can
+	// make Xila look but never decides a state itself. A new comment, with
+	// `sync_comments` on, is added to the finding once (redeliveries and
+	// Xila's own pushed comments are skipped). Linear deliveries older than 5
+	// minutes are refused. The ServiceNow payload, sent by a business rule, is
+	// `{"sys_id": "...", "comment": {"id", "author", "body"}}` (comment
+	// optional). An unknown tracker, a disabled one and one without a secret
+	// all answer 404.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /issue-trackers/{trackerID}/webhook (the `ReceiveIssueTrackerWebhook` operationId).
+	ReceiveIssueTrackerWebhookWithBody(ctx context.Context, trackerID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ReceiveIssueTrackerWebhook Receive a tracker webhook
+	//
+	// Public: each delivery is verified with the tracker's webhook secret
+	// instead (HMAC-SHA256 signature for GitHub `X-Hub-Signature-256`, Jira
+	// `X-Hub-Signature` and Linear `Linear-Signature`; `X-Gitlab-Token` for
+	// GitLab; basic auth for Azure DevOps; `Authorization: Bearer` for
+	// ServiceNow). An issue change reconciles its linked findings the way a
+	// sync run does, re-reading the issue through the API, so a delivery can
+	// make Xila look but never decides a state itself. A new comment, with
+	// `sync_comments` on, is added to the finding once (redeliveries and
+	// Xila's own pushed comments are skipped). Linear deliveries older than 5
+	// minutes are refused. The ServiceNow payload, sent by a business rule, is
+	// `{"sys_id": "...", "comment": {"id", "author", "body"}}` (comment
+	// optional). An unknown tracker, a disabled one and one without a secret
+	// all answer 404.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /issue-trackers/{trackerID}/webhook (the `ReceiveIssueTrackerWebhook` operationId).
+	ReceiveIssueTrackerWebhook(ctx context.Context, trackerID openapi_types.UUID, body ReceiveIssueTrackerWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListLicenseGroups List license groups
 	//
@@ -16089,6 +16179,45 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /projects/{projectID}/issue-tracker/test (the `TestProjectIssueTracker` operationId).
 	TestProjectIssueTracker(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ClearIssueTrackerWebhookSecret Turn the webhook receiver off
+	//
+	// Project `owner`. Deletes the secret; deliveries then answer 404.
+	//
+	// Corresponds with DELETE /projects/{projectID}/issue-tracker/webhook-secret (the `ClearIssueTrackerWebhookSecret` operationId).
+	ClearIssueTrackerWebhookSecret(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RotateIssueTrackerWebhookSecretWithBody Turn the webhook receiver on with a new secret
+	//
+	// Project `owner`. Issues a new webhook secret, returned this once, and
+	// the URL to configure in the tracker; any previous secret stops working.
+	// Trackers that generate the secret themselves (Linear; Jira optionally)
+	// send it in the body instead.
+	// Configure the secret the tracker's own way: the webhook secret (GitHub,
+	// Jira admin webhooks, Linear), the secret token (GitLab), the basic-auth
+	// password of the service hook (Azure DevOps), or a Bearer token on the
+	// business rule's REST message (ServiceNow).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /projects/{projectID}/issue-tracker/webhook-secret (the `RotateIssueTrackerWebhookSecret` operationId).
+	RotateIssueTrackerWebhookSecretWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RotateIssueTrackerWebhookSecret Turn the webhook receiver on with a new secret
+	//
+	// Project `owner`. Issues a new webhook secret, returned this once, and
+	// the URL to configure in the tracker; any previous secret stops working.
+	// Trackers that generate the secret themselves (Linear; Jira optionally)
+	// send it in the body instead.
+	// Configure the secret the tracker's own way: the webhook secret (GitHub,
+	// Jira admin webhooks, Linear), the secret token (GitLab), the basic-auth
+	// password of the service hook (Azure DevOps), or a Bearer token on the
+	// business rule's REST message (ServiceNow).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /projects/{projectID}/issue-tracker/webhook-secret (the `RotateIssueTrackerWebhookSecret` operationId).
+	RotateIssueTrackerWebhookSecret(ctx context.Context, projectID ProjectID, body RotateIssueTrackerWebhookSecretJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListLicenseOverrides The project's curated concluded licenses
 	//
@@ -22875,13 +23004,77 @@ func (c *Client) GetIngestionHealth(ctx context.Context, reqEditors ...RequestEd
 // reopens it if it is still present, which reopens the issue) and one reopened
 // there reopens a remediated finding. Which side changed is decided against
 // the last state both agreed on, so the directions never fight; an issue
-// reopened over an exception is closed again. Then auto-create files up to 50
+// reopened over an exception is closed again. With `sync_comments`, finding
+// comments posted since the issue was linked are added to it (each once).
+// Then auto-create files up to 50
 // open findings per tracker at or above `min_severity`. A failing tracker or
 // issue is logged and counted in `errors`, never aborts the run.
 //
 // Corresponds with POST /issue-trackers/sync (the `SyncIssueTrackers` operationId).
 func (c *Client) SyncIssueTrackers(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSyncIssueTrackersRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ReceiveIssueTrackerWebhookWithBody Receive a tracker webhook
+//
+// Public: each delivery is verified with the tracker's webhook secret
+// instead (HMAC-SHA256 signature for GitHub `X-Hub-Signature-256`, Jira
+// `X-Hub-Signature` and Linear `Linear-Signature`; `X-Gitlab-Token` for
+// GitLab; basic auth for Azure DevOps; `Authorization: Bearer` for
+// ServiceNow). An issue change reconciles its linked findings the way a
+// sync run does, re-reading the issue through the API, so a delivery can
+// make Xila look but never decides a state itself. A new comment, with
+// `sync_comments` on, is added to the finding once (redeliveries and
+// Xila's own pushed comments are skipped). Linear deliveries older than 5
+// minutes are refused. The ServiceNow payload, sent by a business rule, is
+// `{"sys_id": "...", "comment": {"id", "author", "body"}}` (comment
+// optional). An unknown tracker, a disabled one and one without a secret
+// all answer 404.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /issue-trackers/{trackerID}/webhook (the `ReceiveIssueTrackerWebhook` operationId).
+func (c *Client) ReceiveIssueTrackerWebhookWithBody(ctx context.Context, trackerID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReceiveIssueTrackerWebhookRequestWithBody(c.Server, trackerID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ReceiveIssueTrackerWebhook Receive a tracker webhook
+//
+// Public: each delivery is verified with the tracker's webhook secret
+// instead (HMAC-SHA256 signature for GitHub `X-Hub-Signature-256`, Jira
+// `X-Hub-Signature` and Linear `Linear-Signature`; `X-Gitlab-Token` for
+// GitLab; basic auth for Azure DevOps; `Authorization: Bearer` for
+// ServiceNow). An issue change reconciles its linked findings the way a
+// sync run does, re-reading the issue through the API, so a delivery can
+// make Xila look but never decides a state itself. A new comment, with
+// `sync_comments` on, is added to the finding once (redeliveries and
+// Xila's own pushed comments are skipped). Linear deliveries older than 5
+// minutes are refused. The ServiceNow payload, sent by a business rule, is
+// `{"sys_id": "...", "comment": {"id", "author", "body"}}` (comment
+// optional). An unknown tracker, a disabled one and one without a secret
+// all answer 404.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /issue-trackers/{trackerID}/webhook (the `ReceiveIssueTrackerWebhook` operationId).
+func (c *Client) ReceiveIssueTrackerWebhook(ctx context.Context, trackerID openapi_types.UUID, body ReceiveIssueTrackerWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReceiveIssueTrackerWebhookRequest(c.Server, trackerID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -25993,6 +26186,75 @@ func (c *Client) PutProjectIssueTracker(ctx context.Context, projectID ProjectID
 // Corresponds with POST /projects/{projectID}/issue-tracker/test (the `TestProjectIssueTracker` operationId).
 func (c *Client) TestProjectIssueTracker(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewTestProjectIssueTrackerRequest(c.Server, projectID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ClearIssueTrackerWebhookSecret Turn the webhook receiver off
+//
+// Project `owner`. Deletes the secret; deliveries then answer 404.
+//
+// Corresponds with DELETE /projects/{projectID}/issue-tracker/webhook-secret (the `ClearIssueTrackerWebhookSecret` operationId).
+func (c *Client) ClearIssueTrackerWebhookSecret(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewClearIssueTrackerWebhookSecretRequest(c.Server, projectID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RotateIssueTrackerWebhookSecretWithBody Turn the webhook receiver on with a new secret
+//
+// Project `owner`. Issues a new webhook secret, returned this once, and
+// the URL to configure in the tracker; any previous secret stops working.
+// Trackers that generate the secret themselves (Linear; Jira optionally)
+// send it in the body instead.
+// Configure the secret the tracker's own way: the webhook secret (GitHub,
+// Jira admin webhooks, Linear), the secret token (GitLab), the basic-auth
+// password of the service hook (Azure DevOps), or a Bearer token on the
+// business rule's REST message (ServiceNow).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /projects/{projectID}/issue-tracker/webhook-secret (the `RotateIssueTrackerWebhookSecret` operationId).
+func (c *Client) RotateIssueTrackerWebhookSecretWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRotateIssueTrackerWebhookSecretRequestWithBody(c.Server, projectID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RotateIssueTrackerWebhookSecret Turn the webhook receiver on with a new secret
+//
+// Project `owner`. Issues a new webhook secret, returned this once, and
+// the URL to configure in the tracker; any previous secret stops working.
+// Trackers that generate the secret themselves (Linear; Jira optionally)
+// send it in the body instead.
+// Configure the secret the tracker's own way: the webhook secret (GitHub,
+// Jira admin webhooks, Linear), the secret token (GitLab), the basic-auth
+// password of the service hook (Azure DevOps), or a Bearer token on the
+// business rule's REST message (ServiceNow).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /projects/{projectID}/issue-tracker/webhook-secret (the `RotateIssueTrackerWebhookSecret` operationId).
+func (c *Client) RotateIssueTrackerWebhookSecret(ctx context.Context, projectID ProjectID, body RotateIssueTrackerWebhookSecretJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRotateIssueTrackerWebhookSecretRequest(c.Server, projectID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -39221,6 +39483,53 @@ func NewSyncIssueTrackersRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewReceiveIssueTrackerWebhookRequest calls the generic ReceiveIssueTrackerWebhook builder with application/json body
+func NewReceiveIssueTrackerWebhookRequest(server string, trackerID openapi_types.UUID, body ReceiveIssueTrackerWebhookJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewReceiveIssueTrackerWebhookRequestWithBody(server, trackerID, "application/json", bodyReader)
+}
+
+// NewReceiveIssueTrackerWebhookRequestWithBody constructs an http.Request for the ReceiveIssueTrackerWebhook method, with any body, and a specified content type
+func NewReceiveIssueTrackerWebhookRequestWithBody(server string, trackerID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "trackerID", trackerID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/issue-trackers/%s/webhook", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListLicenseGroupsRequest constructs an http.Request for the ListLicenseGroups method
 func NewListLicenseGroupsRequest(server string, params *ListLicenseGroupsParams) (*http.Request, error) {
 	var err error
@@ -45702,6 +46011,87 @@ func NewTestProjectIssueTrackerRequest(server string, projectID ProjectID) (*htt
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewClearIssueTrackerWebhookSecretRequest constructs an http.Request for the ClearIssueTrackerWebhookSecret method
+func NewClearIssueTrackerWebhookSecretRequest(server string, projectID ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/issue-tracker/webhook-secret", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRotateIssueTrackerWebhookSecretRequest calls the generic RotateIssueTrackerWebhookSecret builder with application/json body
+func NewRotateIssueTrackerWebhookSecretRequest(server string, projectID ProjectID, body RotateIssueTrackerWebhookSecretJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRotateIssueTrackerWebhookSecretRequestWithBody(server, projectID, "application/json", bodyReader)
+}
+
+// NewRotateIssueTrackerWebhookSecretRequestWithBody constructs an http.Request for the RotateIssueTrackerWebhookSecret method, with any body, and a specified content type
+func NewRotateIssueTrackerWebhookSecretRequestWithBody(server string, projectID ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/issue-tracker/webhook-secret", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -57912,7 +58302,9 @@ type ClientWithResponsesInterface interface {
 	// reopens it if it is still present, which reopens the issue) and one reopened
 	// there reopens a remediated finding. Which side changed is decided against
 	// the last state both agreed on, so the directions never fight; an issue
-	// reopened over an exception is closed again. Then auto-create files up to 50
+	// reopened over an exception is closed again. With `sync_comments`, finding
+	// comments posted since the issue was linked are added to it (each once).
+	// Then auto-create files up to 50
 	// open findings per tracker at or above `min_severity`. A failing tracker or
 	// issue is logged and counted in `errors`, never aborts the run.
 	//
@@ -57920,6 +58312,48 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /issue-trackers/sync (the `SyncIssueTrackers` operationId).
 	SyncIssueTrackersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*SyncIssueTrackersResponse, error)
+
+	// ReceiveIssueTrackerWebhookWithBodyWithResponse Receive a tracker webhook
+	//
+	// Public: each delivery is verified with the tracker's webhook secret
+	// instead (HMAC-SHA256 signature for GitHub `X-Hub-Signature-256`, Jira
+	// `X-Hub-Signature` and Linear `Linear-Signature`; `X-Gitlab-Token` for
+	// GitLab; basic auth for Azure DevOps; `Authorization: Bearer` for
+	// ServiceNow). An issue change reconciles its linked findings the way a
+	// sync run does, re-reading the issue through the API, so a delivery can
+	// make Xila look but never decides a state itself. A new comment, with
+	// `sync_comments` on, is added to the finding once (redeliveries and
+	// Xila's own pushed comments are skipped). Linear deliveries older than 5
+	// minutes are refused. The ServiceNow payload, sent by a business rule, is
+	// `{"sys_id": "...", "comment": {"id", "author", "body"}}` (comment
+	// optional). An unknown tracker, a disabled one and one without a secret
+	// all answer 404.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /issue-trackers/{trackerID}/webhook (the `ReceiveIssueTrackerWebhook` operationId).
+	ReceiveIssueTrackerWebhookWithBodyWithResponse(ctx context.Context, trackerID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReceiveIssueTrackerWebhookResponse, error)
+
+	// ReceiveIssueTrackerWebhookWithResponse Receive a tracker webhook
+	//
+	// Public: each delivery is verified with the tracker's webhook secret
+	// instead (HMAC-SHA256 signature for GitHub `X-Hub-Signature-256`, Jira
+	// `X-Hub-Signature` and Linear `Linear-Signature`; `X-Gitlab-Token` for
+	// GitLab; basic auth for Azure DevOps; `Authorization: Bearer` for
+	// ServiceNow). An issue change reconciles its linked findings the way a
+	// sync run does, re-reading the issue through the API, so a delivery can
+	// make Xila look but never decides a state itself. A new comment, with
+	// `sync_comments` on, is added to the finding once (redeliveries and
+	// Xila's own pushed comments are skipped). Linear deliveries older than 5
+	// minutes are refused. The ServiceNow payload, sent by a business rule, is
+	// `{"sys_id": "...", "comment": {"id", "author", "body"}}` (comment
+	// optional). An unknown tracker, a disabled one and one without a secret
+	// all answer 404.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /issue-trackers/{trackerID}/webhook (the `ReceiveIssueTrackerWebhook` operationId).
+	ReceiveIssueTrackerWebhookWithResponse(ctx context.Context, trackerID openapi_types.UUID, body ReceiveIssueTrackerWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*ReceiveIssueTrackerWebhookResponse, error)
 
 	// ListLicenseGroupsWithResponse List license groups
 	//
@@ -59595,6 +60029,47 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /projects/{projectID}/issue-tracker/test (the `TestProjectIssueTracker` operationId).
 	TestProjectIssueTrackerWithResponse(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*TestProjectIssueTrackerResponse, error)
+
+	// ClearIssueTrackerWebhookSecretWithResponse Turn the webhook receiver off
+	//
+	// Project `owner`. Deletes the secret; deliveries then answer 404.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /projects/{projectID}/issue-tracker/webhook-secret (the `ClearIssueTrackerWebhookSecret` operationId).
+	ClearIssueTrackerWebhookSecretWithResponse(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*ClearIssueTrackerWebhookSecretResponse, error)
+
+	// RotateIssueTrackerWebhookSecretWithBodyWithResponse Turn the webhook receiver on with a new secret
+	//
+	// Project `owner`. Issues a new webhook secret, returned this once, and
+	// the URL to configure in the tracker; any previous secret stops working.
+	// Trackers that generate the secret themselves (Linear; Jira optionally)
+	// send it in the body instead.
+	// Configure the secret the tracker's own way: the webhook secret (GitHub,
+	// Jira admin webhooks, Linear), the secret token (GitLab), the basic-auth
+	// password of the service hook (Azure DevOps), or a Bearer token on the
+	// business rule's REST message (ServiceNow).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /projects/{projectID}/issue-tracker/webhook-secret (the `RotateIssueTrackerWebhookSecret` operationId).
+	RotateIssueTrackerWebhookSecretWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RotateIssueTrackerWebhookSecretResponse, error)
+
+	// RotateIssueTrackerWebhookSecretWithResponse Turn the webhook receiver on with a new secret
+	//
+	// Project `owner`. Issues a new webhook secret, returned this once, and
+	// the URL to configure in the tracker; any previous secret stops working.
+	// Trackers that generate the secret themselves (Linear; Jira optionally)
+	// send it in the body instead.
+	// Configure the secret the tracker's own way: the webhook secret (GitHub,
+	// Jira admin webhooks, Linear), the secret token (GitLab), the basic-auth
+	// password of the service hook (Azure DevOps), or a Bearer token on the
+	// business rule's REST message (ServiceNow).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /projects/{projectID}/issue-tracker/webhook-secret (the `RotateIssueTrackerWebhookSecret` operationId).
+	RotateIssueTrackerWebhookSecretWithResponse(ctx context.Context, projectID ProjectID, body RotateIssueTrackerWebhookSecretJSONRequestBody, reqEditors ...RequestEditorFn) (*RotateIssueTrackerWebhookSecretResponse, error)
 
 	// ListLicenseOverridesWithResponse The project's curated concluded licenses
 	//
@@ -70836,6 +71311,93 @@ func (r SyncIssueTrackersResponse) ContentType() string {
 	return ""
 }
 
+type ReceiveIssueTrackerWebhookResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Comments Comments added to findings.
+		Comments *int `json:"comments,omitempty"`
+
+		// Ignored An event Xila does not act on
+		Ignored *bool `json:"ignored,omitempty"`
+
+		// Links Links reconciled.
+		Links *int `json:"links,omitempty"`
+	}
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON413 the response for an HTTP 413 `application/json` response
+	JSON413 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ReceiveIssueTrackerWebhookResponse) GetJSON200() *struct {
+	// Comments Comments added to findings.
+	Comments *int `json:"comments,omitempty"`
+
+	// Ignored An event Xila does not act on
+	Ignored *bool `json:"ignored,omitempty"`
+
+	// Links Links reconciled.
+	Links *int `json:"links,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r ReceiveIssueTrackerWebhookResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r ReceiveIssueTrackerWebhookResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r ReceiveIssueTrackerWebhookResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON413 returns the response for an HTTP 413 `application/json` response
+func (r ReceiveIssueTrackerWebhookResponse) GetJSON413() *Error {
+	return r.JSON413
+}
+
+// GetBody returns the raw response body bytes
+func (r ReceiveIssueTrackerWebhookResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ReceiveIssueTrackerWebhookResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ReceiveIssueTrackerWebhookResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ReceiveIssueTrackerWebhookResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListLicenseGroupsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -77108,6 +77670,114 @@ func (r TestProjectIssueTrackerResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r TestProjectIssueTrackerResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ClearIssueTrackerWebhookSecretResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r ClearIssueTrackerWebhookSecretResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ClearIssueTrackerWebhookSecretResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ClearIssueTrackerWebhookSecretResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ClearIssueTrackerWebhookSecretResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ClearIssueTrackerWebhookSecretResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RotateIssueTrackerWebhookSecretResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Kind *string `json:"kind,omitempty"`
+
+		// Secret Shown once.
+		Secret     *string `json:"secret,omitempty"`
+		WebhookUrl *string `json:"webhook_url,omitempty"`
+	}
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RotateIssueTrackerWebhookSecretResponse) GetJSON200() *struct {
+	Kind *string `json:"kind,omitempty"`
+
+	// Secret Shown once.
+	Secret     *string `json:"secret,omitempty"`
+	WebhookUrl *string `json:"webhook_url,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r RotateIssueTrackerWebhookSecretResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r RotateIssueTrackerWebhookSecretResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r RotateIssueTrackerWebhookSecretResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RotateIssueTrackerWebhookSecretResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RotateIssueTrackerWebhookSecretResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RotateIssueTrackerWebhookSecretResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -91803,7 +92473,9 @@ func (c *ClientWithResponses) GetIngestionHealthWithResponse(ctx context.Context
 // reopens it if it is still present, which reopens the issue) and one reopened
 // there reopens a remediated finding. Which side changed is decided against
 // the last state both agreed on, so the directions never fight; an issue
-// reopened over an exception is closed again. Then auto-create files up to 50
+// reopened over an exception is closed again. With `sync_comments`, finding
+// comments posted since the issue was linked are added to it (each once).
+// Then auto-create files up to 50
 // open findings per tracker at or above `min_severity`. A failing tracker or
 // issue is logged and counted in `errors`, never aborts the run.
 //
@@ -91816,6 +92488,60 @@ func (c *ClientWithResponses) SyncIssueTrackersWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseSyncIssueTrackersResponse(rsp)
+}
+
+// ReceiveIssueTrackerWebhookWithBodyWithResponse Receive a tracker webhook
+//
+// Public: each delivery is verified with the tracker's webhook secret
+// instead (HMAC-SHA256 signature for GitHub `X-Hub-Signature-256`, Jira
+// `X-Hub-Signature` and Linear `Linear-Signature`; `X-Gitlab-Token` for
+// GitLab; basic auth for Azure DevOps; `Authorization: Bearer` for
+// ServiceNow). An issue change reconciles its linked findings the way a
+// sync run does, re-reading the issue through the API, so a delivery can
+// make Xila look but never decides a state itself. A new comment, with
+// `sync_comments` on, is added to the finding once (redeliveries and
+// Xila's own pushed comments are skipped). Linear deliveries older than 5
+// minutes are refused. The ServiceNow payload, sent by a business rule, is
+// `{"sys_id": "...", "comment": {"id", "author", "body"}}` (comment
+// optional). An unknown tracker, a disabled one and one without a secret
+// all answer 404.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /issue-trackers/{trackerID}/webhook (the `ReceiveIssueTrackerWebhook` operationId).
+func (c *ClientWithResponses) ReceiveIssueTrackerWebhookWithBodyWithResponse(ctx context.Context, trackerID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReceiveIssueTrackerWebhookResponse, error) {
+	rsp, err := c.ReceiveIssueTrackerWebhookWithBody(ctx, trackerID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReceiveIssueTrackerWebhookResponse(rsp)
+}
+
+// ReceiveIssueTrackerWebhookWithResponse Receive a tracker webhook
+//
+// Public: each delivery is verified with the tracker's webhook secret
+// instead (HMAC-SHA256 signature for GitHub `X-Hub-Signature-256`, Jira
+// `X-Hub-Signature` and Linear `Linear-Signature`; `X-Gitlab-Token` for
+// GitLab; basic auth for Azure DevOps; `Authorization: Bearer` for
+// ServiceNow). An issue change reconciles its linked findings the way a
+// sync run does, re-reading the issue through the API, so a delivery can
+// make Xila look but never decides a state itself. A new comment, with
+// `sync_comments` on, is added to the finding once (redeliveries and
+// Xila's own pushed comments are skipped). Linear deliveries older than 5
+// minutes are refused. The ServiceNow payload, sent by a business rule, is
+// `{"sys_id": "...", "comment": {"id", "author", "body"}}` (comment
+// optional). An unknown tracker, a disabled one and one without a secret
+// all answer 404.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /issue-trackers/{trackerID}/webhook (the `ReceiveIssueTrackerWebhook` operationId).
+func (c *ClientWithResponses) ReceiveIssueTrackerWebhookWithResponse(ctx context.Context, trackerID openapi_types.UUID, body ReceiveIssueTrackerWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*ReceiveIssueTrackerWebhookResponse, error) {
+	rsp, err := c.ReceiveIssueTrackerWebhook(ctx, trackerID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReceiveIssueTrackerWebhookResponse(rsp)
 }
 
 // ListLicenseGroupsWithResponse List license groups
@@ -94451,6 +95177,65 @@ func (c *ClientWithResponses) TestProjectIssueTrackerWithResponse(ctx context.Co
 		return nil, err
 	}
 	return ParseTestProjectIssueTrackerResponse(rsp)
+}
+
+// ClearIssueTrackerWebhookSecretWithResponse Turn the webhook receiver off
+//
+// Project `owner`. Deletes the secret; deliveries then answer 404.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /projects/{projectID}/issue-tracker/webhook-secret (the `ClearIssueTrackerWebhookSecret` operationId).
+func (c *ClientWithResponses) ClearIssueTrackerWebhookSecretWithResponse(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*ClearIssueTrackerWebhookSecretResponse, error) {
+	rsp, err := c.ClearIssueTrackerWebhookSecret(ctx, projectID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseClearIssueTrackerWebhookSecretResponse(rsp)
+}
+
+// RotateIssueTrackerWebhookSecretWithBodyWithResponse Turn the webhook receiver on with a new secret
+//
+// Project `owner`. Issues a new webhook secret, returned this once, and
+// the URL to configure in the tracker; any previous secret stops working.
+// Trackers that generate the secret themselves (Linear; Jira optionally)
+// send it in the body instead.
+// Configure the secret the tracker's own way: the webhook secret (GitHub,
+// Jira admin webhooks, Linear), the secret token (GitLab), the basic-auth
+// password of the service hook (Azure DevOps), or a Bearer token on the
+// business rule's REST message (ServiceNow).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /projects/{projectID}/issue-tracker/webhook-secret (the `RotateIssueTrackerWebhookSecret` operationId).
+func (c *ClientWithResponses) RotateIssueTrackerWebhookSecretWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RotateIssueTrackerWebhookSecretResponse, error) {
+	rsp, err := c.RotateIssueTrackerWebhookSecretWithBody(ctx, projectID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRotateIssueTrackerWebhookSecretResponse(rsp)
+}
+
+// RotateIssueTrackerWebhookSecretWithResponse Turn the webhook receiver on with a new secret
+//
+// Project `owner`. Issues a new webhook secret, returned this once, and
+// the URL to configure in the tracker; any previous secret stops working.
+// Trackers that generate the secret themselves (Linear; Jira optionally)
+// send it in the body instead.
+// Configure the secret the tracker's own way: the webhook secret (GitHub,
+// Jira admin webhooks, Linear), the secret token (GitLab), the basic-auth
+// password of the service hook (Azure DevOps), or a Bearer token on the
+// business rule's REST message (ServiceNow).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /projects/{projectID}/issue-tracker/webhook-secret (the `RotateIssueTrackerWebhookSecret` operationId).
+func (c *ClientWithResponses) RotateIssueTrackerWebhookSecretWithResponse(ctx context.Context, projectID ProjectID, body RotateIssueTrackerWebhookSecretJSONRequestBody, reqEditors ...RequestEditorFn) (*RotateIssueTrackerWebhookSecretResponse, error) {
+	rsp, err := c.RotateIssueTrackerWebhookSecret(ctx, projectID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRotateIssueTrackerWebhookSecretResponse(rsp)
 }
 
 // ListLicenseOverridesWithResponse The project's curated concluded licenses
@@ -104720,6 +105505,69 @@ func ParseSyncIssueTrackersResponse(rsp *http.Response) (*SyncIssueTrackersRespo
 	return response, nil
 }
 
+// ParseReceiveIssueTrackerWebhookResponse parses an HTTP response from a ReceiveIssueTrackerWebhookWithResponse call
+func ParseReceiveIssueTrackerWebhookResponse(rsp *http.Response) (*ReceiveIssueTrackerWebhookResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ReceiveIssueTrackerWebhookResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Comments Comments added to findings.
+			Comments *int `json:"comments,omitempty"`
+
+			// Ignored An event Xila does not act on
+			Ignored *bool `json:"ignored,omitempty"`
+
+			// Links Links reconciled.
+			Links *int `json:"links,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListLicenseGroupsResponse parses an HTTP response from a ListLicenseGroupsWithResponse call
 func ParseListLicenseGroupsResponse(rsp *http.Response) (*ListLicenseGroupsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -109010,6 +109858,81 @@ func ParseTestProjectIssueTrackerResponse(rsp *http.Response) (*TestProjectIssue
 			return nil, err
 		}
 		response.JSON502 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseClearIssueTrackerWebhookSecretResponse parses an HTTP response from a ClearIssueTrackerWebhookSecretWithResponse call
+func ParseClearIssueTrackerWebhookSecretResponse(rsp *http.Response) (*ClearIssueTrackerWebhookSecretResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ClearIssueTrackerWebhookSecretResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRotateIssueTrackerWebhookSecretResponse parses an HTTP response from a RotateIssueTrackerWebhookSecretWithResponse call
+func ParseRotateIssueTrackerWebhookSecretResponse(rsp *http.Response) (*RotateIssueTrackerWebhookSecretResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RotateIssueTrackerWebhookSecretResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Kind *string `json:"kind,omitempty"`
+
+			// Secret Shown once.
+			Secret     *string `json:"secret,omitempty"`
+			WebhookUrl *string `json:"webhook_url,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	}
 
