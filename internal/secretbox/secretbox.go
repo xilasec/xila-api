@@ -47,7 +47,7 @@ func (c *Cipher) Seal(plaintext, aad string) ([]byte, error) {
 	if c == nil {
 		return nil, ErrNoKey
 	}
-	nonce := make([]byte, c.aead.NonceSize(), c.aead.NonceSize()+len(plaintext)+c.aead.Overhead())
+	nonce := make([]byte, c.aead.NonceSize())
 	if _, err := rand.Read(nonce); err != nil {
 		return nil, fmt.Errorf("nonce: %w", err)
 	}

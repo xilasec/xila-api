@@ -1,7 +1,7 @@
 package secretbox
 
 import (
-	"crypto/sha256"
+	"crypto/subtle"
 	"sync"
 )
 
@@ -25,11 +25,11 @@ type Keyring struct {
 	mu       sync.RWMutex
 	primary  *Cipher
 	previous []*Cipher
-	// primaryID is a hash of the current primary key, compared on Update to
+	// primaryKey is the current primary key bytes, compared on Update to
 	// detect a primary rotation (as opposed to only the previous list
-	// changing) and nudge changed.
-	primaryID string
-	changed   chan struct{} // buffered 1; nudged when Update changes the primary
+	// changing) and nudge changed. Held in memory only, never persisted.
+	primaryKey []byte
+	changed    chan struct{} // buffered 1; nudged when Update changes the primary
 }
 
 // NewKeyring builds a ring from the primary key and zero or more previous
@@ -75,11 +75,12 @@ func (k *Keyring) Update(primary []byte, previous [][]byte) error {
 		}
 		prev = append(prev, c)
 	}
-	id := keyID(primary)
+	// Copy so a later mutation of the caller's slice can't change what we hold.
+	key := append([]byte(nil), primary...)
 
 	k.mu.Lock()
-	primaryChanged := k.primaryID != id
-	k.primary, k.previous, k.primaryID = p, prev, id
+	primaryChanged := subtle.ConstantTimeCompare(k.primaryKey, key) != 1
+	k.primary, k.previous, k.primaryKey = p, prev, key
 	k.mu.Unlock()
 
 	if primaryChanged {
@@ -154,11 +155,4 @@ func (k *Keyring) OpenTier(sealed []byte, aad string) (plaintext, tier string, e
 		lastErr = err
 	}
 	return "", "", lastErr
-}
-
-// keyID is a non-reversible fingerprint of a key, used only to detect
-// whether Update changed the primary — never persisted or logged.
-func keyID(key []byte) string {
-	sum := sha256.Sum256(key)
-	return string(sum[:])
 }
