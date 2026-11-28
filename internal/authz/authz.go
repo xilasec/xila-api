@@ -305,7 +305,7 @@ func capabilityFor(path, method string) domain.Capability {
 				return domain.CapUpload
 			}
 			return domain.CapProjectSettings
-		case "sla", "issue-tracker", "versions", "badge-token":
+		case "sla", "issue-tracker", "versions", "badge-token", "scan-expectations":
 			return domain.CapProjectSettings
 		case "risk-acceptances":
 			if last == "approve" || last == "reject" || last == "revoke" {
@@ -450,6 +450,12 @@ func baseScope(path, method string) routeScope {
 		// A connector holds a credential for another system too: configuring or
 		// testing it is owner-level. Pulling is just a scan (editor).
 		if len(segs) >= 3 && segs[2] == "connectors" && !get && !(len(segs) == 5 && segs[4] == "pull") {
+			s.minRole = domain.TeamOwner
+		}
+		// Declaring an expected scan cadence is an owner-level commitment, like
+		// an SLA: the team working the backlog shouldn't be able to quietly
+		// relax what it's held to report on.
+		if len(segs) >= 3 && segs[2] == "scan-expectations" && !get {
 			s.minRole = domain.TeamOwner
 		}
 		return s

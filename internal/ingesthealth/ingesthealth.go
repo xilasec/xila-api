@@ -8,12 +8,15 @@ package ingesthealth
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"slices"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/xilasec/xila-api/internal/archive"
@@ -29,6 +32,7 @@ const (
 	KindFailedScan       = "failed_scan"       // the stream's latest scan failed
 	KindConnectorFailing = "connector_failing" // a connector's last pull failed
 	KindFailedJobs       = "failed_jobs"       // ingest jobs gave up recently
+	KindMissing          = "missing"           // a declared scan expectation has no recent completed scan
 )
 
 // Detection thresholds.
@@ -44,13 +48,16 @@ const (
 
 // Anomaly is one thing wrong with a project's intake.
 type Anomaly struct {
-	Kind        string    `json:"kind"`
-	ProjectID   string    `json:"project_id"`
-	ProjectName string    `json:"project_name"`
-	Scanner     string    `json:"scanner,omitempty"`
-	AssetID     *string   `json:"asset_id,omitempty"`
-	Detail      string    `json:"detail"`
-	Since       time.Time `json:"since"` // when the problem became visible
+	Kind        string  `json:"kind"`
+	ProjectID   string  `json:"project_id"`
+	ProjectName string  `json:"project_name"`
+	Scanner     string  `json:"scanner,omitempty"`
+	AssetID     *string `json:"asset_id,omitempty"`
+	// Branch is set for a KindMissing anomaly: the expectation's declared
+	// branch ("" means the project's default version).
+	Branch string    `json:"branch,omitempty"`
+	Detail string    `json:"detail"`
+	Since  time.Time `json:"since"` // when the problem became visible
 }
 
 // Key identifies an anomaly across sweeps.
@@ -59,7 +66,7 @@ func (a Anomaly) Key() string {
 	if a.AssetID != nil {
 		asset = *a.AssetID
 	}
-	return a.Kind + "|" + a.ProjectID + "|" + a.Scanner + "|" + asset
+	return a.Kind + "|" + a.ProjectID + "|" + a.Scanner + "|" + asset + "|" + a.Branch
 }
 
 // Point is one scan of a stream: when, how it ended, and how many findings it
@@ -160,6 +167,102 @@ type Repository struct{ db *pgxpool.Pool }
 // NewRepository constructs the repository.
 func NewRepository(db *pgxpool.Pool) *Repository { return &Repository{db: db} }
 
+// Expectation is a declared scan cadence for a project: "scanner (or
+// category) should report within max_age, on branch" — settable by the
+// project owner, so Check reports a scanner that never ran, not only one
+// that stopped (Evaluate needs 3+ scans of history to establish a cadence).
+// Branch "" means the project's default version.
+type Expectation struct {
+	ID          string    `json:"id"`
+	ProjectID   string    `json:"project_id"`
+	Scanner     *string   `json:"scanner"`
+	Category    *string   `json:"category"`
+	Branch      string    `json:"branch"`
+	MaxAgeHours int       `json:"max_age_hours"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+// ErrInvalidExpectation is returned when the expectation doesn't name exactly
+// one of scanner/category, or max_age_hours isn't positive.
+var ErrInvalidExpectation = errors.New("exactly one of scanner or category, and a positive max_age_hours, are required")
+
+// ErrDuplicateExpectation is returned when the project already declares that
+// scanner/category on that branch.
+var ErrDuplicateExpectation = errors.New("that scanner/category and branch is already declared for this project")
+
+// ErrNoProject is returned when an expectation names a project that doesn't exist.
+var ErrNoProject = errors.New("project not found")
+
+// Validate checks the expectation is well formed.
+func (e Expectation) Validate() error {
+	if (e.Scanner == nil) == (e.Category == nil) || e.MaxAgeHours < 1 {
+		return ErrInvalidExpectation
+	}
+	return nil
+}
+
+const expectationColumns = `id, project_id, scanner, category, branch, max_age_hours, created_at, updated_at`
+
+func scanExpectation(row pgx.Row) (Expectation, error) {
+	var e Expectation
+	err := row.Scan(&e.ID, &e.ProjectID, &e.Scanner, &e.Category, &e.Branch, &e.MaxAgeHours, &e.CreatedAt, &e.UpdatedAt)
+	return e, err
+}
+
+// ListExpectations returns a project's declared scan expectations, oldest first.
+func (r *Repository) ListExpectations(ctx context.Context, projectID string) ([]Expectation, error) {
+	rows, err := r.db.Query(ctx,
+		`SELECT `+expectationColumns+` FROM project_scan_expectations WHERE project_id = $1 ORDER BY created_at`, projectID)
+	if err != nil {
+		return nil, fmt.Errorf("list scan expectations: %w", err)
+	}
+	defer rows.Close()
+	out := []Expectation{}
+	for rows.Next() {
+		e, err := scanExpectation(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan expectation: %w", err)
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
+// CreateExpectation stores a new expectation for a project.
+func (r *Repository) CreateExpectation(ctx context.Context, e Expectation) (Expectation, error) {
+	if err := e.Validate(); err != nil {
+		return Expectation{}, err
+	}
+	out, err := scanExpectation(r.db.QueryRow(ctx, `
+		INSERT INTO project_scan_expectations (project_id, scanner, category, branch, max_age_hours)
+		VALUES ($1, $2, $3, $4, $5) RETURNING `+expectationColumns,
+		e.ProjectID, e.Scanner, e.Category, e.Branch, e.MaxAgeHours))
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		switch pgErr.Code {
+		case "23503":
+			return Expectation{}, ErrNoProject
+		case "23505":
+			return Expectation{}, ErrDuplicateExpectation
+		}
+	}
+	if err != nil {
+		return Expectation{}, fmt.Errorf("create scan expectation: %w", err)
+	}
+	return out, nil
+}
+
+// DeleteExpectation removes a project's expectation; ok is false when it
+// didn't exist for that project.
+func (r *Repository) DeleteExpectation(ctx context.Context, projectID, id string) (bool, error) {
+	tag, err := r.db.Exec(ctx, `DELETE FROM project_scan_expectations WHERE id = $1 AND project_id = $2`, id, projectID)
+	if err != nil {
+		return false, fmt.Errorf("delete scan expectation: %w", err)
+	}
+	return tag.RowsAffected() > 0, nil
+}
+
 // Check lists every anomaly in scope (nil = all projects), project first.
 // Synthetic producers (advisory matching, policies) run on Xila's own
 // schedule and aren't watched; connectors are watched by their own status.
@@ -240,20 +343,79 @@ func (r *Repository) Check(ctx context.Context, scope []string, now time.Time) (
 	if err != nil {
 		return nil, fmt.Errorf("ingest health jobs: %w", err)
 	}
-	defer jrow.Close()
 	for jrow.Next() {
 		var a Anomaly
 		var n int
 		if err := jrow.Scan(&a.ProjectID, &a.ProjectName, &n, &a.Since); err != nil {
+			jrow.Close()
 			return nil, fmt.Errorf("scan jobs: %w", err)
 		}
 		a.Kind, a.Detail = KindFailedJobs, fmt.Sprintf("%d upload(s) failed to ingest in the last 7 days", n)
 		out = append(out, a)
 	}
+	jrow.Close()
+	if err := jrow.Err(); err != nil {
+		return nil, fmt.Errorf("ingest health jobs: %w", err)
+	}
+
+	// Declared scan expectations with no completed scan within their window
+	// (including one that has never run).
+	erow, err := r.db.Query(ctx, `
+		SELECT e.project_id, p.name, e.scanner, e.category, e.branch, e.max_age_hours,
+		       (SELECT max(COALESCE(s.finished_at, s.created_at)) FROM scans s
+		        WHERE s.project_id = e.project_id AND s.status = 'completed'
+		          AND (e.scanner IS NULL OR s.scanner = e.scanner)
+		          AND (e.category IS NULL OR s.category = e.category)
+		          AND (CASE WHEN e.branch = '' THEN s.version_id IN (
+		                        SELECT id FROM project_versions WHERE project_id = e.project_id AND is_default)
+		                    ELSE s.branch = e.branch END))
+		FROM project_scan_expectations e JOIN projects p ON p.id = e.project_id
+		WHERE ($1::uuid[] IS NULL OR e.project_id = ANY($1))`, scope)
+	if err != nil {
+		return nil, fmt.Errorf("ingest health expectations: %w", err)
+	}
+	defer erow.Close()
+	for erow.Next() {
+		var a Anomaly
+		var scanner, category *string
+		var maxAgeHours int
+		var lastOK *time.Time
+		if err := erow.Scan(&a.ProjectID, &a.ProjectName, &scanner, &category, &a.Branch, &maxAgeHours, &lastOK); err != nil {
+			return nil, fmt.Errorf("scan expectation: %w", err)
+		}
+		limit := time.Duration(maxAgeHours) * time.Hour
+		if lastOK != nil && now.Sub(*lastOK) <= limit {
+			continue // satisfied
+		}
+		var what string
+		if scanner != nil {
+			what, a.Scanner = *scanner, *scanner
+		} else {
+			what, a.Scanner = "category "+*category, "category:"+*category
+		}
+		branchLabel := a.Branch
+		if branchLabel == "" {
+			branchLabel = "the default version"
+		}
+		a.Kind = KindMissing
+		if lastOK == nil {
+			a.Detail = fmt.Sprintf("expected %s on %s within %s: none has ever completed", what, branchLabel, round(limit))
+			a.Since = now
+		} else {
+			a.Detail = fmt.Sprintf("expected %s on %s within %s: last completed %s ago",
+				what, branchLabel, round(limit), round(now.Sub(*lastOK)))
+			a.Since = lastOK.Add(limit)
+		}
+		out = append(out, a)
+	}
+	if err := erow.Err(); err != nil {
+		return nil, fmt.Errorf("ingest health expectations: %w", err)
+	}
+
 	if out == nil {
 		out = []Anomaly{}
 	}
-	return out, jrow.Err()
+	return out, nil
 }
 
 func sameAsset(a, b *string) bool {
@@ -327,11 +489,16 @@ type Handler struct{ repo *Repository }
 // NewHandler constructs the handler.
 func NewHandler(repo *Repository) *Handler { return &Handler{repo: repo} }
 
-// Register mounts GET /ingestion-health (the caller's projects) and
-// GET /projects/{id}/ingestion-health.
+// Register mounts GET /ingestion-health (the caller's projects),
+// GET /projects/{id}/ingestion-health, and a project's declared scan
+// expectations (listing needs viewer; declaring/removing one is owner-level,
+// gated by authz like an SLA — see internal/authz).
 func (h *Handler) Register(r fiber.Router) {
 	r.Get("/ingestion-health", h.list)
 	r.Get("/projects/:projectID/ingestion-health", h.project)
+	r.Get("/projects/:projectID/scan-expectations", h.listExpectations)
+	r.Post("/projects/:projectID/scan-expectations", h.createExpectation)
+	r.Delete("/projects/:projectID/scan-expectations/:expectationID", h.deleteExpectation)
 }
 
 func (h *Handler) list(c *fiber.Ctx) error {
@@ -359,4 +526,71 @@ func (h *Handler) project(c *fiber.Ctx) error {
 		return err
 	}
 	return c.JSON(fiber.Map{"anomalies": out})
+}
+
+func (h *Handler) listExpectations(c *fiber.Ctx) error {
+	id, err := httpx.ID(c, "projectID")
+	if err != nil {
+		return err
+	}
+	out, err := h.repo.ListExpectations(c.UserContext(), id)
+	if err != nil {
+		return err
+	}
+	return c.JSON(fiber.Map{"expectations": out})
+}
+
+type expectationRequest struct {
+	Scanner     *string `json:"scanner"`
+	Category    *string `json:"category"`
+	Branch      string  `json:"branch"`
+	MaxAgeHours int     `json:"max_age_hours"`
+}
+
+// createExpectation handles POST /projects/{id}/scan-expectations: declare a
+// scanner (or category) that should report within max_age_hours on branch
+// ("" = the project's default version).
+func (h *Handler) createExpectation(c *fiber.Ctx) error {
+	id, err := httpx.ID(c, "projectID")
+	if err != nil {
+		return err
+	}
+	var req expectationRequest
+	if err := httpx.Parse(c, &req); err != nil {
+		return err
+	}
+	out, err := h.repo.CreateExpectation(c.UserContext(), Expectation{
+		ProjectID: id, Scanner: req.Scanner, Category: req.Category, Branch: req.Branch, MaxAgeHours: req.MaxAgeHours,
+	})
+	switch {
+	case errors.Is(err, ErrInvalidExpectation):
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	case errors.Is(err, ErrDuplicateExpectation):
+		return fiber.NewError(fiber.StatusConflict, err.Error())
+	case errors.Is(err, ErrNoProject):
+		return fiber.NewError(fiber.StatusNotFound, err.Error())
+	case err != nil:
+		return err
+	}
+	return c.Status(fiber.StatusCreated).JSON(out)
+}
+
+// deleteExpectation handles DELETE /projects/{id}/scan-expectations/{expectationID}.
+func (h *Handler) deleteExpectation(c *fiber.Ctx) error {
+	projectID, err := httpx.ID(c, "projectID")
+	if err != nil {
+		return err
+	}
+	expectationID, err := httpx.ID(c, "expectationID")
+	if err != nil {
+		return err
+	}
+	ok, err := h.repo.DeleteExpectation(c.UserContext(), projectID, expectationID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fiber.NewError(fiber.StatusNotFound, "scan expectation not found")
+	}
+	return c.SendStatus(fiber.StatusNoContent)
 }

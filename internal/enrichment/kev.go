@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/xilasec/xila-api/internal/domain"
 	"github.com/xilasec/xila-api/internal/secretref"
@@ -39,12 +40,15 @@ type KEVCatalog interface {
 	Fetch(ctx context.Context) (KEVList, error)
 }
 
-// KEVList is one catalog download: every id it asserts, and the ids whose
-// entry says the flaw is known to be used in ransomware campaigns
-// (knownRansomwareCampaignUse "Known"; CISA and VulnCheck carry it).
+// KEVList is one catalog download: every id it asserts, the ids whose entry
+// says the flaw is known to be used in ransomware campaigns
+// (knownRansomwareCampaignUse "Known"; CISA and VulnCheck carry it), and the
+// required-action due date CISA/VulnCheck publish per id (normalized to
+// midnight UTC of that calendar day).
 type KEVList struct {
 	IDs        []string
 	Ransomware map[string]bool
+	DueDates   map[string]time.Time
 }
 
 // KEVCatalogs builds the configured catalogs. urls overrides a catalog's URL
@@ -77,32 +81,47 @@ func KEVCatalogs(names []string, urls map[string]string, vulnCheckToken secretre
 	return out, nil
 }
 
-// ids collects normalized vulnerability ids, deduplicated, and which of
-// them are known to be used in ransomware campaigns.
+// ids collects normalized vulnerability ids, deduplicated, which of them are
+// known to be used in ransomware campaigns, and the earliest published due
+// date for each.
 type ids struct {
 	seen       map[string]bool
 	list       []string
 	ransomware map[string]bool
+	dueDates   map[string]time.Time
 }
 
 // addEntry adds one catalog entry's ids; ransomwareUse is its
-// knownRansomwareCampaignUse value ("Known" / "Unknown").
-func (s *ids) addEntry(ransomwareUse string, raw ...string) {
+// knownRansomwareCampaignUse value ("Known" / "Unknown"); due is its
+// required-action due date (nil when the entry doesn't publish one).
+func (s *ids) addEntry(ransomwareUse string, due *time.Time, raw ...string) {
 	s.add(raw...)
-	if !strings.EqualFold(strings.TrimSpace(ransomwareUse), "known") {
-		return
-	}
-	if s.ransomware == nil {
-		s.ransomware = map[string]bool{}
-	}
+	ransomware := strings.EqualFold(strings.TrimSpace(ransomwareUse), "known")
 	for _, id := range raw {
-		if id = strings.ToUpper(strings.TrimSpace(id)); id != "" {
+		id = strings.ToUpper(strings.TrimSpace(id))
+		if id == "" {
+			continue
+		}
+		if ransomware {
+			if s.ransomware == nil {
+				s.ransomware = map[string]bool{}
+			}
 			s.ransomware[id] = true
+		}
+		if due != nil {
+			if s.dueDates == nil {
+				s.dueDates = map[string]time.Time{}
+			}
+			if existing, ok := s.dueDates[id]; !ok || due.Before(existing) {
+				s.dueDates[id] = *due
+			}
 		}
 	}
 }
 
-func (s *ids) result() KEVList { return KEVList{IDs: s.list, Ransomware: s.ransomware} }
+func (s *ids) result() KEVList {
+	return KEVList{IDs: s.list, Ransomware: s.ransomware, DueDates: s.dueDates}
+}
 
 func (s *ids) add(raw ...string) {
 	if s.seen == nil {
@@ -118,12 +137,33 @@ func (s *ids) add(raw ...string) {
 	}
 }
 
+// parseKEVDate parses a catalog's published due date: CISA uses a bare date
+// (2006-01-02), VulnCheck an RFC3339 timestamp. Either way the result is
+// normalized to midnight UTC of that calendar day, so the deadline cap it
+// feeds is timezone-independent. An empty or unparseable value is not an
+// error: most KEV entries (and every non-CISA/VulnCheck catalog) have none.
+func parseKEVDate(s string) *time.Time {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil
+	}
+	t, err := time.Parse("2006-01-02", s)
+	if err != nil {
+		if t, err = time.Parse(time.RFC3339, s); err != nil {
+			return nil
+		}
+	}
+	d := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
+	return &d
+}
+
 // ParseCISAKEV reads CISA's known_exploited_vulnerabilities.json.
 func ParseCISAKEV(r io.Reader) (KEVList, error) {
 	var doc struct {
 		Vulnerabilities []struct {
 			CveID      string `json:"cveID"`
 			Ransomware string `json:"knownRansomwareCampaignUse"`
+			DueDate    string `json:"dueDate"`
 		} `json:"vulnerabilities"`
 	}
 	if err := json.NewDecoder(r).Decode(&doc); err != nil {
@@ -131,7 +171,7 @@ func ParseCISAKEV(r io.Reader) (KEVList, error) {
 	}
 	var out ids
 	for _, v := range doc.Vulnerabilities {
-		out.addEntry(v.Ransomware, v.CveID)
+		out.addEntry(v.Ransomware, parseKEVDate(v.DueDate), v.CveID)
 	}
 	return out.result(), nil
 }
@@ -168,7 +208,8 @@ func ParseEUVDPage(r io.Reader) (EUVDPage, error) {
 type VulnCheckPage struct {
 	IDs        []string
 	Ransomware []string // ids whose entry has knownRansomwareCampaignUse "Known"
-	NextCursor string   // "" on the last page
+	DueDates   map[string]time.Time
+	NextCursor string // "" on the last page
 }
 
 // ParseVulnCheckKEVPage reads one page of VulnCheck's vulncheck-kev index
@@ -181,6 +222,7 @@ func ParseVulnCheckKEVPage(r io.Reader) (VulnCheckPage, error) {
 		Data []struct {
 			CVE        []string `json:"cve"`
 			Ransomware string   `json:"knownRansomwareCampaignUse"`
+			DueDate    string   `json:"dueDate"`
 		} `json:"data"`
 	}
 	if err := json.NewDecoder(r).Decode(&doc); err != nil {
@@ -188,9 +230,9 @@ func ParseVulnCheckKEVPage(r io.Reader) (VulnCheckPage, error) {
 	}
 	var out ids
 	for _, d := range doc.Data {
-		out.addEntry(d.Ransomware, d.CVE...)
+		out.addEntry(d.Ransomware, parseKEVDate(d.DueDate), d.CVE...)
 	}
-	p := VulnCheckPage{IDs: out.list, NextCursor: doc.Meta.NextCursor}
+	p := VulnCheckPage{IDs: out.list, NextCursor: doc.Meta.NextCursor, DueDates: out.dueDates}
 	for _, id := range out.list {
 		if out.ransomware[id] {
 			p.Ransomware = append(p.Ransomware, id)
@@ -337,7 +379,15 @@ func (c *vulnCheckCatalog) Fetch(ctx context.Context) (KEVList, error) {
 			return KEVList{}, err
 		}
 		all.add(p.IDs...)
-		all.addEntry("known", p.Ransomware...)
+		all.addEntry("known", nil, p.Ransomware...)
+		if len(p.DueDates) > 0 && all.dueDates == nil {
+			all.dueDates = map[string]time.Time{}
+		}
+		for id, due := range p.DueDates {
+			if existing, ok := all.dueDates[id]; !ok || due.Before(existing) {
+				all.dueDates[id] = due
+			}
+		}
 		if p.NextCursor == "" || p.NextCursor == cursor {
 			return nonEmpty(domain.KEVVulnCheck, all.result())
 		}

@@ -70,6 +70,7 @@ import (
 	"github.com/xilasec/xila-api/internal/ratelimit"
 	"github.com/xilasec/xila-api/internal/remediation"
 	"github.com/xilasec/xila-api/internal/report"
+	"github.com/xilasec/xila-api/internal/reportschedule"
 	"github.com/xilasec/xila-api/internal/retention"
 	"github.com/xilasec/xila-api/internal/rootcause"
 	"github.com/xilasec/xila-api/internal/saml"
@@ -535,6 +536,14 @@ func run() error {
 		}
 		slog.InfoContext(rootCtx, "AI triage enabled", "provider", cfg.AI.Provider, "model", cfg.AI.Model)
 	}
+	// Report schedules (M13 13.17): CRUD + a leader cron render+deliver schedules
+	// due this tick, as their owner (RBAC scope resolved at send time). reportSvc
+	// and evidenceHandler are shared with the on-demand report/evidence routes.
+	reportSvc := report.NewService(portfolioRepo, finding.NewRepository(readDB), complianceRepo, projectRepo,
+		report.NewRepository(db)).WithEngagements(engagementRepo)
+	evidenceHandler := evidence.NewHandler(evidence.NewRepository(db), projectRepo, complianceRepo, portfolioRepo, craRepo)
+	reportScheduleSvc := reportschedule.NewService(reportschedule.NewRepository(db), reportSvc, evidenceHandler,
+		reportTemplates, membershipRepo, userRepo, notifyRepo, notifySvc, cfg.PublicURL)
 	handlers := server.Handlers{
 		Features:    feature.NewHandler(features, userRepo),
 		Auth:        auth.NewHandler(authSvc),
@@ -556,23 +565,23 @@ func run() error {
 		AITriage: aitriage.NewHandler(aitriage.NewService(aitriage.NewRepository(db), findingRepo, aiProvider,
 			ratelimit.New(db, ratelimit.Limits{}), notifySvc,
 			aitriage.Options{RequireApproval: cfg.AssessmentRequiresApproval, RateLimit: cfg.AI.RateLimit})),
-		Sbom:       sbom.NewHandler(sbomRepo, sbomSvc),
-		Asset:      asset.NewHandler(assetRepo, assetSvc, membershipRepo),
-		Compliance: compliance.NewHandler(complianceRepo),
-		Portfolio:  portfolio.NewHandler(portfolioRepo),
-		Metrics:    metrics.NewHandler(metricsReadRepo).WithSnapshotter(metricsRepo, portfolioParts.SnapshotParts),
-		Report: report.NewHandler(report.NewService(portfolioRepo, finding.NewRepository(readDB), complianceRepo, projectRepo,
-			report.NewRepository(db)).WithEngagements(engagementRepo), reportTemplates),
-		Engagement:  engagement.NewHandler(engagementRepo, ingestSvc, findingRepo, findingTemplates),
-		Badge:       badge.NewHandler(badge.NewRepository(db), portfolioRepo, gateRepo, findingRepo).WithPublicURL(cfg.PublicURL),
-		FixPlan:     fixplan.NewHandler(findingRepo),
-		Remediation: remediation.NewHandler(remediationRepo, remediationSvc, membershipRepo),
-		RootCauses:  rootcause.NewHandler(rootcause.NewService(findingRepo, remediationRepo, remediationSvc, membershipRepo)),
-		Exploits:    exploitintel.NewHandler(exploitRepo, exploitSvc, findingRepo),
-		Evidence:    evidence.NewHandler(evidence.NewRepository(db), projectRepo, complianceRepo, portfolioRepo, craRepo),
-		CRACases:    cra.NewCaseHandler(craSvc),
-		FindingTmpl: findingtemplate.NewHandler(findingTemplates),
-		ReportTmpl:  report.NewTemplateHandler(reportTemplates),
+		Sbom:           sbom.NewHandler(sbomRepo, sbomSvc),
+		Asset:          asset.NewHandler(assetRepo, assetSvc, membershipRepo),
+		Compliance:     compliance.NewHandler(complianceRepo),
+		Portfolio:      portfolio.NewHandler(portfolioRepo),
+		Metrics:        metrics.NewHandler(metricsReadRepo).WithSnapshotter(metricsRepo, portfolioParts.SnapshotParts),
+		Report:         report.NewHandler(reportSvc, reportTemplates),
+		Engagement:     engagement.NewHandler(engagementRepo, ingestSvc, findingRepo, findingTemplates),
+		Badge:          badge.NewHandler(badge.NewRepository(db), portfolioRepo, gateRepo, findingRepo).WithPublicURL(cfg.PublicURL),
+		FixPlan:        fixplan.NewHandler(findingRepo),
+		Remediation:    remediation.NewHandler(remediationRepo, remediationSvc, membershipRepo),
+		RootCauses:     rootcause.NewHandler(rootcause.NewService(findingRepo, remediationRepo, remediationSvc, membershipRepo)),
+		Exploits:       exploitintel.NewHandler(exploitRepo, exploitSvc, findingRepo),
+		Evidence:       evidenceHandler,
+		CRACases:       cra.NewCaseHandler(craSvc),
+		FindingTmpl:    findingtemplate.NewHandler(findingTemplates),
+		ReportTmpl:     report.NewTemplateHandler(reportTemplates),
+		ReportSchedule: reportschedule.NewHandler(reportScheduleSvc, membershipRepo),
 		CustomFields: customfield.NewHandler(customFieldRepo, customFieldSvc).
 			WithComputedValidator(computedSvc).WithComputedChanged(computedSvc.OnDefinitionChanged),
 		CustomParser: customparser.NewHandler(customParserSvc),
@@ -583,7 +592,7 @@ func run() error {
 		AuditLog:     audit.NewRecorder(auditRepo, membershipRepo, jwtKeys),
 		IngestHealth: ingesthealth.NewHandler(ingestHealth),
 		Triage:       triage.NewHandler(triageRepo, triageSvc, cfg.TriageRulesRequireApproval).WithCustomFields(customFieldRepo),
-		Gate:         gate.NewHandler(gateRepo, findingRepo, projectRepo),
+		Gate:         gate.NewHandler(gateRepo, findingRepo, projectRepo, ingestHealth),
 		SLA:          sla.NewHandler(slaRepo, slaSvc),
 		Vex:          vex.NewHandler(vexRepo, vexSvc).WithPublicURL(cfg.PublicURL),
 		VexDocuments: vex.NewDocumentHandler(vexDocsSvc),
@@ -733,6 +742,8 @@ func run() error {
 		job(func() { runMetricsSnapshots(ctx, metricsRepo, portfolioParts, cfg.MetricsSnapshotInterval) })
 		// Scheduled per-channel summaries (daily / weekly, set on each channel).
 		job(func() { notifySvc.RunSummaries(ctx, findingRepo) })
+		// Render and deliver scheduled reports due this tick, as their owner.
+		job(func() { runReportSchedules(ctx, reportScheduleSvc, cfg.ReportSchedule.Interval) })
 		// Re-seal rows a previous INTEGRATION_SECRET_KEY still opens under the
 		// current primary: once at startup if a previous key is configured,
 		// and again whenever a rotation changes the primary (ring.Changed()).
@@ -931,6 +942,33 @@ func runSLASweep(ctx context.Context, svc *sla.Service, interval time.Duration) 
 			}
 			if res.Breached > 0 || res.DueSoon > 0 {
 				slog.InfoContext(ctx, "sla sweep alerted", "breached", res.Breached, "due_soon", res.DueSoon)
+			}
+		}
+	}
+}
+
+// runReportSchedules renders and delivers every report schedule due this
+// tick, as its owner, on an interval, until the context ends.
+func runReportSchedules(ctx context.Context, svc *reportschedule.Service, interval time.Duration) {
+	if interval <= 0 {
+		return
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			start := time.Now()
+			res, err := svc.RunDue(ctx)
+			observability.RecordJob(ctx, "report_schedules", start, err)
+			if err != nil {
+				slog.WarnContext(ctx, "report schedule sweep failed", "error", err)
+				continue
+			}
+			if res.Ran > 0 || res.Failed > 0 {
+				slog.InfoContext(ctx, "report schedule sweep complete", "ran", res.Ran, "failed", res.Failed)
 			}
 		}
 	}

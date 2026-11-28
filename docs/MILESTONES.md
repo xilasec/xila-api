@@ -925,8 +925,11 @@ Tier 1:
   and vendor response, kept in history and exported (SecObserve, DT).
 - ⬜ 13.3 SBOMs from CI: `xila upload --sbom`, a processing status CI can
   wait on before the gate, and creating a project by name on upload (DT).
-- ⬜ 13.4 Exploit-aware SLA: a KEV due date or an exploit response window
-  shortens the deadline (DefectDojo Pro).
+- ✅ 13.4 Exploit-aware SLA (DefectDojo Pro): a per-scope SLA policy adds
+  `kev_days` / `exploited_days` windows and a `use_kev_due_date` cap, so a KEV
+  or weaponized-exploit finding gets the shorter of its severity window and its
+  exploit window (and, when enabled, never past CISA's published due date). The
+  deadline is still computed in the SQL trigger. Migration 000119.
 - ⬜ 13.5 Triage rules that assign, tag, comment and notify, on schedules and
   finding events as well as ingest (DefectDojo Pro).
 - ⬜ 13.6 CycloneDX XML SBOMs (DT).
@@ -959,15 +962,32 @@ Tier 2:
   Alpine, Red Hat, Rocky Linux, AlmaLinux) and version comparators matching
   each format's own spec, so `osv-local` and private advisories match
   container SBOMs offline too.
-- ⬜ 13.14 Stored, versioned VEX documents (SecObserve).
+- ✅ 13.14 Stored, versioned VEX documents (SecObserve). Shipped in M13 part 1
+  (migration 000118).
 - 13.15 Mark as duplicate and merge findings by hand; risk per asset
   (DefectDojo Pro). Done so far:
   - `POST`/`DELETE /findings/{id}/duplicate-of` marks or unmarks a hand-made
     duplicate (`findings.duplicate_manual`); automatic dedup never rewrites
     it, and it behaves exactly like an automatic duplicate everywhere else.
+  - Per-asset risk: a rolled-up risk score and open-by-severity counts on each
+    asset, `GET /assets?sort=risk`, a risk column in the project Assets tab and
+    a risk section in the asset detail. Still open: merging two findings into
+    one by hand.
 - ⬜ 13.16 Idle timeout with a session-expiry warning; a personal-data filter
   for MCP results (DefectDojo Pro).
-- ⬜ 13.17 Scheduled report delivery; expected scans per project (DefectDojo Pro).
+- ✅ 13.17 Scheduled report delivery; expected scans per project (DefectDojo
+  Pro).
+  - Scheduled report delivery: a user's own recurring project, portfolio or
+    evidence report (`report_schedules`), rendered as the owner (their RBAC
+    scope at send time) and delivered by email (HTML attachment) or as a
+    link-only channel notification, on a daily/weekly/monthly cadence. CRUD at
+    `/report-schedules`, a leader-run due sweep, per-run history, and a
+    Settings page. Migration 000120.
+  - Expected scans per project: declare the scanners or categories that should
+    report within a max age on a branch (`project_scan_expectations`,
+    `/projects/{id}/scan-expectations`); a missing scan becomes an ingestion
+    anomaly and, with the `require_expected_scans` gate flag, fails the gate.
+    Migration 000121.
 - ⬜ 13.18 Issue-tracker comments, ticket templates and webhook receivers
   (DefectDojo Pro).
 - ⬜ 13.19 Connectors: AWS Security Hub, Microsoft Defender, Qualys, Trivy

@@ -68,6 +68,7 @@ export const SETTINGS_NAV = [
 		items: [
 			{ href: '/account', key: 'nav.account', desc: 'settings.desc.account' },
 			{ href: '/tokens', key: 'nav.apiKeys', desc: 'settings.desc.apiKeys' },
+			{ href: '/report-schedules', key: 'nav.reportSchedules', desc: 'settings.desc.reportSchedules' },
 			{ href: '/docs', key: 'nav.apiDocs', desc: 'settings.desc.apiDocs' }
 		]
 	},

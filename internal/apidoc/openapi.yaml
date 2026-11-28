@@ -3771,6 +3771,112 @@ paths:
       responses:
         "204": { description: Deleted }
 
+  /report-schedules:
+    get:
+      operationId: listReportSchedules
+      tags: [Reports]
+      summary: List report schedules
+      description: Each user sees their own schedules; instance admins see every schedule.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report_schedules: { type: array, items: { $ref: "#/components/schemas/ReportSchedule" } }
+    post:
+      operationId: createReportSchedule
+      tags: [Reports]
+      summary: Create a report schedule
+      description: Owned by the caller. A leader job renders and delivers it as the caller, in their RBAC scope at send time.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReportSchedule" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReportSchedule" }
+        "400": { $ref: "#/components/responses/Error" }
+
+  /report-schedules/{scheduleID}:
+    get:
+      operationId: getReportSchedule
+      tags: [Reports]
+      summary: Read a report schedule
+      description: Its owner, or an instance admin.
+      parameters: [{ $ref: "#/components/parameters/ScheduleID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReportSchedule" }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      operationId: putReportSchedule
+      tags: [Reports]
+      summary: Replace a report schedule
+      description: Its owner, or an instance admin.
+      parameters: [{ $ref: "#/components/parameters/ScheduleID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReportSchedule" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReportSchedule" }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deleteReportSchedule
+      tags: [Reports]
+      summary: Delete a report schedule
+      description: Its owner, or an instance admin.
+      parameters: [{ $ref: "#/components/parameters/ScheduleID" }]
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /report-schedules/{scheduleID}/runs:
+    get:
+      operationId: listReportScheduleRuns
+      tags: [Reports]
+      summary: A report schedule's run history
+      description: Its owner, or an instance admin. Newest first, up to 20 runs.
+      parameters: [{ $ref: "#/components/parameters/ScheduleID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  runs: { type: array, items: { $ref: "#/components/schemas/ReportScheduleRun" } }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /report-schedules/{scheduleID}/send-now:
+    post:
+      operationId: sendReportScheduleNow
+      tags: [Reports]
+      summary: Render and deliver a report schedule immediately
+      description: Its owner, or an instance admin. Synchronous; outside its cadence.
+      parameters: [{ $ref: "#/components/parameters/ScheduleID" }]
+      responses:
+        "204": { description: Sent }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+
   /projects/{projectID}/findings/export:
     get:
       operationId: exportProjectFindings
@@ -6349,6 +6455,7 @@ paths:
       parameters:
         - { $ref: "#/components/parameters/ProjectID" }
         - { name: type, in: query, schema: { $ref: "#/components/schemas/AssetType" } }
+        - { name: sort, in: query, schema: { type: string, enum: [risk] }, description: "`risk` sorts by risk_score, highest first." }
         - { $ref: "#/components/parameters/CustomFieldFilter" }
       responses:
         "200":
@@ -6368,6 +6475,7 @@ paths:
       parameters:
         - { name: type, in: query, schema: { $ref: "#/components/schemas/AssetType" } }
         - { $ref: "#/components/parameters/CustomFieldFilter" }
+        - { name: sort, in: query, schema: { type: string, enum: [risk] }, description: "`risk` sorts by risk_score, highest first." }
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Offset" }
       responses:
@@ -8311,6 +8419,54 @@ paths:
                 properties:
                   anomalies: { type: array, items: { $ref: "#/components/schemas/IngestionAnomaly" } }
 
+  /projects/{projectID}/scan-expectations:
+    get:
+      operationId: listScanExpectations
+      tags: [Projects]
+      summary: A project's declared scan expectations
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  expectations: { type: array, items: { $ref: "#/components/schemas/ScanExpectation" } }
+    post:
+      operationId: createScanExpectation
+      tags: [Projects]
+      summary: Declare a scan expectation
+      description: "Project editor. Declares a scanner or category that must report within max_age_hours on a branch (empty = the project default version); a missing scan raises an ingestion anomaly and can fail the gate."
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ScanExpectationInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ScanExpectation" }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /projects/{projectID}/scan-expectations/{expectationID}:
+    delete:
+      operationId: deleteScanExpectation
+      tags: [Projects]
+      summary: Remove a scan expectation
+      description: Project editor.
+      parameters:
+        - { $ref: "#/components/parameters/ProjectID" }
+        - { $ref: "#/components/parameters/ExpectationID" }
+      responses:
+        "204": { description: No Content }
+        "404": { $ref: "#/components/responses/Error" }
+
   /retention:
     get:
       operationId: getRetention
@@ -9621,6 +9777,7 @@ components:
     OrgID: { name: orgID, in: path, required: true, schema: { type: string, format: uuid } }
     TeamID: { name: teamID, in: path, required: true, schema: { type: string, format: uuid } }
     ProjectID: { name: projectID, in: path, required: true, schema: { type: string, format: uuid } }
+    ExpectationID: { name: expectationID, in: path, required: true, schema: { type: string, format: uuid } }
     OverrideID: { name: overrideID, in: path, required: true, schema: { type: string, format: uuid } }
     CRACaseID: { name: caseID, in: path, required: true, schema: { type: string, format: uuid } }
     EngagementID: { name: engagementID, in: path, required: true, schema: { type: string, format: uuid } }
@@ -9642,6 +9799,7 @@ components:
       description: The change's key, base64url-encoded (no padding) — it can contain slashes and "@".
       schema: { type: string }
     TemplateID: { name: templateID, in: path, required: true, schema: { type: string, format: uuid } }
+    ScheduleID: { name: scheduleID, in: path, required: true, schema: { type: string, format: uuid } }
     ExploitFilter:
       name: exploit
       in: query
@@ -10623,6 +10781,26 @@ components:
         false positive, won't fix), which stops the clock; `met` / `missed` =
         remediated before / after the deadline; `none` = no SLA for its severity.
 
+    ScanExpectation:
+      type: object
+      description: "A declared scan cadence for a project: a scanner or category that must report within max_age_hours on a branch."
+      properties:
+        id: { type: string, format: uuid }
+        project_id: { type: string, format: uuid }
+        scanner: { type: [string, "null"], description: "Exactly one of scanner or category is set." }
+        category: { type: [string, "null"] }
+        branch: { type: string, description: "Empty means the project default version." }
+        max_age_hours: { type: integer, minimum: 1 }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    ScanExpectationInput:
+      type: object
+      required: [max_age_hours]
+      properties:
+        scanner: { type: [string, "null"], description: "Set exactly one of scanner or category." }
+        category: { type: [string, "null"] }
+        branch: { type: string, description: "Optional; empty = the project default version." }
+        max_age_hours: { type: integer, minimum: 1 }
     SLADays:
       type: object
       description: |
@@ -10634,6 +10812,8 @@ components:
         medium_days: { type: [integer, "null"], minimum: 1, maximum: 3650 }
         low_days: { type: [integer, "null"], minimum: 1, maximum: 3650 }
         info_days: { type: [integer, "null"], minimum: 1, maximum: 3650 }
+        kev_days: { type: [integer, "null"], minimum: 1, maximum: 3650, description: "Deadline for a KEV finding, when shorter than its severity window." }
+        exploited_days: { type: [integer, "null"], minimum: 1, maximum: 3650, description: "Deadline for a finding with a weaponized exploit, when shorter than its severity window." }
 
     SLAPolicy:
       description: |
@@ -10643,6 +10823,7 @@ components:
         - type: object
           properties:
             scope: { type: string, enum: [project, org, global, default] }
+            use_kev_due_date: { type: boolean, description: "Cap a KEV finding deadline at CISA published due date when it is sooner." }
             criticality:
               type: string
               description: Project policies only, while criticality scaling is on — the project's business criticality.
@@ -11165,6 +11346,47 @@ components:
         created_by: { type: [string, "null"], format: uuid, readOnly: true }
         created_at: { type: string, format: date-time, readOnly: true }
         updated_at: { type: string, format: date-time, readOnly: true }
+
+    ReportSchedule:
+      type: object
+      required: [name, kind, cadence, hour]
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        owner_id: { type: string, format: uuid, readOnly: true }
+        owner_email: { type: string, readOnly: true }
+        name: { type: string, maxLength: 200 }
+        kind: { type: string, enum: [project, portfolio, evidence], description: What it renders; portfolio is the owner's whole visible scope. }
+        project_id: { type: [string, "null"], format: uuid, description: Required for project and evidence. }
+        project_name: { type: string, readOnly: true }
+        framework_key: { type: string, description: A compliance framework key (e.g. eu-cra); required for an evidence report. }
+        template_id: { type: [string, "null"], format: uuid, description: A report template (project/portfolio only). }
+        engagement_id: { type: [string, "null"], format: uuid, description: Scopes a project report to one engagement. }
+        cadence: { type: string, enum: [daily, weekly, monthly] }
+        hour: { type: integer, minimum: 0, maximum: 23, description: Hour of day, UTC. }
+        weekday: { type: [integer, "null"], minimum: 0, maximum: 6, description: Required for a weekly cadence (0 = Sunday). }
+        day_of_month: { type: [integer, "null"], minimum: 1, maximum: 28, description: Required for a monthly cadence. }
+        recipient_emails: { type: array, items: { type: string, format: email } }
+        recipient_channel_ids:
+          type: array
+          items: { type: string, format: uuid }
+          description: Notification channels; get a link to the report, never the HTML file itself.
+        enabled: { type: boolean, default: true }
+        last_run_at: { type: [string, "null"], format: date-time, readOnly: true }
+        last_run_status: { type: string, enum: ["", success, failure], readOnly: true }
+        last_run_error: { type: string, readOnly: true }
+        created_at: { type: string, format: date-time, readOnly: true }
+        updated_at: { type: string, format: date-time, readOnly: true }
+
+    ReportScheduleRun:
+      type: object
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        schedule_id: { type: string, format: uuid, readOnly: true }
+        started_at: { type: string, format: date-time, readOnly: true }
+        finished_at: { type: [string, "null"], format: date-time, readOnly: true }
+        status: { type: string, enum: [success, failure], readOnly: true }
+        error: { type: string, readOnly: true }
+        recipients: { type: integer, readOnly: true }
 
     Scan:
       type: object
@@ -12057,6 +12279,16 @@ components:
         exposure_reason: { type: string, description: The evidence or the person's note. }
         exposure_updated_at: { type: [string, "null"], format: date-time }
         custom: { $ref: "#/components/schemas/CustomValues" }
+        risk_score:
+          type: number
+          description: |
+            Same weighted formula as the project risk score (severity weight x
+            count, scaled by the project's business criticality), scoped to this
+            asset's own open, non-duplicate, default-version findings.
+        total_open: { type: integer, description: Open findings on this asset (same scope as risk_score). }
+        open_by_severity:
+          type: object
+          additionalProperties: { type: integer }
         created_at: { type: string, format: date-time }
 
     AssetRef:
@@ -12360,6 +12592,7 @@ components:
         block_license: { type: boolean, description: Fail on any open license finding (e.g. a violation of a license-only component policy). }
         block_sla_breach: { type: boolean, description: Fail while any open finding is past its remediation SLA. }
         new_only: { type: boolean, description: Ignore pre-existing debt; gate only on what this scan introduced. }
+        require_expected_scans: { type: boolean, description: "Fail if the project has a declared scan expectation with no recent completed scan." }
         baseline_branch: { type: [string, "null"], description: "With new_only, compare against this branch/version instead of the single-scan heuristic — a finding is new only if it isn't already open there (by the same cross-scan identity Upsert/CloseMissing use). Overridable per request with ?baseline=." }
         max_risk_score: { type: [number, "null"], description: "Fail if the gated version's business-weighted risk score (the same figure the project summary shows) exceeds this." }
 

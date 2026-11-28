@@ -50,6 +50,7 @@ type Config struct {
 	Policy         Policy
 	VulnPolicy     VulnPolicy
 	ComputedFields ComputedFields
+	ReportSchedule ReportSchedule
 	Enrich         Enrich
 	Exploit        ExploitIntel
 	CRA            CRA
@@ -260,6 +261,14 @@ type ComputedFields struct {
 	// custom fields are recomputed (0 = off; ingest and a definition
 	// change still recompute), catching facts that change without a new
 	// scan (EPSS/KEV, status, exposure).
+	Interval time.Duration
+}
+
+// ReportSchedule holds the scheduled-report delivery sweep interval.
+type ReportSchedule struct {
+	// Interval is how often due schedules are checked and rendered/delivered
+	// (REPORT_SCHEDULE_INTERVAL; 0 = off). A schedule fires at most once per
+	// its own period (day/week/month) regardless of how often the sweep runs.
 	Interval time.Duration
 }
 
@@ -808,6 +817,9 @@ func Load() (Config, error) {
 		},
 		ComputedFields: ComputedFields{
 			Interval: getdur("COMPUTED_FIELDS_INTERVAL", 15*time.Minute),
+		},
+		ReportSchedule: ReportSchedule{
+			Interval: getdur("REPORT_SCHEDULE_INTERVAL", 15*time.Minute),
 		},
 		Enrich: Enrich{
 			Enabled:    getbool("ENRICH_ENABLED", true),

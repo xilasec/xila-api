@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"sort"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -124,6 +125,13 @@ func (h *Handler) list(c *fiber.Ctx, filter Filter) error {
 	if err != nil {
 		return err
 	}
+	assets, err = h.repo.AttachRisk(c.UserContext(), assets)
+	if err != nil {
+		return err
+	}
+	if c.Query("sort") == "risk" {
+		sort.SliceStable(assets, func(i, j int) bool { return assets[i].RiskScore > assets[j].RiskScore })
+	}
 	return c.JSON(fiber.Map{"assets": assets})
 }
 
@@ -139,7 +147,11 @@ func (h *Handler) Get(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	return c.JSON(a)
+	withRisk, err := h.repo.AttachRisk(c.UserContext(), []Asset{a})
+	if err != nil {
+		return err
+	}
+	return c.JSON(withRisk[0])
 }
 
 type updateRequest struct {

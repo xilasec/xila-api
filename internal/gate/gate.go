@@ -48,8 +48,12 @@ type Policy struct {
 	BaselineBranch *string `json:"baseline_branch"`
 	// MaxRiskScore fails the gate when the gated version's business-weighted
 	// risk score (the same figure project.Summary shows) exceeds this.
-	MaxRiskScore *float64   `json:"max_risk_score"`
-	UpdatedAt    *time.Time `json:"updated_at,omitempty"`
+	MaxRiskScore *float64 `json:"max_risk_score"`
+	// RequireExpectedScans fails the gate when the project declares a scan
+	// expectation (internal/ingesthealth) with no completed scan within its
+	// window.
+	RequireExpectedScans bool       `json:"require_expected_scans"`
+	UpdatedAt            *time.Time `json:"updated_at,omitempty"`
 }
 
 // Violation is one failed condition.
@@ -74,8 +78,9 @@ type Result struct {
 }
 
 // Evaluate applies a policy to the live stats, producing pass/fail + violations.
-// Pure — no I/O — so it's exhaustively unit-tested.
-func Evaluate(p Policy, s finding.GateStats) Result {
+// missingExpectations is pre-computed by the caller (internal/ingesthealth);
+// Evaluate stays pure — no I/O — so it's exhaustively unit-tested.
+func Evaluate(p Policy, s finding.GateStats, missingExpectations []string) Result {
 	violations := []Violation{}
 	add := func(rule, msg string) { violations = append(violations, Violation{Rule: rule, Message: msg}) }
 
@@ -110,6 +115,9 @@ func Evaluate(p Policy, s finding.GateStats) Result {
 	}
 	if p.MaxRiskScore != nil && s.RiskScore > *p.MaxRiskScore {
 		add("max_risk_score", fmt.Sprintf("risk score %.1f exceeds the limit of %.1f", s.RiskScore, *p.MaxRiskScore))
+	}
+	if p.RequireExpectedScans && len(missingExpectations) > 0 {
+		add("require_expected_scans", fmt.Sprintf("missing expected scan(s): %s", strings.Join(missingExpectations, "; ")))
 	}
 	return Result{Passed: len(violations) == 0, Violations: violations, Stats: s}
 }
@@ -149,11 +157,11 @@ func NewRepository(db *pgxpool.Pool) *Repository {
 	return &Repository{db: db}
 }
 
-const policyColumns = `project_id, max_critical, max_high, max_medium, max_low, max_info, block_kev, kev_sources, max_epss, block_license, new_only, block_sla_breach, baseline_branch, max_risk_score, updated_at`
+const policyColumns = `project_id, max_critical, max_high, max_medium, max_low, max_info, block_kev, kev_sources, max_epss, block_license, new_only, block_sla_breach, baseline_branch, max_risk_score, require_expected_scans, updated_at`
 
 func scanPolicy(row pgx.Row) (Policy, error) {
 	var p Policy
-	err := row.Scan(&p.ProjectID, &p.MaxCritical, &p.MaxHigh, &p.MaxMedium, &p.MaxLow, &p.MaxInfo, &p.BlockKEV, &p.KEVSources, &p.MaxEPSS, &p.BlockLicense, &p.NewOnly, &p.BlockSLABreach, &p.BaselineBranch, &p.MaxRiskScore, &p.UpdatedAt)
+	err := row.Scan(&p.ProjectID, &p.MaxCritical, &p.MaxHigh, &p.MaxMedium, &p.MaxLow, &p.MaxInfo, &p.BlockKEV, &p.KEVSources, &p.MaxEPSS, &p.BlockLicense, &p.NewOnly, &p.BlockSLABreach, &p.BaselineBranch, &p.MaxRiskScore, &p.RequireExpectedScans, &p.UpdatedAt)
 	return p, err
 }
 
@@ -192,10 +200,11 @@ func (r *Repository) Upsert(ctx context.Context, p Policy) (Policy, error) {
 	const q = `
 		UPDATE gate_policies SET
 			max_critical=$2, max_high=$3, block_kev=$4, max_epss=$5, block_license=$6, new_only=$7, block_sla_breach=$8,
-			kev_sources=$9, baseline_branch=$10, max_risk_score=$11, max_medium=$12, max_low=$13, max_info=$14, updated_at=now()
+			kev_sources=$9, baseline_branch=$10, max_risk_score=$11, max_medium=$12, max_low=$13, max_info=$14,
+			require_expected_scans=$15, updated_at=now()
 		WHERE project_id IS NOT DISTINCT FROM $1
 		RETURNING ` + policyColumns
-	out, err := scanPolicy(r.db.QueryRow(ctx, q, p.ProjectID, p.MaxCritical, p.MaxHigh, p.BlockKEV, p.MaxEPSS, p.BlockLicense, p.NewOnly, p.BlockSLABreach, kevSources(p), p.BaselineBranch, p.MaxRiskScore, p.MaxMedium, p.MaxLow, p.MaxInfo))
+	out, err := scanPolicy(r.db.QueryRow(ctx, q, p.ProjectID, p.MaxCritical, p.MaxHigh, p.BlockKEV, p.MaxEPSS, p.BlockLicense, p.NewOnly, p.BlockSLABreach, kevSources(p), p.BaselineBranch, p.MaxRiskScore, p.MaxMedium, p.MaxLow, p.MaxInfo, p.RequireExpectedScans))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return r.insert(ctx, p)
 	}
@@ -214,9 +223,9 @@ func kevSources(p Policy) []string {
 }
 
 func (r *Repository) insert(ctx context.Context, p Policy) (Policy, error) {
-	const q = `INSERT INTO gate_policies (project_id, max_critical, max_high, block_kev, max_epss, block_license, new_only, block_sla_breach, kev_sources, baseline_branch, max_risk_score, max_medium, max_low, max_info)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING ` + policyColumns
-	out, err := scanPolicy(r.db.QueryRow(ctx, q, p.ProjectID, p.MaxCritical, p.MaxHigh, p.BlockKEV, p.MaxEPSS, p.BlockLicense, p.NewOnly, p.BlockSLABreach, kevSources(p), p.BaselineBranch, p.MaxRiskScore, p.MaxMedium, p.MaxLow, p.MaxInfo))
+	const q = `INSERT INTO gate_policies (project_id, max_critical, max_high, block_kev, max_epss, block_license, new_only, block_sla_breach, kev_sources, baseline_branch, max_risk_score, max_medium, max_low, max_info, require_expected_scans)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING ` + policyColumns
+	out, err := scanPolicy(r.db.QueryRow(ctx, q, p.ProjectID, p.MaxCritical, p.MaxHigh, p.BlockKEV, p.MaxEPSS, p.BlockLicense, p.NewOnly, p.BlockSLABreach, kevSources(p), p.BaselineBranch, p.MaxRiskScore, p.MaxMedium, p.MaxLow, p.MaxInfo, p.RequireExpectedScans))
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23503" {
 		return Policy{}, ErrNoProject

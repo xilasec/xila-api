@@ -2747,6 +2747,98 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/report-schedules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List report schedules
+         * @description Each user sees their own schedules; instance admins see every schedule.
+         */
+        get: operations["listReportSchedules"];
+        put?: never;
+        /**
+         * Create a report schedule
+         * @description Owned by the caller. A leader job renders and delivers it as the caller, in their RBAC scope at send time.
+         */
+        post: operations["createReportSchedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/report-schedules/{scheduleID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a report schedule
+         * @description Its owner, or an instance admin.
+         */
+        get: operations["getReportSchedule"];
+        /**
+         * Replace a report schedule
+         * @description Its owner, or an instance admin.
+         */
+        put: operations["putReportSchedule"];
+        post?: never;
+        /**
+         * Delete a report schedule
+         * @description Its owner, or an instance admin.
+         */
+        delete: operations["deleteReportSchedule"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/report-schedules/{scheduleID}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A report schedule's run history
+         * @description Its owner, or an instance admin. Newest first, up to 20 runs.
+         */
+        get: operations["listReportScheduleRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/report-schedules/{scheduleID}/send-now": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Render and deliver a report schedule immediately
+         * @description Its owner, or an instance admin. Synchronous; outside its cadence.
+         */
+        post: operations["sendReportScheduleNow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{projectID}/findings/export": {
         parameters: {
             query?: never;
@@ -6339,6 +6431,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{projectID}/scan-expectations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A project's declared scan expectations */
+        get: operations["listScanExpectations"];
+        put?: never;
+        /**
+         * Declare a scan expectation
+         * @description Project editor. Declares a scanner or category that must report within max_age_hours on a branch (empty = the project default version); a missing scan raises an ingestion anomaly and can fail the gate.
+         */
+        post: operations["createScanExpectation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectID}/scan-expectations/{expectationID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a scan expectation
+         * @description Project editor.
+         */
+        delete: operations["deleteScanExpectation"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/retention": {
         parameters: {
             query?: never;
@@ -8337,6 +8470,31 @@ export interface components {
          * @enum {string}
          */
         SLAStatus: "none" | "on_track" | "due_soon" | "breached" | "paused" | "met" | "missed";
+        /** @description A declared scan cadence for a project: a scanner or category that must report within max_age_hours on a branch. */
+        ScanExpectation: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            project_id?: string;
+            /** @description Exactly one of scanner or category is set. */
+            scanner?: string | null;
+            category?: string | null;
+            /** @description Empty means the project default version. */
+            branch?: string;
+            max_age_hours?: number;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        ScanExpectationInput: {
+            /** @description Set exactly one of scanner or category. */
+            scanner?: string | null;
+            category?: string | null;
+            /** @description Optional; empty = the project default version. */
+            branch?: string;
+            max_age_hours: number;
+        };
         /**
          * @description Days to remediate, per severity. A policy states all five: an omitted or
          *     null one means no SLA for that severity at this scope. 1–3650.
@@ -8347,6 +8505,10 @@ export interface components {
             medium_days?: number | null;
             low_days?: number | null;
             info_days?: number | null;
+            /** @description Deadline for a KEV finding, when shorter than its severity window. */
+            kev_days?: number | null;
+            /** @description Deadline for a finding with a weaponized exploit, when shorter than its severity window. */
+            exploited_days?: number | null;
         };
         /**
          * @description A policy in force and where it comes from. The most specific stored policy
@@ -8355,6 +8517,8 @@ export interface components {
         SLAPolicy: {
             /** @enum {string} */
             scope?: "project" | "org" | "global" | "default";
+            /** @description Cap a KEV finding deadline at CISA published due date when it is sooner. */
+            use_kev_due_date?: boolean;
             /** @description Project policies only, while criticality scaling is on — the project's business criticality. */
             criticality?: string;
             /**
@@ -8956,6 +9120,73 @@ export interface components {
             readonly created_at?: string;
             /** Format: date-time */
             readonly updated_at?: string;
+        };
+        ReportSchedule: {
+            /** Format: uuid */
+            readonly id?: string;
+            /** Format: uuid */
+            readonly owner_id?: string;
+            readonly owner_email?: string;
+            name: string;
+            /**
+             * @description What it renders; portfolio is the owner's whole visible scope.
+             * @enum {string}
+             */
+            kind: "project" | "portfolio" | "evidence";
+            /**
+             * Format: uuid
+             * @description Required for project and evidence.
+             */
+            project_id?: string | null;
+            readonly project_name?: string;
+            /** @description A compliance framework key (e.g. eu-cra); required for an evidence report. */
+            framework_key?: string;
+            /**
+             * Format: uuid
+             * @description A report template (project/portfolio only).
+             */
+            template_id?: string | null;
+            /**
+             * Format: uuid
+             * @description Scopes a project report to one engagement.
+             */
+            engagement_id?: string | null;
+            /** @enum {string} */
+            cadence: "daily" | "weekly" | "monthly";
+            /** @description Hour of day */
+            hour: number;
+            /** @description Required for a weekly cadence (0 = Sunday). */
+            weekday?: number | null;
+            /** @description Required for a monthly cadence. */
+            day_of_month?: number | null;
+            recipient_emails?: string[];
+            /** @description Notification channels; get a link to the report, never the HTML file itself. */
+            recipient_channel_ids?: string[];
+            /** @default true */
+            enabled: boolean;
+            /** Format: date-time */
+            readonly last_run_at?: string | null;
+            /** @enum {string} */
+            readonly last_run_status?: "" | "success" | "failure";
+            readonly last_run_error?: string;
+            /** Format: date-time */
+            readonly created_at?: string;
+            /** Format: date-time */
+            readonly updated_at?: string;
+        };
+        ReportScheduleRun: {
+            /** Format: uuid */
+            readonly id?: string;
+            /** Format: uuid */
+            readonly schedule_id?: string;
+            /** Format: date-time */
+            readonly started_at?: string;
+            /** Format: date-time */
+            readonly finished_at?: string | null;
+            /** @enum {string} */
+            readonly status?: "success" | "failure";
+            readonly error?: string;
+            readonly recipients?: number;
         };
         /**
          * @example {
@@ -10077,6 +10308,17 @@ export interface components {
             /** Format: date-time */
             exposure_updated_at?: string | null;
             custom?: components["schemas"]["CustomValues"];
+            /**
+             * @description Same weighted formula as the project risk score (severity weight x
+             *     count, scaled by the project's business criticality), scoped to this
+             *     asset's own open, non-duplicate, default-version findings.
+             */
+            risk_score?: number;
+            /** @description Open findings on this asset (same scope as risk_score). */
+            total_open?: number;
+            open_by_severity?: {
+                [key: string]: number;
+            };
             /** Format: date-time */
             created_at?: string;
         };
@@ -10433,6 +10675,8 @@ export interface components {
             block_sla_breach?: boolean;
             /** @description Ignore pre-existing debt; gate only on what this scan introduced. */
             new_only?: boolean;
+            /** @description Fail if the project has a declared scan expectation with no recent completed scan. */
+            require_expected_scans?: boolean;
             /** @description With new_only, compare against this branch/version instead of the single-scan heuristic — a finding is new only if it isn't already open there (by the same cross-scan identity Upsert/CloseMissing use). Overridable per request with ?baseline=. */
             baseline_branch?: string | null;
             /** @description Fail if the gated version's business-weighted risk score (the same figure the project summary shows) exceeds this. */
@@ -11119,6 +11363,7 @@ export interface components {
         OrgID: string;
         TeamID: string;
         ProjectID: string;
+        ExpectationID: string;
         OverrideID: string;
         CRACaseID: string;
         EngagementID: string;
@@ -11130,6 +11375,7 @@ export interface components {
         /** @description The change's key, base64url-encoded (no padding) — it can contain slashes and "@". */
         RootCauseKey: string;
         TemplateID: string;
+        ScheduleID: string;
         /** @description Only findings with a public exploit — `weaponized`, `poc`, or `any` (either). */
         ExploitFilter: "any" | "poc" | "weaponized";
         /** @description Only findings an engagement's scans or manual reports found (first or last seen in one of them), on any version. */
@@ -16377,6 +16623,172 @@ export interface operations {
             };
         };
     };
+    listReportSchedules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        report_schedules?: components["schemas"]["ReportSchedule"][];
+                    };
+                };
+            };
+        };
+    };
+    createReportSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportSchedule"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportSchedule"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    getReportSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scheduleID: components["parameters"]["ScheduleID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportSchedule"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    putReportSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scheduleID: components["parameters"]["ScheduleID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportSchedule"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportSchedule"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    deleteReportSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scheduleID: components["parameters"]["ScheduleID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    listReportScheduleRuns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scheduleID: components["parameters"]["ScheduleID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        runs?: components["schemas"]["ReportScheduleRun"][];
+                    };
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    sendReportScheduleNow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scheduleID: components["parameters"]["ScheduleID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sent */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
     exportProjectFindings: {
         parameters: {
             query?: {
@@ -19636,6 +20048,8 @@ export interface operations {
         parameters: {
             query?: {
                 type?: components["schemas"]["AssetType"];
+                /** @description `risk` sorts by risk_score, highest first. */
+                sort?: "risk";
                 /**
                  * @description Custom-field filter; repeatable, one per field (at most 10). `?cf.<key>=value`
                  *     matches the stored value (text, enum, date, user id, or a number);
@@ -19709,6 +20123,8 @@ export interface operations {
                  *     field is set. The literal parameter names are e.g. `cf.team`, `cf.score.gte`.
                  */
                 "cf.{key}"?: components["parameters"]["CustomFieldFilter"];
+                /** @description `risk` sorts by risk_score, highest first. */
+                sort?: "risk";
                 /** @description Page size (max 200). */
                 limit?: components["parameters"]["Limit"];
                 offset?: components["parameters"]["Offset"];
@@ -22242,6 +22658,81 @@ export interface operations {
                     };
                 };
             };
+        };
+    };
+    listScanExpectations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        expectations?: components["schemas"]["ScanExpectation"][];
+                    };
+                };
+            };
+        };
+    };
+    createScanExpectation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScanExpectationInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScanExpectation"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    deleteScanExpectation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+                expectationID: components["parameters"]["ExpectationID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
         };
     };
     getRetention: {

@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -42,6 +43,14 @@ type Asset struct {
 	Custom    map[string]any `json:"custom"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
+	// RiskScore, TotalOpen and OpenBySeverity are the asset's open, non-duplicate,
+	// default-version findings: same weighted formula as the project risk score
+	// (severity weight × count, scaled by the project's business criticality),
+	// scoped to this asset. Computed by AttachRisk, not stored; zero until List
+	// or Get attaches it.
+	RiskScore      float64                 `json:"risk_score"`
+	TotalOpen      int                     `json:"total_open"`
+	OpenBySeverity map[domain.Severity]int `json:"open_by_severity"`
 }
 
 // Exposure sources.
@@ -153,6 +162,75 @@ func (r *Repository) Get(ctx context.Context, id string) (Asset, error) {
 		return Asset{}, fmt.Errorf("get asset: %w", err)
 	}
 	return a, nil
+}
+
+// AttachRisk computes each asset's risk score and open-by-severity counts
+// from its own open, non-duplicate, default-version findings (liveDefault,
+// from relation.go) — the same weighted formula as the project risk score
+// (severity weight × count, scaled by the project's business criticality) —
+// in one query, and sets them on the returned copies. Assets with no such
+// findings keep a zero score and an empty map.
+func (r *Repository) AttachRisk(ctx context.Context, assets []Asset) ([]Asset, error) {
+	if len(assets) == 0 {
+		return assets, nil
+	}
+	ids := make([]string, len(assets))
+	for i, a := range assets {
+		ids[i] = a.ID
+	}
+
+	rows, err := r.db.Query(ctx, `
+		SELECT f.asset_id, p.business_criticality, f.severity, count(*)
+		FROM findings f
+		JOIN projects p ON p.id = f.project_id
+		WHERE f.asset_id = ANY($1) AND `+liveDefault+`
+		GROUP BY f.asset_id, p.business_criticality, f.severity`, ids)
+	if err != nil {
+		return nil, fmt.Errorf("asset risk: %w", err)
+	}
+	defer rows.Close()
+
+	type acc struct {
+		score float64
+		open  map[domain.Severity]int
+		total int
+		crit  domain.Criticality
+	}
+	accs := map[string]*acc{}
+	for rows.Next() {
+		var (
+			assetID string
+			crit    domain.Criticality
+			sev     domain.Severity
+			n       int
+		)
+		if err := rows.Scan(&assetID, &crit, &sev, &n); err != nil {
+			return nil, fmt.Errorf("scan asset risk: %w", err)
+		}
+		a := accs[assetID]
+		if a == nil {
+			a = &acc{open: map[domain.Severity]int{}, crit: crit}
+			accs[assetID] = a
+		}
+		a.open[sev] += n
+		a.total += n
+		a.score += sev.Weight() * float64(n)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	for i := range assets {
+		a := accs[assets[i].ID]
+		if a == nil {
+			assets[i].OpenBySeverity = map[domain.Severity]int{}
+			continue
+		}
+		assets[i].RiskScore = math.Round(a.score*a.crit.Multiplier()*10) / 10
+		assets[i].TotalOpen = a.total
+		assets[i].OpenBySeverity = a.open
+	}
+	return assets, nil
 }
 
 // Exists reports whether an asset with the given id exists.

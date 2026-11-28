@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/xilasec/xila-api/internal/domain"
 	"github.com/xilasec/xila-api/internal/finding"
@@ -41,6 +42,15 @@ func TestParseCISAKEV(t *testing.T) {
 	if !list.Ransomware["CVE-2021-44228"] || !list.Ransomware["CVE-2024-4577"] || list.Ransomware["CVE-2024-27348"] {
 		t.Errorf("ransomware = %v, want CVE-2021-44228 and CVE-2024-4577 only", list.Ransomware)
 	}
+	wantDue := map[string]string{
+		"CVE-2024-27348": "2024-10-09", "CVE-2024-4577": "2024-07-03", "CVE-2021-44228": "2021-12-24",
+	}
+	for id, want := range wantDue {
+		got, ok := list.DueDates[id]
+		if !ok || got.Format("2006-01-02") != want || got.Location() != time.UTC {
+			t.Errorf("due date for %s = %v, want %s UTC", id, got, want)
+		}
+	}
 }
 
 // Real EUVD search API pages (/api/search?exploited=true): each item asserts
@@ -71,6 +81,9 @@ func TestParseVulnCheckKEVPage(t *testing.T) {
 	}
 	if !slices.Equal(p.Ransomware, []string{"CVE-2024-4577"}) {
 		t.Errorf("page 1 ransomware = %v, want CVE-2024-4577", p.Ransomware)
+	}
+	if got, ok := p.DueDates["CVE-2024-4577"]; !ok || got.Format("2006-01-02") != "2024-07-03" {
+		t.Errorf("page 1 due date = %v, want 2024-07-03", p.DueDates)
 	}
 	p, err = ParseVulnCheckKEVPage(open(t, "vulncheck_kev_page2.json"))
 	if err != nil {
@@ -216,5 +229,42 @@ func TestEnrichRansomwareFlag(t *testing.T) {
 		if got := store.set[id].ransomware; got != want {
 			t.Errorf("%s ransomware = %v, want %v", id, got, want)
 		}
+	}
+}
+
+// A finding's kev_due_date is the earliest due date any catalog asserting any
+// of its ids publishes; a finding with no due-date-bearing catalog gets none.
+func TestEnrichKEVDueDate(t *testing.T) {
+	early := time.Date(2024, 7, 3, 0, 0, 0, 0, time.UTC)
+	late := time.Date(2024, 10, 9, 0, 0, 0, 0, time.UTC)
+	store := &fakeStore{items: []finding.Enrichable{
+		{ID: "both", Severity: domain.SeverityHigh, CVE: []string{"CVE-1"}, IDs: []string{"CVE-1"}},
+		{ID: "none", Severity: domain.SeverityHigh, CVE: []string{"CVE-2"}, IDs: []string{"CVE-2"}},
+	}}
+	cats := []KEVCatalog{
+		fakeCatalog{name: "cisa", ids: []string{"CVE-1", "CVE-2"}, dueDates: map[string]time.Time{"CVE-1": late}},
+		fakeCatalog{name: "vulncheck", ids: []string{"CVE-1"}, dueDates: map[string]time.Time{"CVE-1": early}},
+	}
+	if _, err := NewService(store, fakeEPSS{}, cats, &fakeKEVStore{}, nil).Enrich(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	got, ok := store.set["both"].dueDate, store.set["both"].dueDate != nil
+	if !ok || !got.Equal(early) {
+		t.Errorf("both due date = %v, want the earlier %v", got, early)
+	}
+	if d := store.set["none"].dueDate; d != nil {
+		t.Errorf("none due date = %v, want nil (no catalog publishes one for CVE-2)", d)
+	}
+}
+
+func TestKEVDueDateFor(t *testing.T) {
+	early := time.Date(2024, 7, 3, 0, 0, 0, 0, time.UTC)
+	late := time.Date(2024, 10, 9, 0, 0, 0, 0, time.UTC)
+	dueDates := map[string]time.Time{"CVE-1": late, "GHSA-X": early}
+	if got := KEVDueDateFor([]string{"CVE-1", "GHSA-X"}, dueDates); got == nil || !got.Equal(early) {
+		t.Errorf("earliest across ids = %v, want %v", got, early)
+	}
+	if got := KEVDueDateFor([]string{"CVE-999"}, dueDates); got != nil {
+		t.Errorf("unmatched id = %v, want nil", got)
 	}
 }
