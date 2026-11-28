@@ -3,9 +3,8 @@ name: Release
 # Releases are cut by Release Please (release-please.yml), which calls this
 # workflow with the tag it created. A semver tag pushed by hand (v1.2.3, or
 # v1.2.3-rc.1 for a pre-release) runs it too, and so does running it by hand
-# with a tag, to retry a release whose build failed before it was published
-# (a re-run replays the old workflow file; this runs the current one). It
-# publishes:
+# on the tag (`gh workflow run release.yml --ref vX.Y.Z -f tag=vX.Y.Z`), to
+# retry a release whose build failed before it was published. It publishes:
 #   - ghcr.io/<owner>/xila-api:<version> — multi-arch (amd64, arm64) image;
 #     also :<major>.<minor> and :latest for final releases
 #   - oci://ghcr.io/<owner>/charts/xila — the Helm chart, versioned like the app
@@ -64,6 +63,20 @@ jobs:
           [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || { echo "$TAG is not a release tag" >&2; exit 1; }
           git fetch --no-tags origin main
           git merge-base --is-ancestor "refs/tags/$TAG" origin/main || { echo "$TAG is not on main" >&2; exit 1; }
+
+      # The provenance names the commit this run started from, not the one
+      # the jobs check out: they must be the same, or the attestations would
+      # point at the wrong source. A tag push and Release Please's call (the
+      # release PR's merge commit is what it tags) already agree; a run by
+      # hand has to start on the tag.
+      - name: The run is the tag's commit
+        run: |
+          set -euo pipefail
+          tagged=$(git rev-parse "refs/tags/$TAG^{commit}")
+          [ "$GITHUB_SHA" = "$tagged" ] || {
+            echo "this run is at $GITHUB_SHA but $TAG is $tagged: the provenance would name the wrong commit; run it on the tag (--ref $TAG)" >&2
+            exit 1
+          }
 
   ci:
     needs: tag

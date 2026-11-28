@@ -3356,8 +3356,9 @@ setting): their files and tag can't be replaced. A ruleset stops anyone moving
 or deleting a `v*` tag. The build refuses a tag that isn't a semver tag on a
 commit of `main`, and refuses to push an image or chart version whose release
 is published (GHCR can't lock a tag itself); `:X.Y` and `:latest` move on
-purpose. A build that failed before publishing is retried with the current
-workflow: `gh workflow run release.yml -f tag=vX.Y.Z`.
+purpose. A build that failed before publishing is retried on the tag:
+`gh workflow run release.yml --ref vX.Y.Z -f tag=vX.Y.Z` (the run must start on
+the tag's commit, so that the provenance names it).
 
 Every artifact carries signed attestations (GitHub artifact attestations,
 Sigstore, keyless): SLSA build provenance, which names the workflow, commit and
