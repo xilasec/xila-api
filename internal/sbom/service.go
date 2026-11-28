@@ -86,6 +86,7 @@ type Service struct {
 	packages      PackageRefresher                                          // optional
 	licenses      LicenseResolver                                           // optional: nil leaves license_resolved NULL for the backfill
 	loadOverrides func(ctx context.Context) (LicenseOverrideMatcher, error) // optional: a project's curated concluded licenses
+	internal      InternalMatcher                                           // optional: nil leaves every component external
 	strictDefault bool                                                      // SBOM_STRICT_VALIDATION: every upload is strict, not only ?strict=true ones
 }
 
@@ -184,6 +185,9 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest, raw io.Reader) 
 			return Sbom{}, fmt.Errorf("load license overrides: %w", err)
 		}
 		applyLicenseOverrides(overrides, req.ProjectID, doc.Components)
+	}
+	if s.internal != nil {
+		markInternal(s.internal(ctx), doc.Components)
 	}
 	stored, err := s.store.Ingest(ctx, record, doc.Components, doc.Services, doc.Edges)
 	if err != nil {

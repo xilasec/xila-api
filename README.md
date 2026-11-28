@@ -1563,6 +1563,19 @@ filters with `?outdated=true|false`. The UI shows an Outdated badge with
   layout, GOPROXY, crates.io API, a NuGet V3 service index, RubyGems API,
   Composer v2 repository), or turn lookups off with `PKGMETA_ENABLED=false`
   (component freshness then stays unknown).
+- Private registries: `/api/v1/pkgmeta/registries` (admin; the Internal
+  Components page) lists authenticated registries per ecosystem (basic or
+  bearer, credentials sealed and write-only, sent to the registry's own host
+  only), tried in order before the public one; a registry that doesn't have a
+  package passes it on.
+- Internal components: `/api/v1/component-patterns` (admin) marks first-party
+  packages by ecosystem, group and name (glob or regex). An internal
+  component's name never reaches a public registry or an online advisory
+  source: it is looked up only in registries marked `internal` (skipped when
+  there is none) and matched only against private sources (`osv-local`,
+  `private`); an internal CPE-only component isn't sent to NVD. Components are
+  marked at upload, and existing inventory is re-marked when the patterns
+  change; every replica picks a change up within seconds.
 
 The policy engine reads the same data (`pkgmeta.Repository.Info`), so "outdated"
 and "versions behind" conditions match what the UI shows.
@@ -1692,10 +1705,20 @@ vulns.kev && pkg.versions_behind >= 3                                  # policy
 component.purl.startsWith("pkg:npm/") && "GPL-3.0-only" in component.license.ids
 finding.cvss >= 9 && "internet-facing" in finding.tags                 # triage rule
 finding.dep_direct == false && finding.severity == "low"
+is_dependency_of("pkg:npm/express") && vulns.count > 0                 # graph
 ```
 
+A policy expression can also ask about the component's place in its snapshot's
+dependency graph: `depends_on(p)` (it depends on a match, directly or not),
+`is_dependency_of(p)` (a match depends on it), `is_direct_dependency_of(p)` and
+`is_exclusive_dependency_of(p)` (every path from the root to it goes through a
+match: removing that would remove it). `p` is a package without version
+(`pkg:npm/@babel/core`; percent-encoding and case don't matter) or `re:<regex>`
+over the full purl. A snapshot without a dependency graph makes all four false.
+
 Policies see `component` (type, kind, group, name, version, purl, hashes, license.raw /
-expression / ids / resolved), `vulns` (count, ids, max_severity,
+expression / ids / resolved; direct, depth and scope from the SBOM's dependency graph,
+null when it has none; internal), `vulns` (count, ids, max_severity,
 max_severity_rank 5–0, kev, kev_sources, epss, cwes), `pkg` (known, latest, outdated,
 versions_behind, age_days), `model` (suppliers, task, architecture_family,
 datasets; empty / null when unknown) and `project` (name, version, default_version, custom). Triage

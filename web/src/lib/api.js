@@ -373,6 +373,16 @@ export const api = {
 	// --- account / rbac ---
 	me: () => request('GET', '/me'),
 	listUsers: () => request('GET', '/users').then((d) => d.users ?? []),
+	listComponentPatterns: () => request('GET', '/component-patterns').then((d) => d.patterns ?? []),
+	/** @param {Record<string, any>} data */
+	createComponentPattern: (data) => request('POST', '/component-patterns', { body: data }),
+	/** @param {string} id */
+	deleteComponentPattern: (id) => request('DELETE', `/component-patterns/${id}`),
+	listPrivateRegistries: () => request('GET', '/pkgmeta/registries').then((d) => d.registries ?? []),
+	/** @param {Record<string, any>} data */
+	createPrivateRegistry: (data) => request('POST', '/pkgmeta/registries', { body: data }),
+	/** @param {string} id */
+	deletePrivateRegistry: (id) => request('DELETE', `/pkgmeta/registries/${id}`),
 	getTriageSettings: () => request('GET', '/triage-rules/settings'),
 	/** @param {{ allow_skip_global_rules: boolean }} data */
 	setTriageSettings: (data) => request('PUT', '/triage-rules/settings', { body: data }),

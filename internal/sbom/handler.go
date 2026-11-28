@@ -296,6 +296,15 @@ func componentFilter(c *fiber.Ctx) (ComponentFilter, error) {
 	default:
 		return ComponentFilter{}, fiber.NewError(fiber.StatusBadRequest, "outdated must be true or false")
 	}
+	switch c.Query("internal") {
+	case "":
+	case "true":
+		f.Internal = new(true)
+	case "false":
+		f.Internal = new(false)
+	default:
+		return ComponentFilter{}, fiber.NewError(fiber.StatusBadRequest, "internal must be true or false")
+	}
 	if f.Kind != "" && f.Kind != KindAI && !slices.Contains(Kinds, f.Kind) {
 		return ComponentFilter{}, fiber.NewError(fiber.StatusBadRequest, "kind must be ai, software, model, dataset or ai-service")
 	}

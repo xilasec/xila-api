@@ -28,6 +28,7 @@ import (
 	"github.com/xilasec/xila-api/internal/auth"
 	"github.com/xilasec/xila-api/internal/badge"
 	"github.com/xilasec/xila-api/internal/compliance"
+	"github.com/xilasec/xila-api/internal/component"
 	"github.com/xilasec/xila-api/internal/computed"
 	"github.com/xilasec/xila-api/internal/config"
 	"github.com/xilasec/xila-api/internal/connector"
@@ -284,7 +285,10 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 	}
 	policyRepo := policy.NewRepository(pool)
 	pkgmetaRepo := pkgmeta.NewRepository(pool)
-	pkgmetaSvc := pkgmeta.NewService(pkgmetaRepo, map[string]pkgmeta.Registry{pkgmeta.NPM: fakeNPM{}}, pkgmeta.Options{})
+	componentRepo := component.NewRepository(pool)
+	componentSvc := component.NewService(componentRepo, componentRepo)
+	pkgmetaSvc := pkgmeta.NewService(pkgmetaRepo, map[string]pkgmeta.Registry{pkgmeta.NPM: fakeNPM{}}, pkgmeta.Options{}).
+		WithInternal(componentSvc.Current)
 	policySvc := policy.NewService(policyRepo, sbomRepo, pkgmetaRepo, licenseGroups, ingestSvc, notifySvc).
 		WithCustomFields(customFieldRepo)
 	// Policy edits re-evaluate in the background: let that finish before the
@@ -329,7 +333,8 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 			aitriage.Options{RequireApproval: cfg.AssessmentRequiresApproval, RateLimit: cfg.AI.RateLimit})),
 		Sbom: sbom.NewHandler(sbomRepo, sbom.NewService(sbomRepo, projectRepo, policySvc,
 			correlation.NewReacher(findingRepo, findingRepo)).WithLicenses(license.Resolve).WithStrictValidation(cfg.SBOMStrictValidation).
-			WithLicenseOverrides(func(ctx context.Context) (sbom.LicenseOverrideMatcher, error) { return loadLicenseOverrides(ctx) })).
+			WithLicenseOverrides(func(ctx context.Context) (sbom.LicenseOverrideMatcher, error) { return loadLicenseOverrides(ctx) }).
+			WithInternalComponents(componentSvc.Current)).
 			WithProjectByName(projectResolver, membershipRepo),
 		Asset:          asset.NewHandler(assetRepo, assetSvc, membershipRepo),
 		Compliance:     compliance.NewHandler(complianceRepo),
@@ -379,7 +384,8 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		Advisory:  vulnmatch.NewAdvisoryHandler(advisoryRepo, nil),
 		FeedRules: vulnmatch.NewFeedRuleHandler(feedRuleRepo, nil),
 		PSIRT:     psirt.NewHandler(psirtSvc, psirtRepo),
-		PkgMeta:   pkgmeta.NewHandler(pkgmetaRepo, pkgmetaSvc),
+		PkgMeta:   pkgmeta.NewHandler(pkgmetaRepo, pkgmetaSvc).WithPrivateRegistries(pkgmeta.NewPrivateRegistries(pool, trackerCipher, pkgmeta.RegistryConfig{})),
+		Component: component.NewHandler(componentSvc),
 		License:   license.NewHandler(licenseGroups),
 		LicenseOverride: license.NewOverrideHandler(licenseOverrideRepo,
 			license.NewReapplier(sbomRepo, loadLicenseOverrides)).WithPolicyReevaluation(policySvc),

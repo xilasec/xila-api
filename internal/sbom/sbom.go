@@ -73,6 +73,9 @@ type Component struct {
 	FilePath  string            `json:"file_path"`
 	Hashes    map[string]string `json:"hashes"`
 	CreatedAt time.Time         `json:"created_at"`
+	// Internal marks a first-party component (internal/component patterns):
+	// never sent to public registries or public advisory sources.
+	Internal bool `json:"internal"`
 
 	// Reachability, read from the SBOM's own dependency graph (nil/"" when the
 	// document carried none). Direct = the project depends on it on purpose;
@@ -270,14 +273,14 @@ func (r *Repository) Ingest(ctx context.Context, s Sbom, components []Component,
 				hashes = map[string]string{}
 			}
 			rows[i] = []any{out.ID, out.ProjectID, c.BomRef, c.Type, cmp.Or(c.Kind, KindSoftware), c.ML, c.Group, c.Name, c.Version, c.Purl, c.Cpe, c.License, c.FilePath, hashes,
-				c.Direct, c.Depth, string(c.Scope),
+				c.Direct, c.Depth, string(c.Scope), c.Internal,
 				c.LicenseExpression, nonNil(c.LicenseIDs), nonNil(c.LicenseCategories), c.LicenseResolved,
 				c.LicenseDeclaredExpression, nonNil(c.LicenseDeclaredIDs), nonNil(c.LicenseDeclaredCategories), c.LicenseDeclaredResolved, c.LicenseOverrideID}
 		}
 		_, err = tx.CopyFrom(ctx,
 			pgx.Identifier{"sbom_components"},
 			[]string{"sbom_id", "project_id", "bom_ref", "type", "kind", "ml", "group", "name", "version", "purl", "cpe", "license", "file_path", "hashes",
-				"direct", "depth", "scope",
+				"direct", "depth", "scope", "internal",
 				"license_expression", "license_ids", "license_categories", "license_resolved",
 				"license_declared_expression", "license_declared_ids", "license_declared_categories", "license_declared_resolved", "license_override_id"},
 			pgx.CopyFromRows(rows))
@@ -390,8 +393,11 @@ type ComponentFilter struct {
 	// Integrity keeps components by registry hash check: "verified",
 	// "mismatch", or "unknown" (no comparable hash).
 	Integrity string
-	Limit     int
-	Offset    int
+	// Internal keeps components by internal/component patterns' computed flag
+	// (nil = both).
+	Internal *bool
+	Limit    int
+	Offset   int
 }
 
 // SnapshotComponent is one purl-bearing package of one snapshot — the unit the
@@ -407,6 +413,9 @@ type SnapshotComponent struct {
 	Purl      string
 	Cpe       string
 	Current   bool
+	// Internal marks a first-party component (internal/component patterns):
+	// matched against private advisories only, never the public ones.
+	Internal bool
 }
 
 // MatchKey is how a component is matched against advisories: its purl, else
@@ -435,7 +444,7 @@ func (r *Repository) ListSnapshotInventory(ctx context.Context, projectID string
 			WHERE $1::uuid IS NULL OR project_id = $1
 			ORDER BY version_id, artifact, created_at DESC
 		)
-		SELECT DISTINCT c.sbom_id, c.project_id, s.version_id, c.name, c.version, c.purl, c.cpe, c.sbom_id IN (SELECT id FROM latest)
+		SELECT DISTINCT c.sbom_id, c.project_id, s.version_id, c.name, c.version, c.purl, c.cpe, c.sbom_id IN (SELECT id FROM latest), c.internal
 		FROM sbom_components c
 		JOIN sboms s ON s.id = c.sbom_id
 		WHERE (c.purl <> '' OR c.cpe <> '') AND ($1::uuid IS NULL OR c.project_id = $1)
@@ -454,7 +463,7 @@ func (r *Repository) ListSnapshotInventory(ctx context.Context, projectID string
 	out := []SnapshotComponent{}
 	for rows.Next() {
 		var c SnapshotComponent
-		if err := rows.Scan(&c.SbomID, &c.ProjectID, &c.VersionID, &c.Name, &c.Version, &c.Purl, &c.Cpe, &c.Current); err != nil {
+		if err := rows.Scan(&c.SbomID, &c.ProjectID, &c.VersionID, &c.Name, &c.Version, &c.Purl, &c.Cpe, &c.Current, &c.Internal); err != nil {
 			return nil, fmt.Errorf("scan snapshot component: %w", err)
 		}
 		out = append(out, c)
@@ -466,7 +475,7 @@ func (r *Repository) ListSnapshotInventory(ctx context.Context, projectID string
 // PackageFreshness); pair it with componentFrom and scanComponentHit.
 const componentColumns = `
 		SELECT c.id, c.bom_ref, c.sbom_id, c.project_id, c.type, c.kind, c.ml, c."group", c.name, c.version,
-		       c.purl, c.cpe, c.license, c.file_path, c.hashes, c.created_at,
+		       c.purl, c.cpe, c.license, c.file_path, c.hashes, c.created_at, c.internal,
 		       c.direct, c.depth, c.scope,
 		       c.license_expression, c.license_ids, c.license_categories, c.license_resolved,
 		       c.license_declared_expression, c.license_declared_ids, c.license_declared_categories, c.license_declared_resolved, c.license_override_id,
@@ -484,7 +493,7 @@ func scanComponentHit(row pgx.Row) (ComponentHit, error) {
 	var h ComponentHit
 	var rank *int
 	err := row.Scan(&h.ID, &h.BomRef, &h.SbomID, &h.ProjectID, &h.Type, &h.Kind, &h.ML, &h.Group, &h.Name, &h.Version,
-		&h.Purl, &h.Cpe, &h.License, &h.FilePath, &h.Hashes, &h.Component.CreatedAt,
+		&h.Purl, &h.Cpe, &h.License, &h.FilePath, &h.Hashes, &h.Component.CreatedAt, &h.Internal,
 		&h.Direct, &h.Depth, &h.Scope,
 		&h.LicenseExpression, &h.LicenseIDs, &h.LicenseCategories, &h.LicenseResolved,
 		&h.LicenseDeclaredExpression, &h.LicenseDeclaredIDs, &h.LicenseDeclaredCategories, &h.LicenseDeclaredResolved, &h.LicenseOverrideID,
@@ -614,6 +623,9 @@ func componentQuery(f ComponentFilter) (string, []any) {
 		q += ` AND c.integrity IS NULL`
 	case "verified", "mismatch":
 		add("c.integrity = $%d", f.Integrity)
+	}
+	if f.Internal != nil {
+		add("c.internal = $%d", *f.Internal)
 	}
 	return q + ` ORDER BY c.name, s.created_at DESC`, args
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
+	"github.com/xilasec/xila-api/internal/auth"
 	"github.com/xilasec/xila-api/internal/httpx"
 )
 
@@ -14,8 +15,9 @@ const sweepTimeout = 2 * time.Hour
 
 // Handler exposes cached package metadata and on-demand sweeps.
 type Handler struct {
-	repo *Repository
-	svc  *Service // nil when PKGMETA_ENABLED=false: the cache stays readable
+	private *PrivateRegistries // optional: without, the registry routes answer 404
+	repo    *Repository
+	svc     *Service // nil when PKGMETA_ENABLED=false: the cache stays readable
 }
 
 // NewHandler constructs the Handler. A nil svc (registry lookups disabled)
@@ -30,6 +32,10 @@ func NewHandler(repo *Repository, svc *Service) *Handler {
 func (h *Handler) Register(r fiber.Router) {
 	r.Get("/pkgmeta", h.Get)
 	r.Post("/pkgmeta/refresh", h.Refresh)
+	r.Get("/pkgmeta/registries", h.ListRegistries)
+	r.Post("/pkgmeta/registries", h.CreateRegistry)
+	r.Patch("/pkgmeta/registries/:registryID", h.UpdateRegistry)
+	r.Delete("/pkgmeta/registries/:registryID", h.DeleteRegistry)
 	r.Get("/sboms/:sbomID/freshness", h.SbomFreshness)
 }
 
@@ -100,4 +106,96 @@ func (h *Handler) SbomFreshness(c *fiber.Ctx) error {
 		return err
 	}
 	return c.JSON(f)
+}
+
+// WithPrivateRegistries serves the private-registry routes (M13 13.11).
+func (h *Handler) WithPrivateRegistries(p *PrivateRegistries) *Handler {
+	h.private = p
+	return h
+}
+
+func (h *Handler) registries() (*PrivateRegistries, error) {
+	if h.private == nil {
+		return nil, fiber.NewError(fiber.StatusNotFound, "private registries are not configured")
+	}
+	return h.private, nil
+}
+
+func registryError(err error) error {
+	if errors.Is(err, ErrRegistryNotFound) {
+		return fiber.NewError(fiber.StatusNotFound, err.Error())
+	}
+	if rerr, ok := errors.AsType[*RegistryError](err); ok {
+		return fiber.NewError(fiber.StatusBadRequest, rerr.Error())
+	}
+	return err
+}
+
+// ListRegistries handles GET /pkgmeta/registries (admin): every private
+// registry, credentials reported only as set or not.
+func (h *Handler) ListRegistries(c *fiber.Ctx) error {
+	p, err := h.registries()
+	if err != nil {
+		return err
+	}
+	regs, err := p.List(c.UserContext())
+	if err != nil {
+		return err
+	}
+	return c.JSON(fiber.Map{"registries": regs})
+}
+
+// CreateRegistry handles POST /pkgmeta/registries (admin).
+func (h *Handler) CreateRegistry(c *fiber.Ctx) error {
+	p, err := h.registries()
+	if err != nil {
+		return err
+	}
+	var in RegistryInput
+	if err := httpx.Parse(c, &in); err != nil {
+		return err
+	}
+	out, err := p.Create(c.UserContext(), in, auth.UserID(c))
+	if err != nil {
+		return registryError(err)
+	}
+	return c.Status(fiber.StatusCreated).JSON(out)
+}
+
+// UpdateRegistry handles PATCH /pkgmeta/registries/{id} (admin). A password
+// or token left out is kept; "" clears it.
+func (h *Handler) UpdateRegistry(c *fiber.Ctx) error {
+	p, err := h.registries()
+	if err != nil {
+		return err
+	}
+	id, err := httpx.ID(c, "registryID")
+	if err != nil {
+		return err
+	}
+	var in RegistryInput
+	if err := httpx.Parse(c, &in); err != nil {
+		return err
+	}
+	out, err := p.Update(c.UserContext(), id, in)
+	if err != nil {
+		return registryError(err)
+	}
+	return c.JSON(out)
+}
+
+// DeleteRegistry handles DELETE /pkgmeta/registries/{id} (admin).
+func (h *Handler) DeleteRegistry(c *fiber.Ctx) error {
+	p, err := h.registries()
+	if err != nil {
+		return err
+	}
+	id, err := httpx.ID(c, "registryID")
+	if err != nil {
+		return err
+	}
+	if err := p.Delete(c.UserContext(), id); err != nil {
+		return registryError(err)
+	}
+	return c.SendStatus(fiber.StatusNoContent)
 }

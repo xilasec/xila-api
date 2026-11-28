@@ -4229,6 +4229,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/pkgmeta/registries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Private package registries
+         * @description Instance admin. Registries tried, per ecosystem in `sort_order`, before the
+         *     public one when package metadata is fetched. An `internal` registry is the
+         *     only kind an internal component is ever looked up in. Credentials are
+         *     write-only (`has_password`, `has_token`) and sent to the registry's own
+         *     host only.
+         */
+        get: operations["listPrivateRegistries"];
+        put?: never;
+        /** Add a private package registry */
+        post: operations["createPrivateRegistry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pkgmeta/registries/{registryID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a private package registry */
+        delete: operations["deletePrivateRegistry"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a private package registry
+         * @description A `password` or `token` left out is kept; an empty string clears it.
+         */
+        patch: operations["updatePrivateRegistry"];
+        trace?: never;
+    };
     "/pkgmeta": {
         parameters: {
             query?: never;
@@ -4616,6 +4662,51 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/component-patterns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Internal-component patterns
+         * @description Instance admin. A component whose ecosystem, group and name match a
+         *     pattern is internal (first-party): its name is only ever looked up in
+         *     internal private registries and asked of private advisory sources
+         *     (the local OSV mirror, private advisories), never a public one.
+         */
+        get: operations["listComponentPatterns"];
+        put?: never;
+        /**
+         * Add an internal-component pattern
+         * @description Instance admin. Existing inventory is re-marked in the background; uploads see the change within seconds on every replica.
+         */
+        post: operations["createComponentPattern"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/component-patterns/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Replace an internal-component pattern */
+        put: operations["updateComponentPattern"];
+        post?: never;
+        /** Delete an internal-component pattern */
+        delete: operations["deleteComponentPattern"];
         options?: never;
         head?: never;
         patch?: never;
@@ -11404,6 +11495,64 @@ export interface components {
             /** @description The project skips global triage rules and global vulnerability policies (counts only while allow_skip_global_rules is on). */
             skip_global_rules?: boolean;
             readonly allow_skip_global_rules?: boolean;
+        };
+        /** @description At least one of group_pattern and name_pattern; each empty one matches anything. */
+        ComponentPattern: {
+            /** Format: uuid */
+            readonly id?: string;
+            /** @description A purl type (npm, maven, ...); empty matches every ecosystem. */
+            ecosystem?: string;
+            /** @example @acme */
+            group_pattern?: string;
+            /** @example acme-* */
+            name_pattern?: string;
+            /**
+             * @description Case-insensitive; a glob matches the whole value.
+             * @default glob
+             * @enum {string}
+             */
+            pattern_type: "glob" | "regex";
+            /** Format: date-time */
+            readonly created_at?: string;
+            /** Format: date-time */
+            readonly updated_at?: string;
+        };
+        PrivateRegistry: {
+            /** Format: uuid */
+            id?: string;
+            ecosystem?: string;
+            url?: string;
+            /** @enum {string} */
+            auth_type?: "none" | "basic" | "bearer";
+            username?: string;
+            has_password?: boolean;
+            has_token?: boolean;
+            /** @description May see internal component names. */
+            internal?: boolean;
+            sort_order?: number;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        PrivateRegistryInput: {
+            /** @description npm, pypi, maven, golang, cargo, nuget, gem or composer. */
+            ecosystem: string;
+            /** @description The registry's base URL (checked against the outbound policy). */
+            url: string;
+            /**
+             * @default none
+             * @enum {string}
+             */
+            auth_type: "none" | "basic" | "bearer";
+            /** @description For basic auth. */
+            username?: string;
+            /** @description For basic auth. Omit on update to keep it. */
+            password?: string;
+            /** @description For bearer auth. Omit on update to keep it. */
+            token?: string;
+            internal?: boolean;
+            sort_order?: number;
         };
         /**
          * @description A CEL condition over `component` (`name`, `version`, `purl`, `group`, `license`,
@@ -19547,6 +19696,102 @@ export interface operations {
             404: components["responses"]["Error"];
         };
     };
+    listPrivateRegistries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        registries?: components["schemas"]["PrivateRegistry"][];
+                    };
+                };
+            };
+        };
+    };
+    createPrivateRegistry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrivateRegistryInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrivateRegistry"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    deletePrivateRegistry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                registryID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    updatePrivateRegistry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                registryID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrivateRegistryInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrivateRegistry"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
     getPkgmeta: {
         parameters: {
             query: {
@@ -20160,6 +20405,102 @@ export interface operations {
         responses: {
             200: components["responses"]["Export"];
             400: components["responses"]["Error"];
+        };
+    };
+    listComponentPatterns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        patterns?: components["schemas"]["ComponentPattern"][];
+                    };
+                };
+            };
+        };
+    };
+    createComponentPattern: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ComponentPattern"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComponentPattern"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    updateComponentPattern: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ComponentPattern"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComponentPattern"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    deleteComponentPattern: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
         };
     };
     listComponents: {

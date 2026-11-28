@@ -39,6 +39,11 @@ const (
 type Schema struct {
 	Vars   []string
 	Sample map[string]any
+	// Frame, when set, declares the dependency-graph functions (GraphFuncs)
+	// bound to it. A caller evaluating one component at a time points it at
+	// that component's graph and node (GraphFrame.Set) before each Match;
+	// never Set, every graph function is false (save-time checks).
+	Frame *GraphFrame
 }
 
 // Program is a compiled, validated expression.
@@ -58,6 +63,9 @@ func env(s Schema) (*cel.Env, error) {
 	opts := []cel.EnvOption{ext.Strings(), cel.ParserExpressionSizeLimit(maxSource)}
 	for _, v := range s.Vars {
 		opts = append(opts, cel.Variable(v, cel.DynType))
+	}
+	if s.Frame != nil {
+		opts = append(opts, GraphFuncs(s.Frame)...)
 	}
 	return cel.NewEnv(opts...)
 }

@@ -630,8 +630,9 @@ func baseScope(path, method string) routeScope {
 	case "pkgmeta":
 		// Cached registry metadata is public package data any signed-in user
 		// may read; a sweep hits every registry for the whole portfolio, so
-		// starting one is an instance-admin action.
-		if !get {
+		// starting one is an instance-admin action. The private registries
+		// (internal URLs, usernames, credentials) are admin-only to read too.
+		if !get || (len(segs) >= 2 && segs[1] == "registries") {
 			return routeScope{adminOnly: true}
 		}
 		return routeScope{}
@@ -641,7 +642,7 @@ func baseScope(path, method string) routeScope {
 			return routeScope{globalList: true}
 		}
 		return routeScope{adminOnly: true}
-	case "users", "permissions", "service-accounts", "scim-tokens", "federation", "enrich", "vulnmatch", "feed-rules", "psirt", "notifications", "triage-rules", "vuln-policies", "gate", "ingest", "sla", "issue-trackers", "sso", "retention", "audit-log", "exploit-intel", "custom-parsers", "admin":
+	case "users", "permissions", "service-accounts", "scim-tokens", "federation", "enrich", "vulnmatch", "feed-rules", "psirt", "notifications", "triage-rules", "vuln-policies", "gate", "ingest", "sla", "issue-trackers", "sso", "retention", "audit-log", "exploit-intel", "custom-parsers", "component-patterns", "admin":
 		// User admin, service accounts + workload identity federation, SSO
 		// providers + group → role mappings, portfolio-wide
 		// enrichment, advisory feed rules, PSIRT advisory publishing, notification-channel management,

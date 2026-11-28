@@ -87,6 +87,69 @@ type findingApplier interface {
 // target is one project version the current inventory produces findings on.
 type target struct{ project, version string }
 
+// partitionKeys splits the components' distinct match keys three ways: purls
+// for every advisory source, internal purls for private sources only (an
+// internal component's name never reaches an online one, M13 13.11), and
+// CPEs of purl-less external components for NVD. A key internal in any row
+// counts as internal; an internal CPE-only component is asked of no one.
+func partitionKeys(components []sbom.SnapshotComponent) (purls, internalPurls, cpes []string) {
+	internal := map[string]bool{}
+	isPurl := map[string]bool{}
+	var keys []string
+	for _, c := range components {
+		key := c.MatchKey()
+		if _, seen := internal[key]; !seen {
+			keys = append(keys, key)
+		}
+		internal[key] = internal[key] || c.Internal
+		isPurl[key] = isPurl[key] || c.Purl != ""
+	}
+	purls = make([]string, 0, len(keys))
+	for _, key := range keys {
+		switch {
+		case isPurl[key] && internal[key]:
+			internalPurls = append(internalPurls, key)
+		case isPurl[key]:
+			purls = append(purls, key)
+		case !internal[key]:
+			cpes = append(cpes, key)
+		}
+	}
+	return purls, internalPurls, cpes
+}
+
+// queryInternal adds the private sources' answers for the internal purls to
+// vulns (a new map: vulns may be a source's own). A failure there counts as
+// a partial lookup, like any failed source: what only it would report must
+// not be closed as fixed.
+func (s *Service) queryInternal(ctx context.Context, internalPurls []string, vulns map[string][]Vuln, partial *PartialError) (map[string][]Vuln, *PartialError) {
+	pq, ok := s.source.(privateQuerier)
+	if !ok || len(internalPurls) == 0 {
+		return vulns, partial
+	}
+	pv, err := pq.QueryPrivate(ctx, internalPurls)
+	var failed *PartialError
+	if err != nil && !errors.As(err, &failed) {
+		failed = &PartialError{Failed: map[string]error{"private sources": err}}
+	}
+	merged := make(map[string][]Vuln, len(vulns)+len(pv))
+	maps.Copy(merged, vulns)
+	maps.Copy(merged, pv)
+	if failed != nil {
+		if partial == nil {
+			partial = &PartialError{Failed: map[string]error{}}
+		}
+		maps.Copy(partial.Failed, failed.Failed)
+	}
+	return merged, partial
+}
+
+// privateQuerier is a source that can answer from private sources alone
+// (MultiSource). Without it, internal components are never matched.
+type privateQuerier interface {
+	QueryPrivate(ctx context.Context, purls []string) (map[string][]Vuln, error)
+}
+
 // Service re-evaluates SBOM inventory against the advisory sources.
 type Service struct {
 	inventory inventoryStore
@@ -153,23 +216,8 @@ func (s *Service) match(ctx context.Context, projectID string) (int, error) {
 	}
 
 	// One batched advisory lookup for every distinct match key in scope,
-	// history included: purls go to the package advisory sources, CPEs of
-	// purl-less components to NVD (when configured).
-	seenKey := map[string]bool{}
-	purls := make([]string, 0, len(components))
-	var cpes []string
-	for _, c := range components {
-		key := c.MatchKey()
-		if seenKey[key] {
-			continue
-		}
-		seenKey[key] = true
-		if c.Purl != "" {
-			purls = append(purls, key)
-		} else {
-			cpes = append(cpes, key)
-		}
-	}
+	// history included (partitionKeys).
+	purls, internalPurls, cpes := partitionKeys(components)
 	vulns, err := s.source.Query(ctx, purls)
 	var partial *PartialError
 	switch {
@@ -177,6 +225,7 @@ func (s *Service) match(ctx context.Context, projectID string) (int, error) {
 	case err != nil:
 		return 0, fmt.Errorf("advisory lookup: %w", err)
 	}
+	vulns, partial = s.queryInternal(ctx, internalPurls, vulns, partial)
 	if cs, ok := s.source.(CPESource); ok && len(cpes) > 0 {
 		cv, cerr := cs.QueryCPE(ctx, cpes)
 		// Merge into a new map: the purl answer may be a source's own (cached)

@@ -106,6 +106,9 @@ func componentDoc(c *Component, now time.Time) map[string]any {
 		"component": map[string]any{
 			"type": c.Type, "kind": cmp.Or(c.Kind, sbom.KindSoftware), "group": c.Group, "name": c.Name, "version": c.Version, "purl": c.Purl,
 			"hashes": hashes, "integrity": integrity,
+			// Graph facts from the SBOM (M13 13.20): unknown is null, never false.
+			"direct": nullable(c.Direct), "depth": nullableInt(c.Depth), "scope": nullableString(string(c.Scope)),
+			"internal": c.Internal,
 			"license": map[string]any{
 				"raw": c.License, "expression": c.LicenseExpression, "ids": ids, "resolved": resolved,
 			},
@@ -119,6 +122,30 @@ func componentDoc(c *Component, now time.Time) map[string]any {
 		"project": map[string]any{"name": c.ProjectName, "version": c.VersionName, "default_version": c.IsDefault,
 			"custom": projectCustom(c.ProjectCustom)},
 	}
+}
+
+// nullable is *b as a document value: null when unknown.
+func nullable(b *bool) any {
+	if b == nil {
+		return nil
+	}
+	return *b
+}
+
+// nullableInt is *n as a document value: null when unknown.
+func nullableInt(n *int) any {
+	if n == nil {
+		return nil
+	}
+	return int64(*n)
+}
+
+// nullableString is s as a document value: null when empty (unknown).
+func nullableString(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
 }
 
 // projectCustom copies a project's custom-field values into a document
@@ -142,6 +169,7 @@ func ComponentSchemaFor(projectFields []customfield.Definition) expr.Schema {
 	behind := 2
 	pub := time.Now().Add(-48 * time.Hour)
 	resolved := true
+	direct, depth := true, 1
 	epss := 0.5
 	lic, _ := license.ParseExpression("MIT")
 	sample := componentDoc(&Component{
@@ -150,13 +178,16 @@ func ComponentSchemaFor(projectFields []customfield.Definition) expr.Schema {
 			Hashes: map[string]string{"SHA-256": "00"}, Integrity: "verified", License: "MIT", LicenseExpression: "MIT", LicenseResolved: &resolved,
 			VulnIDs: []string{"CVE-2021-44228"}, MaxSeverity: &sev, KEV: true, KEVSources: []string{"cisa", "enisa"}, EPSS: &epss, CWEs: []int{79},
 			ProjectName: "p", VersionName: "main", IsDefault: true, ProjectCustom: customfield.Samples(projectFields),
+			Direct: &direct, Depth: &depth, Scope: domain.DepScopeRuntime, Internal: true,
 			Kind: sbom.KindModel, ML: &sbom.MLFacts{Supplier: "Hugging Face", Task: "text-generation",
 				ArchitectureFamily: "llama", Datasets: []sbom.MLDataset{{Name: "wikipedia"}}},
 		},
 		License: lic,
 		Meta:    &PackageInfo{Latest: "1.2.0", Outdated: true, VersionsBehind: &behind, Published: &pub},
 	}, time.Now())
-	return expr.Schema{Vars: []string{"component", "vulns", "pkg", "model", "project"}, Sample: sample}
+	// A frame that is never Set: graph functions declare (so save-time checks
+	// accept them) and are false. An evaluation run gets its own (fresh()).
+	return expr.Schema{Vars: []string{"component", "vulns", "pkg", "model", "project"}, Sample: sample, Frame: expr.NewGraphFrame()}
 }
 
 func compileExpression(c Condition, schema expr.Schema) (matcher, any, error) {
@@ -168,7 +199,11 @@ func compileExpression(c Condition, schema expr.Schema) (matcher, any, error) {
 	if err != nil {
 		return nil, nil, invalid("%s", err)
 	}
+	frame := schema.Frame
 	return func(x *Component, now time.Time) (bool, string) {
+		if frame != nil {
+			frame.Set(x.Graph, x.GraphNode) // what depends_on and the rest read as "this"
+		}
 		if !prg.Match(context.Background(), componentDoc(x, now)) {
 			return false, ""
 		}

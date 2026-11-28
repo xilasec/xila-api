@@ -100,6 +100,16 @@ func (cp compiledPolicy) needsMeta() bool {
 	})
 }
 
+// needsGraph reports whether an expression calls a dependency-graph function,
+// so evaluation loads the snapshots' graphs only when one does.
+func (cp compiledPolicy) needsGraph() bool {
+	return slices.ContainsFunc(cp.conds, func(c compiled) bool {
+		src := string(c.Value) // the expression's JSON string; the names appear verbatim
+		return c.Subject == SubjectExpression &&
+			(strings.Contains(src, "depends_on(") || strings.Contains(src, "dependency_of("))
+	})
+}
+
 // usesLicense reports whether any condition reads the license.
 func (cp compiledPolicy) usesLicense() bool {
 	return slices.ContainsFunc(cp.conds, func(c compiled) bool { return c.Subject.IsLicense() })

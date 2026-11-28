@@ -80,6 +80,7 @@ export const SETTINGS_NAV = [
 			{ href: '/custom-fields', key: 'nav.customFields', desc: 'settings.desc.customFields', admin: true, feature: 'custom_fields' },
 			{ href: '/custom-parsers', key: 'nav.customParsers', desc: 'settings.desc.customParsers', admin: true },
 			{ href: '/feed-rules', key: 'nav.feedRules', desc: 'settings.desc.feedRules', admin: true },
+			{ href: '/internal-components', key: 'nav.internalComponents', desc: 'settings.desc.internalComponents', admin: true },
 			{ href: '/finding-templates', key: 'nav.findingTemplates', desc: 'settings.desc.findingTemplates', admin: true },
 			{ href: '/report-templates', key: 'nav.reportTemplates', desc: 'settings.desc.reportTemplates', admin: true }
 		]

@@ -370,6 +370,50 @@ func (r *Repository) SnapshotComponents(ctx context.Context, sbomID string) ([]C
 	return out, rows.Err()
 }
 
+// SnapshotGraph is one snapshot's dependency graph as stored: the node it
+// describes (its root) and every edge.
+type SnapshotGraph struct {
+	Root  string
+	Edges []Edge
+}
+
+// SnapshotGraphs returns the graphs of the given snapshots, in two queries.
+func (r *Repository) SnapshotGraphs(ctx context.Context, sbomIDs []string) (map[string]SnapshotGraph, error) {
+	out := make(map[string]SnapshotGraph, len(sbomIDs))
+	rows, err := r.db.Query(ctx, `SELECT id::text, root_ref FROM sboms WHERE id = ANY($1)`, sbomIDs)
+	if err != nil {
+		return nil, fmt.Errorf("snapshot roots: %w", err)
+	}
+	for rows.Next() {
+		var id, root string
+		if err := rows.Scan(&id, &root); err != nil {
+			rows.Close()
+			return nil, fmt.Errorf("scan snapshot root: %w", err)
+		}
+		out[id] = SnapshotGraph{Root: root}
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	rows, err = r.db.Query(ctx, `SELECT sbom_id::text, parent_ref, child_ref FROM sbom_dependencies WHERE sbom_id = ANY($1)`, sbomIDs)
+	if err != nil {
+		return nil, fmt.Errorf("snapshot edges: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		var e Edge
+		if err := rows.Scan(&id, &e.Parent, &e.Child); err != nil {
+			return nil, fmt.Errorf("scan snapshot edge: %w", err)
+		}
+		g := out[id]
+		g.Edges = append(g.Edges, e)
+		out[id] = g
+	}
+	return out, rows.Err()
+}
+
 // Edges returns one snapshot's dependency edges.
 func (r *Repository) Edges(ctx context.Context, sbomID string) ([]Edge, error) {
 	rows, err := r.db.Query(ctx,
