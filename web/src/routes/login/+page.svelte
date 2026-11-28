@@ -1,4 +1,5 @@
 <script>
+	import { idleSignedOut } from '#lib/session.js';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -97,6 +98,9 @@
 				<p class="text-sm text-base-content/60">{$t('login.tagline')}</p>
 			</div>
 
+			{#if $idleSignedOut}
+				<div class="alert alert-info py-2 text-sm mb-2"><span>{$t('session.signedOutIdle')}</span></div>
+			{/if}
 			{#if ssoError}
 				<div class="alert alert-error py-2 text-sm mb-2">
 					<span>{$t(ssoErrors[ssoError] ?? ssoErrors.sso_failed)}</span>

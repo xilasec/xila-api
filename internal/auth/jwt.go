@@ -29,6 +29,11 @@ type Claims struct {
 	// Reissuing a session ("sign out everywhere") carries it over unchanged,
 	// so a fresh token never counts as a fresh sign-in by itself.
 	AuthTime int64 `json:"auth_time,omitempty"`
+	// SessionID names this session's user_sessions row, read by the idle
+	// timeout / absolute-lifetime check (SessionStore.Touch). Empty when
+	// tracking is off, for a service-account/federated session, or for a
+	// token minted before this existed — all treated as "nothing to check".
+	SessionID string `json:"sid,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -36,9 +41,10 @@ type Claims struct {
 const PurposeMFA = "mfa"
 
 // generateToken signs a short-lived HS256 access token for the given user,
-// who last authenticated at authTime.
-func generateToken(keys *Keys, userID string, isAdmin bool, tokenVersion int, ttl time.Duration, authTime time.Time) (string, error) {
-	return signClaims(keys, Claims{IsAdmin: isAdmin, TokenVersion: tokenVersion, AuthTime: authTime.Unix()}, userID, ttl)
+// who last authenticated at authTime. sessionID is empty unless per-session
+// idle/absolute tracking is active (SessionStore.TrackingActive).
+func generateToken(keys *Keys, userID string, isAdmin bool, tokenVersion int, ttl time.Duration, authTime time.Time, sessionID string) (string, error) {
+	return signClaims(keys, Claims{IsAdmin: isAdmin, TokenVersion: tokenVersion, AuthTime: authTime.Unix(), SessionID: sessionID}, userID, ttl)
 }
 
 // signClaims stamps subject, issue and expiry times onto claims and signs

@@ -1,4 +1,5 @@
 <script>
+	import SessionWarning from '#lib/components/SessionWarning.svelte';
 	import '../app.css';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
@@ -127,6 +128,7 @@
 {/snippet}
 
 {#if $token}
+	<SessionWarning />
 	<div class="drawer lg:drawer-open">
 		<input id="nav-drawer" type="checkbox" class="drawer-toggle" bind:checked={drawerOpen} />
 		<div class="drawer-content flex min-h-screen flex-col bg-base-200">

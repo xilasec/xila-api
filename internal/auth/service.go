@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/xilasec/xila-api/internal/config"
@@ -57,6 +58,7 @@ type Service struct {
 	sealer        Sealer         // MFA secrets; nil = MFA unavailable
 	limiter       AttemptLimiter // MFA code attempts; nil = uncapped
 	features      Features       // runtime switches; nil = every feature on
+	sessions      *SessionStore  // idle/absolute session tracking; nil = off
 }
 
 // Features reports runtime feature switches (feature.Store); two-factor
@@ -93,6 +95,14 @@ func (s *Service) EnableResetMail(m Mailer, publicURL string) {
 	s.mailer, s.publicURL = m, strings.TrimRight(publicURL, "/")
 }
 
+// EnableSessionTracking turns on the idle timeout / absolute session
+// lifetime (SESSION_IDLE_TIMEOUT / SESSION_MAX_AGE): every session minted
+// after this call gets a session id tracked in store, read by
+// auth.Middleware. Config with nothing to enforce (SessionStore.TrackingActive
+// false) still accepts store but mints no session id, so nothing extra is
+// written or read per request.
+func (s *Service) EnableSessionTracking(store *SessionStore) { s.sessions = store }
+
 // NewService constructs an auth Service. passwordLogin is PASSWORD_LOGIN_ENABLED:
 // false closes registration (after the first user) and password sign-in for
 // everyone but the instance owner.
@@ -108,17 +118,32 @@ func (s *Service) Keys() *Keys { return s.keys }
 // PasswordLoginEnabled reports whether email + password sign-in is offered.
 func (s *Service) PasswordLoginEnabled() bool { return s.passwordLogin }
 
+// newSession mints a signed session JWT for userID, tracking it in
+// s.sessions when session tracking is active: in that case the token
+// carries a session id and a user_sessions row starts its clock, both read
+// back by auth.Middleware on every later request.
+func (s *Service) newSession(ctx context.Context, userID string, isAdmin bool, tokenVersion int, authTime time.Time) (string, error) {
+	sessionID := ""
+	if s.sessions != nil && TrackingActive(s.jwt.IdleTimeout, s.jwt.MaxAge, s.jwt.TTL) {
+		sessionID = uuid.NewString()
+		if err := s.sessions.Create(ctx, sessionID, userID, authTime); err != nil {
+			return "", err
+		}
+	}
+	return generateToken(s.keys, userID, isAdmin, tokenVersion, s.jwt.TTL, authTime, sessionID)
+}
+
 // TokenFor mints a signed JWT for a user who has just authenticated (its
 // auth_time is now). Used by SSO, which establishes identity out-of-band and
 // then issues our own access token, and by every local sign-in path.
-func (s *Service) TokenFor(u user.User) (string, error) {
-	return generateToken(s.keys, u.ID, u.IsAdmin, u.TokenVersion, s.jwt.TTL, time.Now())
+func (s *Service) TokenFor(ctx context.Context, u user.User) (string, error) {
+	return s.newSession(ctx, u.ID, u.IsAdmin, u.TokenVersion, time.Now())
 }
 
 // reissue mints a new session for a user who did not just authenticate,
 // keeping the authentication time of the session it replaces.
-func (s *Service) reissue(u user.User, authTime time.Time) (string, error) {
-	return generateToken(s.keys, u.ID, u.IsAdmin, u.TokenVersion, s.jwt.TTL, authTime)
+func (s *Service) reissue(ctx context.Context, u user.User, authTime time.Time) (string, error) {
+	return s.newSession(ctx, u.ID, u.IsAdmin, u.TokenVersion, authTime)
 }
 
 // ServiceAccountToken mints a short-lived session for a service account (the

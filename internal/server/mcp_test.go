@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -161,4 +162,46 @@ func httptestPost(t *testing.T, app *fiber.App, token, body string) int {
 	t.Helper()
 	res, _ := req(t, app, http.MethodPost, "/api/v1/mcp", token, body)
 	return res.StatusCode
+}
+
+// M13 13.16: with MCP_REDACT_PERSONAL_DATA (the default) an AI client never
+// receives who did what: emails and names in tool results, free text
+// included, are pseudonyms, the same person the same one.
+func TestMCPPersonalDataFilter(t *testing.T) {
+	for _, redact := range []bool{true, false} {
+		app := newTestApp(t, func(c *config.Config) { c.MCPEnabled, c.MCPRedactPersonalData = true, redact })
+		admin := rbacUser(t, app, "founder@xila.io")
+		rbacUser(t, app, "dana@xila.io")
+		_, org := req(t, app, http.MethodPost, "/api/v1/orgs", admin, `{"slug":"acme","name":"Acme"}`)
+		_, team := req(t, app, http.MethodPost, "/api/v1/orgs/"+org["id"].(string)+"/teams", admin, `{"slug":"core","name":"Core"}`)
+		_, p := req(t, app, http.MethodPost, "/api/v1/teams/"+team["id"].(string)+"/projects", admin, `{"slug":"a","name":"a"}`)
+		pid := p["id"].(string)
+		req(t, app, http.MethodPost, "/api/v1/projects/"+pid+"/members", admin, `{"email":"dana@xila.io","role":"editor"}`)
+		req(t, app, http.MethodPost, "/api/v1/projects/"+pid+"/scans?scanner=trivy", admin, fixPlanTrivy)
+		_, list := req(t, app, http.MethodGet, "/api/v1/projects/"+pid+"/findings", admin, "")
+		fid := list["findings"].([]any)[0].(map[string]any)["id"].(string)
+		danaID := userIDOf(t, app, admin, "dana@xila.io")
+		req(t, app, http.MethodPut, "/api/v1/findings/"+fid+"/assignee", admin, `{"assignee_id":"`+danaID+`"}`)
+		req(t, app, http.MethodPatch, "/api/v1/findings/"+fid, admin, `{"status":"false_positive","reason":"checked with dana@xila.io"}`)
+
+		text, isErr := toolCall(t, app, admin, "get_finding", map[string]any{"finding_id": fid})
+		if isErr {
+			t.Fatalf("get_finding: %s", text)
+		}
+		switch {
+		case redact && strings.Contains(text, "@xila.io"):
+			t.Errorf("redacted result still names people: %.400s", text)
+		case redact && !sameAlias(text):
+			t.Errorf("want dana as one alias in both fields: %.600s", text)
+		case !redact && !strings.Contains(text, "dana@xila.io"):
+			t.Errorf("with the filter off the result should name dana: %.400s", text)
+		}
+	}
+}
+
+// sameAlias reports whether a result names its assignee and the person in its
+// exception reason with the same pseudonym.
+func sameAlias(text string) bool {
+	m := regexp.MustCompile(`"assignee_email":"(person-\d+)"`).FindStringSubmatch(text)
+	return m != nil && strings.Contains(text, "checked with "+m[1])
 }

@@ -180,6 +180,8 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 	tokenSvc := apitoken.NewService(tokenRepo)
 	userRepo := user.NewRepository(pool)
 	authSvc := auth.NewService(userRepo, cfg.JWT, cfg.PasswordLoginEnabled)
+	sessionStore := auth.NewSessionStore(pool)
+	authSvc.EnableSessionTracking(sessionStore)
 	jwtKeys := authSvc.Keys()
 	authSvc.WithFeatures(features)
 	federationRepo := federation.NewRepository(pool)
@@ -323,7 +325,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		TeamMembers: membership.NewHandler(membershipRepo, userRepo),
 		Personal:    notify.NewPersonalHandler(notifyRepo, notifySvc),
 		Inbox:       inbox.NewHandler(inboxRepo),
-		MCP:         mcp.NewHandler(cfg.MCPEnabled, "test"),
+		MCP:         mcp.NewHandler(cfg.MCPEnabled, "test").WithPersonalData(cfg.MCPRedactPersonalData),
 		Access:      access.NewHandler(access.NewRepository(pool)),
 		Project: project.NewHandler(projectRepo, findingRepo, membershipRepo).WithTagsChanged(func(id string) {
 			policySvc.Reevaluate([]string{id}, false) // tag-scoped policies may now (not) apply
@@ -378,6 +380,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		SCIM:         scim.NewHandler(scim.NewStore(pool), auditRepo),
 		TokenAuth:    tokenSvc,
 		Sessions:     userRepo,
+		IdleSessions: sessionStore,
 		// Throttling only when a test asks for it (cfg.AuthRateLimit): the other
 		// tests sign in many users from one address.
 		AuthLimiter: authLimiterFor(pool, cfg),

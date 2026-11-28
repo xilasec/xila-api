@@ -1003,8 +1003,14 @@ Tier 1:
     asset, `GET /assets?sort=risk`, a risk column in the project Assets tab and
     a risk section in the asset detail. Still open: merging two findings into
     one by hand.
-- ⬜ 13.16 Idle timeout with a session-expiry warning; a personal-data filter
-  for MCP results (DefectDojo Pro).
+- ✅ 13.16 Idle timeout with a session-expiry warning; a personal-data filter
+  for MCP results (DefectDojo Pro). `SESSION_IDLE_TIMEOUT` / `SESSION_MAX_AGE`
+  track browser sessions in `user_sessions` (sid claim; `auth.SessionStore.Touch`
+  decides in SQL, deletes an expired row instead of reviving it; lifetime from
+  `auth_time`, so a reissue does not extend it; hourly leader purge). The UI
+  reads `X-Session-Idle-Timeout`, warns before sign-out across tabs, and notes an
+  inactivity sign-out on the login page. MCP tool results pseudonymize emails and
+  name fields (`MCP_REDACT_PERSONAL_DATA`, default on).
 - ✅ 13.17 Scheduled report delivery; expected scans per project (DefectDojo
   Pro).
   - Scheduled report delivery: a user's own recurring project, portfolio or

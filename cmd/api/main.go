@@ -444,6 +444,10 @@ func run() error {
 		WithPolicyReevaluation(policySvc)
 	correlationSvc := correlation.NewService(findingRepo, sbomRepo)
 	authSvc := auth.NewService(userRepo, cfg.JWT, cfg.PasswordLoginEnabled)
+	// Idle timeout / absolute lifetime for browser sessions (SESSION_IDLE_TIMEOUT,
+	// SESSION_MAX_AGE): a no-op per request unless one is configured.
+	sessionStore := auth.NewSessionStore(db)
+	authSvc.EnableSessionTracking(sessionStore)
 	// Shared with the auth middleware and the audit recorder, so rotating
 	// JWT_SECRET (Keys.Update) applies to every signer and verifier at once.
 	jwtKeys := authSvc.Keys()
@@ -583,7 +587,7 @@ func run() error {
 		Membership:  membershipRepo,
 		Personal:    notify.NewPersonalHandler(notifyRepo, notifySvc),
 		Inbox:       inbox.NewHandler(inboxRepo),
-		MCP:         mcp.NewHandler(cfg.MCPEnabled, version),
+		MCP:         mcp.NewHandler(cfg.MCPEnabled, version).WithPersonalData(cfg.MCPRedactPersonalData),
 		Access:      access.NewHandler(access.NewRepository(db)),
 		Project: project.NewHandler(projectRepo, findingRepo, membershipRepo).WithTagsChanged(func(id string) {
 			policySvc.Reevaluate([]string{id}, false) // tag-scoped policies may now (not) apply
@@ -641,6 +645,7 @@ func run() error {
 		SCIM:         scim.NewHandler(scim.NewStore(db), auditRepo),
 		TokenAuth:    tokenSvc,
 		Sessions:     userRepo,
+		IdleSessions: sessionStore,
 		AuthLimiter: ratelimit.New(db, ratelimit.Limits{
 			IPMax: cfg.AuthRateLimit.IPPerMinute, IPWindow: time.Minute,
 			AccountMax: cfg.AuthRateLimit.Account, AccountWindow: cfg.AuthRateLimit.AccountWindow,
@@ -713,6 +718,8 @@ func run() error {
 		// field reads change without a new scan, so a sweep keeps every project,
 		// asset and finding fresh within COMPUTED_FIELDS_INTERVAL (0 = off).
 		job(func() { runComputedFields(ctx, computedSvc, cfg.ComputedFields.Interval) })
+		// Sessions past their idle timeout or lifetime are deleted hourly.
+		job(func() { runSessionPurge(ctx, sessionStore, cfg.JWT.IdleTimeout, cfg.JWT.MaxAge) })
 		// Scheduled triage rules (a "daily" rule's time-based conditions).
 		job(func() { runTriageSchedules(ctx, triageSvc, cfg.TriageSchedule.Interval) })
 		// Periodically refresh EPSS/KEV and recompute priorities; then, with
@@ -1235,6 +1242,28 @@ func runVulnPolicyEval(ctx context.Context, svc *vulnpolicy.Service, interval ti
 		observability.RecordJob(ctx, "vuln_policy_eval", start, err)
 		if err != nil && ctx.Err() == nil {
 			slog.WarnContext(ctx, "vulnerability policy evaluation failed", "error", err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+// runSessionPurge deletes, every hour, the browser sessions that can no longer
+// be used (idle past SESSION_IDLE_TIMEOUT or older than SESSION_MAX_AGE).
+func runSessionPurge(ctx context.Context, store *auth.SessionStore, idle, maxAge time.Duration) {
+	ticker := time.NewTicker(time.Hour)
+	defer ticker.Stop()
+	for {
+		start := time.Now()
+		n, err := store.Purge(ctx, idle, maxAge)
+		observability.RecordJob(ctx, "session_purge", start, err)
+		if err != nil && ctx.Err() == nil {
+			slog.WarnContext(ctx, "session purge failed", "error", err)
+		} else if n > 0 {
+			slog.InfoContext(ctx, "expired sessions purged", "count", n)
 		}
 		select {
 		case <-ctx.Done():

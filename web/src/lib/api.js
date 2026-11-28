@@ -1,3 +1,5 @@
+import { noteActivity, idleSignedOut } from '#lib/session.js';
+
 // Thin client for the Xila API. Handles the Bearer token, JSON encoding,
 // the {items, pagination} envelope, and raw uploads (scans / SBOMs).
 
@@ -62,8 +64,8 @@ function buildURL(path, query) {
 	return url;
 }
 
-/** @param {Response} res @returns {Promise<any>} */
-async function parse(res) {
+/** @param {Response} res @param {boolean} [background] @returns {Promise<any>} */
+async function parse(res, background = false) {
 	if (res.status === 204) return null;
 	const text = await res.text();
 	let data = null;
@@ -74,6 +76,9 @@ async function parse(res) {
 			data = text;
 		}
 	}
+	const idle = Number(res.headers.get('X-Session-Idle-Timeout'));
+	if (idle > 0) noteActivity(idle, !background);
+	if (res.status === 401 && /idle/.test(String(data?.error ?? ''))) idleSignedOut.set(true);
 	if (!res.ok) {
 		const msg = (data && data.error) || res.statusText || 'request failed';
 		const err = new ApiError(res.status, msg);
@@ -87,14 +92,16 @@ async function parse(res) {
 /**
  * @param {string} method
  * @param {string} path
- * @param {{ body?: unknown, query?: Query, auth?: boolean, ifMatch?: string }} [opts]
+ * @param {{ body?: unknown, query?: Query, auth?: boolean, ifMatch?: string, background?: boolean }} [opts]
  * @returns {Promise<any>}
  */
-async function request(method, path, { body, query, auth = true, ifMatch = '' } = {}) {
+async function request(method, path, { body, query, auth = true, ifMatch = '', background = false } = {}) {
 	/** @type {Record<string, string>} */
 	const headers = {};
 	// Conflict detection: the version the edit is based on (a 412 means it changed).
 	if (ifMatch) headers['If-Match'] = `"${ifMatch}"`;
+	// Polling the user didn't ask for: not activity for the idle timeout.
+	if (background) headers['X-Background-Request'] = 'true';
 	if (body !== undefined) headers['Content-Type'] = 'application/json';
 	if (auth) {
 		const t = getToken();
@@ -105,7 +112,7 @@ async function request(method, path, { body, query, auth = true, ifMatch = '' } 
 		headers,
 		body: body !== undefined ? JSON.stringify(body) : undefined
 	});
-	return parse(res);
+	return parse(res, background);
 }
 
 // upload sends a raw text body (scanner / SBOM output) as-is.
@@ -521,7 +528,7 @@ export const api = {
 	// every call. filters: unread / mentions / assigned, limit, offset.
 	/** @param {Query} [filters] */
 	listInbox: (filters) => request('GET', '/me/inbox', { query: filters }),
-	inboxCount: () => request('GET', '/me/inbox/count').then((d) => d.unread ?? 0),
+	inboxCount: () => request('GET', '/me/inbox/count', { background: true }).then((d) => d.unread ?? 0),
 	/** @param {{ ids?: string[], all?: boolean }} body */
 	markInboxRead: (body) => request('POST', '/me/inbox/read', { body }),
 	// Permission audit (admin). filters: user, user_id, project_id, team_id,

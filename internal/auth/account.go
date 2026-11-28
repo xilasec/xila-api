@@ -50,7 +50,7 @@ func (s *Service) RevokeSessions(ctx context.Context, userID string, authTime ti
 	if err != nil {
 		return "", user.User{}, err
 	}
-	token, err := s.reissue(u, authTime)
+	token, err := s.reissue(ctx, u, authTime)
 	return token, u, err
 }
 
@@ -85,7 +85,7 @@ func (s *Service) Reauthenticate(ctx context.Context, userID, password, code str
 			return "", user.User{}, err
 		}
 	}
-	token, err := s.TokenFor(u)
+	token, err := s.TokenFor(ctx, u)
 	return token, u, err
 }
 
@@ -166,7 +166,7 @@ func (s *Service) setPassword(ctx context.Context, userID, password string) (str
 	if err != nil {
 		return "", user.User{}, err
 	}
-	token, err := s.TokenFor(u)
+	token, err := s.TokenFor(ctx, u)
 	return token, u, err
 }
 
