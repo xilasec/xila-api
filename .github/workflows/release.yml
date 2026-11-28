@@ -2,7 +2,10 @@ name: Release
 
 # Releases are cut by Release Please (release-please.yml), which calls this
 # workflow with the tag it created. A semver tag pushed by hand (v1.2.3, or
-# v1.2.3-rc.1 for a pre-release) runs it too. It publishes:
+# v1.2.3-rc.1 for a pre-release) runs it too, and so does running it by hand
+# with a tag, to retry a release whose build failed before it was published
+# (a re-run replays the old workflow file; this runs the current one). It
+# publishes:
 #   - ghcr.io/<owner>/xila-api:<version> — multi-arch (amd64, arm64) image;
 #     also :<major>.<minor> and :latest for final releases
 #   - oci://ghcr.io/<owner>/charts/xila — the Helm chart, versioned like the app
@@ -19,6 +22,12 @@ on:
     inputs:
       tag:
         description: The release tag to build (vX.Y.Z), already pushed.
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The release tag to build again (vX.Y.Z); its release must not be published yet.
         required: true
         type: string
 
@@ -97,17 +106,23 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # An exact version is written once: GHCR can't make a tag immutable, so
-      # the release refuses to replace one (the floating X.Y and latest tags
-      # move on purpose). Attestations name the digest either way.
+      # A released version is never replaced: GHCR can't make a tag
+      # immutable, so the build refuses to push a version whose release is
+      # published (the floating X.Y and latest tags move on purpose). Until
+      # the release is published nothing has shipped, and a retried build may
+      # replace what a failed one pushed. Attestations name the digest anyway.
       - name: Refuse to overwrite a released image version
         env:
           IMAGE: ${{ steps.name.outputs.image }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           if docker buildx imagetools inspect "$IMAGE:${TAG#v}" >/dev/null 2>&1; then
-            echo "$IMAGE:${TAG#v} already exists; released versions are immutable" >&2
-            exit 1
+            if [ "$(gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json isDraft -q .isDraft 2>/dev/null)" = false ]; then
+              echo "$IMAGE:${TAG#v} belongs to the published release $TAG; released versions are immutable" >&2
+              exit 1
+            fi
+            echo "::notice::replacing $IMAGE:${TAG#v}, pushed by a build of the unpublished release $TAG"
           fi
 
       - id: meta
@@ -223,6 +238,14 @@ jobs:
 
       - uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
 
+      # helm keeps its own registry login; pushing the chart's attestations
+      # to the registry reads Docker's.
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Package and push the Helm chart
         id: chart
         env:
@@ -233,10 +256,13 @@ jobs:
           helm package deploy/helm/xila --version "$version" --app-version "$version" --destination dist
           owner=${GITHUB_REPOSITORY_OWNER,,}
           echo "$GH_TOKEN" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
-          # A released chart version is written once (see the image job).
+          # A released chart version is never replaced (see the image job).
           if helm show chart "oci://ghcr.io/$owner/charts/xila" --version "$version" >/dev/null 2>&1; then
-            echo "chart $version already exists; released versions are immutable" >&2
-            exit 1
+            if [ "$(gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json isDraft -q .isDraft 2>/dev/null)" = false ]; then
+              echo "chart $version belongs to the published release $TAG; released versions are immutable" >&2
+              exit 1
+            fi
+            echo "::notice::replacing chart $version, pushed by a build of the unpublished release $TAG"
           fi
           out=$(helm push "dist/xila-$version.tgz" "oci://ghcr.io/$owner/charts" 2>&1)
           echo "$out"

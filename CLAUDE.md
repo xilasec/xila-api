@@ -974,7 +974,8 @@ and `internal/server/smoke_test.go` (missing smoke wiring causes a nil panic in 
   published, so release-please creates a draft (`draft` + `force-tag-creation`)
   and `release.yml` publishes it after uploading; never publish before the
   files are in. It also refuses a tag not on `main` and an image or chart
-  version that already exists.
+  version whose release is published. A failed build is retried by running
+  it by hand with the tag (a re-run replays the old workflow file).
 - Actions: `uses:` lines are SHA pins only, never tags (`git ls-remote`; peel
   annotated tags with `^{}`; keep the `# vX.Y.Z` comment). Workflows are also
   recorded in `.github/workflows/actions.lock`: after adding or changing a

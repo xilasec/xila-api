@@ -3354,8 +3354,10 @@ Released versions don't change. The release is a draft until every file is
 uploaded, then published, and published releases are immutable (repository
 setting): their files and tag can't be replaced. A ruleset stops anyone moving
 or deleting a `v*` tag. The build refuses a tag that isn't a semver tag on a
-commit of `main`, and refuses to push an image or chart version that already
-exists (GHCR can't lock a tag itself); `:X.Y` and `:latest` move on purpose.
+commit of `main`, and refuses to push an image or chart version whose release
+is published (GHCR can't lock a tag itself); `:X.Y` and `:latest` move on
+purpose. A build that failed before publishing is retried with the current
+workflow: `gh workflow run release.yml -f tag=vX.Y.Z`.
 
 Every artifact carries signed attestations (GitHub artifact attestations,
 Sigstore, keyless): SLSA build provenance, which names the workflow, commit and
