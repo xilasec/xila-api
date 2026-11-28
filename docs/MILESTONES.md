@@ -1076,3 +1076,16 @@ Tier 1:
   anyone else's waits while the acceptance stays active; one pending at a
   time, withdrawn when the acceptance ends, listed in the approval queue.
 
+Tier 2:
+
+- ✅ 14.3 The SBOM as uploaded (DefectDojo Pro 3.5.201): every snapshot records
+  the upload's SHA-256, size and media type, and keeps the bytes
+  (`sbom_documents`, `SBOM_KEEP_ORIGINAL`, default on);
+  `GET /sboms/{id}/original` serves them with `Repr-Digest`.
+- ✅ 14.4 Attribution data (SecObserve 1.66): component `copyright` and
+  `homepage` from CycloneDX (JSON and XML), SPDX and ScanCode.io, kept through
+  the BOM export; license `terms` (permissions, conditions, limitations) from
+  choosealicense.com in the catalog (`make licenses` now also reads the latest
+  SPDX release tag instead of main); `GET /projects/{id}/notices`, a third-party
+  notices file built from the component query.
+

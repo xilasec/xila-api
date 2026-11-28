@@ -70,6 +70,20 @@ type Info struct {
 	Deprecated  bool   `json:"deprecated"`
 	// Category is the ScanCode LicenseDB category, "" when ScanCode has none.
 	Category string `json:"category"`
+	// Terms is what the license permits, requires and limits
+	// (choosealicense.com), nil when it doesn't describe the license.
+	Terms *Terms `json:"terms"`
+}
+
+// Terms are choosealicense.com's tags for a license: permissions
+// (commercial-use, modifications, distribution, private-use, patent-use),
+// conditions (include-copyright, document-changes, disclose-source,
+// network-use-disclose, same-license…) and limitations (liability, warranty,
+// trademark-use, patent-use).
+type Terms struct {
+	Permissions []string `json:"permissions"`
+	Conditions  []string `json:"conditions"`
+	Limitations []string `json:"limitations"`
 }
 
 // catalogFile mirrors gencatalog's output.
@@ -89,6 +103,7 @@ type catalogFile struct {
 		Deprecated bool   `json:"deprecated"`
 	} `json:"exceptions"`
 	Categories map[string]string `json:"categories"`
+	Terms      map[string]Terms  `json:"terms"`
 }
 
 // catalog is the decoded, indexed catalog.
@@ -116,6 +131,9 @@ var loadCatalog = sync.OnceValue(func() *catalog {
 	}
 	for _, l := range f.Licenses {
 		info := Info{ID: l.ID, Name: l.Name, OSIApproved: l.OSI, FSFLibre: l.FSF, Deprecated: l.Deprecated, Category: f.Categories[l.ID]}
+		if t, ok := f.Terms[l.ID]; ok {
+			info.Terms = &t
+		}
 		c.licenses = append(c.licenses, info)
 		c.byLower[strings.ToLower(l.ID)] = info
 		// A full name names one license unambiguously unless a deprecated id
@@ -198,4 +216,13 @@ func Search(f CatalogFilter) []Info {
 		}
 	}
 	return out
+}
+
+// Conditions is what a license requires (choosealicense.com conditions such
+// as include-copyright), nil when the catalog has no terms for it.
+func Conditions(id string) []string {
+	if info, ok := Lookup(id); ok && info.Terms != nil {
+		return info.Terms.Conditions
+	}
+	return nil
 }

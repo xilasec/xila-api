@@ -1566,7 +1566,9 @@
 				<option value="software">{$t('comp.kindSoftware')}</option>
 			</select>
 			<button class="btn btn-sm" onclick={searchComponents}>{$t('findings.search')}</button>
-			<div class="ml-auto">
+			<div class="ml-auto flex gap-2">
+				<button class="btn btn-sm btn-ghost" title={$t('proj.noticesTitle')}
+					onclick={() => api.downloadNotices(id ?? '').catch((err) => notify(errorMessage(err)))}>{$t('proj.notices')}</button>
 				<ExportMenu run={(/** @type {string} */ format) => api.exportProjectComponents(id, componentQuery(), format)} />
 			</div>
 		</div>

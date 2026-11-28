@@ -16,7 +16,7 @@ var componentExportHeader = []string{
 	"License expression", "License categories", "License resolved",
 	"Vulnerabilities", "Max severity", "KEV", "Vulnerability IDs",
 	"Latest version", "Outdated", "Versions behind", "Version published", "Integrity",
-	"Supplier", "Model task", "Datasets",
+	"Supplier", "Model task", "Datasets", "Copyright", "Homepage",
 	"Component ID", "SBOM ID",
 }
 
@@ -67,7 +67,7 @@ func componentExportRow(h ComponentHit) []any {
 		h.LicenseExpression, strings.Join(h.LicenseCategories, ", "), h.LicenseResolved,
 		h.VulnCount, maxSev, h.KEV, strings.Join(h.Vulns, ", "),
 		h.LatestVersion, h.Outdated, h.VersionsBehind, h.VersionPublishedAt, h.Integrity,
-		strings.Join(h.ML.Organizations(), ", "), task, strings.Join(h.ML.DatasetNames(), ", "),
+		strings.Join(h.ML.Organizations(), ", "), task, strings.Join(h.ML.DatasetNames(), ", "), h.Copyright, h.Homepage,
 		h.ID, h.SbomID,
 	}
 }

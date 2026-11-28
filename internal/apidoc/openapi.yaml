@@ -5978,6 +5978,30 @@ paths:
                   summary: { $ref: "#/components/schemas/SbomServiceSummary" }
         "404": { $ref: "#/components/responses/Error" }
 
+  /sboms/{sbomID}/original:
+    get:
+      operationId: getSbomOriginal
+      tags: [SBOM]
+      summary: Download the SBOM exactly as uploaded
+      description: |
+        The uploaded document byte for byte (supply-chain evidence), with its media type
+        (`application/vnd.cyclonedx+json`, `application/vnd.cyclonedx+xml`, `application/spdx+json`,
+        `application/json`) and its SHA-256 in `Repr-Digest` (RFC 9530), matching the snapshot's
+        `original_sha256`. 404 when the bytes weren't kept (`SBOM_KEEP_ORIGINAL=false` at upload, or
+        uploaded before Xila kept them).
+      parameters: [{ name: sbomID, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200":
+          description: The document
+          headers:
+            Repr-Digest: { description: "sha-256=:<base64>: of the body", schema: { type: string } }
+          content:
+            application/vnd.cyclonedx+json: { schema: { type: string, format: binary } }
+            application/vnd.cyclonedx+xml: { schema: { type: string, format: binary } }
+            application/spdx+json: { schema: { type: string, format: binary } }
+            application/json: { schema: { type: string, format: binary } }
+        "404": { $ref: "#/components/responses/Error" }
+
   /sboms/{sbomID}/export:
     get:
       operationId: exportSbom
@@ -6162,6 +6186,24 @@ paths:
                   services: { type: array, items: { $ref: "#/components/schemas/SbomService" } }
                   summary: { $ref: "#/components/schemas/SbomServiceSummary" }
         "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /projects/{projectID}/notices:
+    get:
+      operationId: getProjectNotices
+      tags: [SBOM]
+      summary: Third-party notices for the project's components
+      description: |
+        A Markdown notices file for the components of the latest SBOM of each artifact (the same
+        query as the component list with `latest=true`, so the same filters apply): each distinct
+        package once, with its license, every copyright notice its SBOMs state and its homepage
+        ("not stated" when a document says nothing), then what each license requires
+        (choosealicense.com conditions such as `include-copyright`). Up to 100,000 components.
+      parameters:
+        - { $ref: "#/components/parameters/ProjectID" }
+        - { $ref: "#/components/parameters/IncludeChildren" }
+      responses:
+        "200": { description: The notices file, content: { text/markdown: { schema: { type: string } } } }
         "404": { $ref: "#/components/responses/Error" }
 
   /projects/{projectID}/components/export:
@@ -12713,6 +12755,10 @@ components:
         component_count: { type: integer }
         created_at: { type: string, format: date-time }
         root_ref: { type: string, description: "The dependency graph's root node (CycloneDX metadata.component bom-ref / SPDX described package)." }
+        original_sha256: { type: string, description: SHA-256 (hex) of the document as uploaded; recorded for every upload. }
+        original_size: { type: integer, description: Its size in bytes. }
+        original_media_type: { type: string, description: Its media type. }
+        original_stored: { type: boolean, description: "The bytes were kept: `GET /sboms/{sbomID}/original` serves them." }
 
     SbomFieldError:
       type: object
@@ -12798,6 +12844,8 @@ components:
             - { $ref: "#/components/schemas/MLFacts" }
             - { type: "null" }
           description: An AI component's model-card essentials; null for software.
+        copyright: { type: string, description: "The copyright notice the SBOM states (CycloneDX copyright, SPDX copyrightText, ScanCode.io copyright); empty when it doesn't." }
+        homepage: { type: string, description: "The homepage it states (CycloneDX website reference, SPDX homepage, ScanCode.io homepage_url); only an absolute http(s) URL is kept." }
         group: { type: string }
         name: { type: string }
         version: { type: string }
@@ -12890,6 +12938,15 @@ components:
         fsf_libre: { type: boolean }
         deprecated: { type: boolean }
         category: { type: string, description: "ScanCode LicenseDB category (`Permissive`, `Copyleft`, …); empty when unknown." }
+        terms:
+          description: What the license permits, requires and limits (choosealicense.com tags); null when it doesn't describe the license.
+          oneOf:
+            - type: object
+              properties:
+                permissions: { type: array, items: { type: string }, examples: [[commercial-use, modifications, distribution, private-use]] }
+                conditions: { type: array, items: { type: string }, examples: [[include-copyright]] }
+                limitations: { type: array, items: { type: string }, examples: [[liability, warranty]] }
+            - { type: "null" }
 
     LicenseDetail:
       allOf:

@@ -30,7 +30,8 @@ const exportSource = `{
   "components": [
     {"bom-ref": "pkg:npm/express@4.17.1", "type": "library", "name": "express", "version": "4.17.1",
      "purl": "pkg:npm/express@4.17.1", "scope": "required", "licenses": [{"license": {"id": "MIT"}}],
-     "hashes": [{"alg": "SHA-512", "content": "abcd"}]},
+     "hashes": [{"alg": "SHA-512", "content": "abcd"}], "copyright": "Copyright (c) 2009-2014 TJ Holowaychuk",
+     "externalReferences": [{"type": "website", "url": "https://expressjs.com/"}, {"type": "vcs", "url": "https://github.com/expressjs/express"}]},
     {"bom-ref": "pkg:npm/qs@6.7.0", "type": "library", "name": "qs", "version": "6.7.0",
      "purl": "pkg:npm/qs@6.7.0", "licenses": [{"expression": "BSD-3-Clause OR MIT"}]},
     {"bom-ref": "pkg:npm/debug@2.6.9", "type": "library", "name": "debug", "version": "2.6.9",
@@ -66,6 +67,7 @@ const exportSource = `{
 
 type compKey struct {
 	BomRef, Group, Name, Version, Purl, License, FilePath string
+	Copyright, Homepage                                   string
 	Scope                                                 domain.DepScope
 	Hashes                                                string
 	Depth                                                 int
@@ -81,7 +83,8 @@ func inventory(t *testing.T, repo *sbom.Repository, id string) (map[compKey]bool
 	out := map[compKey]bool{}
 	for _, c := range comps {
 		k := compKey{BomRef: c.BomRef, Group: c.Group, Name: c.Name, Version: c.Version, Purl: c.Purl,
-			License: c.License, FilePath: c.FilePath, Scope: c.Scope, Hashes: c.Hashes["SHA-512"], Depth: -1}
+			License: c.License, FilePath: c.FilePath, Scope: c.Scope, Hashes: c.Hashes["SHA-512"], Depth: -1,
+			Copyright: c.Copyright, Homepage: c.Homepage}
 		if c.Depth != nil {
 			k.Depth = *c.Depth
 		}
@@ -248,6 +251,13 @@ func TestCycloneDXExportRoundTrips(t *testing.T) {
 	}
 	if len(wantComps) != 5 || len(wantEdges) != 7 {
 		t.Fatalf("source inventory = %d components / %d edges, want 5 / 7", len(wantComps), len(wantEdges))
+	}
+	attributed := false
+	for k := range wantComps {
+		attributed = attributed || (k.Name == "express" && k.Copyright == "Copyright (c) 2009-2014 TJ Holowaychuk" && k.Homepage == "https://expressjs.com/")
+	}
+	if !attributed {
+		t.Errorf("source inventory lost express's copyright or homepage: %v", wantComps)
 	}
 	wantSvcs, gotSvcs := services(t, repo, snap.ID), services(t, repo, again.ID)
 	if !reflect.DeepEqual(gotSvcs, wantSvcs) {

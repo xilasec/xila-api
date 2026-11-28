@@ -93,6 +93,9 @@ type Config struct {
 	// strict CycloneDX schema validation, not only ones that opt in with
 	// ?strict=true (M12 12.14).
 	SBOMStrictValidation bool
+	// SBOMKeepOriginal (SBOM_KEEP_ORIGINAL, default true) stores every SBOM
+	// as uploaded, downloadable as evidence; its digest is recorded either way.
+	SBOMKeepOriginal bool
 	// AssessmentRequiresApproval turns on the four-eyes workflow for manual
 	// assessments: an analyst's status / severity change on a finding becomes a
 	// pending request until a different project owner (or instance admin)
@@ -993,6 +996,7 @@ func Load() (Config, error) {
 		},
 		TriageRulesRequireApproval:     getbool("TRIAGE_RULES_REQUIRE_APPROVAL", false),
 		SBOMStrictValidation:           getbool("SBOM_STRICT_VALIDATION", false),
+		SBOMKeepOriginal:               getbool("SBOM_KEEP_ORIGINAL", true),
 		AssessmentRequiresApproval:     getbool("ASSESSMENT_REQUIRES_APPROVAL", false),
 		RiskAcceptanceRequiresApproval: getbool("RISK_ACCEPTANCE_REQUIRES_APPROVAL", prod),
 		RiskAcceptanceExpiryWarning:    getdur("RISK_ACCEPTANCE_EXPIRY_WARNING", 7*24*time.Hour),

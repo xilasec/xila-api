@@ -28,6 +28,19 @@
 	let downloading = $state(false);
 	let bomSpec = $state('1.6');
 
+	async function downloadOriginal() {
+		downloading = true;
+		try {
+			const ext = { 'application/vnd.cyclonedx+xml': '.cdx.xml', 'application/vnd.cyclonedx+json': '.cdx.json', 'application/spdx+json': '.spdx.json' }[/** @type {string} */ (sbom.original_media_type)] ?? '.json';
+			const name = `${sbom.artifact || 'sbom'}-${sbom.version || sbom.id}`.replace(/[\/\\"]/g, '_');
+			await api.downloadSbomOriginal(sbom.id, name + ext);
+		} catch (err) {
+			notify(errorMessage(err));
+		} finally {
+			downloading = false;
+		}
+	}
+
 	async function downloadBom() {
 		downloading = true;
 		try {
@@ -265,8 +278,14 @@
 				{/if}
 				· {$t('sbomp.uploaded', { date: fmtDate(sbom.created_at) })}
 			</p>
+			{#if sbom.original_sha256}
+				<p class="text-xs text-base-content/50 font-mono break-all" title={$t('sbomp.digestTitle')}>SHA-256 {sbom.original_sha256}</p>
+			{/if}
 		</div>
 		<div class="flex items-center gap-2">
+			{#if sbom.original_stored}
+				<button class="btn btn-sm" onclick={downloadOriginal} disabled={downloading} title={$t('sbomp.originalTitle')}>{$t('sbomp.original')}</button>
+			{/if}
 			<div class="join">
 				<select class="select select-bordered select-sm join-item" bind:value={bomSpec} aria-label={$t('sbomp.cdxVersion')}>
 					<option value="1.6">1.6</option>
@@ -362,7 +381,11 @@
 					<tbody>
 						{#each comps as c (c.id)}
 							<tr class="hover">
-								<td>{c.name} <AIBadge {c} /></td>
+								<td>
+									{#if c.homepage}<a class="link link-hover" href={c.homepage} target="_blank" rel="noreferrer noopener">{c.name}</a>{:else}{c.name}{/if}
+									<AIBadge {c} />
+									{#if c.copyright}<div class="text-xs text-base-content/50 max-w-xs truncate" title={c.copyright}>{c.copyright}</div>{/if}
+								</td>
 								<td class="text-xs">{c.version || '—'}</td>
 								<td><OutdatedBadge {c} /> <IntegrityBadge integrity={c.integrity} /></td>
 								<td><VulnBadge count={c.vuln_count} severity={c.max_severity} kev={c.kev} vulns={c.vulns} /></td>

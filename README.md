@@ -430,6 +430,7 @@ roles, and password login can optionally be turned off. See [Single sign-on](#si
 | GET    | `/api/v1/projects/{id}/sboms`       | SBOM history for a project           |
 | GET    | `/api/v1/projects/{id}/components`  | Project components (`?latest=true` for current inventory, `?vulnerable=true\|false`, `?license=<SPDX id>`, `?license_category=<ScanCode category>`, `?outdated=true\|false`, `?kind=ai\|model\|dataset\|ai-service\|software`) |
 | GET    | `/api/v1/projects/{id}/components/export` | Project components as CSV / Excel (`?format=csv\|xlsx`, same filters) |
+| GET    | `/api/v1/projects/{id}/notices`     | Third-party notices (Markdown): each current component's license, copyright and homepage, and what its licenses require |
 | GET    | `/api/v1/projects/{id}/services`    | Services declared by the current snapshots of the default version (`?branch=` / `?release=`), with warning flags |
 | GET    | `/api/v1/sboms/{id}`                | Read an SBOM snapshot                |
 | GET    | `/api/v1/sboms/{id}/components`     | Components in one snapshot, each with its vulnerability state and freshness (`?vulnerable=`, `?license=`, `?license_category=`, `?outdated=`, `?kind=`) |
@@ -438,6 +439,7 @@ roles, and password login can optionally be turned off. See [Single sign-on](#si
 | GET    | `/api/v1/sboms/{id}/vulnerabilities`| Every vulnerability the snapshot ships, with the components it hits |
 | GET    | `/api/v1/sboms/{id}/services`       | Services the snapshot declares (CycloneDX), with endpoints, auth, trust boundary/zone, data flows and warning flags |
 | GET    | `/api/v1/sboms/{id}/export`         | The snapshot as a CycloneDX BOM (`?spec=1.6\|1.7`), with vulnerabilities + analysis (`?vulnerabilities=false` to omit) |
+| GET    | `/api/v1/sboms/{id}/original`       | The SBOM exactly as uploaded, its SHA-256 in `Repr-Digest` (404 when not kept) |
 | GET    | `/api/v1/sboms/{id}/diff`           | What changed since `?base=` (default: the previous snapshot of the artifact): packages and services |
 | GET    | `/api/v1/sboms/{id}/graph`          | The snapshot's dependency graph (component and service nodes with vulnerability state + edges) |
 | GET    | `/api/v1/sboms/{id}/graph/paths`    | Every shortest route from the root to a package (`?ref=` or `?component_id=`) |
@@ -1282,6 +1284,24 @@ checks JSON, so strict mode refuses a CycloneDX XML upload with a `400`.
 
 The upload returns once the snapshot is stored; the advisory match, registry
 lookup, component policies and reachability finish in the background.
+
+The document itself is evidence too: every snapshot records the upload's
+SHA-256, size and media type (`original_sha256`, `original_size`,
+`original_media_type`), and keeps the bytes (`SBOM_KEEP_ORIGINAL`, default on).
+`GET /sboms/{id}/original` serves them byte for byte with the digest in
+`Repr-Digest` (RFC 9530), so a download can be checked against the record. The
+CycloneDX export is a regenerated view; the original is what the vendor
+shipped. With `SBOM_KEEP_ORIGINAL=false` only the digest is kept.
+
+Components also keep the attribution their SBOM states: `copyright` (CycloneDX
+`copyright`, SPDX `copyrightText`, ScanCode.io `copyright`; SPDX's NOASSERTION
+reads as not stated) and `homepage` (a CycloneDX `website` reference, SPDX
+`homepage`, ScanCode.io `homepage_url`; only absolute http(s) URLs are kept). Both
+round-trip through the BOM export and appear in component exports.
+`GET /projects/{id}/notices` turns them into a third-party notices file in
+Markdown: each distinct package of the current inventory once, with its
+license, every copyright notice its SBOMs state and its homepage ("not stated"
+where a document says nothing), followed by what each license requires.
 `GET /sboms/{id}/status` reports each step and an overall `pending` /
 `running` / `completed` / `failed`, so CI can wait before gating
 (`xila upload --sbom` does).
@@ -1368,7 +1388,10 @@ Domain, Proprietary Free, Commercial, …) and `license_resolved`. The raw
   (`license_resolved IS NULL` rows only, per distinct raw string). It is idempotent and a
   no-op afterwards.
 - Catalog: `GET /licenses` browses the embedded SPDX License List.
-  `GET /licenses/{id}` shows one license and the groups it's in.
+  `GET /licenses/{id}` shows one license and the groups it's in, and `terms`:
+  what it permits, requires and limits (choosealicense.com's tags, such as
+  `include-copyright` or `disclose-source`; null for licenses it doesn't
+  describe). The notices file uses the conditions.
 - License groups: named sets of license ids for license policies
   (`/license-groups`, admin-managed; members must be catalog ids or
   `LicenseRef-*`), plus one built-in group per ScanCode category, referenced as
@@ -3036,6 +3059,7 @@ a warning, and the running keys stay.
 | `INGEST_QUEUE_SAMPLE_INTERVAL`| `5s`                 | how often queue depth is measured             |
 | `INGEST_SKIP_UNCHANGED`       | `true`               | skip the pipeline when a report's content hash matches its target's previous completed scan (see "Skip unchanged scans"); a per-upload `force=true` always processes in full |
 | `INGEST_PAYLOAD_STORE`        | `postgres`           | where a queued job's raw upload lives until a worker processes it: `postgres` (`scan_jobs.payload`) or `s3` (any S3-compatible object storage; see "Payload storage") |
+| `SBOM_KEEP_ORIGINAL`          | `true`               | keep every SBOM as uploaded, downloadable from `GET /sboms/{id}/original` (its SHA-256 is recorded either way) |
 | `SBOM_STRICT_VALIDATION`      | `false`              | validate every CycloneDX SBOM upload against the official JSON schema for its own `specVersion`, not only ones that opt in with `?strict=true` (see "SBOMs") |
 | `S3_ENDPOINT`                 | AWS's regional endpoint | override for a non-AWS S3-compatible service (MinIO, Ceph, R2, GCS interop); validated like every other configured destination (`internal/netguard`) |
 | `S3_REGION`                   | `us-east-1`          | bucket region |

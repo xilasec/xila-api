@@ -157,6 +157,13 @@
 		if (id) showLicense(id, false);
 	});
 
+	// choosealicense.com's term tags, labeled; an unknown tag shows as is.
+	const TERMS = ['commercial-use', 'modifications', 'distribution', 'private-use', 'patent-use', 'include-copyright',
+		'include-copyright--source', 'document-changes', 'disclose-source', 'network-use-disclose', 'same-license',
+		'same-license--file', 'same-license--library', 'liability', 'warranty', 'trademark-use'];
+	/** @param {string} tag */
+	const termLabel = (tag) => (TERMS.includes(tag) ? $t(/** @type {import('#lib/i18n.js').MessageKey} */ (`lic.term.${tag}`)) : tag);
+
 	/** @param {string} cat */
 	const badgeFor = (cat) =>
 		/** @type {Record<string, string>} */ ({
@@ -199,6 +206,19 @@
 				{#if detail.fsf_libre}<span class="badge badge-info badge-outline">{$t('lic.fsfLibre')}</span>{/if}
 				{#if detail.deprecated}<span class="badge badge-warning badge-outline">{$t('lic.deprecatedId')}</span>{/if}
 			</div>
+			{#if detail.terms}
+				<div class="grid gap-2 sm:grid-cols-3 text-xs">
+					{#each [['permissions', 'lic.permissions'], ['conditions', 'lic.conditions'], ['limitations', 'lic.limitations']] as [key, label] (key)}
+						<div>
+							<h3 class="font-semibold mb-1">{$t(/** @type {import('#lib/i18n.js').MessageKey} */ (label))}</h3>
+							<ul class="space-y-0.5">
+								{#each detail.terms[key] ?? [] as tag (tag)}<li>{termLabel(tag)}</li>{:else}<li class="text-base-content/50">—</li>{/each}
+							</ul>
+						</div>
+					{/each}
+				</div>
+				<p class="text-xs text-base-content/50">{$t('lic.termsSource')}</p>
+			{/if}
 			<p class="text-sm">
 				{$t('lic.inGroups')}
 				{#each detail.groups as g, i (g.id)}{i ? ', ' : ''}<span class="font-medium">{g.name}</span>{:else}<span class="text-base-content/50">{$t('lic.noGroups')}</span>{/each}

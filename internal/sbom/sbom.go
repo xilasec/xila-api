@@ -44,6 +44,16 @@ type Sbom struct {
 	// project's default version); not read back.
 	VersionName string `json:"-"`
 	VersionKind string `json:"-"`
+	// The document as uploaded: its SHA-256 (hex), size and media type are
+	// recorded for every upload; OriginalStored says the bytes were kept
+	// (GET /sboms/{id}/original; SBOM_KEEP_ORIGINAL).
+	OriginalSHA256    string `json:"original_sha256"`
+	OriginalSize      int64  `json:"original_size"`
+	OriginalMediaType string `json:"original_media_type"`
+	OriginalStored    bool   `json:"original_stored"`
+	// original holds the uploaded bytes on the way in (Service.Ingest sets it
+	// when they are to be kept); never read back here.
+	original []byte
 	// Processing is this upload's background-processing status (vulnmatch
 	// match, pkgmeta fetch, policy evaluation, reachability), set by
 	// Service.Ingest on its return value only — not a stored column, and nil
@@ -62,17 +72,21 @@ type Component struct {
 	Type      string `json:"type"`
 	// Kind is software, model, dataset or ai-service (the AI inventory); ML
 	// holds an AI component's model-card essentials (nil for software).
-	Kind      string            `json:"kind"`
-	ML        *MLFacts          `json:"ml"`
-	Group     string            `json:"group"`
-	Name      string            `json:"name"`
-	Version   string            `json:"version"`
-	Purl      string            `json:"purl"`
-	Cpe       string            `json:"cpe"`
-	License   string            `json:"license"`
-	FilePath  string            `json:"file_path"`
-	Hashes    map[string]string `json:"hashes"`
-	CreatedAt time.Time         `json:"created_at"`
+	Kind     string            `json:"kind"`
+	ML       *MLFacts          `json:"ml"`
+	Group    string            `json:"group"`
+	Name     string            `json:"name"`
+	Version  string            `json:"version"`
+	Purl     string            `json:"purl"`
+	Cpe      string            `json:"cpe"`
+	License  string            `json:"license"`
+	FilePath string            `json:"file_path"`
+	Hashes   map[string]string `json:"hashes"`
+	// Copyright and Homepage are the attribution facts the SBOM states for
+	// the component ('' when it doesn't); Homepage is always an http(s) URL.
+	Copyright string    `json:"copyright"`
+	Homepage  string    `json:"homepage"`
+	CreatedAt time.Time `json:"created_at"`
 	// Internal marks a first-party component (internal/component patterns):
 	// never sent to public registries or public advisory sources.
 	Internal bool `json:"internal"`
@@ -232,12 +246,14 @@ func NewRepository(db *pgxpool.Pool) *Repository {
 }
 
 const sbomColumns = `id, project_id, artifact, version, format, spec_version,
-	serial_number, component_count, source, created_at, root_ref, version_id`
+	serial_number, component_count, source, created_at, root_ref, version_id,
+	original_sha256, original_size, original_media_type, original_stored`
 
 func scanSbom(row pgx.Row) (Sbom, error) {
 	var s Sbom
 	err := row.Scan(&s.ID, &s.ProjectID, &s.Artifact, &s.Version, &s.Format, &s.SpecVersion,
-		&s.SerialNumber, &s.ComponentCount, &s.Source, &s.CreatedAt, &s.RootRef, &s.VersionID)
+		&s.SerialNumber, &s.ComponentCount, &s.Source, &s.CreatedAt, &s.RootRef, &s.VersionID,
+		&s.OriginalSHA256, &s.OriginalSize, &s.OriginalMediaType, &s.OriginalStored)
 	return s, err
 }
 
@@ -252,17 +268,23 @@ func (r *Repository) Ingest(ctx context.Context, s Sbom, components []Component,
 	defer tx.Rollback(ctx) //nolint:errcheck // no-op after commit
 
 	const insert = `
-		INSERT INTO sboms (project_id, artifact, version, format, spec_version, serial_number, component_count, source, root_ref, version_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, project_version($1, $10, $11))
+		INSERT INTO sboms (project_id, artifact, version, format, spec_version, serial_number, component_count, source, root_ref, version_id,
+		    original_sha256, original_size, original_media_type, original_stored)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, project_version($1, $10, $11), $12, $13, $14, $15)
 		RETURNING ` + sbomColumns
 	out, err := scanSbom(tx.QueryRow(ctx, insert,
 		s.ProjectID, s.Artifact, s.Version, s.Format, s.SpecVersion, s.SerialNumber, len(components), s.Source, s.RootRef,
-		s.VersionName, s.VersionKind))
+		s.VersionName, s.VersionKind, s.OriginalSHA256, s.OriginalSize, s.OriginalMediaType, s.original != nil))
 	if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok && pgErr.ConstraintName == "project_is_collection" {
 		return Sbom{}, ErrCollection
 	}
 	if err != nil {
 		return Sbom{}, fmt.Errorf("insert sbom: %w", err)
+	}
+	if s.original != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO sbom_documents (sbom_id, content) VALUES ($1, $2)`, out.ID, s.original); err != nil {
+			return Sbom{}, fmt.Errorf("store original sbom: %w", err)
+		}
 	}
 
 	if len(components) > 0 {
@@ -275,14 +297,16 @@ func (r *Repository) Ingest(ctx context.Context, s Sbom, components []Component,
 			rows[i] = []any{out.ID, out.ProjectID, c.BomRef, c.Type, cmp.Or(c.Kind, KindSoftware), c.ML, c.Group, c.Name, c.Version, c.Purl, c.Cpe, c.License, c.FilePath, hashes,
 				c.Direct, c.Depth, string(c.Scope), c.Internal,
 				c.LicenseExpression, nonNil(c.LicenseIDs), nonNil(c.LicenseCategories), c.LicenseResolved,
-				c.LicenseDeclaredExpression, nonNil(c.LicenseDeclaredIDs), nonNil(c.LicenseDeclaredCategories), c.LicenseDeclaredResolved, c.LicenseOverrideID}
+				c.LicenseDeclaredExpression, nonNil(c.LicenseDeclaredIDs), nonNil(c.LicenseDeclaredCategories), c.LicenseDeclaredResolved, c.LicenseOverrideID,
+				c.Copyright, c.Homepage}
 		}
 		_, err = tx.CopyFrom(ctx,
 			pgx.Identifier{"sbom_components"},
 			[]string{"sbom_id", "project_id", "bom_ref", "type", "kind", "ml", "group", "name", "version", "purl", "cpe", "license", "file_path", "hashes",
 				"direct", "depth", "scope", "internal",
 				"license_expression", "license_ids", "license_categories", "license_resolved",
-				"license_declared_expression", "license_declared_ids", "license_declared_categories", "license_declared_resolved", "license_override_id"},
+				"license_declared_expression", "license_declared_ids", "license_declared_categories", "license_declared_resolved", "license_override_id",
+				"copyright", "homepage"},
 			pgx.CopyFromRows(rows))
 		if err != nil {
 			return Sbom{}, fmt.Errorf("copy components: %w", err)
@@ -482,7 +506,7 @@ const componentColumns = `
 		       p.slug, p.name, s.artifact, s.version, s.created_at,
 		       vs.vuln_count, vs.max_rank, vs.kev, vs.vulns,
 		       ps.latest_version, ps.outdated, ps.versions_behind, ps.published_at,
-		       COALESCE(c.integrity, '')`
+		       COALESCE(c.integrity, ''), c.copyright, c.homepage`
 
 var componentFrom = `
 		FROM sbom_components c
@@ -500,7 +524,7 @@ func scanComponentHit(row pgx.Row) (ComponentHit, error) {
 		&h.ProjectSlug, &h.ProjectName, &h.Artifact, &h.SbomVersion, &h.SbomCreatedAt,
 		&h.VulnCount, &rank, &h.KEV, &h.Vulns,
 		&h.LatestVersion, &h.Outdated, &h.VersionsBehind, &h.VersionPublishedAt,
-		&h.Integrity)
+		&h.Integrity, &h.Copyright, &h.Homepage)
 	h.setRank(rank)
 	return h, err
 }
@@ -653,4 +677,25 @@ func (r *Repository) EachComponent(ctx context.Context, f ComponentFilter, limit
 		}
 	}
 	return rows.Err()
+}
+
+// ErrNoOriginal: the snapshot's uploaded document wasn't kept
+// (SBOM_KEEP_ORIGINAL=false at upload time, or uploaded before Xila kept them).
+var ErrNoOriginal = errors.New("the original document of this SBOM was not kept")
+
+// Original returns a snapshot and the document it was uploaded as.
+func (r *Repository) Original(ctx context.Context, id string) (Sbom, []byte, error) {
+	s, err := r.Get(ctx, id)
+	if err != nil {
+		return Sbom{}, nil, err
+	}
+	var content []byte
+	err = r.db.QueryRow(ctx, `SELECT content FROM sbom_documents WHERE sbom_id = $1`, id).Scan(&content)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return s, nil, ErrNoOriginal
+	}
+	if err != nil {
+		return Sbom{}, nil, fmt.Errorf("get original sbom: %w", err)
+	}
+	return s, content, nil
 }

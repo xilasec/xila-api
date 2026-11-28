@@ -20,6 +20,7 @@ func TestLookup(t *testing.T) {
 	}
 	for _, tc := range cases {
 		got, ok := Lookup(tc.in)
+		got.Terms = nil // asserted in TestTerms
 		if !ok || got != tc.want {
 			t.Errorf("Lookup(%q) = %+v, %v; want %+v", tc.in, got, ok, tc.want)
 		}
@@ -126,5 +127,24 @@ func TestNormalizeIDs(t *testing.T) {
 	}
 	if _, err := NormalizeIDs([]string{"MIT", "Bogus-1", "Classpath-exception-2.0"}); err == nil {
 		t.Error("unknown ids accepted")
+	}
+}
+
+// choosealicense.com's terms reach the catalog, also for licenses it names by
+// a deprecated SPDX id (its GPL-3.0 is GPL-3.0-only and -or-later).
+func TestTerms(t *testing.T) {
+	mit, _ := Lookup("MIT")
+	if mit.Terms == nil || !slices.Contains(mit.Terms.Permissions, "commercial-use") ||
+		!slices.Equal(mit.Terms.Conditions, []string{"include-copyright"}) || !slices.Contains(mit.Terms.Limitations, "liability") {
+		t.Errorf("MIT terms = %+v", mit.Terms)
+	}
+	for _, id := range []string{"GPL-3.0-only", "GPL-3.0-or-later"} {
+		gpl, _ := Lookup(id)
+		if gpl.Terms == nil || !slices.Contains(gpl.Terms.Conditions, "disclose-source") || !slices.Contains(gpl.Terms.Conditions, "same-license") {
+			t.Errorf("%s terms = %+v", id, gpl.Terms)
+		}
+	}
+	if odd, ok := Lookup("Beerware"); !ok || odd.Terms != nil {
+		t.Errorf("Beerware (not on choosealicense.com) = %+v, %v; want found without terms", odd, ok)
 	}
 }

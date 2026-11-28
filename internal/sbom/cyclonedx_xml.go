@@ -101,21 +101,29 @@ type cycloneXMLEvidence struct {
 // Components may nest (a container image's layers, a library's bundled
 // sub-components): Components flattens them into the document's flat list.
 type cycloneXMLComponent struct {
-	BomRef      string                `xml:"bom-ref,attr"`
-	Type        string                `xml:"type,attr"`
-	Scope       string                `xml:"scope"`
-	Group       string                `xml:"group"`
-	Name        string                `xml:"name"`
-	Version     string                `xml:"version"`
-	Purl        string                `xml:"purl"`
-	Cpe         string                `xml:"cpe"`
-	Publisher   string                `xml:"publisher"`
-	Description string                `xml:"description"`
-	Licenses    cycloneXMLLicenses    `xml:"licenses"`
-	Hashes      []cycloneXMLHash      `xml:"hashes>hash"`
-	Evidence    cycloneXMLEvidence    `xml:"evidence"`
-	Properties  []cycloneXMLProperty  `xml:"properties>property"`
-	Components  []cycloneXMLComponent `xml:"components>component"`
+	BomRef       string                `xml:"bom-ref,attr"`
+	Type         string                `xml:"type,attr"`
+	Scope        string                `xml:"scope"`
+	Group        string                `xml:"group"`
+	Name         string                `xml:"name"`
+	Version      string                `xml:"version"`
+	Purl         string                `xml:"purl"`
+	Cpe          string                `xml:"cpe"`
+	Publisher    string                `xml:"publisher"`
+	Description  string                `xml:"description"`
+	Licenses     cycloneXMLLicenses    `xml:"licenses"`
+	Hashes       []cycloneXMLHash      `xml:"hashes>hash"`
+	Copyright    string                `xml:"copyright"`
+	ExternalRefs []cycloneXMLExtRef    `xml:"externalReferences>reference"`
+	Evidence     cycloneXMLEvidence    `xml:"evidence"`
+	Properties   []cycloneXMLProperty  `xml:"properties>property"`
+	Components   []cycloneXMLComponent `xml:"components>component"`
+}
+
+// cycloneXMLExtRef is one <reference type="website"><url>…</url></reference>.
+type cycloneXMLExtRef struct {
+	Type string `xml:"type,attr"`
+	URL  string `xml:"url"`
 }
 
 // cycloneXMLDependency is one <dependency ref="..."> node; CycloneDX XML
@@ -235,6 +243,10 @@ func convertXMLComponent(c cycloneXMLComponent) cycloneComponent {
 		Publisher:   tr(c.Publisher),
 		Description: tr(c.Description),
 		Licenses:    convertXMLLicenses(c.Licenses),
+		Copyright:   tr(c.Copyright),
+	}
+	for _, r := range c.ExternalRefs {
+		out.ExternalReferences = append(out.ExternalReferences, ExternalRef{Type: tr(r.Type), URL: tr(r.URL)})
 	}
 	for _, h := range c.Hashes {
 		out.Hashes = append(out.Hashes, cycloneHash{Alg: h.Alg, Content: strings.TrimSpace(h.Content)})

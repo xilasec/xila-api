@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"cmp"
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"slices"
@@ -33,6 +36,16 @@ type Handler struct {
 	resolver *project.Resolver    // optional: enables POST /sboms (project by name)
 	access   project.UploadAccess // required alongside resolver
 	notifier eventNotifier        // optional
+	// conditions is a license id's conditions (license.Lookup's terms;
+	// injected, since package license imports this one). Optional.
+	conditions func(id string) []string
+}
+
+// WithLicenseConditions lets the notices file list what each license
+// requires (choosealicense.com conditions, e.g. include-copyright).
+func (h *Handler) WithLicenseConditions(f func(id string) []string) *Handler {
+	h.conditions = f
+	return h
 }
 
 // NewHandler constructs an SBOM Handler.
@@ -60,6 +73,7 @@ func (h *Handler) Register(r fiber.Router) {
 	r.Get("/projects/:projectID/sboms", h.ListByProject)
 	r.Get("/projects/:projectID/components", h.ProjectComponents)
 	r.Get("/projects/:projectID/components/export", h.ExportProjectComponents)
+	r.Get("/projects/:projectID/notices", h.Notices)
 	r.Get("/projects/:projectID/services", h.ProjectServices)
 	r.Get("/sboms/:sbomID", h.Get)
 	r.Get("/sboms/:sbomID/status", h.Status)
@@ -68,6 +82,7 @@ func (h *Handler) Register(r fiber.Router) {
 	r.Get("/sboms/:sbomID/vulnerabilities", h.Vulnerabilities)
 	r.Get("/sboms/:sbomID/services", h.SbomServices)
 	r.Get("/sboms/:sbomID/export", h.Export)
+	r.Get("/sboms/:sbomID/original", h.Original)
 	r.Get("/sboms/:sbomID/diff", h.Diff)
 	r.Get("/sboms/:sbomID/graph", h.Graph)
 	r.Get("/sboms/:sbomID/graph/paths", h.GraphPaths)
@@ -224,6 +239,57 @@ func (h *Handler) Get(c *fiber.Ctx) error {
 		return err
 	}
 	return c.JSON(s)
+}
+
+// Original handles GET /sboms/{id}/original: the document exactly as
+// uploaded, with its SHA-256 in Repr-Digest (RFC 9530) so a download can be
+// checked against the digest recorded at upload.
+func (h *Handler) Original(c *fiber.Ctx) error {
+	id, err := httpx.ID(c, "sbomID")
+	if err != nil {
+		return err
+	}
+	s, content, err := h.repo.Original(c.UserContext(), id)
+	switch {
+	case errors.Is(err, ErrNotFound):
+		return fiber.NewError(fiber.StatusNotFound, "sbom not found")
+	case errors.Is(err, ErrNoOriginal):
+		return fiber.NewError(fiber.StatusNotFound, err.Error())
+	case err != nil:
+		return err
+	}
+	if raw, err := hex.DecodeString(s.OriginalSHA256); err == nil && len(raw) == sha256.Size {
+		c.Set("Repr-Digest", "sha-256=:"+base64.StdEncoding.EncodeToString(raw)+":")
+	}
+	c.Set(fiber.HeaderContentType, s.OriginalMediaType)
+	c.Set(fiber.HeaderContentDisposition, `attachment; filename="`+originalFilename(s)+`"`)
+	return c.Send(content)
+}
+
+// originalFilename names a downloaded original after its artifact and
+// version, reduced to characters safe in a header and a file system.
+func originalFilename(s Sbom) string {
+	base := strings.Trim(strings.Join(strings.Fields(s.Artifact+" "+s.Version), "-"), "-")
+	base = strings.Map(func(r rune) rune {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '.', r == '-', r == '_':
+			return r
+		}
+		return '_'
+	}, base)
+	if base == "" {
+		base = "sbom-" + s.ID
+	}
+	ext := ".json"
+	switch s.OriginalMediaType {
+	case "application/vnd.cyclonedx+xml":
+		ext = ".cdx.xml"
+	case "application/vnd.cyclonedx+json":
+		ext = ".cdx.json"
+	case "application/spdx+json":
+		ext = ".spdx.json"
+	}
+	return base + ext
 }
 
 // SbomComponents handles GET /sboms/{id}/components (one snapshot's inventory).

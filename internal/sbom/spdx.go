@@ -38,6 +38,8 @@ type spdxPackage struct {
 	LicenseDeclared  string         `json:"licenseDeclared"`
 	ExternalRefs     []spdxExtRef   `json:"externalRefs"`
 	Checksums        []spdxChecksum `json:"checksums"`
+	CopyrightText    string         `json:"copyrightText"`
+	Homepage         string         `json:"homepage"`
 }
 
 type spdxExtRef struct {
@@ -82,6 +84,9 @@ func parseSPDX(r io.Reader) (Document, error) {
 			License: spdxLicense(p),
 			Hashes:  spdxHashes(p.Checksums),
 			Scope:   scopes[p.SpdxID],
+			// SPDX writes NOASSERTION / NONE for "not stated"; both clean to "".
+			Copyright: cleanCopyright(p.CopyrightText),
+			Homepage:  cleanHomepage(p.Homepage),
 		}
 		if d, ok := depths[p.SpdxID]; ok {
 			direct := d == 1
