@@ -37,11 +37,17 @@ jobs:
   # The same gate as every push: formatting, vet, the full race suite against
   # Postgres, the UI build + type ratchet, and the chart lint.
   ci:
+    permissions:
+      contents: read
     uses: ./.github/workflows/ci.yml
 
   # Nothing ships with a known fixable vulnerability: grype (dependencies and
-  # the built image), opengrep and KICS must pass.
+  # the built image), opengrep and KICS must pass. A called workflow gets at
+  # most what its caller job grants: it uploads SARIF.
   security:
+    permissions:
+      contents: read
+      security-events: write
     uses: ./.github/workflows/security.yml
 
   image:
