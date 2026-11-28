@@ -68,9 +68,31 @@ func (c *client) newFindings(project, scanID string) ([]prFinding, int, error) {
 	return resp.Findings, total, nil
 }
 
+// introducedBy lists the findings scanID introduced, or returns nil when there
+// is no scan to ask.
+func (c *client) introducedBy(project, scanID string) (*introduced, error) {
+	if scanID == "" {
+		return nil, nil
+	}
+	findings, total, err := c.newFindings(project, scanID)
+	if err != nil {
+		return nil, err
+	}
+	return &introduced{findings, total}, nil
+}
+
+// introduced is what one scan added: the findings listed (the highest priority
+// first) and their total, -1 when there are more than listed.
+type introduced struct {
+	findings []prFinding
+	total    int
+}
+
 // renderComment builds the PR comment. It leads with the verdict, because that is
-// the only line most people read.
-func renderComment(baseURL, project string, gate *gateResult, findings []prFinding, total int) string {
+// the only line most people read. A nil added means there was no scan to ask
+// (a bare gate, an SBOM upload), so the comment makes no claim about new
+// findings rather than wrongly saying there are none.
+func renderComment(baseURL, project string, gate *gateResult, added *introduced) string {
 	var b strings.Builder
 
 	switch {
@@ -89,9 +111,12 @@ func renderComment(baseURL, project string, gate *gateResult, findings []prFindi
 		b.WriteString("\n")
 	}
 
-	if len(findings) == 0 {
+	switch {
+	case added == nil:
+	case len(added.findings) == 0:
 		b.WriteString("This change introduces **no new findings**. 🎉\n")
-	} else {
+	default:
+		findings, total := added.findings, added.total
 		noun := "findings"
 		if len(findings) == 1 {
 			noun = "finding"

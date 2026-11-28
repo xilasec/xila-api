@@ -8,13 +8,13 @@ import (
 	"strings"
 )
 
-// Parse detects the SBOM format (CycloneDX, SPDX, a ScanCode.io project's
-// JSON results, or Syft's native JSON) and decodes it into a Document.
-// Detection is by content, so callers don't have to declare the format on
-// upload.
+// Parse detects the SBOM format (CycloneDX JSON or XML, SPDX, a ScanCode.io
+// project's JSON results, or Syft's native JSON) and decodes it into a
+// Document. Detection is by content, so callers don't have to declare the
+// format on upload.
 func Parse(raw []byte) (Document, error) {
 	if looksLikeXML(raw) {
-		return Document{}, errors.New("XML SBOMs are not supported (including XML CycloneDX): upload CycloneDX or SPDX JSON instead")
+		return parseCycloneDXXML(raw)
 	}
 	var probe struct {
 		BomFormat   string `json:"bomFormat"`
@@ -40,9 +40,9 @@ func Parse(raw []byte) (Document, error) {
 }
 
 // looksLikeXML reports whether raw's first non-whitespace bytes start an XML
-// document (an XML declaration or an opening tag), so an XML CycloneDX
-// upload — not supported by any parser here — gets a clear message instead
-// of a generic JSON decode error.
+// document (an XML declaration or an opening tag) — currently only
+// CycloneDX XML is supported (see parseCycloneDXXML); SPDX, Syft and
+// ScanCode.io are JSON-only.
 func looksLikeXML(raw []byte) bool {
 	trimmed := bytes.TrimLeft(raw, " \t\r\n")
 	return bytes.HasPrefix(trimmed, []byte("<?xml")) || bytes.HasPrefix(trimmed, []byte("<bom"))

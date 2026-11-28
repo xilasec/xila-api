@@ -114,25 +114,27 @@ type Property struct {
 
 // --- CycloneDX parsing ---
 
+type cycloneServiceProvider struct {
+	Name string   `json:"name"`
+	URL  []string `json:"url"`
+}
+
 type cycloneService struct {
-	BomRef   string `json:"bom-ref"`
-	Provider *struct {
-		Name string   `json:"name"`
-		URL  []string `json:"url"`
-	} `json:"provider"`
-	Group              string               `json:"group"`
-	Name               string               `json:"name"`
-	Version            string               `json:"version"`
-	Description        string               `json:"description"`
-	Endpoints          []string             `json:"endpoints"`
-	Authenticated      *bool                `json:"authenticated"`
-	TrustBoundary      *bool                `json:"x-trust-boundary"`
-	TrustZone          string               `json:"trustZone"`
-	Data               []cycloneServiceData `json:"data"`
-	Licenses           []cycloneLicense     `json:"licenses"`
-	ExternalReferences []ExternalRef        `json:"externalReferences"`
-	Properties         []Property           `json:"properties"`
-	Services           []cycloneService     `json:"services"`
+	BomRef             string                  `json:"bom-ref"`
+	Provider           *cycloneServiceProvider `json:"provider"`
+	Group              string                  `json:"group"`
+	Name               string                  `json:"name"`
+	Version            string                  `json:"version"`
+	Description        string                  `json:"description"`
+	Endpoints          []string                `json:"endpoints"`
+	Authenticated      *bool                   `json:"authenticated"`
+	TrustBoundary      *bool                   `json:"x-trust-boundary"`
+	TrustZone          string                  `json:"trustZone"`
+	Data               []cycloneServiceData    `json:"data"`
+	Licenses           []cycloneLicense        `json:"licenses"`
+	ExternalReferences []ExternalRef           `json:"externalReferences"`
+	Properties         []Property              `json:"properties"`
+	Services           []cycloneService        `json:"services"`
 }
 
 // cycloneServiceData reads both data shapes: ≤1.4 dataClassification

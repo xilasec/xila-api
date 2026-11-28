@@ -2549,6 +2549,54 @@ func (e SbomDiffServicesFields) Valid() bool {
 	}
 }
 
+// Defines values for SbomProcessingStatus.
+const (
+	SbomProcessingStatusCompleted SbomProcessingStatus = "completed"
+	SbomProcessingStatusFailed    SbomProcessingStatus = "failed"
+	SbomProcessingStatusPending   SbomProcessingStatus = "pending"
+	SbomProcessingStatusRunning   SbomProcessingStatus = "running"
+)
+
+// Valid indicates whether the value is a known member of the SbomProcessingStatus enum.
+func (e SbomProcessingStatus) Valid() bool {
+	switch e {
+	case SbomProcessingStatusCompleted:
+		return true
+	case SbomProcessingStatusFailed:
+		return true
+	case SbomProcessingStatusPending:
+		return true
+	case SbomProcessingStatusRunning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SbomProcessingSteps.
+const (
+	SbomProcessingStepsCompleted SbomProcessingSteps = "completed"
+	SbomProcessingStepsFailed    SbomProcessingSteps = "failed"
+	SbomProcessingStepsPending   SbomProcessingSteps = "pending"
+	SbomProcessingStepsRunning   SbomProcessingSteps = "running"
+)
+
+// Valid indicates whether the value is a known member of the SbomProcessingSteps enum.
+func (e SbomProcessingSteps) Valid() bool {
+	switch e {
+	case SbomProcessingStepsCompleted:
+		return true
+	case SbomProcessingStepsFailed:
+		return true
+	case SbomProcessingStepsPending:
+		return true
+	case SbomProcessingStepsRunning:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SbomServiceDataFlow.
 const (
 	SbomServiceDataFlowBiDirectional SbomServiceDataFlow = "bi-directional"
@@ -3158,6 +3206,21 @@ func (e PermSource) Valid() bool {
 	case PermSourceManual:
 		return true
 	case PermSourceSso:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ScanUploadFormat.
+const (
+	ScanUploadFormatSarif ScanUploadFormat = "sarif"
+)
+
+// Valid indicates whether the value is a known member of the ScanUploadFormat enum.
+func (e ScanUploadFormat) Valid() bool {
+	switch e {
+	case ScanUploadFormatSarif:
 		return true
 	default:
 		return false
@@ -4714,13 +4777,13 @@ func (e ListProjectRiskAcceptancesParamsState) Valid() bool {
 
 // Defines values for CreateProjectScanParamsFormat.
 const (
-	Sarif CreateProjectScanParamsFormat = "sarif"
+	CreateProjectScanParamsFormatSarif CreateProjectScanParamsFormat = "sarif"
 )
 
 // Valid indicates whether the value is a known member of the CreateProjectScanParamsFormat enum.
 func (e CreateProjectScanParamsFormat) Valid() bool {
 	switch e {
-	case Sarif:
+	case CreateProjectScanParamsFormatSarif:
 		return true
 	default:
 		return false
@@ -4949,6 +5012,21 @@ const (
 func (e ExportSbomParamsFormat) Valid() bool {
 	switch e {
 	case ExportSbomParamsFormatCyclonedx:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CreateScanByProjectNameParamsFormat.
+const (
+	CreateScanByProjectNameParamsFormatSarif CreateScanByProjectNameParamsFormat = "sarif"
+)
+
+// Valid indicates whether the value is a known member of the CreateScanByProjectNameParamsFormat enum.
+func (e CreateScanByProjectNameParamsFormat) Valid() bool {
+	switch e {
+	case CreateScanByProjectNameParamsFormatSarif:
 		return true
 	default:
 		return false
@@ -8194,9 +8272,13 @@ type Sbom struct {
 	CreatedAt      *time.Time `json:"created_at,omitempty"`
 
 	// Format Example: CycloneDX
-	Format    *string             `json:"format,omitempty"`
-	Id        *openapi_types.UUID `json:"id,omitempty"`
-	ProjectId *openapi_types.UUID `json:"project_id,omitempty"`
+	Format *string             `json:"format,omitempty"`
+	Id     *openapi_types.UUID `json:"id,omitempty"`
+
+	// Processing Rolls up the steps: `completed` once every step is, `failed` if any
+	// failed, `running` once any has started, else `pending`.
+	Processing *SbomProcessing     `json:"processing,omitempty"`
+	ProjectId  *openapi_types.UUID `json:"project_id,omitempty"`
 
 	// RootRef The dependency graph's root node (CycloneDX metadata.component bom-ref / SPDX described package).
 	RootRef      *string `json:"root_ref,omitempty"`
@@ -8302,6 +8384,28 @@ type SbomGraph struct {
 	Root   *string             `json:"root,omitempty"`
 	SbomId *openapi_types.UUID `json:"sbom_id,omitempty"`
 }
+
+// SbomProcessing Rolls up the steps: `completed` once every step is, `failed` if any
+// failed, `running` once any has started, else `pending`.
+type SbomProcessing struct {
+	CompletedAt *time.Time `json:"completed_at,omitempty"`
+
+	// Error The public message of the step that last failed.
+	Error     *string               `json:"error,omitempty"`
+	SbomId    *openapi_types.UUID   `json:"sbom_id,omitempty"`
+	StartedAt *time.Time            `json:"started_at,omitempty"`
+	Status    *SbomProcessingStatus `json:"status,omitempty"`
+
+	// Steps Each enabled step (policy, reachability, vulnmatch, pkgmeta) and its status.
+	Steps     *map[string]SbomProcessingSteps `json:"steps,omitempty"`
+	UpdatedAt *time.Time                      `json:"updated_at,omitempty"`
+}
+
+// SbomProcessingStatus defines model for SbomProcessing.Status.
+type SbomProcessingStatus string
+
+// SbomProcessingSteps defines model for SbomProcessing.Steps.
+type SbomProcessingSteps string
 
 // SbomService defines model for SbomService.
 type SbomService struct {
@@ -9111,8 +9215,53 @@ type SSOSlug = string
 // SbomID defines model for SbomID.
 type SbomID = openapi_types.UUID
 
+// SbomUploadArtifact defines model for SbomUploadArtifact.
+type SbomUploadArtifact = string
+
+// SbomUploadBranch defines model for SbomUploadBranch.
+type SbomUploadBranch = string
+
+// SbomUploadRelease defines model for SbomUploadRelease.
+type SbomUploadRelease = string
+
+// SbomUploadStrict defines model for SbomUploadStrict.
+type SbomUploadStrict = bool
+
+// SbomUploadVersion defines model for SbomUploadVersion.
+type SbomUploadVersion = string
+
 // ScanID defines model for ScanID.
 type ScanID = openapi_types.UUID
+
+// ScanUploadAssetId defines model for ScanUploadAssetId.
+type ScanUploadAssetId = openapi_types.UUID
+
+// ScanUploadBranch defines model for ScanUploadBranch.
+type ScanUploadBranch = string
+
+// ScanUploadCloseMissing defines model for ScanUploadCloseMissing.
+type ScanUploadCloseMissing = bool
+
+// ScanUploadCommit defines model for ScanUploadCommit.
+type ScanUploadCommit = string
+
+// ScanUploadEngagementId defines model for ScanUploadEngagementId.
+type ScanUploadEngagementId = openapi_types.UUID
+
+// ScanUploadForce defines model for ScanUploadForce.
+type ScanUploadForce = bool
+
+// ScanUploadFormat defines model for ScanUploadFormat.
+type ScanUploadFormat string
+
+// ScanUploadRelease defines model for ScanUploadRelease.
+type ScanUploadRelease = string
+
+// ScanUploadScanner Example: trivy
+type ScanUploadScanner = string
+
+// ScanUploadSplitAssets defines model for ScanUploadSplitAssets.
+type ScanUploadSplitAssets = bool
 
 // ScheduleID defines model for ScheduleID.
 type ScheduleID = openapi_types.UUID
@@ -9134,6 +9283,15 @@ type TokenID = openapi_types.UUID
 
 // TrendDays defines model for TrendDays.
 type TrendDays = int
+
+// UploadAutoCreate defines model for UploadAutoCreate.
+type UploadAutoCreate = bool
+
+// UploadProjectName defines model for UploadProjectName.
+type UploadProjectName = string
+
+// UploadTeam defines model for UploadTeam.
+type UploadTeam = string
 
 // UserID defines model for UserID.
 type UserID = openapi_types.UUID
@@ -9202,6 +9360,9 @@ type SbomStrictError struct {
 type Watching struct {
 	Watching *bool `json:"watching,omitempty"`
 }
+
+// SbomDocument A CycloneDX or SPDX JSON document.
+type SbomDocument = map[string]interface{}
 
 // ListAdvisoriesParams defines parameters for ListAdvisories.
 type ListAdvisoriesParams struct {
@@ -10852,19 +11013,19 @@ type CreateProjectSbomJSONBody = map[string]interface{}
 // CreateProjectSbomParams defines parameters for CreateProjectSbom.
 type CreateProjectSbomParams struct {
 	// Artifact Overrides the SBOM's own subject name.
-	Artifact *string `form:"artifact,omitempty" json:"artifact,omitempty"`
+	Artifact *SbomUploadArtifact `form:"artifact,omitempty" json:"artifact,omitempty"`
 
 	// Version The artifact's own version (not the project branch).
-	Version *string `form:"version,omitempty" json:"version,omitempty"`
+	Version *SbomUploadVersion `form:"version,omitempty" json:"version,omitempty"`
 
 	// Branch The project branch this SBOM describes. Omit for the default version.
-	Branch *string `form:"branch,omitempty" json:"branch,omitempty"`
+	Branch *SbomUploadBranch `form:"branch,omitempty" json:"branch,omitempty"`
 
 	// Release Instead of a branch
-	Release *string `form:"release,omitempty" json:"release,omitempty"`
+	Release *SbomUploadRelease `form:"release,omitempty" json:"release,omitempty"`
 
 	// Strict Reject a CycloneDX document that fails the official JSON schema for its specVersion.
-	Strict *bool `form:"strict,omitempty" json:"strict,omitempty"`
+	Strict *SbomUploadStrict `form:"strict,omitempty" json:"strict,omitempty"`
 }
 
 // ListProjectScansParams defines parameters for ListProjectScans.
@@ -10894,23 +11055,23 @@ type CreateProjectScanParams struct {
 	// `aws-inspector2`, `aws-security-hub`, `nessus`, `openvas`, `qualys`,
 	// `acunetix`, `invicti`, `testssl` (see docs/PARSERS.md). Any other tool:
 	// pass its name here **and** `format=sarif`.
-	Scanner string `form:"scanner" json:"scanner"`
+	Scanner ScanUploadScanner `form:"scanner" json:"scanner"`
 
 	// Format Selects the parser when the wire format differs from the tool (`sarif`).
 	Format *CreateProjectScanParamsFormat `form:"format,omitempty" json:"format,omitempty"`
 
 	// AssetId Attribute the scan and its findings to an asset.
-	AssetId *openapi_types.UUID `form:"asset_id,omitempty" json:"asset_id,omitempty"`
+	AssetId *ScanUploadAssetId `form:"asset_id,omitempty" json:"asset_id,omitempty"`
 
 	// Branch The branch this scan is of. Its findings live on that branch's version (created on first use). Omit for the default version.
-	Branch *string `form:"branch,omitempty" json:"branch,omitempty"`
+	Branch *ScanUploadBranch `form:"branch,omitempty" json:"branch,omitempty"`
 
 	// Release Instead of a branch, the release this scan is of (e.g. `v1.4.0`). Not both.
-	Release *string `form:"release,omitempty" json:"release,omitempty"`
-	Commit  *string `form:"commit,omitempty" json:"commit,omitempty"`
+	Release *ScanUploadRelease `form:"release,omitempty" json:"release,omitempty"`
+	Commit  *ScanUploadCommit  `form:"commit,omitempty" json:"commit,omitempty"`
 
 	// EngagementId File the scan as a test of one of this project's engagements. Another project's engagement is a 400.
-	EngagementId *openapi_types.UUID `form:"engagement_id,omitempty" json:"engagement_id,omitempty"`
+	EngagementId *ScanUploadEngagementId `form:"engagement_id,omitempty" json:"engagement_id,omitempty"`
 
 	// CloseMissing Treat this scan as the scanner's complete current view of its target
 	// (`asset_id` + `branch`): anything it previously reported on that same
@@ -10918,18 +11079,18 @@ type CreateProjectScanParams struct {
 	// another asset or branch are never touched. Default true. Set false for
 	// partial/incremental scans, or you will close findings that simply
 	// weren't scanned.
-	CloseMissing *bool `form:"close_missing,omitempty" json:"close_missing,omitempty"`
+	CloseMissing *ScanUploadCloseMissing `form:"close_missing,omitempty" json:"close_missing,omitempty"`
 
 	// Force Always run the full pipeline, even if this report's content hash
 	// matches the target's previous completed scan (bypasses
 	// `INGEST_SKIP_UNCHANGED`).
-	Force *bool `form:"force,omitempty" json:"force,omitempty"`
+	Force *ScanUploadForce `form:"force,omitempty" json:"force,omitempty"`
 
 	// SplitAssets File each finding under the host asset of the machine it names (Nessus,
 	// OpenVAS, Qualys, Nmap, testssl.sh and other infrastructure scanners
 	// record the host), creating missing host assets. For multi-host network
 	// scans; not together with `asset_id`.
-	SplitAssets *bool `form:"split_assets,omitempty" json:"split_assets,omitempty"`
+	SplitAssets *ScanUploadSplitAssets `form:"split_assets,omitempty" json:"split_assets,omitempty"`
 }
 
 // CreateProjectScanParamsFormat defines parameters for CreateProjectScan.
@@ -11047,6 +11208,36 @@ type ListRootCausesParams struct {
 	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
+// CreateSbomByProjectNameJSONBody defines parameters for CreateSbomByProjectName.
+type CreateSbomByProjectNameJSONBody = map[string]interface{}
+
+// CreateSbomByProjectNameParams defines parameters for CreateSbomByProjectName.
+type CreateSbomByProjectNameParams struct {
+	// ProjectName The project, by slug (case-insensitive).
+	ProjectName UploadProjectName `form:"project_name" json:"project_name"`
+
+	// Team The project's team, by id or slug. Required with auto_create.
+	Team *UploadTeam `form:"team,omitempty" json:"team,omitempty"`
+
+	// AutoCreate Create the project in team when none has this name (team editor).
+	AutoCreate *UploadAutoCreate `form:"auto_create,omitempty" json:"auto_create,omitempty"`
+
+	// Artifact Overrides the SBOM's own subject name.
+	Artifact *SbomUploadArtifact `form:"artifact,omitempty" json:"artifact,omitempty"`
+
+	// Version The artifact's own version (not the project branch).
+	Version *SbomUploadVersion `form:"version,omitempty" json:"version,omitempty"`
+
+	// Branch The project branch this SBOM describes. Omit for the default version.
+	Branch *SbomUploadBranch `form:"branch,omitempty" json:"branch,omitempty"`
+
+	// Release Instead of a branch
+	Release *SbomUploadRelease `form:"release,omitempty" json:"release,omitempty"`
+
+	// Strict Reject a CycloneDX document that fails the official JSON schema for its specVersion.
+	Strict *SbomUploadStrict `form:"strict,omitempty" json:"strict,omitempty"`
+}
+
 // ListSbomComponentsParams defines parameters for ListSbomComponents.
 type ListSbomComponentsParams struct {
 	// Vulnerable `true` = only components with a known vulnerability; `false` = only clean ones.
@@ -11155,6 +11346,73 @@ type ListSbomGraphPathsParams struct {
 	Ref         *string             `form:"ref,omitempty" json:"ref,omitempty"`
 	ComponentId *openapi_types.UUID `form:"component_id,omitempty" json:"component_id,omitempty"`
 }
+
+// CreateScanByProjectNameJSONBody defines parameters for CreateScanByProjectName.
+type CreateScanByProjectNameJSONBody = map[string]interface{}
+
+// CreateScanByProjectNameParams defines parameters for CreateScanByProjectName.
+type CreateScanByProjectNameParams struct {
+	// ProjectName The project, by slug (case-insensitive).
+	ProjectName UploadProjectName `form:"project_name" json:"project_name"`
+
+	// Team The project's team, by id or slug. Required with auto_create.
+	Team *UploadTeam `form:"team,omitempty" json:"team,omitempty"`
+
+	// AutoCreate Create the project in team when none has this name (team editor).
+	AutoCreate *UploadAutoCreate `form:"auto_create,omitempty" json:"auto_create,omitempty"`
+
+	// Scanner Native parsers: `trivy`, `grype`, `osv-scanner`, `npm-audit`,
+	// `dependency-check`, `govulncheck`, `gitleaks`, `trufflehog`, `zap`,
+	// `nuclei`, `prowler`, `kubescape`, `kubeaudit`, `checkov`, `tfsec`,
+	// `terrascan`, `scoutsuite`, `clair`, `anchore`, `docker-scout`, `polaris`,
+	// `kube-bench`, `burp`, `nikto`, `nmap`, `wapiti`, `defectdojo-generic`,
+	// `secobserve`, `snyk`, `pip-audit`, `safety`, `cargo-audit`, `retirejs`,
+	// `bundler-audit`, `semgrep`, `bandit`, `gosec`, `brakeman`, `detect-secrets`,
+	// `ggshield`, `hadolint`, `kics`, `eslint`, `yarn-audit`, `njsscan`, `bearer`,
+	// `mobsf`, `sonarqube`, `checkmarx`, `veracode`, `mend`, `jfrog-xray`,
+	// `aws-inspector2`, `aws-security-hub`, `nessus`, `openvas`, `qualys`,
+	// `acunetix`, `invicti`, `testssl` (see docs/PARSERS.md). Any other tool:
+	// pass its name here **and** `format=sarif`.
+	Scanner ScanUploadScanner `form:"scanner" json:"scanner"`
+
+	// Format Selects the parser when the wire format differs from the tool (`sarif`).
+	Format *CreateScanByProjectNameParamsFormat `form:"format,omitempty" json:"format,omitempty"`
+
+	// AssetId Attribute the scan and its findings to an asset.
+	AssetId *ScanUploadAssetId `form:"asset_id,omitempty" json:"asset_id,omitempty"`
+
+	// Branch The branch this scan is of. Its findings live on that branch's version (created on first use). Omit for the default version.
+	Branch *ScanUploadBranch `form:"branch,omitempty" json:"branch,omitempty"`
+
+	// Release Instead of a branch, the release this scan is of (e.g. `v1.4.0`). Not both.
+	Release *ScanUploadRelease `form:"release,omitempty" json:"release,omitempty"`
+	Commit  *ScanUploadCommit  `form:"commit,omitempty" json:"commit,omitempty"`
+
+	// EngagementId File the scan as a test of one of this project's engagements. Another project's engagement is a 400.
+	EngagementId *ScanUploadEngagementId `form:"engagement_id,omitempty" json:"engagement_id,omitempty"`
+
+	// CloseMissing Treat this scan as the scanner's complete current view of its target
+	// (`asset_id` + `branch`): anything it previously reported on that same
+	// target and no longer does is auto-remediated. Findings last reported on
+	// another asset or branch are never touched. Default true. Set false for
+	// partial/incremental scans, or you will close findings that simply
+	// weren't scanned.
+	CloseMissing *ScanUploadCloseMissing `form:"close_missing,omitempty" json:"close_missing,omitempty"`
+
+	// Force Always run the full pipeline, even if this report's content hash
+	// matches the target's previous completed scan (bypasses
+	// `INGEST_SKIP_UNCHANGED`).
+	Force *ScanUploadForce `form:"force,omitempty" json:"force,omitempty"`
+
+	// SplitAssets File each finding under the host asset of the machine it names (Nessus,
+	// OpenVAS, Qualys, Nmap, testssl.sh and other infrastructure scanners
+	// record the host), creating missing host assets. For multi-host network
+	// scans; not together with `asset_id`.
+	SplitAssets *ScanUploadSplitAssets `form:"split_assets,omitempty" json:"split_assets,omitempty"`
+}
+
+// CreateScanByProjectNameParamsFormat defines parameters for CreateScanByProjectName.
+type CreateScanByProjectNameParamsFormat string
 
 // DeleteScanParams defines parameters for DeleteScan.
 type DeleteScanParams struct {
@@ -11690,6 +11948,12 @@ type CreateReportTemplateJSONRequestBody = ReportTemplate
 
 // PutReportTemplateJSONRequestBody defines body for PutReportTemplate for application/json ContentType.
 type PutReportTemplateJSONRequestBody = ReportTemplate
+
+// CreateSbomByProjectNameJSONRequestBody defines body for CreateSbomByProjectName for application/json ContentType.
+type CreateSbomByProjectNameJSONRequestBody = CreateSbomByProjectNameJSONBody
+
+// CreateScanByProjectNameJSONRequestBody defines body for CreateScanByProjectName for application/json ContentType.
+type CreateScanByProjectNameJSONRequestBody = CreateScanByProjectNameJSONBody
 
 // CreateScimTokenJSONRequestBody defines body for CreateScimToken for application/json ContentType.
 type CreateScimTokenJSONRequestBody CreateScimTokenJSONBody
@@ -15789,7 +16053,7 @@ type ClientInterface interface {
 
 	// CreateProjectSbomWithBody Upload an SBOM
 	//
-	// CycloneDX or SPDX JSON — the format is detected from the content. Each
+	// CycloneDX (JSON or XML) or SPDX JSON: the format is detected from the content. Each
 	// upload is an **immutable snapshot**, so history is preserved rather than
 	// overwritten.
 	//
@@ -15801,8 +16065,10 @@ type ClientInterface interface {
 	// validates a CycloneDX upload against the official JSON schema for its
 	// own `specVersion` (1.2 through 1.7) before storing it; a failure
 	// returns 400 with up to 50 field-level errors, each with a JSON
-	// Pointer path. XML CycloneDX is always rejected — upload CycloneDX or
-	// SPDX JSON instead.
+	// Pointer path. CycloneDX XML (schema 1.0 and later) is accepted and
+	// parsed exactly like JSON, but the schema validator only checks JSON:
+	// `strict` with an XML document is a 400, so an instance with
+	// `SBOM_STRICT_VALIDATION` on accepts JSON only.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -15811,7 +16077,7 @@ type ClientInterface interface {
 
 	// CreateProjectSbom Upload an SBOM
 	//
-	// CycloneDX or SPDX JSON — the format is detected from the content. Each
+	// CycloneDX (JSON or XML) or SPDX JSON: the format is detected from the content. Each
 	// upload is an **immutable snapshot**, so history is preserved rather than
 	// overwritten.
 	//
@@ -15823,8 +16089,10 @@ type ClientInterface interface {
 	// validates a CycloneDX upload against the official JSON schema for its
 	// own `specVersion` (1.2 through 1.7) before storing it; a failure
 	// returns 400 with up to 50 field-level errors, each with a JSON
-	// Pointer path. XML CycloneDX is always rejected — upload CycloneDX or
-	// SPDX JSON instead.
+	// Pointer path. CycloneDX XML (schema 1.0 and later) is accepted and
+	// parsed exactly like JSON, but the schema validator only checks JSON:
+	// `strict` with an XML document is a 400, so an instance with
+	// `SBOM_STRICT_VALIDATION` on accepts JSON only.
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -16473,6 +16741,50 @@ type ClientInterface interface {
 	// Corresponds with POST /root-causes/{kind}/{key}/remediation (the `CreateRootCauseRemediation` operationId).
 	CreateRootCauseRemediation(ctx context.Context, kind RootCauseKind, key RootCauseKey, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// CreateSbomByProjectNameWithBody Upload an SBOM into a project named in the query
+	//
+	// `POST /projects/{projectID}/sboms` for CI that knows a project by name.
+	// No project id in the path: the project is found by name
+	// (`project_name`, matched against project slugs case-insensitively),
+	// within `team` (an id or slug) when given, else among every project
+	// the caller can see; more than one match is a 400 asking for `team`.
+	// With `auto_create=true` and a `team`, a missing project is created
+	// there (team editor required, as for `POST /teams/{teamID}/projects`;
+	// concurrent CI jobs creating the same name share one project).
+	// The upload needs the same rights as the per-project route: uploader
+	// or higher on the project, a custom role not denying uploads, and a
+	// project-scoped token only for its own project (it can never create
+	// one).
+	//
+	// Poll `GET /sboms/{id}/status` before gating on the upload.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /sboms (the `CreateSbomByProjectName` operationId).
+	CreateSbomByProjectNameWithBody(ctx context.Context, params *CreateSbomByProjectNameParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateSbomByProjectName Upload an SBOM into a project named in the query
+	//
+	// `POST /projects/{projectID}/sboms` for CI that knows a project by name.
+	// No project id in the path: the project is found by name
+	// (`project_name`, matched against project slugs case-insensitively),
+	// within `team` (an id or slug) when given, else among every project
+	// the caller can see; more than one match is a 400 asking for `team`.
+	// With `auto_create=true` and a `team`, a missing project is created
+	// there (team editor required, as for `POST /teams/{teamID}/projects`;
+	// concurrent CI jobs creating the same name share one project).
+	// The upload needs the same rights as the per-project route: uploader
+	// or higher on the project, a custom role not denying uploads, and a
+	// project-scoped token only for its own project (it can never create
+	// one).
+	//
+	// Poll `GET /sboms/{id}/status` before gating on the upload.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /sboms (the `CreateSbomByProjectName` operationId).
+	CreateSbomByProjectName(ctx context.Context, params *CreateSbomByProjectNameParams, body CreateSbomByProjectNameJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetSbom Read an SBOM snapshot
 	//
 	// Corresponds with GET /sboms/{sbomID} (the `GetSbom` operationId).
@@ -16561,6 +16873,17 @@ type ClientInterface interface {
 	// Corresponds with GET /sboms/{sbomID}/services (the `ListSbomServices` operationId).
 	ListSbomServices(ctx context.Context, sbomID SbomID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetSbomProcessing An SBOM upload's background processing
+	//
+	// An upload returns once the snapshot is stored; the advisory match,
+	// registry metadata lookup, component policy evaluation and reachability
+	// rescoring finish afterwards. CI should wait for `completed` (or
+	// `failed`) before running the gate, so it judges the new snapshot. A
+	// step whose feature is off is never added, so it can't hold this up.
+	//
+	// Corresponds with GET /sboms/{sbomID}/status (the `GetSbomProcessing` operationId).
+	GetSbomProcessing(ctx context.Context, sbomID SbomID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListSbomVulnerabilities Every vulnerability one snapshot ships
 	//
 	// Advisory matches recorded for this snapshot plus scanner findings on its
@@ -16571,6 +16894,52 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /sboms/{sbomID}/vulnerabilities (the `ListSbomVulnerabilities` operationId).
 	ListSbomVulnerabilities(ctx context.Context, sbomID SbomID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateScanByProjectNameWithBody Ingest a scanner report into a project named in the query
+	//
+	// `POST /projects/{projectID}/scans` for CI that knows a project by name.
+	// No project id in the path: the project is found by name
+	// (`project_name`, matched against project slugs case-insensitively),
+	// within `team` (an id or slug) when given, else among every project
+	// the caller can see; more than one match is a 400 asking for `team`.
+	// With `auto_create=true` and a `team`, a missing project is created
+	// there (team editor required, as for `POST /teams/{teamID}/projects`;
+	// concurrent CI jobs creating the same name share one project).
+	// The upload needs the same rights as the per-project route: uploader
+	// or higher on the project, a custom role not denying uploads, and a
+	// project-scoped token only for its own project (it can never create
+	// one).
+	//
+	// Everything else (parameters, body, async mode, backpressure) is the
+	// per-project route's.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /scans (the `CreateScanByProjectName` operationId).
+	CreateScanByProjectNameWithBody(ctx context.Context, params *CreateScanByProjectNameParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateScanByProjectName Ingest a scanner report into a project named in the query
+	//
+	// `POST /projects/{projectID}/scans` for CI that knows a project by name.
+	// No project id in the path: the project is found by name
+	// (`project_name`, matched against project slugs case-insensitively),
+	// within `team` (an id or slug) when given, else among every project
+	// the caller can see; more than one match is a 400 asking for `team`.
+	// With `auto_create=true` and a `team`, a missing project is created
+	// there (team editor required, as for `POST /teams/{teamID}/projects`;
+	// concurrent CI jobs creating the same name share one project).
+	// The upload needs the same rights as the per-project route: uploader
+	// or higher on the project, a custom role not denying uploads, and a
+	// project-scoped token only for its own project (it can never create
+	// one).
+	//
+	// Everything else (parameters, body, async mode, backpressure) is the
+	// per-project route's.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /scans (the `CreateScanByProjectName` operationId).
+	CreateScanByProjectName(ctx context.Context, params *CreateScanByProjectNameParams, body CreateScanByProjectNameJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteScan Archive a scan (or purge it)
 	//
@@ -25599,7 +25968,7 @@ func (c *Client) ListProjectSboms(ctx context.Context, projectID ProjectID, para
 
 // CreateProjectSbomWithBody Upload an SBOM
 //
-// CycloneDX or SPDX JSON — the format is detected from the content. Each
+// CycloneDX (JSON or XML) or SPDX JSON: the format is detected from the content. Each
 // upload is an **immutable snapshot**, so history is preserved rather than
 // overwritten.
 //
@@ -25611,8 +25980,10 @@ func (c *Client) ListProjectSboms(ctx context.Context, projectID ProjectID, para
 // validates a CycloneDX upload against the official JSON schema for its
 // own `specVersion` (1.2 through 1.7) before storing it; a failure
 // returns 400 with up to 50 field-level errors, each with a JSON
-// Pointer path. XML CycloneDX is always rejected — upload CycloneDX or
-// SPDX JSON instead.
+// Pointer path. CycloneDX XML (schema 1.0 and later) is accepted and
+// parsed exactly like JSON, but the schema validator only checks JSON:
+// `strict` with an XML document is a 400, so an instance with
+// `SBOM_STRICT_VALIDATION` on accepts JSON only.
 //
 // Takes any type of body and a specified content type.
 //
@@ -25631,7 +26002,7 @@ func (c *Client) CreateProjectSbomWithBody(ctx context.Context, projectID Projec
 
 // CreateProjectSbom Upload an SBOM
 //
-// CycloneDX or SPDX JSON — the format is detected from the content. Each
+// CycloneDX (JSON or XML) or SPDX JSON: the format is detected from the content. Each
 // upload is an **immutable snapshot**, so history is preserved rather than
 // overwritten.
 //
@@ -25643,8 +26014,10 @@ func (c *Client) CreateProjectSbomWithBody(ctx context.Context, projectID Projec
 // validates a CycloneDX upload against the official JSON schema for its
 // own `specVersion` (1.2 through 1.7) before storing it; a failure
 // returns 400 with up to 50 field-level errors, each with a JSON
-// Pointer path. XML CycloneDX is always rejected — upload CycloneDX or
-// SPDX JSON instead.
+// Pointer path. CycloneDX XML (schema 1.0 and later) is accepted and
+// parsed exactly like JSON, but the schema validator only checks JSON:
+// `strict` with an XML document is a 400, so an instance with
+// `SBOM_STRICT_VALIDATION` on accepts JSON only.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -27003,6 +27376,70 @@ func (c *Client) CreateRootCauseRemediation(ctx context.Context, kind RootCauseK
 	return c.Client.Do(req)
 }
 
+// CreateSbomByProjectNameWithBody Upload an SBOM into a project named in the query
+//
+// `POST /projects/{projectID}/sboms` for CI that knows a project by name.
+// No project id in the path: the project is found by name
+// (`project_name`, matched against project slugs case-insensitively),
+// within `team` (an id or slug) when given, else among every project
+// the caller can see; more than one match is a 400 asking for `team`.
+// With `auto_create=true` and a `team`, a missing project is created
+// there (team editor required, as for `POST /teams/{teamID}/projects`;
+// concurrent CI jobs creating the same name share one project).
+// The upload needs the same rights as the per-project route: uploader
+// or higher on the project, a custom role not denying uploads, and a
+// project-scoped token only for its own project (it can never create
+// one).
+//
+// Poll `GET /sboms/{id}/status` before gating on the upload.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /sboms (the `CreateSbomByProjectName` operationId).
+func (c *Client) CreateSbomByProjectNameWithBody(ctx context.Context, params *CreateSbomByProjectNameParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateSbomByProjectNameRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateSbomByProjectName Upload an SBOM into a project named in the query
+//
+// `POST /projects/{projectID}/sboms` for CI that knows a project by name.
+// No project id in the path: the project is found by name
+// (`project_name`, matched against project slugs case-insensitively),
+// within `team` (an id or slug) when given, else among every project
+// the caller can see; more than one match is a 400 asking for `team`.
+// With `auto_create=true` and a `team`, a missing project is created
+// there (team editor required, as for `POST /teams/{teamID}/projects`;
+// concurrent CI jobs creating the same name share one project).
+// The upload needs the same rights as the per-project route: uploader
+// or higher on the project, a custom role not denying uploads, and a
+// project-scoped token only for its own project (it can never create
+// one).
+//
+// Poll `GET /sboms/{id}/status` before gating on the upload.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /sboms (the `CreateSbomByProjectName` operationId).
+func (c *Client) CreateSbomByProjectName(ctx context.Context, params *CreateSbomByProjectNameParams, body CreateSbomByProjectNameJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateSbomByProjectNameRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // GetSbom Read an SBOM snapshot
 //
 // Corresponds with GET /sboms/{sbomID} (the `GetSbom` operationId).
@@ -27181,6 +27618,27 @@ func (c *Client) ListSbomServices(ctx context.Context, sbomID SbomID, reqEditors
 	return c.Client.Do(req)
 }
 
+// GetSbomProcessing An SBOM upload's background processing
+//
+// An upload returns once the snapshot is stored; the advisory match,
+// registry metadata lookup, component policy evaluation and reachability
+// rescoring finish afterwards. CI should wait for `completed` (or
+// `failed`) before running the gate, so it judges the new snapshot. A
+// step whose feature is off is never added, so it can't hold this up.
+//
+// Corresponds with GET /sboms/{sbomID}/status (the `GetSbomProcessing` operationId).
+func (c *Client) GetSbomProcessing(ctx context.Context, sbomID SbomID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetSbomProcessingRequest(c.Server, sbomID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListSbomVulnerabilities Every vulnerability one snapshot ships
 //
 // Advisory matches recorded for this snapshot plus scanner findings on its
@@ -27192,6 +27650,72 @@ func (c *Client) ListSbomServices(ctx context.Context, sbomID SbomID, reqEditors
 // Corresponds with GET /sboms/{sbomID}/vulnerabilities (the `ListSbomVulnerabilities` operationId).
 func (c *Client) ListSbomVulnerabilities(ctx context.Context, sbomID SbomID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListSbomVulnerabilitiesRequest(c.Server, sbomID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateScanByProjectNameWithBody Ingest a scanner report into a project named in the query
+//
+// `POST /projects/{projectID}/scans` for CI that knows a project by name.
+// No project id in the path: the project is found by name
+// (`project_name`, matched against project slugs case-insensitively),
+// within `team` (an id or slug) when given, else among every project
+// the caller can see; more than one match is a 400 asking for `team`.
+// With `auto_create=true` and a `team`, a missing project is created
+// there (team editor required, as for `POST /teams/{teamID}/projects`;
+// concurrent CI jobs creating the same name share one project).
+// The upload needs the same rights as the per-project route: uploader
+// or higher on the project, a custom role not denying uploads, and a
+// project-scoped token only for its own project (it can never create
+// one).
+//
+// Everything else (parameters, body, async mode, backpressure) is the
+// per-project route's.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /scans (the `CreateScanByProjectName` operationId).
+func (c *Client) CreateScanByProjectNameWithBody(ctx context.Context, params *CreateScanByProjectNameParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateScanByProjectNameRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateScanByProjectName Ingest a scanner report into a project named in the query
+//
+// `POST /projects/{projectID}/scans` for CI that knows a project by name.
+// No project id in the path: the project is found by name
+// (`project_name`, matched against project slugs case-insensitively),
+// within `team` (an id or slug) when given, else among every project
+// the caller can see; more than one match is a 400 asking for `team`.
+// With `auto_create=true` and a `team`, a missing project is created
+// there (team editor required, as for `POST /teams/{teamID}/projects`;
+// concurrent CI jobs creating the same name share one project).
+// The upload needs the same rights as the per-project route: uploader
+// or higher on the project, a custom role not denying uploads, and a
+// project-scoped token only for its own project (it can never create
+// one).
+//
+// Everything else (parameters, body, async mode, backpressure) is the
+// per-project route's.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /scans (the `CreateScanByProjectName` operationId).
+func (c *Client) CreateScanByProjectName(ctx context.Context, params *CreateScanByProjectNameParams, body CreateScanByProjectNameJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateScanByProjectNameRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -47825,6 +48349,153 @@ func NewCreateRootCauseRemediationRequest(server string, kind RootCauseKind, key
 	return req, nil
 }
 
+// NewCreateSbomByProjectNameRequest calls the generic CreateSbomByProjectName builder with application/json body
+func NewCreateSbomByProjectNameRequest(server string, params *CreateSbomByProjectNameParams, body CreateSbomByProjectNameJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateSbomByProjectNameRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewCreateSbomByProjectNameRequestWithBody constructs an http.Request for the CreateSbomByProjectName method, with any body, and a specified content type
+func NewCreateSbomByProjectNameRequestWithBody(server string, params *CreateSbomByProjectNameParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sboms")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_name", params.ProjectName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if params.Team != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "team", *params.Team, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.AutoCreate != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "auto_create", *params.AutoCreate, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Artifact != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "artifact", *params.Artifact, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Version != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "version", *params.Version, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Branch != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "branch", *params.Branch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Release != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "release", *params.Release, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Strict != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "strict", *params.Strict, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetSbomRequest constructs an http.Request for the GetSbom method
 func NewGetSbomRequest(server string, sbomID SbomID) (*http.Request, error) {
 	var err error
@@ -48470,6 +49141,40 @@ func NewListSbomServicesRequest(server string, sbomID SbomID) (*http.Request, er
 	return req, nil
 }
 
+// NewGetSbomProcessingRequest constructs an http.Request for the GetSbomProcessing method
+func NewGetSbomProcessingRequest(server string, sbomID SbomID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "sbomID", sbomID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sboms/%s/status", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListSbomVulnerabilitiesRequest constructs an http.Request for the ListSbomVulnerabilities method
 func NewListSbomVulnerabilitiesRequest(server string, sbomID SbomID) (*http.Request, error) {
 	var err error
@@ -48500,6 +49205,209 @@ func NewListSbomVulnerabilitiesRequest(server string, sbomID SbomID) (*http.Requ
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewCreateScanByProjectNameRequest calls the generic CreateScanByProjectName builder with application/json body
+func NewCreateScanByProjectNameRequest(server string, params *CreateScanByProjectNameParams, body CreateScanByProjectNameJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateScanByProjectNameRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewCreateScanByProjectNameRequestWithBody constructs an http.Request for the CreateScanByProjectName method, with any body, and a specified content type
+func NewCreateScanByProjectNameRequestWithBody(server string, params *CreateScanByProjectNameParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/scans")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_name", params.ProjectName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if params.Team != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "team", *params.Team, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.AutoCreate != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "auto_create", *params.AutoCreate, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "scanner", params.Scanner, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if params.Format != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "format", *params.Format, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.AssetId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "asset_id", *params.AssetId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Branch != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "branch", *params.Branch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Release != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "release", *params.Release, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Commit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "commit", *params.Commit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.EngagementId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "engagement_id", *params.EngagementId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.CloseMissing != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "close_missing", *params.CloseMissing, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Force != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "force", *params.Force, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.SplitAssets != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "split_assets", *params.SplitAssets, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -56870,7 +57778,7 @@ type ClientWithResponsesInterface interface {
 
 	// CreateProjectSbomWithBodyWithResponse Upload an SBOM
 	//
-	// CycloneDX or SPDX JSON — the format is detected from the content. Each
+	// CycloneDX (JSON or XML) or SPDX JSON: the format is detected from the content. Each
 	// upload is an **immutable snapshot**, so history is preserved rather than
 	// overwritten.
 	//
@@ -56882,8 +57790,10 @@ type ClientWithResponsesInterface interface {
 	// validates a CycloneDX upload against the official JSON schema for its
 	// own `specVersion` (1.2 through 1.7) before storing it; a failure
 	// returns 400 with up to 50 field-level errors, each with a JSON
-	// Pointer path. XML CycloneDX is always rejected — upload CycloneDX or
-	// SPDX JSON instead.
+	// Pointer path. CycloneDX XML (schema 1.0 and later) is accepted and
+	// parsed exactly like JSON, but the schema validator only checks JSON:
+	// `strict` with an XML document is a 400, so an instance with
+	// `SBOM_STRICT_VALIDATION` on accepts JSON only.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -56892,7 +57802,7 @@ type ClientWithResponsesInterface interface {
 
 	// CreateProjectSbomWithResponse Upload an SBOM
 	//
-	// CycloneDX or SPDX JSON — the format is detected from the content. Each
+	// CycloneDX (JSON or XML) or SPDX JSON: the format is detected from the content. Each
 	// upload is an **immutable snapshot**, so history is preserved rather than
 	// overwritten.
 	//
@@ -56904,8 +57814,10 @@ type ClientWithResponsesInterface interface {
 	// validates a CycloneDX upload against the official JSON schema for its
 	// own `specVersion` (1.2 through 1.7) before storing it; a failure
 	// returns 400 with up to 50 field-level errors, each with a JSON
-	// Pointer path. XML CycloneDX is always rejected — upload CycloneDX or
-	// SPDX JSON instead.
+	// Pointer path. CycloneDX XML (schema 1.0 and later) is accepted and
+	// parsed exactly like JSON, but the schema validator only checks JSON:
+	// `strict` with an XML document is a 400, so an instance with
+	// `SBOM_STRICT_VALIDATION` on accepts JSON only.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -57634,6 +58546,50 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /root-causes/{kind}/{key}/remediation (the `CreateRootCauseRemediation` operationId).
 	CreateRootCauseRemediationWithResponse(ctx context.Context, kind RootCauseKind, key RootCauseKey, reqEditors ...RequestEditorFn) (*CreateRootCauseRemediationResponse, error)
 
+	// CreateSbomByProjectNameWithBodyWithResponse Upload an SBOM into a project named in the query
+	//
+	// `POST /projects/{projectID}/sboms` for CI that knows a project by name.
+	// No project id in the path: the project is found by name
+	// (`project_name`, matched against project slugs case-insensitively),
+	// within `team` (an id or slug) when given, else among every project
+	// the caller can see; more than one match is a 400 asking for `team`.
+	// With `auto_create=true` and a `team`, a missing project is created
+	// there (team editor required, as for `POST /teams/{teamID}/projects`;
+	// concurrent CI jobs creating the same name share one project).
+	// The upload needs the same rights as the per-project route: uploader
+	// or higher on the project, a custom role not denying uploads, and a
+	// project-scoped token only for its own project (it can never create
+	// one).
+	//
+	// Poll `GET /sboms/{id}/status` before gating on the upload.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /sboms (the `CreateSbomByProjectName` operationId).
+	CreateSbomByProjectNameWithBodyWithResponse(ctx context.Context, params *CreateSbomByProjectNameParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSbomByProjectNameResponse, error)
+
+	// CreateSbomByProjectNameWithResponse Upload an SBOM into a project named in the query
+	//
+	// `POST /projects/{projectID}/sboms` for CI that knows a project by name.
+	// No project id in the path: the project is found by name
+	// (`project_name`, matched against project slugs case-insensitively),
+	// within `team` (an id or slug) when given, else among every project
+	// the caller can see; more than one match is a 400 asking for `team`.
+	// With `auto_create=true` and a `team`, a missing project is created
+	// there (team editor required, as for `POST /teams/{teamID}/projects`;
+	// concurrent CI jobs creating the same name share one project).
+	// The upload needs the same rights as the per-project route: uploader
+	// or higher on the project, a custom role not denying uploads, and a
+	// project-scoped token only for its own project (it can never create
+	// one).
+	//
+	// Poll `GET /sboms/{id}/status` before gating on the upload.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /sboms (the `CreateSbomByProjectName` operationId).
+	CreateSbomByProjectNameWithResponse(ctx context.Context, params *CreateSbomByProjectNameParams, body CreateSbomByProjectNameJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSbomByProjectNameResponse, error)
+
 	// GetSbomWithResponse Read an SBOM snapshot
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -57740,6 +58696,19 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /sboms/{sbomID}/services (the `ListSbomServices` operationId).
 	ListSbomServicesWithResponse(ctx context.Context, sbomID SbomID, reqEditors ...RequestEditorFn) (*ListSbomServicesResponse, error)
 
+	// GetSbomProcessingWithResponse An SBOM upload's background processing
+	//
+	// An upload returns once the snapshot is stored; the advisory match,
+	// registry metadata lookup, component policy evaluation and reachability
+	// rescoring finish afterwards. CI should wait for `completed` (or
+	// `failed`) before running the gate, so it judges the new snapshot. A
+	// step whose feature is off is never added, so it can't hold this up.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /sboms/{sbomID}/status (the `GetSbomProcessing` operationId).
+	GetSbomProcessingWithResponse(ctx context.Context, sbomID SbomID, reqEditors ...RequestEditorFn) (*GetSbomProcessingResponse, error)
+
 	// ListSbomVulnerabilitiesWithResponse Every vulnerability one snapshot ships
 	//
 	// Advisory matches recorded for this snapshot plus scanner findings on its
@@ -57752,6 +58721,52 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /sboms/{sbomID}/vulnerabilities (the `ListSbomVulnerabilities` operationId).
 	ListSbomVulnerabilitiesWithResponse(ctx context.Context, sbomID SbomID, reqEditors ...RequestEditorFn) (*ListSbomVulnerabilitiesResponse, error)
+
+	// CreateScanByProjectNameWithBodyWithResponse Ingest a scanner report into a project named in the query
+	//
+	// `POST /projects/{projectID}/scans` for CI that knows a project by name.
+	// No project id in the path: the project is found by name
+	// (`project_name`, matched against project slugs case-insensitively),
+	// within `team` (an id or slug) when given, else among every project
+	// the caller can see; more than one match is a 400 asking for `team`.
+	// With `auto_create=true` and a `team`, a missing project is created
+	// there (team editor required, as for `POST /teams/{teamID}/projects`;
+	// concurrent CI jobs creating the same name share one project).
+	// The upload needs the same rights as the per-project route: uploader
+	// or higher on the project, a custom role not denying uploads, and a
+	// project-scoped token only for its own project (it can never create
+	// one).
+	//
+	// Everything else (parameters, body, async mode, backpressure) is the
+	// per-project route's.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /scans (the `CreateScanByProjectName` operationId).
+	CreateScanByProjectNameWithBodyWithResponse(ctx context.Context, params *CreateScanByProjectNameParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateScanByProjectNameResponse, error)
+
+	// CreateScanByProjectNameWithResponse Ingest a scanner report into a project named in the query
+	//
+	// `POST /projects/{projectID}/scans` for CI that knows a project by name.
+	// No project id in the path: the project is found by name
+	// (`project_name`, matched against project slugs case-insensitively),
+	// within `team` (an id or slug) when given, else among every project
+	// the caller can see; more than one match is a 400 asking for `team`.
+	// With `auto_create=true` and a `team`, a missing project is created
+	// there (team editor required, as for `POST /teams/{teamID}/projects`;
+	// concurrent CI jobs creating the same name share one project).
+	// The upload needs the same rights as the per-project route: uploader
+	// or higher on the project, a custom role not denying uploads, and a
+	// project-scoped token only for its own project (it can never create
+	// one).
+	//
+	// Everything else (parameters, body, async mode, backpressure) is the
+	// per-project route's.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /scans (the `CreateScanByProjectName` operationId).
+	CreateScanByProjectNameWithResponse(ctx context.Context, params *CreateScanByProjectNameParams, body CreateScanByProjectNameJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateScanByProjectNameResponse, error)
 
 	// DeleteScanWithResponse Archive a scan (or purge it)
 	//
@@ -77737,6 +78752,82 @@ func (r CreateRootCauseRemediationResponse) ContentType() string {
 	return ""
 }
 
+type CreateSbomByProjectNameResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *Sbom
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *SbomStrictError
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+	// JSON422 the response for an HTTP 422 `application/json` response
+	JSON422 *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateSbomByProjectNameResponse) GetJSON201() *Sbom {
+	return r.JSON201
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r CreateSbomByProjectNameResponse) GetJSON400() *SbomStrictError {
+	return r.JSON400
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r CreateSbomByProjectNameResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r CreateSbomByProjectNameResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r CreateSbomByProjectNameResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetJSON422 returns the response for an HTTP 422 `application/json` response
+func (r CreateSbomByProjectNameResponse) GetJSON422() *Error {
+	return r.JSON422
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateSbomByProjectNameResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateSbomByProjectNameResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateSbomByProjectNameResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateSbomByProjectNameResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetSbomResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -78223,6 +79314,54 @@ func (r ListSbomServicesResponse) ContentType() string {
 	return ""
 }
 
+type GetSbomProcessingResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *SbomProcessing
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetSbomProcessingResponse) GetJSON200() *SbomProcessing {
+	return r.JSON200
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r GetSbomProcessingResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetSbomProcessingResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetSbomProcessingResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetSbomProcessingResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetSbomProcessingResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListSbomVulnerabilitiesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -78271,6 +79410,96 @@ func (r ListSbomVulnerabilitiesResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ListSbomVulnerabilitiesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateScanByProjectNameResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *Scan
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *Scan
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+	// JSON422 the response for an HTTP 422 `application/json` response
+	JSON422 *Error
+	// JSON429 the response for an HTTP 429 `application/json` response
+	JSON429 *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateScanByProjectNameResponse) GetJSON201() *Scan {
+	return r.JSON201
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r CreateScanByProjectNameResponse) GetJSON202() *Scan {
+	return r.JSON202
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r CreateScanByProjectNameResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r CreateScanByProjectNameResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r CreateScanByProjectNameResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r CreateScanByProjectNameResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetJSON422 returns the response for an HTTP 422 `application/json` response
+func (r CreateScanByProjectNameResponse) GetJSON422() *Error {
+	return r.JSON422
+}
+
+// GetJSON429 returns the response for an HTTP 429 `application/json` response
+func (r CreateScanByProjectNameResponse) GetJSON429() *Error {
+	return r.JSON429
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateScanByProjectNameResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateScanByProjectNameResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateScanByProjectNameResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateScanByProjectNameResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -90217,7 +91446,7 @@ func (c *ClientWithResponses) ListProjectSbomsWithResponse(ctx context.Context, 
 
 // CreateProjectSbomWithBodyWithResponse Upload an SBOM
 //
-// CycloneDX or SPDX JSON — the format is detected from the content. Each
+// CycloneDX (JSON or XML) or SPDX JSON: the format is detected from the content. Each
 // upload is an **immutable snapshot**, so history is preserved rather than
 // overwritten.
 //
@@ -90229,8 +91458,10 @@ func (c *ClientWithResponses) ListProjectSbomsWithResponse(ctx context.Context, 
 // validates a CycloneDX upload against the official JSON schema for its
 // own `specVersion` (1.2 through 1.7) before storing it; a failure
 // returns 400 with up to 50 field-level errors, each with a JSON
-// Pointer path. XML CycloneDX is always rejected — upload CycloneDX or
-// SPDX JSON instead.
+// Pointer path. CycloneDX XML (schema 1.0 and later) is accepted and
+// parsed exactly like JSON, but the schema validator only checks JSON:
+// `strict` with an XML document is a 400, so an instance with
+// `SBOM_STRICT_VALIDATION` on accepts JSON only.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -90245,7 +91476,7 @@ func (c *ClientWithResponses) CreateProjectSbomWithBodyWithResponse(ctx context.
 
 // CreateProjectSbomWithResponse Upload an SBOM
 //
-// CycloneDX or SPDX JSON — the format is detected from the content. Each
+// CycloneDX (JSON or XML) or SPDX JSON: the format is detected from the content. Each
 // upload is an **immutable snapshot**, so history is preserved rather than
 // overwritten.
 //
@@ -90257,8 +91488,10 @@ func (c *ClientWithResponses) CreateProjectSbomWithBodyWithResponse(ctx context.
 // validates a CycloneDX upload against the official JSON schema for its
 // own `specVersion` (1.2 through 1.7) before storing it; a failure
 // returns 400 with up to 50 field-level errors, each with a JSON
-// Pointer path. XML CycloneDX is always rejected — upload CycloneDX or
-// SPDX JSON instead.
+// Pointer path. CycloneDX XML (schema 1.0 and later) is accepted and
+// parsed exactly like JSON, but the schema validator only checks JSON:
+// `strict` with an XML document is a 400, so an instance with
+// `SBOM_STRICT_VALIDATION` on accepts JSON only.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -91413,6 +92646,62 @@ func (c *ClientWithResponses) CreateRootCauseRemediationWithResponse(ctx context
 	return ParseCreateRootCauseRemediationResponse(rsp)
 }
 
+// CreateSbomByProjectNameWithBodyWithResponse Upload an SBOM into a project named in the query
+//
+// `POST /projects/{projectID}/sboms` for CI that knows a project by name.
+// No project id in the path: the project is found by name
+// (`project_name`, matched against project slugs case-insensitively),
+// within `team` (an id or slug) when given, else among every project
+// the caller can see; more than one match is a 400 asking for `team`.
+// With `auto_create=true` and a `team`, a missing project is created
+// there (team editor required, as for `POST /teams/{teamID}/projects`;
+// concurrent CI jobs creating the same name share one project).
+// The upload needs the same rights as the per-project route: uploader
+// or higher on the project, a custom role not denying uploads, and a
+// project-scoped token only for its own project (it can never create
+// one).
+//
+// Poll `GET /sboms/{id}/status` before gating on the upload.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /sboms (the `CreateSbomByProjectName` operationId).
+func (c *ClientWithResponses) CreateSbomByProjectNameWithBodyWithResponse(ctx context.Context, params *CreateSbomByProjectNameParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSbomByProjectNameResponse, error) {
+	rsp, err := c.CreateSbomByProjectNameWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateSbomByProjectNameResponse(rsp)
+}
+
+// CreateSbomByProjectNameWithResponse Upload an SBOM into a project named in the query
+//
+// `POST /projects/{projectID}/sboms` for CI that knows a project by name.
+// No project id in the path: the project is found by name
+// (`project_name`, matched against project slugs case-insensitively),
+// within `team` (an id or slug) when given, else among every project
+// the caller can see; more than one match is a 400 asking for `team`.
+// With `auto_create=true` and a `team`, a missing project is created
+// there (team editor required, as for `POST /teams/{teamID}/projects`;
+// concurrent CI jobs creating the same name share one project).
+// The upload needs the same rights as the per-project route: uploader
+// or higher on the project, a custom role not denying uploads, and a
+// project-scoped token only for its own project (it can never create
+// one).
+//
+// Poll `GET /sboms/{id}/status` before gating on the upload.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /sboms (the `CreateSbomByProjectName` operationId).
+func (c *ClientWithResponses) CreateSbomByProjectNameWithResponse(ctx context.Context, params *CreateSbomByProjectNameParams, body CreateSbomByProjectNameJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSbomByProjectNameResponse, error) {
+	rsp, err := c.CreateSbomByProjectName(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateSbomByProjectNameResponse(rsp)
+}
+
 // GetSbomWithResponse Read an SBOM snapshot
 //
 // Returns a wrapper object for the known response body format(s).
@@ -91573,6 +92862,25 @@ func (c *ClientWithResponses) ListSbomServicesWithResponse(ctx context.Context, 
 	return ParseListSbomServicesResponse(rsp)
 }
 
+// GetSbomProcessingWithResponse An SBOM upload's background processing
+//
+// An upload returns once the snapshot is stored; the advisory match,
+// registry metadata lookup, component policy evaluation and reachability
+// rescoring finish afterwards. CI should wait for `completed` (or
+// `failed`) before running the gate, so it judges the new snapshot. A
+// step whose feature is off is never added, so it can't hold this up.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /sboms/{sbomID}/status (the `GetSbomProcessing` operationId).
+func (c *ClientWithResponses) GetSbomProcessingWithResponse(ctx context.Context, sbomID SbomID, reqEditors ...RequestEditorFn) (*GetSbomProcessingResponse, error) {
+	rsp, err := c.GetSbomProcessing(ctx, sbomID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetSbomProcessingResponse(rsp)
+}
+
 // ListSbomVulnerabilitiesWithResponse Every vulnerability one snapshot ships
 //
 // Advisory matches recorded for this snapshot plus scanner findings on its
@@ -91590,6 +92898,64 @@ func (c *ClientWithResponses) ListSbomVulnerabilitiesWithResponse(ctx context.Co
 		return nil, err
 	}
 	return ParseListSbomVulnerabilitiesResponse(rsp)
+}
+
+// CreateScanByProjectNameWithBodyWithResponse Ingest a scanner report into a project named in the query
+//
+// `POST /projects/{projectID}/scans` for CI that knows a project by name.
+// No project id in the path: the project is found by name
+// (`project_name`, matched against project slugs case-insensitively),
+// within `team` (an id or slug) when given, else among every project
+// the caller can see; more than one match is a 400 asking for `team`.
+// With `auto_create=true` and a `team`, a missing project is created
+// there (team editor required, as for `POST /teams/{teamID}/projects`;
+// concurrent CI jobs creating the same name share one project).
+// The upload needs the same rights as the per-project route: uploader
+// or higher on the project, a custom role not denying uploads, and a
+// project-scoped token only for its own project (it can never create
+// one).
+//
+// Everything else (parameters, body, async mode, backpressure) is the
+// per-project route's.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /scans (the `CreateScanByProjectName` operationId).
+func (c *ClientWithResponses) CreateScanByProjectNameWithBodyWithResponse(ctx context.Context, params *CreateScanByProjectNameParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateScanByProjectNameResponse, error) {
+	rsp, err := c.CreateScanByProjectNameWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateScanByProjectNameResponse(rsp)
+}
+
+// CreateScanByProjectNameWithResponse Ingest a scanner report into a project named in the query
+//
+// `POST /projects/{projectID}/scans` for CI that knows a project by name.
+// No project id in the path: the project is found by name
+// (`project_name`, matched against project slugs case-insensitively),
+// within `team` (an id or slug) when given, else among every project
+// the caller can see; more than one match is a 400 asking for `team`.
+// With `auto_create=true` and a `team`, a missing project is created
+// there (team editor required, as for `POST /teams/{teamID}/projects`;
+// concurrent CI jobs creating the same name share one project).
+// The upload needs the same rights as the per-project route: uploader
+// or higher on the project, a custom role not denying uploads, and a
+// project-scoped token only for its own project (it can never create
+// one).
+//
+// Everything else (parameters, body, async mode, backpressure) is the
+// per-project route's.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /scans (the `CreateScanByProjectName` operationId).
+func (c *ClientWithResponses) CreateScanByProjectNameWithResponse(ctx context.Context, params *CreateScanByProjectNameParams, body CreateScanByProjectNameJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateScanByProjectNameResponse, error) {
+	rsp, err := c.CreateScanByProjectName(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateScanByProjectNameResponse(rsp)
 }
 
 // DeleteScanWithResponse Archive a scan (or purge it)
@@ -106549,6 +107915,67 @@ func ParseCreateRootCauseRemediationResponse(rsp *http.Response) (*CreateRootCau
 	return response, nil
 }
 
+// ParseCreateSbomByProjectNameResponse parses an HTTP response from a CreateSbomByProjectNameWithResponse call
+func ParseCreateSbomByProjectNameResponse(rsp *http.Response) (*CreateSbomByProjectNameResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateSbomByProjectNameResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Sbom
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest SbomStrictError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetSbomResponse parses an HTTP response from a GetSbomWithResponse call
 func ParseGetSbomResponse(rsp *http.Response) (*GetSbomResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -106886,6 +108313,39 @@ func ParseListSbomServicesResponse(rsp *http.Response) (*ListSbomServicesRespons
 	return response, nil
 }
 
+// ParseGetSbomProcessingResponse parses an HTTP response from a GetSbomProcessingWithResponse call
+func ParseGetSbomProcessingResponse(rsp *http.Response) (*GetSbomProcessingResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetSbomProcessingResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SbomProcessing
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListSbomVulnerabilitiesResponse parses an HTTP response from a ListSbomVulnerabilitiesWithResponse call
 func ParseListSbomVulnerabilitiesResponse(rsp *http.Response) (*ListSbomVulnerabilitiesResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -106916,6 +108376,81 @@ func ParseListSbomVulnerabilitiesResponse(rsp *http.Response) (*ListSbomVulnerab
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateScanByProjectNameResponse parses an HTTP response from a CreateScanByProjectNameWithResponse call
+func ParseCreateScanByProjectNameResponse(rsp *http.Response) (*CreateScanByProjectNameResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateScanByProjectNameResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Scan
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Scan
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
 
 	}
 

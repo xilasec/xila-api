@@ -2878,6 +2878,144 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ProjectSummary" }
 
+  /scans:
+    post:
+      operationId: createScanByProjectName
+      tags: [Scans]
+      summary: Ingest a scanner report into a project named in the query
+      description: |
+        `POST /projects/{projectID}/scans` for CI that knows a project by name.
+        No project id in the path: the project is found by name
+        (`project_name`, matched against project slugs case-insensitively),
+        within `team` (an id or slug) when given, else among every project
+        the caller can see; more than one match is a 400 asking for `team`.
+        With `auto_create=true` and a `team`, a missing project is created
+        there (team editor required, as for `POST /teams/{teamID}/projects`;
+        concurrent CI jobs creating the same name share one project).
+        The upload needs the same rights as the per-project route: uploader
+        or higher on the project, a custom role not denying uploads, and a
+        project-scoped token only for its own project (it can never create
+        one).
+
+        Everything else (parameters, body, async mode, backpressure) is the
+        per-project route's.
+      parameters:
+        - { $ref: "#/components/parameters/UploadProjectName" }
+        - { $ref: "#/components/parameters/UploadTeam" }
+        - { $ref: "#/components/parameters/UploadAutoCreate" }
+        - { $ref: "#/components/parameters/ScanUploadScanner" }
+        - { $ref: "#/components/parameters/ScanUploadFormat" }
+        - { $ref: "#/components/parameters/ScanUploadAssetId" }
+        - { $ref: "#/components/parameters/ScanUploadBranch" }
+        - { $ref: "#/components/parameters/ScanUploadRelease" }
+        - { $ref: "#/components/parameters/ScanUploadCommit" }
+        - { $ref: "#/components/parameters/ScanUploadEngagementId" }
+        - { $ref: "#/components/parameters/ScanUploadCloseMissing" }
+        - { $ref: "#/components/parameters/ScanUploadForce" }
+        - { $ref: "#/components/parameters/ScanUploadSplitAssets" }
+      requestBody:
+        required: true
+        description: The raw scanner output.
+        content:
+          application/json:
+            schema: { type: object, description: The tool's own JSON. }
+      responses:
+        "201":
+          description: Ingested (synchronous mode), the finished scan
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Scan" }
+        "202":
+          description: Queued (async mode); poll `GET /scans/{id}` until `completed`
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Scan" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403":
+          description: Not allowed to upload to (or create) this project
+          $ref: "#/components/responses/Error"
+        "404":
+          description: No visible project has this name
+          $ref: "#/components/responses/Error"
+        "409":
+          description: The project is a collection, or an archived project of the team holds this name
+          $ref: "#/components/responses/Error"
+        "422":
+          description: The report could not be parsed
+          $ref: "#/components/responses/Error"
+        "429":
+          description: The ingest queue is saturated. Respect `Retry-After`.
+          headers:
+            Retry-After: { schema: { type: integer }, description: Seconds to wait }
+          $ref: "#/components/responses/Error"
+  /sboms:
+    post:
+      operationId: createSbomByProjectName
+      tags: [SBOM]
+      summary: Upload an SBOM into a project named in the query
+      description: |
+        `POST /projects/{projectID}/sboms` for CI that knows a project by name.
+        No project id in the path: the project is found by name
+        (`project_name`, matched against project slugs case-insensitively),
+        within `team` (an id or slug) when given, else among every project
+        the caller can see; more than one match is a 400 asking for `team`.
+        With `auto_create=true` and a `team`, a missing project is created
+        there (team editor required, as for `POST /teams/{teamID}/projects`;
+        concurrent CI jobs creating the same name share one project).
+        The upload needs the same rights as the per-project route: uploader
+        or higher on the project, a custom role not denying uploads, and a
+        project-scoped token only for its own project (it can never create
+        one).
+
+        Poll `GET /sboms/{id}/status` before gating on the upload.
+      parameters:
+        - { $ref: "#/components/parameters/UploadProjectName" }
+        - { $ref: "#/components/parameters/UploadTeam" }
+        - { $ref: "#/components/parameters/UploadAutoCreate" }
+        - { $ref: "#/components/parameters/SbomUploadArtifact" }
+        - { $ref: "#/components/parameters/SbomUploadVersion" }
+        - { $ref: "#/components/parameters/SbomUploadBranch" }
+        - { $ref: "#/components/parameters/SbomUploadRelease" }
+        - { $ref: "#/components/parameters/SbomUploadStrict" }
+      requestBody:
+        $ref: "#/components/requestBodies/SbomDocument"
+      responses:
+        "201":
+          description: Stored
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Sbom" }
+        "400": { $ref: "#/components/responses/SbomStrictError" }
+        "403":
+          description: Not allowed to upload to (or create) this project
+          $ref: "#/components/responses/Error"
+        "404":
+          description: No visible project has this name
+          $ref: "#/components/responses/Error"
+        "409":
+          description: The project is a collection, or an archived project of the team holds this name
+          $ref: "#/components/responses/Error"
+        "422": { $ref: "#/components/responses/Error" }
+  /sboms/{sbomID}/status:
+    get:
+      operationId: getSbomProcessing
+      tags: [SBOM]
+      summary: An SBOM upload's background processing
+      description: |
+        An upload returns once the snapshot is stored; the advisory match,
+        registry metadata lookup, component policy evaluation and reachability
+        rescoring finish afterwards. CI should wait for `completed` (or
+        `failed`) before running the gate, so it judges the new snapshot. A
+        step whose feature is off is never added, so it can't hold this up.
+      parameters: [{ $ref: "#/components/parameters/SbomID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SbomProcessing" }
+        "404": { $ref: "#/components/responses/Error" }
+
   /projects/{projectID}/scans:
     post:
       operationId: createProjectScan
@@ -2905,69 +3043,16 @@ paths:
         `Retry-After` — back off and retry rather than assuming the scan landed.
       parameters:
         - { $ref: "#/components/parameters/ProjectID" }
-        - name: scanner
-          in: query
-          required: true
-          description: |
-            Native parsers: `trivy`, `grype`, `osv-scanner`, `npm-audit`,
-            `dependency-check`, `govulncheck`, `gitleaks`, `trufflehog`, `zap`,
-            `nuclei`, `prowler`, `kubescape`, `kubeaudit`, `checkov`, `tfsec`,
-            `terrascan`, `scoutsuite`, `clair`, `anchore`, `docker-scout`, `polaris`,
-            `kube-bench`, `burp`, `nikto`, `nmap`, `wapiti`, `defectdojo-generic`,
-            `secobserve`, `snyk`, `pip-audit`, `safety`, `cargo-audit`, `retirejs`,
-            `bundler-audit`, `semgrep`, `bandit`, `gosec`, `brakeman`, `detect-secrets`,
-            `ggshield`, `hadolint`, `kics`, `eslint`, `yarn-audit`, `njsscan`, `bearer`,
-            `mobsf`, `sonarqube`, `checkmarx`, `veracode`, `mend`, `jfrog-xray`,
-            `aws-inspector2`, `aws-security-hub`, `nessus`, `openvas`, `qualys`,
-            `acunetix`, `invicti`, `testssl` (see docs/PARSERS.md). Any other tool:
-            pass its name here **and** `format=sarif`.
-          schema: { type: string, examples: [trivy] }
-        - name: format
-          in: query
-          description: Selects the parser when the wire format differs from the tool (`sarif`).
-          schema: { type: string, enum: [sarif] }
-        - name: asset_id
-          in: query
-          description: Attribute the scan and its findings to an asset.
-          schema: { type: string, format: uuid }
-        - name: branch
-          in: query
-          description: The branch this scan is of. Its findings live on that branch's version (created on first use). Omit for the default version.
-          schema: { type: string }
-        - name: release
-          in: query
-          description: Instead of a branch, the release this scan is of (e.g. `v1.4.0`). Not both.
-          schema: { type: string }
-        - { name: commit, in: query, schema: { type: string } }
-        - name: engagement_id
-          in: query
-          description: File the scan as a test of one of this project's engagements. Another project's engagement is a 400.
-          schema: { type: string, format: uuid }
-        - name: close_missing
-          in: query
-          description: |
-            Treat this scan as the scanner's complete current view of its target
-            (`asset_id` + `branch`): anything it previously reported on that same
-            target and no longer does is auto-remediated. Findings last reported on
-            another asset or branch are never touched. Default true. Set false for
-            partial/incremental scans, or you will close findings that simply
-            weren't scanned.
-          schema: { type: boolean, default: true }
-        - name: force
-          in: query
-          description: |
-            Always run the full pipeline, even if this report's content hash
-            matches the target's previous completed scan (bypasses
-            `INGEST_SKIP_UNCHANGED`).
-          schema: { type: boolean, default: false }
-        - name: split_assets
-          in: query
-          description: |
-            File each finding under the host asset of the machine it names (Nessus,
-            OpenVAS, Qualys, Nmap, testssl.sh and other infrastructure scanners
-            record the host), creating missing host assets. For multi-host network
-            scans; not together with `asset_id`.
-          schema: { type: boolean, default: false }
+        - { $ref: "#/components/parameters/ScanUploadScanner" }
+        - { $ref: "#/components/parameters/ScanUploadFormat" }
+        - { $ref: "#/components/parameters/ScanUploadAssetId" }
+        - { $ref: "#/components/parameters/ScanUploadBranch" }
+        - { $ref: "#/components/parameters/ScanUploadRelease" }
+        - { $ref: "#/components/parameters/ScanUploadCommit" }
+        - { $ref: "#/components/parameters/ScanUploadEngagementId" }
+        - { $ref: "#/components/parameters/ScanUploadCloseMissing" }
+        - { $ref: "#/components/parameters/ScanUploadForce" }
+        - { $ref: "#/components/parameters/ScanUploadSplitAssets" }
       requestBody:
         required: true
         description: The raw scanner output.
@@ -5629,7 +5714,7 @@ paths:
       tags: [SBOM]
       summary: Upload an SBOM
       description: |
-        CycloneDX or SPDX JSON — the format is detected from the content. Each
+        CycloneDX (JSON or XML) or SPDX JSON: the format is detected from the content. Each
         upload is an **immutable snapshot**, so history is preserved rather than
         overwritten.
 
@@ -5641,20 +5726,19 @@ paths:
         validates a CycloneDX upload against the official JSON schema for its
         own `specVersion` (1.2 through 1.7) before storing it; a failure
         returns 400 with up to 50 field-level errors, each with a JSON
-        Pointer path. XML CycloneDX is always rejected — upload CycloneDX or
-        SPDX JSON instead.
+        Pointer path. CycloneDX XML (schema 1.0 and later) is accepted and
+        parsed exactly like JSON, but the schema validator only checks JSON:
+        `strict` with an XML document is a 400, so an instance with
+        `SBOM_STRICT_VALIDATION` on accepts JSON only.
       parameters:
         - { $ref: "#/components/parameters/ProjectID" }
-        - { name: artifact, in: query, description: Overrides the SBOM's own subject name., schema: { type: string } }
-        - { name: version, in: query, description: The artifact's own version (not the project branch)., schema: { type: string } }
-        - { name: branch, in: query, description: The project branch this SBOM describes. Omit for the default version., schema: { type: string } }
-        - { name: release, in: query, description: Instead of a branch, the release it describes. Not both., schema: { type: string } }
-        - { name: strict, in: query, description: Reject a CycloneDX document that fails the official JSON schema for its specVersion., schema: { type: boolean, default: false } }
+        - { $ref: "#/components/parameters/SbomUploadArtifact" }
+        - { $ref: "#/components/parameters/SbomUploadVersion" }
+        - { $ref: "#/components/parameters/SbomUploadBranch" }
+        - { $ref: "#/components/parameters/SbomUploadRelease" }
+        - { $ref: "#/components/parameters/SbomUploadStrict" }
       requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { type: object, description: A CycloneDX or SPDX JSON document. }
+        $ref: "#/components/requestBodies/SbomDocument"
       responses:
         "201":
           description: Stored
@@ -9845,6 +9929,15 @@ paths:
                   dry_run: { type: boolean }
         "400": { $ref: "#/components/responses/Error" }
 components:
+  requestBodies:
+    SbomDocument:
+      required: true
+      description: The SBOM document, as the tool wrote it.
+      content:
+        application/json:
+          schema: { type: object, description: A CycloneDX or SPDX JSON document. }
+        application/xml:
+          schema: { type: string, description: A CycloneDX XML document. }
   securitySchemes:
     bearerAuth:
       type: http
@@ -9897,6 +9990,86 @@ components:
     OrgID: { name: orgID, in: path, required: true, schema: { type: string, format: uuid } }
     TeamID: { name: teamID, in: path, required: true, schema: { type: string, format: uuid } }
     ProjectID: { name: projectID, in: path, required: true, schema: { type: string, format: uuid } }
+    UploadProjectName: { name: project_name, in: query, required: true, description: "The project, by slug (case-insensitive).", schema: { type: string } }
+    UploadTeam: { name: team, in: query, description: "The project's team, by id or slug. Required with auto_create.", schema: { type: string } }
+    UploadAutoCreate: { name: auto_create, in: query, description: "Create the project in team when none has this name (team editor).", schema: { type: boolean, default: false } }
+    ScanUploadScanner:
+      name: scanner
+      in: query
+      required: true
+      description: |
+        Native parsers: `trivy`, `grype`, `osv-scanner`, `npm-audit`,
+        `dependency-check`, `govulncheck`, `gitleaks`, `trufflehog`, `zap`,
+        `nuclei`, `prowler`, `kubescape`, `kubeaudit`, `checkov`, `tfsec`,
+        `terrascan`, `scoutsuite`, `clair`, `anchore`, `docker-scout`, `polaris`,
+        `kube-bench`, `burp`, `nikto`, `nmap`, `wapiti`, `defectdojo-generic`,
+        `secobserve`, `snyk`, `pip-audit`, `safety`, `cargo-audit`, `retirejs`,
+        `bundler-audit`, `semgrep`, `bandit`, `gosec`, `brakeman`, `detect-secrets`,
+        `ggshield`, `hadolint`, `kics`, `eslint`, `yarn-audit`, `njsscan`, `bearer`,
+        `mobsf`, `sonarqube`, `checkmarx`, `veracode`, `mend`, `jfrog-xray`,
+        `aws-inspector2`, `aws-security-hub`, `nessus`, `openvas`, `qualys`,
+        `acunetix`, `invicti`, `testssl` (see docs/PARSERS.md). Any other tool:
+        pass its name here **and** `format=sarif`.
+      schema: { type: string, examples: [trivy] }
+    ScanUploadFormat:
+      name: format
+      in: query
+      description: Selects the parser when the wire format differs from the tool (`sarif`).
+      schema: { type: string, enum: [sarif] }
+    ScanUploadAssetId:
+      name: asset_id
+      in: query
+      description: Attribute the scan and its findings to an asset.
+      schema: { type: string, format: uuid }
+    ScanUploadBranch:
+      name: branch
+      in: query
+      description: The branch this scan is of. Its findings live on that branch's version (created on first use). Omit for the default version.
+      schema: { type: string }
+    ScanUploadRelease:
+      name: release
+      in: query
+      description: Instead of a branch, the release this scan is of (e.g. `v1.4.0`). Not both.
+      schema: { type: string }
+    ScanUploadCommit: { name: commit, in: query, schema: { type: string } }
+    ScanUploadEngagementId:
+      name: engagement_id
+      in: query
+      description: File the scan as a test of one of this project's engagements. Another project's engagement is a 400.
+      schema: { type: string, format: uuid }
+    ScanUploadCloseMissing:
+      name: close_missing
+      in: query
+      description: |
+        Treat this scan as the scanner's complete current view of its target
+        (`asset_id` + `branch`): anything it previously reported on that same
+        target and no longer does is auto-remediated. Findings last reported on
+        another asset or branch are never touched. Default true. Set false for
+        partial/incremental scans, or you will close findings that simply
+        weren't scanned.
+      schema: { type: boolean, default: true }
+    ScanUploadForce:
+      name: force
+      in: query
+      description: |
+        Always run the full pipeline, even if this report's content hash
+        matches the target's previous completed scan (bypasses
+        `INGEST_SKIP_UNCHANGED`).
+      schema: { type: boolean, default: false }
+    ScanUploadSplitAssets:
+      name: split_assets
+      in: query
+      description: |
+        File each finding under the host asset of the machine it names (Nessus,
+        OpenVAS, Qualys, Nmap, testssl.sh and other infrastructure scanners
+        record the host), creating missing host assets. For multi-host network
+        scans; not together with `asset_id`.
+      schema: { type: boolean, default: false }
+    SbomUploadArtifact: { name: artifact, in: query, description: Overrides the SBOM's own subject name., schema: { type: string } }
+    SbomUploadVersion: { name: version, in: query, description: The artifact's own version (not the project branch)., schema: { type: string } }
+    SbomUploadBranch: { name: branch, in: query, description: The project branch this SBOM describes. Omit for the default version., schema: { type: string } }
+    SbomUploadRelease: { name: release, in: query, description: Instead of a branch, the release it describes. Not both., schema: { type: string } }
+    SbomUploadStrict: { name: strict, in: query, description: Reject a CycloneDX document that fails the official JSON schema for its specVersion., schema: { type: boolean, default: false } }
     ExpectationID: { name: expectationID, in: path, required: true, schema: { type: string, format: uuid } }
     OverrideID: { name: overrideID, in: path, required: true, schema: { type: string, format: uuid } }
     CRACaseID: { name: caseID, in: path, required: true, schema: { type: string, format: uuid } }
@@ -11909,10 +12082,27 @@ components:
         expires_at: { type: [string, "null"], format: date-time }
         created_at: { type: string, format: date-time }
 
+    SbomProcessing:
+      type: object
+      description: |
+        Rolls up the steps: `completed` once every step is, `failed` if any
+        failed, `running` once any has started, else `pending`.
+      properties:
+        sbom_id: { type: string, format: uuid }
+        status: { type: string, enum: [pending, running, completed, failed] }
+        steps:
+          type: object
+          description: "Each enabled step (policy, reachability, vulnmatch, pkgmeta) and its status."
+          additionalProperties: { type: string, enum: [pending, running, completed, failed] }
+        error: { type: string, description: "The public message of the step that last failed." }
+        started_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        completed_at: { type: [string, "null"], format: date-time }
     Sbom:
       type: object
       properties:
         id: { type: string, format: uuid }
+        processing: { $ref: "#/components/schemas/SbomProcessing" }
         project_id: { type: string, format: uuid }
         version_id: { type: string, format: uuid, description: The branch / release this snapshot describes. }
         artifact: { type: string }

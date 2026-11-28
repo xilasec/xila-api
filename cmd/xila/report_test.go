@@ -31,7 +31,7 @@ func TestRenderCommentLeadsWithTheVerdict(t *testing.T) {
 			FilePath: "config/prod.env", Line: new(12)},
 	}
 
-	got := renderComment("https://xila.acme.io", "p1", gate, findings, 3)
+	got := renderComment("https://xila.acme.io", "p1", gate, &introduced{findings, 3})
 
 	// The verdict is the first line: it's the only line most people read.
 	first, _, _ := strings.Cut(got, "\n")
@@ -57,17 +57,26 @@ func TestRenderCommentLeadsWithTheVerdict(t *testing.T) {
 
 func TestRenderCommentCleanPR(t *testing.T) {
 	gate := &gateResult{Passed: true}
-	got := renderComment("https://xila.acme.io", "p1", gate, nil, 0)
+	got := renderComment("https://xila.acme.io", "p1", gate, &introduced{})
 	if !strings.Contains(got, "✅") || !strings.Contains(got, "no new findings") {
 		t.Errorf("a clean PR should say so plainly:\n%s", got)
 	}
 }
 
+// With no scan to ask (a bare gate, an SBOM upload) the comment gives the
+// verdict and makes no claim about new findings either way.
+func TestRenderCommentWithoutAScan(t *testing.T) {
+	got := renderComment("https://xila.acme.io", "p1", &gateResult{Passed: true}, nil)
+	if !strings.Contains(got, "✅") || strings.Contains(got, "introduces") {
+		t.Errorf("a comment with no scan must not claim anything about new findings:\n%s", got)
+	}
+}
+
 // A title containing a pipe must not break the markdown table.
 func TestRenderCommentEscapesTableBreakers(t *testing.T) {
-	got := renderComment("", "p1", nil, []prFinding{
+	got := renderComment("", "p1", nil, &introduced{[]prFinding{
 		{ID: "f1", Title: "Command injection via a | b", Severity: "high"},
-	}, 1)
+	}, 1})
 	for line := range strings.SplitSeq(got, "\n") {
 		if !strings.Contains(line, "Command injection") {
 			continue

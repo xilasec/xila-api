@@ -546,6 +546,9 @@ func run() error {
 	evidenceHandler := evidence.NewHandler(evidence.NewRepository(db), projectRepo, complianceRepo, portfolioRepo, craRepo)
 	reportScheduleSvc := reportschedule.NewService(reportschedule.NewRepository(db), reportSvc, evidenceHandler,
 		reportTemplates, membershipRepo, userRepo, notifyRepo, notifySvc, cfg.PublicURL)
+	// CI uploads that know a project (and team) by name, not by id (M13
+	// 13.3): POST /scans and POST /sboms with project_name.
+	projectResolver := project.NewResolver(projectRepo, teamRepo, membershipRepo)
 	handlers := server.Handlers{
 		Features:    feature.NewHandler(features, userRepo),
 		Auth:        auth.NewHandler(authSvc),
@@ -561,13 +564,14 @@ func run() error {
 		Project: project.NewHandler(projectRepo, findingRepo, membershipRepo).WithTagsChanged(func(id string) {
 			policySvc.Reevaluate([]string{id}, false) // tag-scoped policies may now (not) apply
 		}),
-		Scan: scan.NewHandler(scanRepo, ingestSvc, cfg.Ingest.Async, queueMon, workerPool),
+		Scan: scan.NewHandler(scanRepo, ingestSvc, cfg.Ingest.Async, queueMon, workerPool).
+			WithProjectByName(projectResolver, membershipRepo),
 		Finding: finding.NewHandler(findingRepo, notifySvc, membershipRepo, cfg.AssessmentRequiresApproval).
 			WithRiskAcceptanceApproval(cfg.RiskAcceptanceRequiresApproval).WithCustomFields(customFieldRepo),
 		AITriage: aitriage.NewHandler(aitriage.NewService(aitriage.NewRepository(db), findingRepo, aiProvider,
 			ratelimit.New(db, ratelimit.Limits{}), notifySvc,
 			aitriage.Options{RequireApproval: cfg.AssessmentRequiresApproval, RateLimit: cfg.AI.RateLimit})),
-		Sbom:           sbom.NewHandler(sbomRepo, sbomSvc),
+		Sbom:           sbom.NewHandler(sbomRepo, sbomSvc).WithProjectByName(projectResolver, membershipRepo),
 		Asset:          asset.NewHandler(assetRepo, assetSvc, membershipRepo),
 		Compliance:     compliance.NewHandler(complianceRepo),
 		Portfolio:      portfolio.NewHandler(portfolioRepo),

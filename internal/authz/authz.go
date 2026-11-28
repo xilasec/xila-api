@@ -469,6 +469,9 @@ func baseScope(path, method string) routeScope {
 		if len(segs) >= 2 {
 			return routeScope{resource: "scans", resourceID: segs[1], minRole: mut()}
 		}
+		// POST /scans names its project in the query: project.ResolveUpload
+		// authorizes it (role, custom-role upload capability, token confinement).
+		return routeScope{}
 	case "assets":
 		if len(segs) == 1 {
 			return routeScope{globalList: true}
@@ -478,6 +481,8 @@ func baseScope(path, method string) routeScope {
 		if len(segs) >= 2 {
 			return routeScope{resource: "sboms", resourceID: segs[1], minRole: mut()}
 		}
+		// POST /sboms: authorized by project.ResolveUpload, as POST /scans.
+		return routeScope{}
 	case "vex":
 		if len(segs) >= 2 {
 			return routeScope{resource: "vex", resourceID: segs[1], minRole: mut()}
