@@ -959,12 +959,17 @@ Tier 2:
   Alpine, Red Hat, Rocky Linux, AlmaLinux) and version comparators matching
   each format's own spec, so `osv-local` and private advisories match
   container SBOMs offline too.
-- ⬜ 13.14 Stored, versioned VEX documents (SecObserve).
+- ✅ 13.14 Stored, versioned VEX documents (SecObserve). Shipped in M13 part 1
+  (migration 000118).
 - 13.15 Mark as duplicate and merge findings by hand; risk per asset
   (DefectDojo Pro). Done so far:
   - `POST`/`DELETE /findings/{id}/duplicate-of` marks or unmarks a hand-made
     duplicate (`findings.duplicate_manual`); automatic dedup never rewrites
     it, and it behaves exactly like an automatic duplicate everywhere else.
+  - Per-asset risk: a rolled-up risk score and open-by-severity counts on each
+    asset, `GET /assets?sort=risk`, a risk column in the project Assets tab and
+    a risk section in the asset detail. Still open: merging two findings into
+    one by hand.
 - ⬜ 13.16 Idle timeout with a session-expiry warning; a personal-data filter
   for MCP results (DefectDojo Pro).
 - 13.17 Scheduled report delivery; expected scans per project (DefectDojo Pro).

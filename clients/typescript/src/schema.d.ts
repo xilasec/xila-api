@@ -10236,6 +10236,17 @@ export interface components {
             /** Format: date-time */
             exposure_updated_at?: string | null;
             custom?: components["schemas"]["CustomValues"];
+            /**
+             * @description Same weighted formula as the project risk score (severity weight x
+             *     count, scaled by the project's business criticality), scoped to this
+             *     asset's own open, non-duplicate, default-version findings.
+             */
+            risk_score?: number;
+            /** @description Open findings on this asset (same scope as risk_score). */
+            total_open?: number;
+            open_by_severity?: {
+                [key: string]: number;
+            };
             /** Format: date-time */
             created_at?: string;
         };
@@ -19962,6 +19973,8 @@ export interface operations {
         parameters: {
             query?: {
                 type?: components["schemas"]["AssetType"];
+                /** @description `risk` sorts by risk_score, highest first. */
+                sort?: "risk";
                 /**
                  * @description Custom-field filter; repeatable, one per field (at most 10). `?cf.<key>=value`
                  *     matches the stored value (text, enum, date, user id, or a number);
@@ -20035,6 +20048,8 @@ export interface operations {
                  *     field is set. The literal parameter names are e.g. `cf.team`, `cf.score.gte`.
                  */
                 "cf.{key}"?: components["parameters"]["CustomFieldFilter"];
+                /** @description `risk` sorts by risk_score, highest first. */
+                sort?: "risk";
                 /** @description Page size (max 200). */
                 limit?: components["parameters"]["Limit"];
                 offset?: components["parameters"]["Offset"];

@@ -1038,6 +1038,7 @@ export default {
 	"proj.colName": "Name",
 	"proj.colIdentifier": "Identifier",
 	"proj.colExposure": "Exposure",
+	"proj.colRisk": "Risk",
 	"proj.exposureRelations": "Exposure &amp; relations",
 	"enum.asset.repository": "repository",
 	"enum.asset.container_image": "container image",
@@ -2843,6 +2844,8 @@ export default {
 	"sbom.serviceBadge": "service",
 	"sbom.leadsToVulnTitle": "Leads to a vulnerable package",
 	// AssetDetail component
+	"asset.risk": "Risk",
+	"asset.noOpenFindings": "No open findings on this asset.",
 	"asset.exposure": "Exposure",
 	"asset.unknownNeverDiscounts": "unknown — never discounts",
 	"asset.inferredReason": "Inferred: {reason}",

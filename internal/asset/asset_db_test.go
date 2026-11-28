@@ -217,3 +217,84 @@ func TestOSPackageOverlap(t *testing.T) {
 		t.Errorf("scoped overlap = %+v, want none", overlaps)
 	}
 }
+
+// Risk per asset: the same weighted formula as the project risk score
+// (severity weight x count, scaled by the project's business criticality),
+// scoped to the asset's own open, non-duplicate, default-version findings.
+func TestAttachRisk(t *testing.T) {
+	pool := pgtest.Pool(t)
+	repo := asset.NewRepository(pool)
+	ctx := context.Background()
+	pid := seedProject(t, pool) // default business_criticality = 'medium', multiplier 1.5
+
+	a1, err := repo.Create(ctx, asset.Asset{ProjectID: pid, Type: domain.AssetHost, Name: "h1", Identifier: "host-1"})
+	if err != nil {
+		t.Fatalf("create a1: %v", err)
+	}
+	a2, err := repo.Create(ctx, asset.Asset{ProjectID: pid, Type: domain.AssetHost, Name: "h2", Identifier: "host-2"})
+	if err != nil {
+		t.Fatalf("create a2: %v", err)
+	}
+
+	insert := func(assetID, fingerprint, severity, status string) string {
+		t.Helper()
+		var id string
+		if err := pool.QueryRow(ctx,
+			`INSERT INTO findings (project_id, asset_id, fingerprint, scanner, category, title, severity, status)
+			 VALUES ($1, $2, $3, 'trivy', 'sca', 'v', $4, $5) RETURNING id`,
+			pid, assetID, fingerprint, severity, status).Scan(&id); err != nil {
+			t.Fatalf("insert finding %s: %v", fingerprint, err)
+		}
+		return id
+	}
+	// a1: 2 open high + 1 open critical count; a false positive and a
+	// duplicate of one of them must not.
+	insert(a1.ID, "fp-1", "high", "open")
+	fp2 := insert(a1.ID, "fp-2", "high", "open")
+	insert(a1.ID, "fp-3", "critical", "confirmed")
+	insert(a1.ID, "fp-4", "critical", "false_positive")
+	dupID := insert(a1.ID, "fp-5", "high", "open")
+	if _, err := pool.Exec(ctx, `UPDATE findings SET duplicate_of = $1 WHERE id = $2`, fp2, dupID); err != nil {
+		t.Fatalf("mark duplicate: %v", err)
+	}
+	// a2: a single open low.
+	insert(a2.ID, "fp-6", "low", "open")
+
+	assets, err := repo.List(ctx, asset.Filter{ProjectID: pid})
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	assets, err = repo.AttachRisk(ctx, assets)
+	if err != nil {
+		t.Fatalf("attach risk: %v", err)
+	}
+	byID := map[string]asset.Asset{}
+	for _, a := range assets {
+		byID[a.ID] = a
+	}
+
+	got1 := byID[a1.ID]
+	if got1.TotalOpen != 3 {
+		t.Errorf("a1 total_open = %d, want 3", got1.TotalOpen)
+	}
+	if got1.OpenBySeverity[domain.SeverityHigh] != 2 || got1.OpenBySeverity[domain.SeverityCritical] != 1 {
+		t.Errorf("a1 open_by_severity = %+v, want high:2 critical:1", got1.OpenBySeverity)
+	}
+	// (7*2 + 15*1) * 1.5 = 43.5
+	if got1.RiskScore != 43.5 {
+		t.Errorf("a1 risk_score = %v, want 43.5", got1.RiskScore)
+	}
+
+	got2 := byID[a2.ID]
+	if got2.TotalOpen != 1 || got2.OpenBySeverity[domain.SeverityLow] != 1 {
+		t.Errorf("a2 totals = %d / %+v, want 1 / low:1", got2.TotalOpen, got2.OpenBySeverity)
+	}
+	// 1*1.5 = 1.5
+	if got2.RiskScore != 1.5 {
+		t.Errorf("a2 risk_score = %v, want 1.5", got2.RiskScore)
+	}
+
+	if got1.RiskScore <= got2.RiskScore {
+		t.Errorf("a1 risk %v should outrank a2 risk %v (?sort=risk ordering)", got1.RiskScore, got2.RiskScore)
+	}
+}
