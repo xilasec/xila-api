@@ -27,6 +27,23 @@ defines them, so a local pass means a CI pass.
 Hooks can be skipped (`git commit --no-verify`); CI can't. Treat the hooks as
 fast feedback and CI as the enforcement point.
 
+## The Security tab
+
+In CI each scanner also writes a SARIF report (`SARIF_DIR`), and the workflow
+uploads it to GitHub code scanning under its own category (`grype-dependencies`,
+`grype-image`, `opengrep`, `gitleaks`, `kics`), next to CodeQL. Before upload,
+`scripts/security-scan.sh` drops what the gate already accepts, so the tab
+shows the same verdict as the build:
+
+- Results suppressed in source (`nosemgrep: <rule> -- why`). GitHub ignores
+  SARIF's `suppressions` field and would otherwise list them as open alerts.
+- KICS informational results, which sit below the Low gate.
+
+grype keeps its non-blocking results (unfixed or below High): they are real
+exposure, just not a reason to fail the build. A `.grype.yaml` ignore never
+reaches the report. Fork pull requests can't write security events, so they
+skip the upload.
+
 ## Installing the tools
 
 - **grype:** <https://github.com/anchore/grype#installation>. If it is not installed, the
