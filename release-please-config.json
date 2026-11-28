@@ -68,9 +68,8 @@
       "changelog-path": "CHANGELOG.md",
       "extra-files": [
         {
-          "type": "yaml",
-          "path": "deploy/helm/xila/Chart.yaml",
-          "jsonpath": "$.appVersion"
+          "type": "generic",
+          "path": "deploy/helm/xila/Chart.yaml"
         }
       ],
       "draft": true,
