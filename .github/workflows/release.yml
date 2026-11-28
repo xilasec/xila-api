@@ -1,21 +1,36 @@
 name: Release
 
-# Push a semver tag (v1.2.3, or v1.2.3-rc.1 for a pre-release) to publish:
-#   - ghcr.io/<owner>/xila-api:<version> — multi-arch (amd64, arm64) image with
-#     SBOM + provenance attestations; also :<major>.<minor> and :latest for
-#     final releases
+# Releases are cut by Release Please (release-please.yml), which calls this
+# workflow with the tag it created. A semver tag pushed by hand (v1.2.3, or
+# v1.2.3-rc.1 for a pre-release) runs it too. It publishes:
+#   - ghcr.io/<owner>/xila-api:<version> — multi-arch (amd64, arm64) image;
+#     also :<major>.<minor> and :latest for final releases
 #   - oci://ghcr.io/<owner>/charts/xila — the Helm chart, versioned like the app
-#   - a GitHub release with the server (UI embedded) and the xila CLI for
-#     Linux / macOS / Windows, an SPDX SBOM of the source tree and SHA256SUMS
+#   - the GitHub release's assets: the server (UI embedded) and the xila CLI
+#     for Linux / macOS / Windows, an SPDX SBOM of the source tree, SHA256SUMS
+# Every artifact gets signed GitHub artifact attestations (Sigstore): SLSA
+# build provenance and an SPDX SBOM, pushed next to the image and the chart in
+# the registry, checkable with `gh attestation verify` (README: "Releases and
+# verifying them").
 on:
   push:
     tags: ["v[0-9]+.[0-9]+.[0-9]+", "v[0-9]+.[0-9]+.[0-9]+-*"]
+  workflow_call:
+    inputs:
+      tag:
+        description: The release tag to build (vX.Y.Z), already pushed.
+        required: true
+        type: string
 
 permissions:
   contents: read
 
+env:
+  # The tag being released: the caller's input, else the pushed tag.
+  TAG: ${{ inputs.tag || github.ref_name }}
+
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ inputs.tag || github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -35,10 +50,16 @@ jobs:
     permissions:
       contents: read
       packages: write
-      id-token: write # provenance attestation
+      id-token: write # signing the attestations (Sigstore, keyless)
       attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.TAG }}
+
+      - id: name
+        # Registry names are lowercase; an owner may not be.
+        run: echo "image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/xila-api" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
@@ -51,39 +72,70 @@ jobs:
       - id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
-          images: ghcr.io/${{ github.repository_owner }}/xila-api
-          # A pre-release (v1.2.3-rc.1) gets only its exact tag; semver's
-          # {{major}}.{{minor}} and latest skip pre-releases by design.
+          images: ${{ steps.name.outputs.image }}
+          # The tag comes as a value: a run called by Release Please is a push
+          # to main, not a tag push. A pre-release (v1.2.3-rc.1) gets only its
+          # exact tag; {{major}}.{{minor}} skips pre-releases by design.
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-          flavor: latest=auto
+            type=semver,pattern={{version}},value=${{ env.TAG }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ env.TAG }}
+            type=raw,value=latest,enable=${{ !contains(env.TAG, '-') }}
+          flavor: latest=false
 
       # The Dockerfile cross-compiles from the runner's platform, so arm64
       # costs no emulation.
-      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+      # BuildKit also embeds its own (unsigned) SBOM and provenance in the
+      # image index; the signed attestations below are the ones to verify.
+      - id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: VERSION=${{ github.ref_name }}
+          build-args: VERSION=${{ env.TAG }}
           sbom: true
           provenance: mode=max
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Provenance attestation of the image
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ steps.name.outputs.image }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      - name: SBOM of the image
+        uses: anchore/sbom-action@dfcb83b97731532d72be422cbc51ee64adb6fd56 # v0.24.4
+        with:
+          image: ${{ steps.name.outputs.image }}@${{ steps.build.outputs.digest }}
+          format: spdx-json
+          output-file: image.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: SBOM attestation of the image
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-name: ${{ steps.name.outputs.image }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          sbom-path: image.spdx.json
+          push-to-registry: true
 
   release:
     needs: [ci, security]
     runs-on: ubuntu-latest
     permissions:
       contents: write # create the release
-      packages: write # push the chart
-    env:
-      TAG: ${{ github.ref_name }}
+      packages: write # push the chart and its attestations
+      id-token: write # signing the attestations (Sigstore, keyless)
+      attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.TAG }}
 
       - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5
         with:
@@ -131,22 +183,28 @@ jobs:
       - uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
 
       - name: Package and push the Helm chart
+        id: chart
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           version=${TAG#v}
           helm package deploy/helm/xila --version "$version" --app-version "$version" --destination dist
-          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          owner=${GITHUB_REPOSITORY_OWNER,,}
           echo "$GH_TOKEN" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
-          helm push "dist/xila-$version.tgz" "oci://ghcr.io/$owner/charts"
+          out=$(helm push "dist/xila-$version.tgz" "oci://ghcr.io/$owner/charts" 2>&1)
+          echo "$out"
+          digest=$(grep -oE 'sha256:[0-9a-f]{64}' <<<"$out" | tail -1)
+          [ -n "$digest" ] || { echo "helm push printed no digest" >&2; exit 1; }
+          echo "name=ghcr.io/$owner/charts/xila" >> "$GITHUB_OUTPUT"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
 
       - name: SBOM of the source tree
         uses: anchore/sbom-action@dfcb83b97731532d72be422cbc51ee64adb6fd56 # v0.24.4
         with:
           path: .
           format: spdx-json
-          output-file: dist/xila_${{ github.ref_name }}.spdx.json
+          output-file: dist/xila_${{ env.TAG }}.spdx.json
           upload-artifact: false
           upload-release-assets: false
 
@@ -154,11 +212,47 @@ jobs:
         working-directory: dist
         run: sha256sum -- * > SHA256SUMS && cat SHA256SUMS
 
-      - name: Create the GitHub release
+      # Provenance for every file of the release (SHA256SUMS lists them all,
+      # the chart package included) and for the chart in the registry.
+      - name: Provenance attestation of the release files
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-checksums: dist/SHA256SUMS
+
+      - name: Provenance attestation of the chart
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ steps.chart.outputs.name }}
+          subject-digest: ${{ steps.chart.outputs.digest }}
+          push-to-registry: true
+
+      # The binaries and the chart are built from this source tree; its SBOM
+      # (the Go and UI dependencies they contain) is attested to them.
+      - name: SBOM attestation of the release files
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-checksums: dist/SHA256SUMS
+          sbom-path: dist/xila_${{ env.TAG }}.spdx.json
+
+      - name: SBOM attestation of the chart
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-name: ${{ steps.chart.outputs.name }}
+          subject-digest: ${{ steps.chart.outputs.digest }}
+          sbom-path: dist/xila_${{ env.TAG }}.spdx.json
+          push-to-registry: true
+
+      # Release Please already created the release (with its changelog) when
+      # it called this workflow; a hand-pushed tag has none yet.
+      - name: Publish the release files
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          prerelease=""
-          case "$TAG" in *-*) prerelease="--prerelease" ;; esac
-          gh release create "$TAG" dist/* --verify-tag --generate-notes --title "Xila $TAG" $prerelease
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            prerelease=""
+            case "$TAG" in *-*) prerelease="--prerelease" ;; esac
+            gh release create "$TAG" dist/* --verify-tag --generate-notes --title "Xila $TAG" $prerelease
+          fi

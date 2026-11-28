@@ -1,0 +1,34 @@
+name: PR title
+
+# Release Please versions and writes the changelog from the commits on main,
+# which are the squash-merged PR titles: they must be conventional commits
+# (feat: …, fix(scope): …, feat!: … for a breaking change).
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  conventional:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@66e72920af32222769c386d81f89656ebcb6d6d5 # v6.1.4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            perf
+            revert
+            deps
+            docs
+            build
+            ci
+            chore
+            refactor
+            test
+            style
+          requireScope: false

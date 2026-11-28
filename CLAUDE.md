@@ -961,10 +961,16 @@ and `internal/server/smoke_test.go` (missing smoke wiring causes a nil panic in 
   hijacked connection. A new leader waits 2×`Check` before starting jobs so a
   dead predecessor has stopped (`TestOneLeaderAndFailover` panics on any overlap).
   Advisory locks are per-database, so installs sharing a server don't contend.
-- Releases: `.github/workflows/release.yml` runs on `v*` tags, calls `ci.yml`
-  (`workflow_call`) first, then builds the multi-arch image (the Dockerfile
-  cross-compiles from `$BUILDPLATFORM`; keep it that way, no QEMU), binaries
-  (`-X main.version`), the chart (versioned from the tag) and an SBOM.
+- Releases: Release Please (`release-please.yml`) keeps a release PR from the
+  conventional-commit PR titles (`pr-title.yml` enforces them); merging it tags
+  and then calls `.github/workflows/release.yml` with the tag (a tag pushed with
+  `GITHUB_TOKEN` starts no workflow, so the call is the trigger; a hand-pushed
+  tag still triggers it). It calls `ci.yml` and `security.yml` first, then
+  builds the multi-arch image (the Dockerfile cross-compiles from
+  `$BUILDPLATFORM`; keep it that way, no QEMU), binaries (`-X main.version`),
+  the chart (versioned from the tag) and an SBOM, and attests provenance and
+  SBOMs for all of them. Inside it, the tag is `env.TAG`, never
+  `github.ref_name` (that's `main` when called).
 - Actions: `uses:` lines are SHA pins only, never tags (`git ls-remote`; peel
   annotated tags with `^{}`; keep the `# vX.Y.Z` comment). Workflows are also
   recorded in `.github/workflows/actions.lock`: after adding or changing a

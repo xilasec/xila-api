@@ -1,0 +1,70 @@
+name: Release Please
+
+# Automatic releases. Every push to main updates one release PR from the
+# conventional commits since the last release (feat: minor, fix: patch, a "!"
+# a breaking change; minor while below 1.0), with the CHANGELOG entry it
+# would publish. Merging that PR tags vX.Y.Z, creates the GitHub release with
+# those notes, and then runs the release build below for the tag.
+#
+# The build is called from here rather than triggered by the tag: a tag
+# pushed with GITHUB_TOKEN starts no workflow. A tag pushed by hand still
+# triggers release.yml directly (pre-releases: v1.2.3-rc.1).
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # the release, its tag and the release branch
+      pull-requests: write # the release PR
+      issues: write # its labels
+      actions: write # starting the checks on the release PR
+    outputs:
+      created: ${{ steps.release.outputs.release_created }}
+      tag: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      # A PR opened or updated with GITHUB_TOKEN starts no workflow, so the
+      # checks main requires would never report on the release PR. A
+      # workflow_dispatch is the exception: its checks land on the release
+      # branch's head commit, which is the PR's.
+      - name: Run the required checks on the release PR
+        if: steps.release.outputs.prs_created == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          branch=$(gh pr list -R "$GITHUB_REPOSITORY" --label "autorelease: pending" --state open \
+            --json headRefName -q '.[0].headRefName')
+          [ -n "$branch" ] || { echo "no open release PR found" >&2; exit 1; }
+          gh workflow run ci.yml -R "$GITHUB_REPOSITORY" --ref "$branch"
+          gh workflow run security.yml -R "$GITHUB_REPOSITORY" --ref "$branch"
+
+  publish:
+    needs: release-please
+    if: needs.release-please.outputs.created == 'true'
+    # Everything release.yml's jobs ask for (a reusable workflow gets at most
+    # what its caller grants).
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
+      security-events: write
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.release-please.outputs.tag }}
