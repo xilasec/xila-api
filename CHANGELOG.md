@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.1](https://github.com/xilasec/xila-api/compare/v0.1.0...v0.1.1) (2026-11-28)
+
+
+### Bug fixes
+
+* **ci:** a release build must start on the tag's commit ([#53](https://github.com/xilasec/xila-api/issues/53)) ([e3dbc85](https://github.com/xilasec/xila-api/commit/e3dbc8576e5dba8c03b3a374d1ac1a138c3f8524))
+* **ci:** log the release job in to the registry; let a failed release be retried ([#51](https://github.com/xilasec/xila-api/issues/51)) ([d6a74dd](https://github.com/xilasec/xila-api/commit/d6a74dda6a2d179f0c2a486e30659a5ae25a1f26))
+
 ## 0.1.0 (2026-11-28)
 
 The first release. Xila unifies scanner and SBOM output into deduplicated
