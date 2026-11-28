@@ -40,8 +40,28 @@ func validateToken(kind Kind, token string) error {
 	case KindTenable:
 		_, err := parseTenableCredentials(token)
 		return err
+	case KindAWSSecurityHub:
+		_, err := parseAWSCredentials(token)
+		return err
+	case KindMicrosoftDefender:
+		_, err := parseDefenderCredentials(token)
+		return err
+	case KindQualys:
+		_, err := parseQualysCredentials(token)
+		return err
+	case KindTrivyOperator:
+		_, err := parseTrivyCredentials(token)
+		return err
 	}
 	return nil
+}
+
+// tokenOptional reports whether c may be saved without a token: the AWS
+// Security Hub connector falls back to the AWS SDK default credential chain,
+// and a Trivy Operator connector pointed at no server (c.BaseURL == "") uses
+// its pod's own in-cluster service account instead of a stored bearer token.
+func tokenOptional(c Connector) bool {
+	return c.Kind == KindAWSSecurityHub || (c.Kind == KindTrivyOperator && c.BaseURL == "")
 }
 
 // Store is the persistence the service needs (implemented by *Repository).
@@ -76,22 +96,33 @@ type Service struct {
 // NewService constructs a Service. cipher may be unconfigured (no
 // INTEGRATION_SECRET_KEY): connectors can then not be configured or pulled.
 func NewService(store Store, apply Applier, cipher *secretbox.Keyring) *Service {
-	return &Service{store: store, apply: apply, cipher: cipher, hc: netguard.NewClient(2 * time.Minute)}
+	return &Service{store: store, apply: apply, cipher: cipher, hc: netguard.NewClient(clientTimeout)}
 }
 
 // Input is a connector config as written by POST / PUT. Token is write-only:
-// on update an empty one keeps the stored token. For Wiz and Tenable, whose
-// auth is two secrets, Token carries both as a JSON object (so both are
-// sealed together): `{"client_id":"...","client_secret":"..."}` for Wiz,
-// `{"access_key":"...","secret_key":"..."}` for Tenable.
+// on update an empty one keeps the stored token. For Wiz, Tenable, Microsoft
+// Defender, Qualys and Trivy Operator, whose auth is two secrets (or, for
+// Trivy Operator, a bearer token plus an optional CA certificate), Token
+// carries both as a JSON object (so both are sealed together):
+// `{"client_id":"...","client_secret":"..."}` for Wiz and Microsoft Defender,
+// `{"access_key":"...","secret_key":"..."}` for Tenable,
+// `{"username":"...","password":"..."}` for Qualys,
+// `{"bearer_token":"...","ca_pem":"..." (optional)}` for Trivy Operator.
+// AWS Security Hub's Token is optional JSON
+// `{"access_key_id":"...","secret_access_key":"...","session_token":"..." (optional)}`;
+// empty uses the AWS SDK default credential chain.
 type Input struct {
 	Kind          Kind   `json:"kind"`
 	Name          string `json:"name"`
 	BaseURL       string `json:"base_url"`
 	RemoteProject string `json:"remote_project"`
 	Token         string `json:"token"`
-	// AuthURL is the Wiz OAuth token endpoint; every other kind ignores it.
+	// AuthURL is the Wiz / Microsoft Defender OAuth token endpoint; every
+	// other kind ignores it.
 	AuthURL string `json:"auth_url"`
+	// RoleARN is the AWS Security Hub connector's optional IAM role ARN;
+	// every other kind ignores it.
+	RoleARN string `json:"role_arn"`
 	Version string `json:"version"`
 	Enabled *bool  `json:"enabled"`
 }
@@ -102,6 +133,8 @@ var (
 	githubOrgScope = regexp.MustCompile(`^org:[\w.-]+$`)
 	githubRepo     = regexp.MustCompile(`^[\w.-]+/[\w.-]+$`)
 	wizProjectList = regexp.MustCompile(`^[0-9a-f-]{36}(,[0-9a-f-]{36})*$`)
+	awsRegion      = regexp.MustCompile(`^[a-z]{2}(-gov|-iso[a-z]?)?-[a-z]+-[0-9]$`)
+	awsRoleARN     = regexp.MustCompile(`^arn:aws[a-z-]*:iam::[0-9]{12}:role/[\w+=,.@/-]+$`)
 )
 
 // validateURL checks raw is an http(s) URL with no query/fragment/userinfo
@@ -131,7 +164,8 @@ func (in Input) Normalize(projectID string) (Connector, error) {
 		Enabled:       in.Enabled == nil || *in.Enabled,
 	}
 	if !c.Kind.Valid() {
-		return Connector{}, invalid("kind must be one of dependency-track, defectdojo, snyk-api, github, gitlab, wiz, tenable")
+		return Connector{}, invalid("kind must be one of dependency-track, defectdojo, snyk-api, github, gitlab, wiz, tenable, " +
+			"aws-security-hub, microsoft-defender, qualys, trivy-operator")
 	}
 	if len(c.Name) > 100 {
 		return Connector{}, invalid("name must be at most 100 characters")
@@ -139,9 +173,39 @@ func (in Input) Normalize(projectID string) (Connector, error) {
 	if len(c.Version) > 255 {
 		return Connector{}, invalid("version must be at most 255 characters")
 	}
-	baseURL, err := validateURL("base_url", in.BaseURL)
-	if err != nil {
-		return Connector{}, err
+	// AWS Security Hub's base_url is a comma-separated region list, not a URL:
+	// Security Hub's endpoint is derived from the region, not chosen by the
+	// operator, so it skips the generic http(s)/netguard check below.
+	if c.Kind == KindAWSSecurityHub {
+		regions := strings.Split(strings.ToLower(strings.TrimSpace(in.BaseURL)), ",")
+		for i, r := range regions {
+			regions[i] = strings.TrimSpace(r)
+			if !awsRegion.MatchString(regions[i]) {
+				return Connector{}, invalid("base_url must be a comma-separated list of AWS regions, e.g. us-east-1")
+			}
+		}
+		c.BaseURL = strings.Join(regions, ",")
+		c.RoleARN = strings.TrimSpace(in.RoleARN)
+		if c.RoleARN != "" && !awsRoleARN.MatchString(c.RoleARN) {
+			return Connector{}, invalid("role_arn must be an IAM role ARN (arn:aws:iam::<account>:role/<name>)")
+		}
+		if c.RemoteProject != "" {
+			if err := validateAWSFilter(c.RemoteProject); err != nil {
+				return Connector{}, err
+			}
+		}
+		return c, nil
+	}
+	// A Trivy Operator connector may leave base_url empty to use its pod's own
+	// in-cluster service account instead of an explicit Kubernetes API server.
+	var baseURL string
+	if c.Kind == KindTrivyOperator && strings.TrimSpace(in.BaseURL) == "" {
+		baseURL = ""
+	} else {
+		var err error
+		if baseURL, err = validateURL("base_url", in.BaseURL); err != nil {
+			return Connector{}, err
+		}
 	}
 	c.BaseURL = baseURL
 	// The API prefix is ours to add; accept the URL as copied from the docs too.
@@ -197,8 +261,32 @@ func (in Input) Normalize(projectID string) (Connector, error) {
 		if cat, val, ok := strings.Cut(c.RemoteProject, "="); c.RemoteProject != "" && (!ok || cat == "" || val == "") {
 			return Connector{}, invalid(`remote_project must be empty or a "category=value" asset tag filter`)
 		}
+	case KindMicrosoftDefender:
+		c.BaseURL = strings.TrimSuffix(c.BaseURL, "/api")
+		authURL, err := validateURL("auth_url", in.AuthURL)
+		if err != nil {
+			return Connector{}, err
+		}
+		c.AuthURL = authURL
+	case KindQualys:
+		c.BaseURL = strings.TrimSuffix(c.BaseURL, "/api/2.0")
+		// remote_project is an optional free-form asset filter; nothing to validate.
+	case KindTrivyOperator:
+		// remote_project is an optional namespace filter; nothing to validate.
 	}
 	return c, nil
+}
+
+// validateAWSFilter checks an AWS Security Hub remote_project filter:
+// comma-separated "product=<value>" / "severity=<value>" pairs.
+func validateAWSFilter(spec string) error {
+	for _, kv := range strings.Split(spec, ",") {
+		k, v, ok := strings.Cut(kv, "=")
+		if !ok || v == "" || (k != "product" && k != "severity") {
+			return invalid(`remote_project must be empty or comma-separated "product=..." / "severity=..." filters`)
+		}
+	}
+	return nil
 }
 
 // List returns the project's connectors.
@@ -217,9 +305,10 @@ func (s *Service) Create(ctx context.Context, projectID string, in Input) (Conne
 	}
 	tok := strings.TrimSpace(in.Token)
 	if tok == "" {
-		return Connector{}, invalid("token is required")
-	}
-	if err := validateToken(c.Kind, tok); err != nil {
+		if !tokenOptional(c) {
+			return Connector{}, invalid("token is required")
+		}
+	} else if err := validateToken(c.Kind, tok); err != nil {
 		return Connector{}, err
 	}
 	sealed, err := s.cipher.Seal(tok, projectID)
@@ -261,7 +350,7 @@ func (s *Service) Update(ctx context.Context, projectID, id string, in Input) (C
 		if sealed, err = s.cipher.Seal(tok, projectID); err != nil {
 			return Connector{}, err
 		}
-	} else if c.BaseURL != cur.BaseURL || c.AuthURL != cur.AuthURL {
+	} else if (c.BaseURL != cur.BaseURL && c.Kind != KindAWSSecurityHub) || c.AuthURL != cur.AuthURL {
 		return Connector{}, invalid("token is required when base_url or auth_url changes")
 	}
 	return s.store.Update(ctx, c, sealed)

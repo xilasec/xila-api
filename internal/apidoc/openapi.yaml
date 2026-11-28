@@ -10939,7 +10939,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         project_id: { type: string, format: uuid }
-        kind: { type: string, enum: [dependency-track, defectdojo, snyk-api, github, gitlab, wiz, tenable] }
+        kind: { type: string, enum: [dependency-track, defectdojo, snyk-api, github, gitlab, wiz, tenable, aws-security-hub, microsoft-defender, qualys, trivy-operator] }
         name: { type: string }
         base_url: { type: string, description: "Server/API root; normalized per kind (e.g. the /api/v1, /api/v2, /api/v3, /api/v4 or /rest suffix is added or stripped as needed)." }
         remote_project:
@@ -10967,7 +10967,7 @@ components:
       type: object
       required: [base_url, remote_project]
       properties:
-        kind: { type: string, enum: [dependency-track, defectdojo, snyk-api, github, gitlab, wiz, tenable], description: Required when creating; can't change. }
+        kind: { type: string, enum: [dependency-track, defectdojo, snyk-api, github, gitlab, wiz, tenable, aws-security-hub, microsoft-defender, qualys, trivy-operator], description: Required when creating; can't change. }
         name: { type: string, maxLength: 100 }
         base_url: { type: string }
         remote_project: { type: string }

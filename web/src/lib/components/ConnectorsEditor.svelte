@@ -83,6 +83,51 @@
 				{ key: 'access_key', label: 'conn.tenableAccessKeyLabel', hint: 'conn.tenableAccessKeyHint' },
 				{ key: 'secret_key', label: 'conn.tenableSecretKeyLabel', hint: 'conn.tenableSecretKeyHint' }
 			]
+		},
+		{
+			id: 'aws-security-hub',
+			label: 'AWS Security Hub',
+			url: 'https://securityhub.us-east-1.amazonaws.com',
+			remote: 'conn.awsRemoteLabel',
+			remoteHint: 'conn.awsRemoteHint',
+			secrets: [
+				{ key: 'access_key_id', label: 'conn.awsAccessKeyLabel', hint: 'conn.awsAccessKeyHint' },
+				{ key: 'secret_access_key', label: 'conn.awsSecretKeyLabel', hint: 'conn.awsSecretKeyHint' }
+			]
+		},
+		{
+			id: 'microsoft-defender',
+			label: 'Microsoft Defender',
+			url: 'https://api.security.microsoft.com',
+			remote: 'conn.defenderRemoteLabel',
+			remoteHint: 'conn.defenderRemoteHint',
+			authUrl: { label: 'conn.defenderAuthUrlLabel', hint: 'conn.defenderAuthUrlHint', placeholder: 'https://login.microsoftonline.com/<tenant>/oauth2/token' },
+			secrets: [
+				{ key: 'client_id', label: 'conn.defenderClientIdLabel', hint: 'conn.defenderClientIdHint' },
+				{ key: 'client_secret', label: 'conn.defenderClientSecretLabel', hint: 'conn.defenderClientSecretHint' }
+			]
+		},
+		{
+			id: 'qualys',
+			label: 'Qualys',
+			url: 'https://qualysapi.qg3.apps.qualys.com',
+			remote: 'conn.qualysRemoteLabel',
+			remoteHint: 'conn.qualysRemoteHint',
+			secrets: [
+				{ key: 'username', label: 'conn.qualysUserLabel', hint: 'conn.qualysUserHint' },
+				{ key: 'password', label: 'conn.qualysPassLabel', hint: 'conn.qualysPassHint' }
+			]
+		},
+		{
+			id: 'trivy-operator',
+			label: 'Trivy Operator',
+			url: 'https://kubernetes.default.svc',
+			remote: 'conn.trivyRemoteLabel',
+			remoteHint: 'conn.trivyRemoteHint',
+			secrets: [
+				{ key: 'bearer_token', label: 'conn.trivyBearerLabel', hint: 'conn.trivyBearerHint' },
+				{ key: 'ca_pem', label: 'conn.trivyCaPemLabel', hint: 'conn.trivyCaPemHint' }
+			]
 		}
 	];
 
