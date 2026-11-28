@@ -74,7 +74,8 @@
         }
       ],
       "draft": true,
-      "force-tag-creation": true
+      "force-tag-creation": true,
+      "initial-version": "0.1.0"
     }
   }
 }

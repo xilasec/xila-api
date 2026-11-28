@@ -50,8 +50,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          branch=$(gh pr list -R "$GITHUB_REPOSITORY" --label "autorelease: pending" --state open \
-            --json headRefName -q '.[0].headRefName')
+          # The REST pulls list, not `gh pr list --label`: that goes through
+          # search, which doesn't see a PR labelled a moment ago.
+          branch=$(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&per_page=100" \
+            -q '[.[] | select(any(.labels[]; .name == "autorelease: pending"))][0].head.ref // empty')
           [ -n "$branch" ] || { echo "no open release PR found" >&2; exit 1; }
           gh workflow run ci.yml -R "$GITHUB_REPOSITORY" --ref "$branch"
           gh workflow run security.yml -R "$GITHUB_REPOSITORY" --ref "$branch"
