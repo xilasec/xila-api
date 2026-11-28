@@ -3350,6 +3350,13 @@ security scans, then the multi-arch image, the Helm chart, and the server and
 CLI binaries with `SHA256SUMS` and an SPDX SBOM of the source tree. A
 pre-release is a hand-pushed tag (`v1.2.3-rc.1`).
 
+Released versions don't change. The release is a draft until every file is
+uploaded, then published, and published releases are immutable (repository
+setting): their files and tag can't be replaced. A ruleset stops anyone moving
+or deleting a `v*` tag. The build refuses a tag that isn't a semver tag on a
+commit of `main`, and refuses to push an image or chart version that already
+exists (GHCR can't lock a tag itself); `:X.Y` and `:latest` move on purpose.
+
 Every artifact carries signed attestations (GitHub artifact attestations,
 Sigstore, keyless): SLSA build provenance, which names the workflow, commit and
 run that built it, and an SPDX SBOM. The image's SBOM lists what is in the

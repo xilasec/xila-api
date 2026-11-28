@@ -4,7 +4,9 @@ name: Release Please
 # conventional commits since the last release (feat: minor, fix: patch, a "!"
 # a breaking change; minor while below 1.0), with the CHANGELOG entry it
 # would publish. Merging that PR tags vX.Y.Z, creates the GitHub release with
-# those notes, and then runs the release build below for the tag.
+# those notes as a draft, and then runs the release build below for the tag,
+# which uploads the files and publishes the release. Releases are immutable
+# once published (repository setting), hence the draft until every file is in.
 #
 # The build is called from here rather than triggered by the tag: a tag
 # pushed with GITHUB_TOKEN starts no workflow. A tag pushed by hand still
