@@ -42,7 +42,7 @@ func startDirectory(t *testing.T, service dirUser, users ...dirUser) *fakeDirect
 	}
 	mux, _ := gldap.NewMux()
 	all := append([]dirUser{service}, users...)
-	mux.Bind(func(w *gldap.ResponseWriter, r *gldap.Request) {
+	if err := mux.Bind(func(w *gldap.ResponseWriter, r *gldap.Request) {
 		resp := r.NewBindResponse(gldap.WithResponseCode(gldap.ResultInvalidCredentials))
 		defer w.Write(resp)
 		m, err := r.GetSimpleBindMessage()
@@ -54,8 +54,10 @@ func startDirectory(t *testing.T, service dirUser, users ...dirUser) *fakeDirect
 				resp.SetResultCode(gldap.ResultSuccess)
 			}
 		}
-	})
-	mux.Search(func(w *gldap.ResponseWriter, r *gldap.Request) {
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := mux.Search(func(w *gldap.ResponseWriter, r *gldap.Request) {
 		done := r.NewSearchDoneResponse()
 		defer w.Write(done)
 		m, err := r.GetSearchMessage()
@@ -76,7 +78,9 @@ func startDirectory(t *testing.T, service dirUser, users ...dirUser) *fakeDirect
 			}
 		}
 		done.SetResultCode(gldap.ResultSuccess)
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 	if err := srv.Router(mux); err != nil {
 		t.Fatal(err)
 	}
@@ -86,8 +90,8 @@ func startDirectory(t *testing.T, service dirUser, users ...dirUser) *fakeDirect
 	}
 	fd.addr = l.Addr().String()
 	l.Close()
-	go srv.Run(fd.addr)
-	t.Cleanup(func() { srv.Stop() })
+	go func() { _ = srv.Run(fd.addr) }() // a failed listener surfaces as the dial loop below timing out
+	t.Cleanup(func() { _ = srv.Stop() })
 	for range 100 {
 		if srv.Ready() {
 			break

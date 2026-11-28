@@ -602,7 +602,7 @@ func readInput(path string) ([]byte, error) {
 	if path == "" || path == "-" {
 		return io.ReadAll(os.Stdin)
 	}
-	return os.ReadFile(path)
+	return os.ReadFile(path) //nolint:gosec // G304: the report file the CI user passed on the command line
 }
 
 // apiError pulls the {"error": …} message out of a response body, or returns raw.

@@ -25,7 +25,7 @@ import (
 // TokenPrefix marks a SCIM bearer token. It is checked only against
 // scim_tokens, never against API tokens (and the reverse), so neither kind
 // of credential reaches the other's routes.
-const TokenPrefix = "xila_scim_"
+const TokenPrefix = "xila_scim_" //nolint:gosec // G101: a token prefix, not a token
 
 // Errors.
 var (
@@ -57,7 +57,7 @@ func hashSecret(secret string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-const tokenColumns = `t.id, t.name, t.org_id, o.name, t.created_at, t.last_used_at, t.revoked_at`
+const tokenColumns = `t.id, t.name, t.org_id, o.name, t.created_at, t.last_used_at, t.revoked_at` //nolint:gosec // G101: a SQL column list
 
 func scanToken(row pgx.Row) (Token, error) {
 	var t Token

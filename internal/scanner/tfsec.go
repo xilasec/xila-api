@@ -89,7 +89,7 @@ func (Tfsec) Parse(r io.Reader) ([]ParsedFinding, error) {
 			f.URL = res.Links[0]
 		}
 		if res.Location.StartLine > 0 {
-			f.Line = intPtr(res.Location.StartLine)
+			f.Line = new(res.Location.StartLine)
 		}
 		if res.LegacyRuleID != "" && res.LegacyRuleID != f.RuleID {
 			f.Metadata["legacy_rule_id"] = res.LegacyRuleID
@@ -108,7 +108,7 @@ func (Tfsec) Parse(r io.Reader) ([]ParsedFinding, error) {
 // tfsecLegacyLink extracts the URL from the legacy prose form
 // "See https://tfsec.dev/docs/general/GEN003/ for more information.".
 func tfsecLegacyLink(s string) string {
-	for _, field := range strings.Fields(s) {
+	for field := range strings.FieldsSeq(s) {
 		if strings.HasPrefix(field, "http://") || strings.HasPrefix(field, "https://") {
 			return field
 		}

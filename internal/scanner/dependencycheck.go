@@ -85,7 +85,7 @@ func (DependencyCheck) Parse(r io.Reader) ([]ParsedFinding, error) {
 				f.CWE = cweFrom(v.Cwes[0])
 			}
 			if score > 0 {
-				f.CVSS = floatPtr(score)
+				f.CVSS = new(score)
 			}
 			out = append(out, f)
 		}

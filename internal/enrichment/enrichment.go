@@ -251,7 +251,7 @@ func (s *Service) notifyExploitable(ctx context.Context, findings []finding.Enri
 			titles = append(titles, f.Title)
 		}
 	}
-	go s.notifier.Notify(context.Background(), notify.Event{
+	go s.notifier.Notify(context.WithoutCancel(ctx), notify.Event{
 		Type:     notify.EventExploitable,
 		Title:    fmt.Sprintf("%d finding(s) newly exploitable (KEV / high EPSS)", len(findings)),
 		Text:     strings.Join(titles, "\n"),

@@ -101,8 +101,7 @@ func TestAIConditionValidation(t *testing.T) {
 		cond(SubjectModelLicense, OpIn, `["MIT"]`),
 	} {
 		_, err := compile(c, groups, ComponentSchema)
-		var v *ValidationError
-		if !errors.As(err, &v) {
+		if _, ok := errors.AsType[*ValidationError](err); !ok {
 			t.Errorf("compile(%s %s %s) = %v, want a validation error", c.Subject, c.Operator, c.Value, err)
 		}
 	}

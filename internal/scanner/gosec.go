@@ -84,12 +84,14 @@ func (Gosec) Parse(r io.Reader) ([]ParsedFinding, error) {
 		}
 		if is.NoSec || len(is.Suppressions) > 0 {
 			reason := "suppressed in source (#nosec)"
+			var reasonSb87 strings.Builder
 			for _, s := range is.Suppressions {
 				if s.Justification != "" {
-					reason += ": " + s.Justification
+					reasonSb87.WriteString(": " + s.Justification)
 					break
 				}
 			}
+			reason += reasonSb87.String()
 			setImportedStatus(f.Metadata, domain.FindingFalsePositive, reason, zeroTime)
 		}
 		out = append(out, f)

@@ -686,6 +686,8 @@ type Metrics struct {
 
 // Load reads configuration from the environment, applying sane defaults that
 // tighten automatically in production, and validates the result.
+//
+//nolint:funlen // one flat list of every setting and its default
 func Load() (Config, error) {
 	if err := loadDotEnv(); err != nil {
 		return Config{}, err
@@ -1013,6 +1015,7 @@ func normalizeEnv(v string) string {
 // unmodified build.
 const DefaultSourceURL = "https://github.com/xilasec/xila-api"
 
+//nolint:gocyclo // one check per setting that is unsafe to boot with
 func (c Config) validate() error {
 	if c.Env != EnvDevelopment && c.Env != EnvProduction && c.Env != EnvTest {
 		return fmt.Errorf("invalid APP_ENV %q (want development, production or test)", c.Env)
@@ -1022,11 +1025,11 @@ func (c Config) validate() error {
 	}
 	if c.DB.ReadURL != "" {
 		if u, err := url.Parse(c.DB.ReadURL); err != nil || (u.Scheme != "postgres" && u.Scheme != "postgresql") || u.Host == "" {
-			return fmt.Errorf("DB_READ_URL must be a postgres:// URL")
+			return errors.New("DB_READ_URL must be a postgres:// URL")
 		}
 	}
 	if c.DB.ReadStatementTimeout < 0 || c.DB.ReadMaxConns < 1 || c.DB.JobStatementTimeout < 0 {
-		return fmt.Errorf("DB_READ_STATEMENT_TIMEOUT and DB_JOB_STATEMENT_TIMEOUT must be 0 or more and DB_READ_MAX_CONNS at least 1")
+		return errors.New("DB_READ_STATEMENT_TIMEOUT and DB_JOB_STATEMENT_TIMEOUT must be 0 or more and DB_READ_MAX_CONNS at least 1")
 	}
 	if c.JWT.ReauthWindow < 0 {
 		return fmt.Errorf("REAUTH_WINDOW must be 0 or more, got %s", c.JWT.ReauthWindow)
@@ -1274,6 +1277,8 @@ func decodeIntegrationKey(setting, v string) ([]byte, error) {
 
 // Warnings returns non-fatal advice: removed settings that are still set (any
 // environment), and production hardening. main logs each at startup.
+//
+//nolint:gocyclo // one check per production advisory
 func (c Config) Warnings() []string {
 	var w []string
 	if c.Ingest.Async && c.Ingest.Workers == 0 {
@@ -1464,7 +1469,7 @@ func getlist(key string, fallback []string) []string {
 		return fallback
 	}
 	var out []string
-	for _, part := range strings.Split(v, ",") {
+	for part := range strings.SplitSeq(v, ",") {
 		if p := strings.TrimSpace(part); p != "" {
 			out = append(out, p)
 		}
@@ -1477,7 +1482,7 @@ func getlist(key string, fallback []string) []string {
 // getlist, for JWT_PREVIOUS_SECRETS and INTEGRATION_SECRET_KEY_PREVIOUS.
 func splitSecretList(v string) []string {
 	var out []string
-	for _, part := range strings.Split(v, ",") {
+	for part := range strings.SplitSeq(v, ",") {
 		if p := strings.TrimSpace(part); p != "" {
 			out = append(out, p)
 		}

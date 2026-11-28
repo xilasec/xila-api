@@ -193,7 +193,7 @@ func (r *goRegistry) Fetch(ctx context.Context, p PURL) (Package, error) {
 		if err != nil {
 			return err
 		}
-		for _, line := range strings.Split(string(data), "\n") {
+		for line := range strings.SplitSeq(string(data), "\n") {
 			if v := strings.TrimSpace(line); v != "" {
 				out.Versions = append(out.Versions, Version{Version: v})
 			}
@@ -485,7 +485,7 @@ func minifiedField(entry map[string]json.RawMessage, key, prev string) string {
 	return s
 }
 
-// compile-time interface checks
+// compile-time interface checks.
 var (
 	_ Registry = (*npmRegistry)(nil)
 	_ Registry = (*pypiRegistry)(nil)

@@ -72,18 +72,18 @@ func BuildGraph(s Sbom, comps []ComponentHit, svcs []BomService, edges []Edge) G
 			ref = unrefServicePrefix + sv.ID
 		}
 		add(Node{Ref: ref, Kind: "service", ServiceID: &sv.ID, Name: sv.Name, Version: sv.Version,
-			VulnState: VulnState{Vulns: []string{}}})
+			Vulns: []string{}})
 	}
 	if s.RootRef != "" {
 		if i, ok := index[s.RootRef]; ok {
 			g.Nodes[i].Root = true
 		} else {
-			add(Node{Ref: s.RootRef, Name: s.Artifact, Version: s.Version, Root: true, VulnState: VulnState{Vulns: []string{}}})
+			add(Node{Ref: s.RootRef, Name: s.Artifact, Version: s.Version, Root: true, Vulns: []string{}})
 		}
 	}
 	for _, e := range edges {
 		for _, ref := range []string{e.Parent, e.Child} {
-			add(Node{Ref: ref, Name: ref, Missing: true, VulnState: VulnState{Vulns: []string{}}})
+			add(Node{Ref: ref, Name: ref, Missing: true, Vulns: []string{}})
 		}
 		g.Edges = append(g.Edges, e)
 	}

@@ -2,6 +2,7 @@ package scanner
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"slices"
@@ -136,11 +137,11 @@ func (CryptoLyzer) Parse(r io.Reader) ([]ParsedFinding, error) {
 		return nil, fmt.Errorf("decode cryptolyzer json: %w", err)
 	}
 	if rep.Target == nil || rep.Versions == nil {
-		return nil, fmt.Errorf("decode cryptolyzer json: no target/versions — not a CryptoLyzer `tls all` report")
+		return nil, errors.New("decode cryptolyzer json: no target/versions — not a CryptoLyzer `tls all` report")
 	}
 	host := *rep.Target
 	if host.Address == "" && host.IP == "" {
-		return nil, fmt.Errorf("decode cryptolyzer json: report names no target host")
+		return nil, errors.New("decode cryptolyzer json: report names no target host")
 	}
 	location := func(t cryptolyzerTarget) string {
 		h := firstNonEmpty(t.Address, t.IP, host.Address, host.IP)
@@ -165,7 +166,7 @@ func (CryptoLyzer) Parse(r io.Reader) ([]ParsedFinding, error) {
 		}
 		out = append(out, ParsedFinding{
 			Category: domain.CategoryDAST, RuleID: rule, Title: title, Description: desc, Severity: sev,
-			CWE: intPtr(cwe), CVE: cves, FilePath: loc, URL: loc, Metadata: meta,
+			CWE: new(cwe), CVE: cves, FilePath: loc, URL: loc, Metadata: meta,
 		})
 	}
 

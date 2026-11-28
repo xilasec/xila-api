@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -299,7 +300,7 @@ func (r *Repository) RoleOnTeam(ctx context.Context, userID, teamID string) (dom
 // anything, and among several grants the union wins — a capability denied by
 // one is still allowed if another (meeting min) doesn't deny it. Org admins
 // (direct or via group) always pass: they are never assigned a custom role.
-func (r *Repository) TeamCapabilityAllowed(ctx context.Context, userID, teamID string, min domain.TeamRole, cap domain.Capability) (bool, error) {
+func (r *Repository) TeamCapabilityAllowed(ctx context.Context, userID, teamID string, minRole domain.TeamRole, capability domain.Capability) (bool, error) {
 	const q = `
 		SELECT tm.role, COALESCE(cr.denied_capabilities, '{}')
 		  FROM team_members tm
@@ -311,34 +312,34 @@ func (r *Repository) TeamCapabilityAllowed(ctx context.Context, userID, teamID s
 		  FROM teams t JOIN org_members om ON om.org_id = t.org_id
 		  LEFT JOIN user_group_members gm ON gm.group_id = om.group_id
 		 WHERE t.id = $2 AND om.role = 'admin' AND (om.user_id = $1 OR gm.user_id = $1)`
-	return r.anyGrantAllows(ctx, q, userID, teamID, min, cap)
+	return r.anyGrantAllows(ctx, q, userID, teamID, minRole, capability)
 }
 
 // ProjectCapabilityAllowed is TeamCapabilityAllowed's project-scoped twin,
 // over every grant ProjectGrantsSQL resolves for the project (direct, team,
 // org admin, inherited).
-func (r *Repository) ProjectCapabilityAllowed(ctx context.Context, userID, projectID string, min domain.TeamRole, cap domain.Capability) (bool, error) {
+func (r *Repository) ProjectCapabilityAllowed(ctx context.Context, userID, projectID string, minRole domain.TeamRole, capability domain.Capability) (bool, error) {
 	const q = `
 		SELECT g.role, COALESCE(cr.denied_capabilities, '{}')
 		  FROM (` + ProjectGrantsSQL + `) g
 		  LEFT JOIN custom_roles cr ON cr.id = g.custom_role_id
 		 WHERE g.user_id = $1 AND g.project_id = $2`
-	return r.anyGrantAllows(ctx, q, userID, projectID, min, cap)
+	return r.anyGrantAllows(ctx, q, userID, projectID, minRole, capability)
 }
 
 // ProjectIDsAllowing narrows ids to the projects on which some grant of
 // userID doesn't deny cap (the union rule of ProjectCapabilityAllowed, for a
 // cross-project list).
-func (r *Repository) ProjectIDsAllowing(ctx context.Context, userID string, ids []string, cap domain.Capability) ([]string, error) {
+func (r *Repository) ProjectIDsAllowing(ctx context.Context, userID string, ids []string, capability domain.Capability) ([]string, error) {
 	const q = `
 		SELECT DISTINCT g.project_id
 		  FROM (` + ProjectGrantsSQL + `) g
 		  LEFT JOIN custom_roles cr ON cr.id = g.custom_role_id
 		 WHERE g.user_id = $1 AND g.project_id = ANY($2)
 		   AND NOT (COALESCE(cr.denied_capabilities, '{}') @> ARRAY[$3::text])`
-	rows, err := r.db.Query(ctx, q, userID, ids, string(cap))
+	rows, err := r.db.Query(ctx, q, userID, ids, string(capability))
 	if err != nil {
-		return nil, fmt.Errorf("projects allowing %s: %w", cap, err)
+		return nil, fmt.Errorf("projects allowing %s: %w", capability, err)
 	}
 	defer rows.Close()
 	out := []string{}
@@ -352,7 +353,7 @@ func (r *Repository) ProjectIDsAllowing(ctx context.Context, userID string, ids 
 	return out, rows.Err()
 }
 
-func (r *Repository) anyGrantAllows(ctx context.Context, q, userID, scopeID string, min domain.TeamRole, cap domain.Capability) (bool, error) {
+func (r *Repository) anyGrantAllows(ctx context.Context, q, userID, scopeID string, minRole domain.TeamRole, capability domain.Capability) (bool, error) {
 	rows, err := r.db.Query(ctx, q, userID, scopeID)
 	if err != nil {
 		return false, fmt.Errorf("capability check: %w", err)
@@ -365,20 +366,15 @@ func (r *Repository) anyGrantAllows(ctx context.Context, q, userID, scopeID stri
 		if err := rows.Scan(&role, &denied); err != nil {
 			return false, fmt.Errorf("scan capability row: %w", err)
 		}
-		if role.AtLeast(min) && !containsCapability(denied, cap) {
+		if role.AtLeast(minRole) && !containsCapability(denied, capability) {
 			allowed = true
 		}
 	}
 	return allowed, rows.Err()
 }
 
-func containsCapability(denied []string, cap domain.Capability) bool {
-	for _, d := range denied {
-		if d == string(cap) {
-			return true
-		}
-	}
-	return false
+func containsCapability(denied []string, capability domain.Capability) bool {
+	return slices.Contains(denied, string(capability))
 }
 
 // --- project membership ---

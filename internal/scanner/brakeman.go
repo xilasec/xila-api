@@ -96,7 +96,7 @@ func brakemanFinding(w brakemanWarning) ParsedFinding {
 		},
 	}
 	if len(w.CWEID) > 0 && w.CWEID[0] > 0 {
-		f.CWE = intPtr(w.CWEID[0])
+		f.CWE = new(w.CWEID[0])
 	}
 	if w.Code != nil {
 		f.Metadata["code"] = *w.Code

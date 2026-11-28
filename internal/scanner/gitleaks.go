@@ -64,7 +64,7 @@ func (Gitleaks) Parse(r io.Reader) ([]ParsedFinding, error) {
 			},
 		}
 		if g.StartLine > 0 {
-			f.Line = intPtr(g.StartLine)
+			f.Line = new(g.StartLine)
 		}
 		out = append(out, f)
 	}

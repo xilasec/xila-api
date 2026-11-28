@@ -42,6 +42,7 @@ type fakeRegistry struct {
 }
 
 func newFake(t *testing.T, routes map[string]string) *fakeRegistry {
+	t.Helper()
 	f := &fakeRegistry{t: t, routes: routes}
 	f.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
@@ -56,7 +57,7 @@ func newFake(t *testing.T, routes map[string]string) *fakeRegistry {
 		data, err := os.ReadFile(filepath.Join("testdata", file))
 		if err != nil {
 			t.Errorf("read %s: %v", file, err)
-			w.WriteHeader(500)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		body := string(data)

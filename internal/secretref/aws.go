@@ -2,6 +2,7 @@ package secretref
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -71,7 +72,7 @@ func (b *awsBackend) resolve(ctx context.Context, r ref) (string, error) {
 	case out.SecretBinary != nil:
 		raw = string(out.SecretBinary)
 	default:
-		return "", fmt.Errorf("empty secret value")
+		return "", errors.New("empty secret value")
 	}
 	return jsonField(raw, r.key)
 }

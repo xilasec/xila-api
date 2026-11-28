@@ -182,7 +182,7 @@ var overrideRangeOps = []string{">=", "<=", "!=", "==", ">", "<", "="}
 
 func parseOverrideRange(s string) ([]overrideRangePart, error) {
 	var out []overrideRangePart
-	for _, part := range strings.Split(s, ",") {
+	for part := range strings.SplitSeq(s, ",") {
 		part = strings.TrimSpace(part)
 		op := ""
 		for _, o := range overrideRangeOps {

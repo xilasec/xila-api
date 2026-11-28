@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"hash/crc32"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
@@ -37,7 +37,7 @@ func gcpFakeServer(t *testing.T, wantAuth string, payload []byte) *httptest.Serv
 			"name": r.URL.Path,
 			"payload": map[string]any{
 				"data":       base64.StdEncoding.EncodeToString(payload),
-				"dataCrc32c": fmt.Sprintf("%d", crc),
+				"dataCrc32c": strconv.FormatUint(uint64(crc), 10),
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")

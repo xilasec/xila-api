@@ -10,9 +10,6 @@ import (
 	"testing"
 )
 
-func f64(v float64) *float64 { return &v }
-func boolp(v bool) *bool     { return &v }
-
 func TestRenderCommentLeadsWithTheVerdict(t *testing.T) {
 	gate := &gateResult{Passed: false, NewOnly: true}
 	gate.Violations = []struct {
@@ -28,16 +25,16 @@ func TestRenderCommentLeadsWithTheVerdict(t *testing.T) {
 		{ID: "f1", Title: "Remote code execution in log4j-core", Severity: "critical",
 			CVE: []string{"CVE-2021-44228"}, KEV: true,
 			Package: "log4j-core", PackageVersion: "2.14.1", FixedVersion: "2.15.0"},
-		{ID: "f2", Title: "Prototype pollution", Severity: "high", EPSS: f64(0.2),
-			Package: "lodash", PackageVersion: "4.17.20", DepDirect: boolp(false)},
+		{ID: "f2", Title: "Prototype pollution", Severity: "high", EPSS: new(0.2),
+			Package: "lodash", PackageVersion: "4.17.20", DepDirect: new(false)},
 		{ID: "f3", Title: "Hardcoded AWS key", Severity: "high",
-			FilePath: "config/prod.env", Line: intp(12)},
+			FilePath: "config/prod.env", Line: new(12)},
 	}
 
 	got := renderComment("https://xila.acme.io", "p1", gate, &introduced{findings, 3})
 
 	// The verdict is the first line: it's the only line most people read.
-	first := strings.SplitN(got, "\n", 2)[0]
+	first, _, _ := strings.Cut(got, "\n")
 	if !strings.Contains(first, "❌") || !strings.Contains(first, "failed") {
 		t.Errorf("first line must be the verdict, got %q", first)
 	}
@@ -80,7 +77,7 @@ func TestRenderCommentEscapesTableBreakers(t *testing.T) {
 	got := renderComment("", "p1", nil, &introduced{[]prFinding{
 		{ID: "f1", Title: "Command injection via a | b", Severity: "high"},
 	}, 1})
-	for _, line := range strings.Split(got, "\n") {
+	for line := range strings.SplitSeq(got, "\n") {
 		if !strings.Contains(line, "Command injection") {
 			continue
 		}
@@ -93,8 +90,6 @@ func TestRenderCommentEscapesTableBreakers(t *testing.T) {
 		}
 	}
 }
-
-func intp(v int) *int { return &v }
 
 // --- the sticky comment ---
 

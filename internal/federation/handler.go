@@ -16,10 +16,10 @@ import (
 
 // RFC 8693 identifiers.
 const (
-	GrantTypeTokenExchange = "urn:ietf:params:oauth:grant-type:token-exchange"
-	TokenTypeJWT           = "urn:ietf:params:oauth:token-type:jwt"
-	TokenTypeIDToken       = "urn:ietf:params:oauth:token-type:id_token"
-	TokenTypeAccessToken   = "urn:ietf:params:oauth:token-type:access_token"
+	GrantTypeTokenExchange = "urn:ietf:params:oauth:grant-type:token-exchange" //nolint:gosec // G101: an OAuth URN, not a credential
+	TokenTypeJWT           = "urn:ietf:params:oauth:token-type:jwt"            //nolint:gosec // G101: an OAuth URN, not a credential
+	TokenTypeIDToken       = "urn:ietf:params:oauth:token-type:id_token"       //nolint:gosec // G101: an OAuth URN, not a credential
+	TokenTypeAccessToken   = "urn:ietf:params:oauth:token-type:access_token"   //nolint:gosec // G101: an OAuth URN, not a credential
 )
 
 // Handler serves the public token exchange and the admin routes for issuers

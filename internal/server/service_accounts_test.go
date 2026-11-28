@@ -255,13 +255,16 @@ func TestServiceAccountsAndWorkloadFederation(t *testing.T) {
 	key, _ := k["secret"].(string)
 	meta, _ := k["key"].(map[string]any)
 	exp, _ := time.Parse(time.RFC3339, meta["expires_at"].(string))
-	if resp.StatusCode != http.StatusCreated || !strings.HasPrefix(key, "xila_") || exp.Sub(time.Now()) < 29*24*time.Hour || exp.Sub(time.Now()) > 30*24*time.Hour+time.Minute {
+	if resp.StatusCode != http.StatusCreated || !strings.HasPrefix(key, "xila_") || time.Until(exp) < 29*24*time.Hour || time.Until(exp) > 30*24*time.Hour+time.Minute {
 		t.Fatalf("create key = %d %v (default should expire in 30 days)", resp.StatusCode, k)
 	}
 	if resp, _ := req(t, app, http.MethodGet, "/api/v1/projects/"+pid, key, ""); resp.StatusCode != http.StatusOK {
 		t.Errorf("project read with the key = %d", resp.StatusCode)
 	}
 	resp, k2 := req(t, app, http.MethodPost, keysPath, admin, `{"name":"stale","expires_in_days":1}`)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("create stale key = %d %v", resp.StatusCode, k2)
+	}
 	staleKey, _ := k2["secret"].(string)
 	staleID, _ := k2["key"].(map[string]any)["id"].(string)
 	if _, err := pool.Exec(context.Background(), `UPDATE api_tokens SET expires_at = now() - interval '1 second' WHERE id = $1`, staleID); err != nil {

@@ -134,7 +134,7 @@ func DialContext(ctx context.Context, network, address string) (net.Conn, error)
 // defaults (environment proxy, HTTP/2, idle pooling). Callers may tune its
 // timeouts.
 func Transport() *http.Transport {
-	t := http.DefaultTransport.(*http.Transport).Clone()
+	t := http.DefaultTransport.(*http.Transport).Clone() //nolint:errcheck,forcetypeassert // net/http's DefaultTransport is always *http.Transport; nothing in this binary replaces it
 	t.DialContext = DialContext
 	return t
 }
@@ -205,7 +205,7 @@ func checkHost(ctx context.Context, p Policy, host string) error {
 	if err != nil {
 		// Unresolvable now isn't a policy violation; the request will fail on
 		// its own (and the dialer re-checks whatever it resolves to later).
-		return nil
+		return nil //nolint:nilerr // save-time check only: the guarded dialer re-checks whatever the name resolves to at connect time
 	}
 	for _, a := range addrs {
 		if err := p.CheckAddr(host, a); err != nil {

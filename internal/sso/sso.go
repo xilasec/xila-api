@@ -203,8 +203,7 @@ func (r *Repository) Create(ctx context.Context, m GroupMapping) (GroupMapping, 
 		(provider, provider_id, env_provider, group_name, target_kind, org_id, team_id, project_id, role)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
 		m.Provider, providerID, env, m.Group, m.TargetKind, orgID, teamID, projectID, m.Role).Scan(&id)
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
+	if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok {
 		switch {
 		case pgErr.Code == "23505":
 			return GroupMapping{}, ErrDuplicate

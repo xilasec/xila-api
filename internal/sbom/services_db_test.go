@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"slices"
@@ -18,12 +19,12 @@ import (
 
 func getJSON(t *testing.T, app *fiber.App, path string, out any) int {
 	t.Helper()
-	res, err := app.Test(httptest.NewRequest("GET", path, nil), -1)
+	res, err := app.Test(httptest.NewRequest(http.MethodGet, path, nil), -1)
 	if err != nil {
 		t.Fatalf("GET %s: %v", path, err)
 	}
 	body, _ := io.ReadAll(res.Body)
-	if res.StatusCode == 200 {
+	if res.StatusCode == http.StatusOK {
 		if err := json.Unmarshal(body, out); err != nil {
 			t.Fatalf("decode %s: %v (%s)", path, err, body)
 		}

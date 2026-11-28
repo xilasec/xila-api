@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/xilasec/xila-api/internal/domain"
@@ -105,7 +106,7 @@ func events(kind string, hits []Hit) []notify.Event {
 			Text:      strings.TrimSpace(b.String()),
 			Severity:  group[0].Severity,
 			ProjectID: pid,
-			Fields:    map[string]string{"count": fmt.Sprintf("%d", len(group)), "project": group[0].ProjectName},
+			Fields:    map[string]string{"count": strconv.Itoa(len(group)), "project": group[0].ProjectName},
 		}
 		if len(group) == 1 {
 			e.FindingID = group[0].FindingID

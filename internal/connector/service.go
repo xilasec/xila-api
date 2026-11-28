@@ -154,6 +154,8 @@ func validateURL(field, raw string) (string, error) {
 
 // Normalize validates the input and applies defaults, returning the config it
 // describes (without the token).
+//
+//nolint:gocyclo // per-connector-kind input validation
 func (in Input) Normalize(projectID string) (Connector, error) {
 	c := Connector{
 		ProjectID:     projectID,
@@ -280,7 +282,7 @@ func (in Input) Normalize(projectID string) (Connector, error) {
 // validateAWSFilter checks an AWS Security Hub remote_project filter:
 // comma-separated "product=<value>" / "severity=<value>" pairs.
 func validateAWSFilter(spec string) error {
-	for _, kv := range strings.Split(spec, ",") {
+	for kv := range strings.SplitSeq(spec, ",") {
 		k, v, ok := strings.Cut(kv, "=")
 		if !ok || v == "" || (k != "product" && k != "severity") {
 			return invalid(`remote_project must be empty or comma-separated "product=..." / "severity=..." filters`)

@@ -32,7 +32,7 @@ type accessChecker interface {
 	RoleOnProject(ctx context.Context, userID, projectID string) (domain.TeamRole, bool, error)
 	AdminStatus(ctx context.Context, userID string) (isAdmin, isOwner bool, err error)
 	OwnedProjectIDs(ctx context.Context, userID string) ([]string, error)
-	ProjectCapabilityAllowed(ctx context.Context, userID, projectID string, min domain.TeamRole, cap domain.Capability) (bool, error)
+	ProjectCapabilityAllowed(ctx context.Context, userID, projectID string, minRole domain.TeamRole, capability domain.Capability) (bool, error)
 	// UsersWithProjectAccess resolves @mentions in a new comment (notifyMentions).
 	UsersWithProjectAccess(ctx context.Context, projectID string) ([]membership.Member, error)
 }
@@ -45,7 +45,7 @@ type accessChecker interface {
 //
 // cap is the custom-role capability deciding needs: a project where every
 // owner-level grant of the caller denies it is left out.
-func (h *Handler) decidableProjects(c *fiber.Ctx, uid string, visible []string, cap domain.Capability) ([]string, error) {
+func (h *Handler) decidableProjects(c *fiber.Ctx, uid string, visible []string, capability domain.Capability) ([]string, error) {
 	isAdmin, _, err := h.access.AdminStatus(c.UserContext(), uid)
 	if err != nil {
 		return nil, err
@@ -58,7 +58,7 @@ func (h *Handler) decidableProjects(c *fiber.Ctx, uid string, visible []string, 
 		}
 		mine = []string{}
 		for _, pid := range owned {
-			ok, err := h.access.ProjectCapabilityAllowed(c.UserContext(), uid, pid, domain.TeamOwner, cap)
+			ok, err := h.access.ProjectCapabilityAllowed(c.UserContext(), uid, pid, domain.TeamOwner, capability)
 			if err != nil {
 				return nil, err
 			}
@@ -98,7 +98,7 @@ const MaxBulk = 5000
 
 // can reports whether userID holds at least min on projectID (instance admins
 // always do). An API token scoped to one project can act on that project only.
-func (h *Handler) can(c *fiber.Ctx, userID, projectID string, min domain.TeamRole) (bool, error) {
+func (h *Handler) can(c *fiber.Ctx, userID, projectID string, minRole domain.TeamRole) (bool, error) {
 	if a := auth.CurrentActor(c); a.ProjectID != "" && a.UserID == userID && a.ProjectID != projectID {
 		return false, nil
 	}
@@ -110,21 +110,21 @@ func (h *Handler) can(c *fiber.Ctx, userID, projectID string, min domain.TeamRol
 	if err != nil || !ok {
 		return false, err
 	}
-	return role.AtLeast(min), nil
+	return role.AtLeast(minRole), nil
 }
 
 // canDo is can plus a custom role's deny-list: some grant meeting min must
 // not deny cap (the middleware's rule, for the cross-project bulk edit it
 // can't authorize).
-func (h *Handler) canDo(c *fiber.Ctx, userID, projectID string, min domain.TeamRole, cap domain.Capability) (bool, error) {
-	ok, err := h.can(c, userID, projectID, min)
+func (h *Handler) canDo(c *fiber.Ctx, userID, projectID string, minRole domain.TeamRole, capability domain.Capability) (bool, error) {
+	ok, err := h.can(c, userID, projectID, minRole)
 	if err != nil || !ok {
 		return false, err
 	}
 	if isAdmin, _, err := h.access.AdminStatus(c.UserContext(), userID); err != nil || isAdmin {
 		return isAdmin, err
 	}
-	return h.access.ProjectCapabilityAllowed(c.UserContext(), userID, projectID, min, cap)
+	return h.access.ProjectCapabilityAllowed(c.UserContext(), userID, projectID, minRole, capability)
 }
 
 // assignable checks a would-be assignee can see every project involved.
@@ -335,6 +335,8 @@ type BulkFailure struct {
 // still applies at once. Status risk_accepted requests one risk acceptance per
 // project (`acceptances`, 202) — the findings only become risk_accepted once
 // it is approved.
+//
+//nolint:gocyclo,nestif // one branch per bulk action, each authorized per finding project
 func (h *Handler) Bulk(c *fiber.Ctx) error {
 	var body bulkRequest
 	if err := httpx.Parse(c, &body); err != nil {

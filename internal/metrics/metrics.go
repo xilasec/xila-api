@@ -360,8 +360,8 @@ const trendSelect = `
 		bool_or(reconstructed)
 	FROM metric_snapshots`
 
-// Trend returns one stored scope's daily series for the last days days (today
-// included), oldest first. id is ignored for the portfolio.
+// Trend returns one stored scope's daily series covering the last `days` days
+// (today included), oldest first. id is ignored for the portfolio.
 func (r *Repository) Trend(ctx context.Context, kind ScopeKind, id string, days int, now time.Time) ([]Point, error) {
 	var scopeID any
 	if kind != ScopePortfolio {

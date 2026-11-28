@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -134,7 +135,7 @@ func TestExportReimportsWithSameVerdicts(t *testing.T) {
 
 			app := fiber.New()
 			vex.NewHandler(vexRepo, svc).Register(app)
-			res, err := app.Test(httptest.NewRequest("GET", "/projects/"+source+"/vex/export?format="+tc.format+"&spec="+tc.spec, nil), -1)
+			res, err := app.Test(httptest.NewRequest(http.MethodGet, "/projects/"+source+"/vex/export?format="+tc.format+"&spec="+tc.spec, nil), -1)
 			if err != nil {
 				t.Fatalf("export: %v", err)
 			}
@@ -213,7 +214,7 @@ func TestExportScopesToVersion(t *testing.T) {
 	app := fiber.New()
 	vex.NewHandler(vexRepo, svc).Register(app)
 	get := func(query string) (int, map[string]any) {
-		res, err := app.Test(httptest.NewRequest("GET", "/projects/"+projectID+"/vex/export"+query, nil), -1)
+		res, err := app.Test(httptest.NewRequest(http.MethodGet, "/projects/"+projectID+"/vex/export"+query, nil), -1)
 		if err != nil {
 			t.Fatalf("export: %v", err)
 		}

@@ -82,7 +82,7 @@ func (NpmAudit) Parse(r io.Reader) ([]ParsedFinding, error) {
 				f.CWE = cweFrom(via.CWE[0])
 			}
 			if via.CVSS.Score > 0 {
-				f.CVSS = floatPtr(via.CVSS.Score)
+				f.CVSS = new(via.CVSS.Score)
 			}
 			out = append(out, f)
 		}

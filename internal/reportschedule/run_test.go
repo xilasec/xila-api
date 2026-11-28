@@ -121,7 +121,7 @@ func TestRunFailsForDisabledOwner(t *testing.T) {
 	store := &fakeStore{}
 	mail := &fakeMailer{}
 	pid := "p1"
-	disabledUser := fakeUsers{u: user.User{DisabledAt: timePtr(nowForTest())}}
+	disabledUser := fakeUsers{u: user.User{DisabledAt: new(nowForTest())}}
 	svc := newTestService(store, fakeReports{}, fakeMembership{admin: true}, disabledUser, mail)
 	sch := Schedule{ID: "s1", OwnerID: "u1", Kind: KindProject, ProjectID: &pid, RecipientEmails: []string{"a@x.io"}}
 	err := svc.run(context.Background(), sch)

@@ -96,7 +96,7 @@ func (Snyk) Parse(r io.Reader) ([]ParsedFinding, error) {
 			path := joinPath(v.From)
 			key := v.ID + "\x00" + v.PackageName + "\x00" + v.Version
 			if i, ok := byKey[key]; ok {
-				paths := out[i].Metadata["paths"].([]string)
+				paths, _ := out[i].Metadata["paths"].([]string)
 				out[i].Metadata["paths"] = append(paths, path)
 				continue
 			}
@@ -130,7 +130,7 @@ func (Snyk) Parse(r io.Reader) ([]ParsedFinding, error) {
 			}
 			f.FixedVersion = nearestFix(v.Version, v.FixedIn)
 			if v.CVSSScore > 0 {
-				f.CVSS = floatPtr(v.CVSSScore)
+				f.CVSS = new(v.CVSSScore)
 			}
 			if v.Exploit != "" && v.Exploit != "Not Defined" {
 				f.Metadata["exploit_maturity"] = v.Exploit

@@ -237,7 +237,7 @@ func (r TeamRole) rank() int {
 }
 
 // AtLeast reports whether r meets or exceeds the required role.
-func (r TeamRole) AtLeast(min TeamRole) bool { return r.rank() >= min.rank() }
+func (r TeamRole) AtLeast(minRole TeamRole) bool { return r.rank() >= minRole.rank() }
 
 // OrgRole is a user's role within an organization. admin manages the org and all
 // its teams; member's access comes from team membership.

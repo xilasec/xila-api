@@ -110,7 +110,7 @@ func (m *microsoftDefender) Check(ctx context.Context) (string, error) {
 		return "", err
 	}
 	var resp defenderVulnPage
-	url := fmt.Sprintf("%s/api/machines/SoftwareVulnerabilitiesByMachine?pageSize=1", m.base)
+	url := m.base + "/api/machines/SoftwareVulnerabilitiesByMachine?pageSize=1"
 	if _, err := getJSON(ctx, m.hc, url, "Authorization", "Bearer "+token, &resp); err != nil {
 		return "", err
 	}
@@ -121,7 +121,7 @@ func (m *microsoftDefender) Check(ctx context.Context) (string, error) {
 // a failed or empty fetch returns an empty map, not an error.
 func (m *microsoftDefender) exposureByDevice(ctx context.Context, token string) map[string]string {
 	var resp defenderMachinePage
-	url := fmt.Sprintf("%s/api/machines?$select=id,exposureLevel", m.base)
+	url := m.base + "/api/machines?$select=id,exposureLevel"
 	if _, err := getJSON(ctx, m.hc, url, "Authorization", "Bearer "+token, &resp); err != nil {
 		return nil
 	}

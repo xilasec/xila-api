@@ -156,7 +156,7 @@ func (s *Service) applyDecision(ctx context.Context, target finding.Finding, d D
 	if target.Status == d.Status && target.StatusDecidedAt != nil && !target.StatusDecidedAt.Before(d.DecidedAt) {
 		return false, nil
 	}
-	note := fmt.Sprintf("carried from %s", d.SourceBranch)
+	note := "carried from " + d.SourceBranch
 	if _, err := s.findings.SetStatusCarried(ctx, target.ID, finding.Triage{
 		Status: d.Status, Reason: d.Reason, ExpiresAt: d.ExpiresAt, Actor: d.Actor,
 	}, d.DecidedAt, note); err != nil {

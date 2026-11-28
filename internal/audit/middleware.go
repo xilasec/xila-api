@@ -3,6 +3,7 @@ package audit
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"strings"
 	"sync"
@@ -364,7 +365,7 @@ func statusOf(c *fiber.Ctx, err error) int {
 	if err == nil {
 		return c.Response().StatusCode()
 	}
-	if fe, ok := err.(*fiber.Error); ok {
+	if fe, ok := errors.AsType[*fiber.Error](err); ok {
 		return fe.Code
 	}
 	return fiber.StatusInternalServerError

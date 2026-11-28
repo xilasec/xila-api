@@ -144,7 +144,9 @@ func (s *Service) emailMessage(ch Channel, e Event) ([]byte, []string, error) {
 		if err != nil {
 			return nil, nil, err
 		}
-		w.Write([]byte(strings.ReplaceAll(strings.ReplaceAll(part.content, "\r\n", "\n"), "\n", "\r\n")))
+		if _, err := w.Write([]byte(strings.ReplaceAll(strings.ReplaceAll(part.content, "\r\n", "\n"), "\n", "\r\n"))); err != nil {
+			return nil, nil, err
+		}
 	}
 	mw.Close()
 
@@ -185,7 +187,10 @@ func (s *Service) sendMail(ctx context.Context, rcpts []string, msg []byte) erro
 		}
 		conn = tc
 	}
-	conn.SetDeadline(time.Now().Add(30 * time.Second))
+	if err := conn.SetDeadline(time.Now().Add(30 * time.Second)); err != nil {
+		conn.Close()
+		return fmt.Errorf("smtp deadline: %w", err)
+	}
 
 	c, err := smtp.NewClient(conn, cfg.Host)
 	if err != nil {
@@ -293,7 +298,9 @@ func (s *Service) SendAttachment(ctx context.Context, to []string, subject, body
 	if err != nil {
 		return err
 	}
-	tw.Write([]byte(strings.ReplaceAll(strings.ReplaceAll(body, "\r\n", "\n"), "\n", "\r\n")))
+	if _, err := tw.Write([]byte(strings.ReplaceAll(strings.ReplaceAll(body, "\r\n", "\n"), "\n", "\r\n"))); err != nil {
+		return err
+	}
 
 	aw, err := mw.CreatePart(textproto.MIMEHeader{
 		"Content-Type":              {att.MIME},

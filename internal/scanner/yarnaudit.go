@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -196,7 +197,7 @@ func yarnAuditEmit(a yarnAuditAdvisory, add func(ParsedFinding, []string)) {
 			f.Metadata["cwes"] = cwes
 		}
 		if a.CVSS.Score > 0 {
-			f.CVSS = floatPtr(a.CVSS.Score)
+			f.CVSS = new(a.CVSS.Score)
 		}
 		if a.CVSS.VectorString != "" {
 			f.Metadata["cvss_vector"] = a.CVSS.VectorString
@@ -284,13 +285,7 @@ func yarnAuditCWEs(raw json.RawMessage) []string {
 func yarnAuditUnion(a, b []string) []string {
 	out := append([]string{}, a...)
 	for _, s := range b {
-		dup := false
-		for _, x := range out {
-			if x == s {
-				dup = true
-				break
-			}
-		}
+		dup := slices.Contains(out, s)
 		if !dup {
 			out = append(out, s)
 		}

@@ -118,7 +118,9 @@ func TestOutboxClaimsAreExclusiveAndLeased(t *testing.T) {
 		t.Fatal(err)
 	}
 	var left int
-	pool.QueryRow(ctx, `SELECT count(*) FROM notification_outbox`).Scan(&left)
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM notification_outbox`).Scan(&left); err != nil {
+		t.Fatal(err)
+	}
 	if left != 0 {
 		t.Errorf("%d outbox rows outlived their channel", left)
 	}

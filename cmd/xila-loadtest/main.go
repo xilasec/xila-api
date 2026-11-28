@@ -11,6 +11,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -76,7 +77,7 @@ func runSeed(args []string) error {
 		return err
 	}
 	if *dsn == "" {
-		return fmt.Errorf("--dsn is required")
+		return errors.New("--dsn is required")
 	}
 	cfg := loadtest.Config{
 		Orgs: *orgs, TeamsPerOrg: *teamsPerOrg,

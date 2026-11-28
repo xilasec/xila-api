@@ -3,6 +3,7 @@ package scanner
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 
@@ -53,7 +54,7 @@ func (PipAudit) Parse(r io.Reader) ([]ParsedFinding, error) {
 		}
 		if err = json.Unmarshal(data, &doc); err == nil {
 			if doc.Dependencies == nil {
-				return nil, fmt.Errorf(`decode pip-audit report: no "dependencies" array`)
+				return nil, errors.New(`decode pip-audit report: no "dependencies" array`)
 			}
 			deps = *doc.Dependencies
 		}
@@ -65,7 +66,7 @@ func (PipAudit) Parse(r io.Reader) ([]ParsedFinding, error) {
 	out := []ParsedFinding{}
 	for _, d := range deps {
 		if d.Name == "" {
-			return nil, fmt.Errorf("pip-audit report: dependency without a name (not pip-audit JSON?)")
+			return nil, errors.New("pip-audit report: dependency without a name (not pip-audit JSON?)")
 		}
 		// pip-audit can list the same advisory twice for one package (once per
 		// source it was found in); one finding per package+advisory.

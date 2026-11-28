@@ -2,6 +2,7 @@ package scan_test
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -123,7 +124,7 @@ func TestBranchesHaveIndependentLifecycles(t *testing.T) {
 	if s, _ := findings.ComputeGateStats(ctx, projectID, "", false, ""); s.OpenCritical != 0 {
 		t.Errorf("after switching the default to feature/x, open critical = %d, want 0", s.OpenCritical)
 	}
-	if err := projects.DeleteVersion(ctx, projectID, featScan.VersionID); err != project.ErrDefaultVersion {
+	if err := projects.DeleteVersion(ctx, projectID, featScan.VersionID); !errors.Is(err, project.ErrDefaultVersion) {
 		t.Errorf("deleting the default version = %v, want ErrDefaultVersion", err)
 	}
 

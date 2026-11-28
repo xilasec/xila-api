@@ -82,8 +82,7 @@ func (Checkmarx) Parse(r io.Reader) ([]ParsedFinding, error) {
 	raw = bytes.TrimPrefix(raw, []byte("\xef\xbb\xbf"))
 	var rep checkmarxReport
 	if err := xml.Unmarshal(raw, &rep); err != nil {
-		var unexpected xml.UnmarshalError
-		if errors.As(err, &unexpected) {
+		if _, ok := errors.AsType[xml.UnmarshalError](err); ok {
 			return nil, errors.New("decode checkmarx report: no <CxXMLResults> root — not a CxSAST XML report")
 		}
 		return nil, fmt.Errorf("decode checkmarx report: %w", err)
@@ -138,7 +137,7 @@ func (Checkmarx) Parse(r io.Reader) ([]ParsedFinding, error) {
 				Metadata:    meta,
 			}
 			if n, err := strconv.Atoi(line); err == nil && n > 0 {
-				f.Line = intPtr(n)
+				f.Line = new(n)
 			}
 			if _, triaged := meta[metaRemoteTriage]; !triaged {
 				untriaged[checkmarxLocation(f)] = true

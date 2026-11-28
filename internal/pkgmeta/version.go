@@ -3,6 +3,7 @@ package pkgmeta
 import (
 	"cmp"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
@@ -406,8 +407,7 @@ func (it *mvItem) compareTo(other *mvItem) int {
 }
 
 func (it *mvItem) normalize() {
-	for i := len(it.list) - 1; i >= 0; i-- {
-		last := it.list[i]
+	for i, last := range slices.Backward(it.list) {
 		if last.isNull() {
 			it.list = append(it.list[:i], it.list[i+1:]...)
 		} else if last.kind != mvList {
@@ -475,8 +475,8 @@ func parseMaven(v string) *mvItem {
 	if len(v) > start {
 		list.list = append(list.list, parseItem(digit, v[start:]))
 	}
-	for i := len(stack) - 1; i >= 0; i-- {
-		stack[i].normalize()
+	for _, s := range slices.Backward(stack) {
+		s.normalize()
 	}
 	return root
 }
@@ -498,10 +498,8 @@ func mavenPre(v string) bool {
 		case mvString:
 			return mavenPreWords[it.str]
 		case mvList:
-			for _, c := range it.list {
-				if walk(c) {
-					return true
-				}
+			if slices.ContainsFunc(it.list, walk) {
+				return true
 			}
 		}
 		return false

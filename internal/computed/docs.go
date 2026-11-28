@@ -1,6 +1,8 @@
 package computed
 
 import (
+	"maps"
+
 	"github.com/xilasec/xila-api/internal/asset"
 	"github.com/xilasec/xila-api/internal/customfield"
 	"github.com/xilasec/xila-api/internal/domain"
@@ -78,7 +80,8 @@ func openFindingCounts(counts []finding.StatusSeverityCount) map[string]any {
 	out := sampleOpenFindings()
 	for _, c := range counts {
 		if c.Status.CountsRisk() {
-			out[string(c.Severity)] = out[string(c.Severity)].(int64) + int64(c.Count)
+			cur, _ := out[string(c.Severity)].(int64)
+			out[string(c.Severity)] = cur + int64(c.Count)
 		}
 	}
 	return out
@@ -133,9 +136,7 @@ func assetDoc(a asset.Asset, projectSection map[string]any, assetFields []custom
 			"custom":   customfield.FilterComputed(a.Custom, assetFields),
 		},
 	}
-	for k, v := range projectSection {
-		doc[k] = v
-	}
+	maps.Copy(doc, projectSection)
 	return doc
 }
 

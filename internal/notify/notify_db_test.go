@@ -2,6 +2,7 @@ package notify_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/xilasec/xila-api/internal/notify"
@@ -55,7 +56,7 @@ func TestChannelCRUDAndEventMatching(t *testing.T) {
 	if err := repo.Delete(ctx, all.ID); err != nil {
 		t.Fatalf("delete: %v", err)
 	}
-	if err := repo.Delete(ctx, all.ID); err != notify.ErrNotFound {
+	if err := repo.Delete(ctx, all.ID); !errors.Is(err, notify.ErrNotFound) {
 		t.Errorf("second delete = %v, want ErrNotFound", err)
 	}
 }
@@ -66,9 +67,15 @@ func TestProjectScopedRoutingAndDeliveryLog(t *testing.T) {
 	ctx := context.Background()
 
 	var teamID, projA, projB string
-	pool.QueryRow(ctx, `WITH o AS (INSERT INTO organizations (slug,name) VALUES ('o-nt','o') RETURNING id) INSERT INTO teams (org_id,slug,name) SELECT id,'t','t' FROM o RETURNING id`).Scan(&teamID)
-	pool.QueryRow(ctx, `INSERT INTO projects (team_id,slug,name) VALUES ($1,'a','a') RETURNING id`, teamID).Scan(&projA)
-	pool.QueryRow(ctx, `INSERT INTO projects (team_id,slug,name) VALUES ($1,'b','b') RETURNING id`, teamID).Scan(&projB)
+	if err := pool.QueryRow(ctx, `WITH o AS (INSERT INTO organizations (slug,name) VALUES ('o-nt','o') RETURNING id) INSERT INTO teams (org_id,slug,name) SELECT id,'t','t' FROM o RETURNING id`).Scan(&teamID); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `INSERT INTO projects (team_id,slug,name) VALUES ($1,'a','a') RETURNING id`, teamID).Scan(&projA); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `INSERT INTO projects (team_id,slug,name) VALUES ($1,'b','b') RETURNING id`, teamID).Scan(&projB); err != nil {
+		t.Fatal(err)
+	}
 
 	if _, err := repo.Create(ctx, notify.Channel{Name: "global", Type: "webhook", URL: "https://g", Events: []string{"*"}, Enabled: true}); err != nil {
 		t.Fatalf("create global: %v", err)

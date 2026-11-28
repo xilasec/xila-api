@@ -9,7 +9,6 @@ import (
 
 	"github.com/xilasec/xila-api/internal/domain"
 	"github.com/xilasec/xila-api/internal/license"
-	"github.com/xilasec/xila-api/internal/sbom"
 )
 
 var now = time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
@@ -30,9 +29,8 @@ func groups(ref string) ([]string, error) {
 // comp builds a component: lic is an SPDX expression ("" = no license).
 func comp(t *testing.T, lic string, mod ...func(*Component)) *Component {
 	t.Helper()
-	c := &Component{InventoryComponent: sbom.InventoryComponent{
-		Name: "lib", Version: "1.2.3", Purl: "pkg:npm/lib@1.2.3", Hashes: map[string]string{},
-	}}
+	c := &Component{
+		Name: "lib", Version: "1.2.3", Purl: "pkg:npm/lib@1.2.3", Hashes: map[string]string{}}
 	if lic != "" {
 		e, err := license.ParseExpression(lic)
 		if err != nil {
@@ -196,8 +194,7 @@ func TestConditionValidation(t *testing.T) {
 	}
 	for _, c := range bad {
 		_, err := compile(c, groups, ComponentSchema)
-		var v *ValidationError
-		if !errors.As(err, &v) {
+		if _, ok := errors.AsType[*ValidationError](err); !ok {
 			t.Errorf("compile(%s %s %s) = %v, want a validation error", c.Subject, c.Operator, c.Value, err)
 		}
 	}

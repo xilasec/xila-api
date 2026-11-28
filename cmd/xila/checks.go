@@ -123,16 +123,10 @@ func batchAnnotations(annotations []checkAnnotation) (first []checkAnnotation, r
 	if len(annotations) == 0 {
 		return nil, nil
 	}
-	n := len(annotations)
-	if n > maxAnnotationsPerRequest {
-		n = maxAnnotationsPerRequest
-	}
+	n := min(len(annotations), maxAnnotationsPerRequest)
 	first = annotations[:n]
 	for i := n; i < len(annotations); i += maxAnnotationsPerRequest {
-		end := i + maxAnnotationsPerRequest
-		if end > len(annotations) {
-			end = len(annotations)
-		}
+		end := min(i+maxAnnotationsPerRequest, len(annotations))
 		rest = append(rest, annotations[i:end])
 	}
 	return first, rest

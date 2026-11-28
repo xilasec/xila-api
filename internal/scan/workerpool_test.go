@@ -100,8 +100,7 @@ func TestWorkerPoolStopsOnlyBetweenJobs(t *testing.T) {
 	runner := &blockingRunner{started: make(chan struct{}), release: make(chan struct{})}
 	claimer := &onceClaimer{}
 	p := NewWorkerPool(claimer, runner, 10*time.Millisecond, 3)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	p.Resize(ctx, 1)
 	select {

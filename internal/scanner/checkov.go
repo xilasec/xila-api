@@ -124,7 +124,7 @@ func checkovFinding(checkType string, c checkovCheck) ParsedFinding {
 		f.Description = strings.TrimSpace(d + "\n" + c.Resource)
 	}
 	if len(c.FileLineRange) > 0 && c.FileLineRange[0] > 0 {
-		f.Line = intPtr(c.FileLineRange[0])
+		f.Line = new(c.FileLineRange[0])
 	}
 	if c.BCCheckID != "" {
 		f.Metadata["bc_check_id"] = c.BCCheckID
@@ -150,7 +150,7 @@ func checkovFinding(checkType string, c checkovCheck) ParsedFinding {
 		f.FixedVersion = firstNonEmpty(v.LowestFixedVersion, v.FixedVersion)
 		f.URL = firstNonEmpty(v.Link, f.URL)
 		if v.CVSS != nil && *v.CVSS > 0 {
-			f.CVSS = floatPtr(*v.CVSS)
+			f.CVSS = new(*v.CVSS)
 		}
 		if v.Description != "" {
 			f.Description = v.Description

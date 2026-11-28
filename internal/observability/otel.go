@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"slices"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -22,7 +23,6 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	otelprom "go.opentelemetry.io/otel/exporters/prometheus"
-	otellogglobal "go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/instrumentation"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
@@ -144,7 +144,7 @@ func Setup(ctx context.Context, cfg config.Config) (Telemetry, error) {
 		sdklog.WithProcessor(sdklog.NewBatchProcessor(logExp)),
 		sdklog.WithResource(res),
 	)
-	otellogglobal.SetLoggerProvider(lp)
+	otel.SetLoggerProvider(lp)
 	shutdowns = append(shutdowns, lp.Shutdown)
 
 	// slog -> (stdout JSON + OTLP logs). The OTel bridge automatically
@@ -158,8 +158,8 @@ func Setup(ctx context.Context, cfg config.Config) (Telemetry, error) {
 	return Telemetry{Metrics: metricsHandler, Shutdown: func(ctx context.Context) error {
 		var err error
 		// Shut down in reverse order of registration.
-		for i := len(shutdowns) - 1; i >= 0; i-- {
-			err = errors.Join(err, shutdowns[i](ctx))
+		for _, shutdown := range slices.Backward(shutdowns) {
+			err = errors.Join(err, shutdown(ctx))
 		}
 		return err
 	}}, nil

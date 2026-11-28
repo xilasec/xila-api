@@ -24,16 +24,23 @@ suppression needs an inline reason (`nosemgrep: <rule> -- why`,
 `.grype.yaml` ignore). See
 docs/SECURITY_SCANNING.md.
 
+Code quality gate: `make lint` (golangci-lint, `.golangci.yml`) and `make vuln`
+(govulncheck), both also in CI and `make lint` in pre-commit. The repository is
+held at zero lint findings. Fix the cause; a deliberate exception gets
+`//nolint:<linter> // <why>` on the line (nolintlint rejects a bare one). What
+is checked, what is off and why: docs/CODE_QUALITY.md.
+
 ```bash
 make up              # docker compose: api (all features on) + postgres + otel-collector + jaeger + mailpit (localhost:8080, mail on :8025)
 make down            # stop, keep data   |   make purge = stop + drop the DB volume
 make run             # go run ./cmd/api  (API only, no UI; see the "UI" gotcha)
 make bundle          # build SPA + one binary that serves UI+API (-tags embedfrontend)
 make test            # unit tests only (DB-backed tests self-skip)
-gofmt -w . && go vet ./...
+make lint            # golangci-lint, zero findings   |   make lint-fix = safe auto-fixes + gofmt/goimports
+make vuln            # govulncheck: vulnerabilities the code actually reaches
 ```
 
-Run `gofmt -w`, `go vet ./...`, and the tests before declaring a change done.
+Run `make lint` and the tests before declaring a change done.
 
 ## Running the tests (they need a real Postgres)
 
@@ -491,7 +498,8 @@ The rules are the pure `submit`/`dismiss`/`closeCase` functions.
 
 Add a notification event: add a constant in `internal/notify/notify.go`
 (`EventXxx`), emit `notify.Event{Type: EventXxx, ProjectID: …}` at the right
-spot via `go notifier.Notify(context.Background(), …)`, and add it to the UI
+spot via `go notifier.Notify(context.WithoutCancel(ctx), …)` (it outlives the
+request but keeps its trace and log values), and add it to the UI
 event dropdowns (`web/src/routes/notifications/+page.svelte` and the project
 Alerts tab). Events with a `ProjectID` route to global and that project's channels.
 It also, automatically, reaches the in-app inbox (13.8, `internal/inbox`):
@@ -1007,6 +1015,26 @@ docs/ROADMAP.md                        what to build next
 
 When adding a feature, follow the nearest existing domain package end-to-end
 (migration → repo → service → handler → wiring → unit + integration + smoke
-tests → UI). Keep `gofmt`/`vet` clean, and update `README.md` if endpoints or
-behavior change.
+tests → UI). Keep `make lint` at zero findings, and update `README.md` if
+endpoints or behavior change.
+
+Before any Go coding, review, debugging, troubleshooting, or setup task, load the `samber/cc-skills-golang@golang-how-to` skill first — it routes to whichever other Go skills the task needs.
+
+## Required Go skills
+
+The following Go skills from `samber/cc-skills-golang` MUST always be applied when working on this project. Load them at the start of every Go-related task, regardless of whether the user explicitly mentions them.
+
+- `samber/cc-skills-golang@golang-error-handling`
+- `samber/cc-skills-golang@golang-safety`
+- `samber/cc-skills-golang@golang-security`
+- `samber/cc-skills-golang@golang-testing`
+- `samber/cc-skills-golang@golang-database`
+- `samber/cc-skills-golang@golang-code-style`
+- `samber/cc-skills-golang@golang-naming`
+- `samber/cc-skills-golang@golang-context`
+- `samber/cc-skills-golang@golang-modernize`
+- `samber/cc-skills-golang@golang-documentation`
+- `samber/cc-skills-golang@golang-design-patterns`
+- `samber/cc-skills-golang@golang-data-structures`
+- `samber/cc-skills-golang@golang-troubleshooting`
 

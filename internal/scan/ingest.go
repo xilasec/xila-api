@@ -606,7 +606,7 @@ func (s *Service) notifyNewCritical(ctx context.Context, projectID, scanner, sca
 	if critical > 0 {
 		sev = "critical"
 	}
-	go s.notifier.Notify(context.Background(), notify.Event{
+	go s.notifier.Notify(context.WithoutCancel(ctx), notify.Event{
 		Type:      notify.EventCriticalFinding,
 		Title:     fmt.Sprintf("%d new critical/high finding(s) from %s", len(newHigh), scanner),
 		Text:      strings.Join(titles, "\n"),

@@ -51,12 +51,7 @@ var actions = []Action{ActionFalsePositive, ActionRiskAccepted, ActionWontFix, A
 
 // Valid reports whether a is a known action.
 func (a Action) Valid() bool {
-	for _, x := range actions {
-		if a == x {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(actions, a)
 }
 
 // ApprovalStatus is where a rule stands in the (optional) four-eyes workflow.
@@ -217,6 +212,8 @@ func (r *Rule) Validate(schema expr.Schema) error {
 // Matches reports whether every set condition holds for the finding, whose
 // project's facts are p. Regex conditions require compile() to have run (the
 // repository does this on load).
+//
+//nolint:gocyclo // one check per rule condition
 func (r *Rule) Matches(f finding.Finding, p ProjectFacts) bool {
 	if r.broken {
 		return false
@@ -277,20 +274,13 @@ func (r *Rule) Matches(f finding.Finding, p ProjectFacts) bool {
 func (r *Rule) needsProject() bool { return len(r.ProjectCriticality) > 0 || r.expr != nil }
 
 func containsSeverity(set []domain.Severity, s domain.Severity) bool {
-	for _, x := range set {
-		if x == s {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(set, s)
 }
 
 func anyCVE(have, want []string) bool {
 	for _, h := range have {
-		for _, w := range want {
-			if h == w {
-				return true
-			}
+		if slices.Contains(want, h) {
+			return true
 		}
 	}
 	return false

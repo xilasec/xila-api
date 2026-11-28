@@ -31,8 +31,7 @@ func TestSecretsRefreshPicksUpRewrittenFile(t *testing.T) {
 	changed := make(chan string, 1)
 	cfg.Secrets.OnChange("JWT_SECRET", func(v string) { changed <- v })
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go cfg.Secrets.Run(ctx)
 
 	if err := os.WriteFile(path, []byte("rotated-value\n"), 0o600); err != nil {

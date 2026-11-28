@@ -2,6 +2,7 @@ package sbom
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -89,7 +90,7 @@ func parseSyft(r io.Reader) (Document, error) {
 		return Document{}, fmt.Errorf("decode syft: %w", err)
 	}
 	if doc.Artifacts == nil {
-		return Document{}, fmt.Errorf("not a syft document (missing artifacts)")
+		return Document{}, errors.New("not a syft document (missing artifacts)")
 	}
 
 	out := Document{

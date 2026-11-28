@@ -2,6 +2,7 @@ package schema
 
 import (
 	"encoding/json"
+	"maps"
 	"os"
 	"testing"
 )
@@ -39,9 +40,7 @@ func TestValidateCycloneDXEverySupportedVersion(t *testing.T) {
 	for v := range cycloneDXSchema {
 		t.Run(v, func(t *testing.T) {
 			doc := map[string]any{}
-			for k, val := range base {
-				doc[k] = val
-			}
+			maps.Copy(doc, base)
 			doc["specVersion"] = v
 			raw, err := json.Marshal(doc)
 			if err != nil {
@@ -134,11 +133,4 @@ func TestFlattenCapsErrors(t *testing.T) {
 	if len(fields) == 0 {
 		t.Fatal("expected field errors")
 	}
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

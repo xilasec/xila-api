@@ -256,8 +256,7 @@ func mergeVulns(purlStr string, vs []Vuln) []Vuln {
 	for i := range parent {
 		parent[i] = i
 	}
-	var find func(int) int
-	find = func(i int) int {
+	find := func(i int) int {
 		for parent[i] != i {
 			parent[i] = parent[parent[i]]
 			i = parent[i]

@@ -60,9 +60,8 @@ func (h *Handler) validate(ctx context.Context, p *Policy) error {
 			return err
 		}
 	}
-	var verr *ValidationError
 	err := p.Validate(SchemaFor(projectFields))
-	if errors.As(err, &verr) {
+	if verr, ok := errors.AsType[*ValidationError](err); ok {
 		return fiber.NewError(fiber.StatusBadRequest, verr.Error())
 	}
 	return err
@@ -241,8 +240,7 @@ func (h *Handler) ImportBundle(c *fiber.Ctx) error {
 	}
 	dryRun := c.QueryBool("dry_run", false)
 	out, err := h.svc.ImportBundle(c.UserContext(), b.Policies, SchemaFor(projectFields), auth.UserID(c), dryRun)
-	var verr *ValidationError
-	if errors.As(err, &verr) {
+	if verr, ok := errors.AsType[*ValidationError](err); ok {
 		return fiber.NewError(fiber.StatusBadRequest, verr.Error())
 	}
 	if err != nil {
@@ -272,8 +270,7 @@ func writeError(err error) error {
 	case errors.Is(err, ErrNoProject):
 		return fiber.NewError(fiber.StatusNotFound, "project not found")
 	}
-	var verr *ValidationError
-	if errors.As(err, &verr) {
+	if verr, ok := errors.AsType[*ValidationError](err); ok {
 		return fiber.NewError(fiber.StatusBadRequest, verr.Error())
 	}
 	return err

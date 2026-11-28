@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help tidy run build bundle test test-integration docker-build up down purge logs licenses security hooks clients clients-check
+.PHONY: help tidy run build bundle test test-integration lint lint-fix vuln docker-build up down purge logs licenses security hooks clients clients-check
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -30,6 +30,20 @@ test: ## Run unit tests (DB-backed tests skip without TEST_DATABASE_URL)
 test-integration: ## Run all tests against a real Postgres (needs a disposable DB)
 	@test -n "$(TEST_DATABASE_URL)" || { echo "set TEST_DATABASE_URL, e.g. postgres://xila:xila@localhost:5432/xila?sslmode=disable"; exit 1; }
 	go test -p 1 -timeout 30m ./...
+
+# Pinned like the code generators below; bump here and in .github/workflows/ci.yml.
+GOLANGCI_LINT = github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
+GOVULNCHECK = golang.org/x/vuln/cmd/govulncheck@v1.10.0
+
+lint: ## Run golangci-lint (.golangci.yml) exactly as CI does; the repo is held at zero findings
+	go run $(GOLANGCI_LINT) run ./...
+
+lint-fix: ## Apply golangci-lint's safe auto-fixes and format (gofmt + goimports)
+	go run $(GOLANGCI_LINT) run --fix ./...
+	go run $(GOLANGCI_LINT) fmt ./...
+
+vuln: ## Report known vulnerabilities the code actually reaches (govulncheck)
+	go run $(GOVULNCHECK) ./...
 
 OAPI_CODEGEN = github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.1
 OPENAPI_TS = openapi-typescript@7.13.0

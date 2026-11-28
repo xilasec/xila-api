@@ -250,7 +250,7 @@ func securityHubVulnFindings(f securityHubFinding, base ParsedFinding) []ParsedF
 		}
 		for _, c := range v.CVSS {
 			if c.BaseScore > 0 {
-				vf.CVSS = floatPtr(c.BaseScore)
+				vf.CVSS = new(c.BaseScore)
 				vf.Metadata["cvss_vector"] = c.BaseVector
 				break
 			}

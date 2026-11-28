@@ -94,7 +94,7 @@ func (h *Handler) test(c *fiber.Ctx) error {
 		return err
 	}
 	if err := h.svc.Test(c.UserContext(), id); err != nil {
-		if mapped := mapErr(err); mapped != err {
+		if mapped := mapErr(err); mapped != err { //nolint:errorlint // identity check: did mapErr translate this error
 			return mapped
 		}
 		return fiber.NewError(fiber.StatusBadGateway, "tracker check failed: "+remoteMessage(c, err))
@@ -123,7 +123,7 @@ func (h *Handler) createIssue(c *fiber.Ctx) error {
 	}
 	l, created, err := h.svc.CreateIssue(c.UserContext(), id)
 	if err != nil {
-		if mapped := mapErr(err); mapped != err {
+		if mapped := mapErr(err); mapped != err { //nolint:errorlint // identity check: did mapErr translate this error
 			return mapped
 		}
 		return fiber.NewError(fiber.StatusBadGateway, "create issue failed: "+remoteMessage(c, err))

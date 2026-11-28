@@ -179,7 +179,7 @@ func (Fortify) Parse(r io.Reader) ([]ParsedFinding, error) {
 		if path, line := fortifySourceLocation(v); path != "" {
 			f.FilePath = path
 			if n, err := strconv.Atoi(line); err == nil && n > 0 {
-				f.Line = intPtr(n)
+				f.Line = new(n)
 			}
 		}
 		out = append(out, f)

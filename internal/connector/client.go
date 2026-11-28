@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -93,7 +94,8 @@ func NewClient(c Connector, token string, hc *http.Client) (Client, error) {
 				return nil, err
 			}
 		}
-		return &trivyOperator{base: c.BaseURL, namespace: c.RemoteProject, bearerToken: creds.BearerToken, hc: client}, nil
+		return &trivyOperator{base: c.BaseURL, namespace: c.RemoteProject, bearerToken: creds.BearerToken, hc: client,
+			tokenPath: trivyInClusterToken, caPath: trivyInClusterCA}, nil
 	}
 	return nil, fmt.Errorf("unsupported connector kind %q", c.Kind)
 }
@@ -120,8 +122,7 @@ func remoteErr(format string, args ...any) error {
 
 // PublicMessage is err as safe to show a non-admin.
 func PublicMessage(err error) string {
-	var r RemoteError
-	if errors.As(err, &r) {
+	if r, ok := errors.AsType[RemoteError](err); ok {
 		return r.Public()
 	}
 	return err.Error()
@@ -299,10 +300,8 @@ func addCVE(list []string, id string) []string {
 	if !strings.HasPrefix(id, "CVE-") {
 		return list
 	}
-	for _, c := range list {
-		if c == id {
-			return list
-		}
+	if slices.Contains(list, id) {
+		return list
 	}
 	return append(list, id)
 }

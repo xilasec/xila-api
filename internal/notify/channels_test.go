@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -302,7 +303,7 @@ func TestEmailWithoutSMTPFails(t *testing.T) {
 	logs := &fakeLog{}
 	svc := &Service{logger: logs, maxAttempts: 3}
 	err := svc.SendTo(context.Background(), Channel{Name: "mail", Type: TypeEmail, URL: "a@example.com"}, Event{Type: EventTest})
-	if err != ErrSMTPNotConfigured || logs.ds[0].Error != "SMTP is not configured" {
+	if !errors.Is(err, ErrSMTPNotConfigured) || logs.ds[0].Error != "SMTP is not configured" {
 		t.Errorf("err = %v log = %+v", err, logs.ds)
 	}
 }

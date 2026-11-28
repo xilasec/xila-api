@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode"
 )
@@ -42,7 +43,7 @@ func main() {
 	if added == 0 {
 		return
 	}
-	if err := os.WriteFile(specPath, []byte(out), 0o644); err != nil {
+	if err := os.WriteFile(specPath, []byte(out), 0o644); err != nil { //nolint:gosec // G306: a generated file committed to the repository
 		fail(err)
 	}
 	fmt.Printf("added %d operationId(s)\n", added)
@@ -103,8 +104,7 @@ func addIDs(src string) (string, int, error) {
 	}
 	added := 0
 	// Insert from the bottom so earlier indexes stay valid.
-	for k := len(ops) - 1; k >= 0; k-- {
-		o := ops[k]
+	for _, o := range slices.Backward(ops) {
 		if o.hasID {
 			continue
 		}

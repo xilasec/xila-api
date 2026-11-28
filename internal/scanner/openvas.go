@@ -81,7 +81,7 @@ func (OpenVAS) Parse(r io.Reader) ([]ParsedFinding, error) {
 	)
 	for {
 		tok, err := dec.Token()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -213,7 +213,7 @@ func openvasFinding(res openvasResult) (ParsedFinding, bool) {
 		Metadata:    meta,
 	}
 	if scoreErr == nil && score > 0 {
-		f.CVSS = floatPtr(score)
+		f.CVSS = new(score)
 	}
 	return f, true
 }
@@ -221,7 +221,7 @@ func openvasFinding(res openvasResult) (ParsedFinding, bool) {
 // openvasTags splits the NVT's "summary=…|insight=…|solution=…" tag string.
 func openvasTags(s string) map[string]string {
 	tags := map[string]string{}
-	for _, part := range strings.Split(s, "|") {
+	for part := range strings.SplitSeq(s, "|") {
 		if k, v, ok := strings.Cut(part, "="); ok {
 			tags[strings.TrimSpace(k)] = strings.TrimSpace(v)
 		}

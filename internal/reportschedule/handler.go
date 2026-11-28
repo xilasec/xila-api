@@ -50,8 +50,7 @@ func scheduleErr(err error) error {
 	case errors.Is(err, ErrOwnerUnavailable):
 		return fiber.NewError(fiber.StatusConflict, err.Error())
 	}
-	var verr ValidationError
-	if errors.As(err, &verr) {
+	if verr, ok := errors.AsType[ValidationError](err); ok {
 		return fiber.NewError(fiber.StatusBadRequest, verr.Error())
 	}
 	return err

@@ -2,6 +2,7 @@ package compliance_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -115,7 +116,7 @@ func TestEvaluateUnknownFramework(t *testing.T) {
 	repo := compliance.NewRepository(pool)
 	projectID := seedProject(t, pool)
 
-	if _, err := repo.Evaluate(context.Background(), projectID, "nope-1.0"); err != compliance.ErrFrameworkNotFound {
+	if _, err := repo.Evaluate(context.Background(), projectID, "nope-1.0"); !errors.Is(err, compliance.ErrFrameworkNotFound) {
 		t.Errorf("err = %v, want ErrFrameworkNotFound", err)
 	}
 }

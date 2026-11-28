@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -41,7 +42,7 @@ func (c *client) newFindings(project, scanID string) ([]prFinding, int, error) {
 		"scan_id":    {scanID},
 		"new":        {"true"},
 		"sort":       {"priority"},
-		"limit":      {fmt.Sprint(maxListed)},
+		"limit":      {strconv.Itoa(maxListed)},
 	}
 	status, body, err := c.do(http.MethodGet, "/api/v1/findings", "?"+q.Encode(), nil)
 	if err != nil {

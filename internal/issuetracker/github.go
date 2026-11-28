@@ -2,7 +2,7 @@ package issuetracker
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -43,7 +43,7 @@ func (c *githubClient) Create(ctx context.Context, is Issue) (Ref, error) {
 		return Ref{}, err
 	}
 	if out.Number == 0 {
-		return Ref{}, fmt.Errorf("github: create returned no issue number")
+		return Ref{}, errors.New("github: create returned no issue number")
 	}
 	return Ref{ExternalID: strconv.Itoa(out.Number), URL: out.HTMLURL}, nil
 }

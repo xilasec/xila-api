@@ -131,8 +131,7 @@ func (c *Client) Get(ctx context.Context, key string) ([]byte, error) {
 		Key:    aws.String(c.objectKey(key)),
 	})
 	if err != nil {
-		var nsk *types.NoSuchKey
-		if errors.As(err, &nsk) {
+		if _, ok := errors.AsType[*types.NoSuchKey](err); ok {
 			return nil, fmt.Errorf("%w: %s", ErrNotFound, key)
 		}
 		return nil, fmt.Errorf("get %s: %w", key, err)

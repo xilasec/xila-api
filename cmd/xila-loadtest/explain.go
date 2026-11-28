@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 
@@ -13,8 +14,7 @@ import (
 // those packages so this diagnostic tool can't accidentally change
 // production SQL). args are filled in by name below.
 type explainQuery struct {
-	name string
-	sql  string
+	sql string
 	// needsProject/needsProjects/needsSearch select which flag values fill $1…
 	needsProject  bool
 	needsProjects bool
@@ -117,7 +117,7 @@ func runExplain(args []string) error {
 		return err
 	}
 	if *dsn == "" || *query == "" {
-		return fmt.Errorf("--dsn and --query are required")
+		return errors.New("--dsn and --query are required")
 	}
 	eq, ok := explainQueries[*query]
 	if !ok {

@@ -267,7 +267,7 @@ func (s *Service) reconcileSeverity(ctx context.Context, f *finding.Finding, ele
 		want = string(elected.Rating.Severity)
 	}
 
-	if m.AppliedSeverity != "" {
+	if m.AppliedSeverity != "" { //nolint:nestif // revert bookkeeping for a severity effect, mirrored by the status branch
 		if string(f.Severity) != m.AppliedSeverity {
 			// Changed since we set it (a manual edit sets severity_manual,
 			// which also makes every SetSeverity below a no-op).

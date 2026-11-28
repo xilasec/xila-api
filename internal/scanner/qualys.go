@@ -288,7 +288,7 @@ func (d qualysDetection) finding() (ParsedFinding, bool) {
 	}
 	for _, s := range []string{d.cvss3, d.cvss} {
 		if v, ok := qualysScore(s); ok {
-			f.CVSS = floatPtr(v)
+			f.CVSS = new(v)
 			break
 		}
 	}

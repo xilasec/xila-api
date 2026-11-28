@@ -69,7 +69,7 @@ func (l *Limiter) Hit(ctx context.Context, key string, limit int, window time.Du
 	}
 	// Opportunistic cleanup of long-dead windows (cheap, indexed). A sampling
 	// decision, not a secret: math/rand is right here.
-	if rand.IntN(200) == 0 {
+	if rand.IntN(200) == 0 { //nolint:gosec // G404: samples when to prune expired buckets, not a security decision
 		if _, err := l.db.Exec(ctx, `DELETE FROM auth_rate_limits WHERE window_start < now() - interval '1 day'`); err != nil {
 			slog.WarnContext(ctx, "rate limit cleanup failed", "error", err)
 		}

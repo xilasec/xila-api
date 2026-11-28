@@ -3,6 +3,7 @@ package sbom
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -34,7 +35,7 @@ func Parse(raw []byte) (Document, error) {
 	case isScanCodeIO(raw):
 		return parseScanCodeIO(bytes.NewReader(raw))
 	default:
-		return Document{}, fmt.Errorf("unrecognized SBOM format (need CycloneDX, SPDX, Syft or ScanCode.io JSON)")
+		return Document{}, errors.New("unrecognized SBOM format (need CycloneDX, SPDX, Syft or ScanCode.io JSON)")
 	}
 }
 

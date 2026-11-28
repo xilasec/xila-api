@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"strings"
@@ -146,12 +147,12 @@ func TestCycloneDXExportRoundTrips(t *testing.T) {
 
 	app := fiber.New()
 	sbom.NewHandler(repo, svc).Register(app)
-	res, err := app.Test(httptest.NewRequest("GET", "/sboms/"+snap.ID+"/export", nil), -1)
+	res, err := app.Test(httptest.NewRequest(http.MethodGet, "/sboms/"+snap.ID+"/export", nil), -1)
 	if err != nil {
 		t.Fatalf("export: %v", err)
 	}
 	body, _ := io.ReadAll(res.Body)
-	if res.StatusCode != 200 {
+	if res.StatusCode != http.StatusOK {
 		t.Fatalf("export = %d: %s", res.StatusCode, body)
 	}
 
@@ -221,7 +222,7 @@ func TestCycloneDXExportRoundTrips(t *testing.T) {
 	}
 
 	// Without vulnerabilities: a plain BOM.
-	res, _ = app.Test(httptest.NewRequest("GET", "/sboms/"+snap.ID+"/export?vulnerabilities=false", nil), -1)
+	res, _ = app.Test(httptest.NewRequest(http.MethodGet, "/sboms/"+snap.ID+"/export?vulnerabilities=false", nil), -1)
 	plain, _ := io.ReadAll(res.Body)
 	if strings.Contains(string(plain), `"vulnerabilities"`) {
 		t.Error("vulnerabilities=false still exported vulnerabilities")

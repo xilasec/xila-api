@@ -128,11 +128,11 @@ func (r *Repository) GetByEmail(ctx context.Context, email string) (User, error)
 
 // HasUsers reports whether the instance has any user yet (i.e. is past bootstrap).
 func (r *Repository) HasUsers(ctx context.Context) (bool, error) {
-	var any bool
-	if err := r.db.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM users)`).Scan(&any); err != nil {
+	var found bool
+	if err := r.db.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM users)`).Scan(&found); err != nil {
 		return false, fmt.Errorf("has users: %w", err)
 	}
-	return any, nil
+	return found, nil
 }
 
 // GetByID fetches a user by id.

@@ -65,7 +65,7 @@ func TestClaimPrefersLeastLoadedOrg(t *testing.T) {
 
 	orgA, aProjects := seedOrgWithProjects(t, pool, "o-fairA", 5)
 	for _, pid := range aProjects {
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			enqueueJob(t, repo, pid)
 		}
 	}
@@ -73,7 +73,7 @@ func TestClaimPrefersLeastLoadedOrg(t *testing.T) {
 	enqueueJob(t, repo, bProjects[0])
 
 	seenB := false
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		job, err := repo.ClaimJob(ctx, 5*time.Minute)
 		if err != nil || job == nil {
 			t.Fatalf("claim %d: job=%v err=%v", i, job, err)
@@ -118,16 +118,14 @@ func TestClaimEnforcesOneProcessingPerProject(t *testing.T) {
 	claimed := make(chan *scan.Job, concurrency)
 	errs := make(chan error, concurrency)
 	for range concurrency {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			job, err := repo.ClaimJob(ctx, 5*time.Minute)
 			if err != nil {
 				errs <- err
 				return
 			}
 			claimed <- job
-		}()
+		})
 	}
 	wg.Wait()
 	close(claimed)
