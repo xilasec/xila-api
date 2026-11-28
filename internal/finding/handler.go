@@ -90,8 +90,12 @@ func (h *Handler) Register(r fiber.Router) {
 	r.Delete("/findings/:findingID/duplicate-of", h.UnmarkDuplicate)
 	r.Get("/findings/:findingID/assessments", h.ListFindingAssessments)
 	r.Get("/assessments", h.ListAssessments)
+	r.Post("/assessments/approve", h.BulkApproveAssessments)
+	r.Post("/assessments/reject", h.BulkRejectAssessments)
 	r.Post("/assessments/:assessmentID/approve", h.ApproveAssessment)
 	r.Post("/assessments/:assessmentID/reject", h.RejectAssessment)
+	r.Get("/projects/:projectID/assessment-approvers", h.ListApprovers)
+	r.Put("/projects/:projectID/assessment-approvers", h.SetApprovers)
 	h.registerAcceptances(r)
 }
 
@@ -314,6 +318,11 @@ type updateStatusRequest struct {
 	Status    domain.FindingStatus `json:"status"`
 	Reason    string               `json:"reason"`
 	ExpiresAt *time.Time           `json:"expires_at"`
+	// VexJustification / VexResponse: the structured analysis accompanying a
+	// move to false_positive or wont_fix (M13 13.2); ignored for any other
+	// status.
+	VexJustification domain.VexJustification `json:"vex_justification"`
+	VexResponse      []domain.VexResponse    `json:"vex_response"`
 	// Title names the risk acceptance requested by status risk_accepted.
 	Title string `json:"title"`
 }
@@ -338,23 +347,35 @@ func (h *Handler) UpdateStatus(c *fiber.Ctx) error {
 	if !body.Status.Valid() {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid status")
 	}
+	if !body.VexJustification.Valid() {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid vex_justification")
+	}
+	if !domain.ValidVexResponses(body.VexResponse) {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid vex_response")
+	}
 	if body.Status == domain.FindingRiskAccepted {
 		return h.requestAcceptance(c, id, body)
 	}
 
-	if h.requireApproval {
-		cur, err := h.repo.Get(c.UserContext(), id)
-		if errors.Is(err, ErrNotFound) {
-			return fiber.NewError(fiber.StatusNotFound, "finding not found")
-		}
-		if err != nil {
-			return err
-		}
+	cur, err := h.repo.Get(c.UserContext(), id)
+	if errors.Is(err, ErrNotFound) {
+		return fiber.NewError(fiber.StatusNotFound, "finding not found")
+	}
+	if err != nil {
+		return err
+	}
+	required, err := h.approvalRequired(c.UserContext(), cur.ProjectID)
+	if err != nil {
+		return err
+	}
+	if required {
 		// Re-stating the current non-exception status changes nothing; anything
-		// else (a new status, or an exception's reason / expiry) is reviewed.
+		// else (a new status, or an exception's reason / expiry / analysis) is
+		// reviewed.
 		if cur.Status != body.Status || isExceptionStatus(body.Status) {
 			a, err := h.repo.RequestAssessment(c.UserContext(), id, Change{
 				Status: &body.Status, Reason: body.Reason, ExpiresAt: body.ExpiresAt,
+				VexJustification: body.VexJustification, VexResponse: body.VexResponse,
 			}, auth.UserID(c))
 			switch {
 			case errors.Is(err, ErrNotFound):
@@ -369,10 +390,12 @@ func (h *Handler) UpdateStatus(c *fiber.Ctx) error {
 	}
 
 	f, err := h.repo.SetStatusManual(c.UserContext(), id, Triage{
-		Status:    body.Status,
-		Reason:    body.Reason,
-		Actor:     auth.UserID(c),
-		ExpiresAt: body.ExpiresAt,
+		Status:           body.Status,
+		Reason:           body.Reason,
+		Actor:            auth.UserID(c),
+		ExpiresAt:        body.ExpiresAt,
+		VexJustification: body.VexJustification,
+		VexResponse:      body.VexResponse,
 	})
 	if errors.Is(err, ErrNotFound) {
 		return fiber.NewError(fiber.StatusNotFound, "finding not found")

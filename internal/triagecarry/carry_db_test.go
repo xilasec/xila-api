@@ -85,6 +85,8 @@ func TestCarryPropagatesAcrossBranchesAndReopens(t *testing.T) {
 
 	if _, err := findings.SetStatusManual(ctx, f1.ID, finding.Triage{
 		Status: domain.FindingFalsePositive, Reason: "not exploitable in our config", Actor: "alice",
+		VexJustification: domain.VexJustificationRequiresConfiguration,
+		VexResponse:      []domain.VexResponse{domain.VexResponseWorkaroundAvailable},
 	}); err != nil {
 		t.Fatalf("triage source: %v", err)
 	}
@@ -95,6 +97,12 @@ func TestCarryPropagatesAcrossBranchesAndReopens(t *testing.T) {
 	}
 	if got2.Status != domain.FindingFalsePositive || got2.ExceptionReason != "not exploitable in our config" {
 		t.Fatalf("target = %+v, want carried false_positive", got2)
+	}
+	// The analysis travels with the decision (13.2), so the other branch's
+	// not_affected is still a justified one.
+	if got2.VexJustification != domain.VexJustificationRequiresConfiguration ||
+		len(got2.VexResponse) != 1 || got2.VexResponse[0] != domain.VexResponseWorkaroundAvailable {
+		t.Errorf("target analysis = %q %v, want the source's", got2.VexJustification, got2.VexResponse)
 	}
 
 	events, err := findings.History(ctx, f2.ID)
@@ -137,6 +145,7 @@ func TestCarryAtIngestOnNewBranch(t *testing.T) {
 	f1 := seedFinding(t, findings, projectID, vMain, "fp-2")
 	if _, err := findings.SetStatusManual(ctx, f1.ID, finding.Triage{
 		Status: domain.FindingWontFix, Reason: "accepted via waiver", Actor: "alice",
+		VexResponse: []domain.VexResponse{domain.VexResponseCanNotFix},
 	}); err != nil {
 		t.Fatalf("triage source: %v", err)
 	}
@@ -167,6 +176,10 @@ func TestCarryAtIngestOnNewBranch(t *testing.T) {
 	got3, err := findings.Get(ctx, f3.ID)
 	if err != nil || got3.Status != domain.FindingWontFix || got3.ExceptionReason != "accepted via waiver" {
 		t.Fatalf("new-branch finding = %+v, err %v, want carried wont_fix", got3, err)
+	}
+	// Read back from the stored decision, the analysis survives too.
+	if len(got3.VexResponse) != 1 || got3.VexResponse[0] != domain.VexResponseCanNotFix {
+		t.Errorf("new-branch analysis = %v, want [can_not_fix]", got3.VexResponse)
 	}
 }
 

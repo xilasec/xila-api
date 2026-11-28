@@ -1994,6 +1994,27 @@ func (e PortfolioSource) Valid() bool {
 	}
 }
 
+// Defines values for ProjectAssessmentApproval.
+const (
+	ProjectAssessmentApprovalInherit  ProjectAssessmentApproval = "inherit"
+	ProjectAssessmentApprovalOff      ProjectAssessmentApproval = "off"
+	ProjectAssessmentApprovalRequired ProjectAssessmentApproval = "required"
+)
+
+// Valid indicates whether the value is a known member of the ProjectAssessmentApproval enum.
+func (e ProjectAssessmentApproval) Valid() bool {
+	switch e {
+	case ProjectAssessmentApprovalInherit:
+		return true
+	case ProjectAssessmentApprovalOff:
+		return true
+	case ProjectAssessmentApprovalRequired:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ProjectVersionKind.
 const (
 	Branch  ProjectVersionKind = "branch"
@@ -2816,6 +2837,75 @@ func (e VexDocumentScopeKind) Valid() bool {
 	case VexDocumentScopeKindVersions:
 		return true
 	case VexDocumentScopeKindVulnerability:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VexJustification.
+const (
+	VexJustificationCodeNotPresent               VexJustification = "code_not_present"
+	VexJustificationCodeNotReachable             VexJustification = "code_not_reachable"
+	VexJustificationEmpty                        VexJustification = ""
+	VexJustificationProtectedAtPerimeter         VexJustification = "protected_at_perimeter"
+	VexJustificationProtectedAtRuntime           VexJustification = "protected_at_runtime"
+	VexJustificationProtectedByCompiler          VexJustification = "protected_by_compiler"
+	VexJustificationProtectedByMitigatingControl VexJustification = "protected_by_mitigating_control"
+	VexJustificationRequiresConfiguration        VexJustification = "requires_configuration"
+	VexJustificationRequiresDependency           VexJustification = "requires_dependency"
+	VexJustificationRequiresEnvironment          VexJustification = "requires_environment"
+)
+
+// Valid indicates whether the value is a known member of the VexJustification enum.
+func (e VexJustification) Valid() bool {
+	switch e {
+	case VexJustificationCodeNotPresent:
+		return true
+	case VexJustificationCodeNotReachable:
+		return true
+	case VexJustificationEmpty:
+		return true
+	case VexJustificationProtectedAtPerimeter:
+		return true
+	case VexJustificationProtectedAtRuntime:
+		return true
+	case VexJustificationProtectedByCompiler:
+		return true
+	case VexJustificationProtectedByMitigatingControl:
+		return true
+	case VexJustificationRequiresConfiguration:
+		return true
+	case VexJustificationRequiresDependency:
+		return true
+	case VexJustificationRequiresEnvironment:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VexResponse.
+const (
+	CanNotFix           VexResponse = "can_not_fix"
+	Rollback            VexResponse = "rollback"
+	Update              VexResponse = "update"
+	WillNotFix          VexResponse = "will_not_fix"
+	WorkaroundAvailable VexResponse = "workaround_available"
+)
+
+// Valid indicates whether the value is a known member of the VexResponse enum.
+func (e VexResponse) Valid() bool {
+	switch e {
+	case CanNotFix:
+		return true
+	case Rollback:
+		return true
+	case Update:
+		return true
+	case WillNotFix:
+		return true
+	case WorkaroundAvailable:
 		return true
 	default:
 		return false
@@ -4325,6 +4415,27 @@ func (e ExportPermissionsParamsPrincipalKind) Valid() bool {
 	}
 }
 
+// Defines values for UpdateProjectJSONBodyAssessmentApproval.
+const (
+	UpdateProjectJSONBodyAssessmentApprovalInherit  UpdateProjectJSONBodyAssessmentApproval = "inherit"
+	UpdateProjectJSONBodyAssessmentApprovalOff      UpdateProjectJSONBodyAssessmentApproval = "off"
+	UpdateProjectJSONBodyAssessmentApprovalRequired UpdateProjectJSONBodyAssessmentApproval = "required"
+)
+
+// Valid indicates whether the value is a known member of the UpdateProjectJSONBodyAssessmentApproval enum.
+func (e UpdateProjectJSONBodyAssessmentApproval) Valid() bool {
+	switch e {
+	case UpdateProjectJSONBodyAssessmentApprovalInherit:
+		return true
+	case UpdateProjectJSONBodyAssessmentApprovalOff:
+		return true
+	case UpdateProjectJSONBodyAssessmentApprovalRequired:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetProjectAccessParamsRole.
 const (
 	GetProjectAccessParamsRoleAdmin    GetProjectAccessParamsRole = "admin"
@@ -5156,9 +5267,10 @@ type ArtifactTimeline struct {
 }
 
 // Assessment A manual status and/or severity change held for a second person's approval
-// (`ASSESSMENT_REQUIRES_APPROVAL=true`). At most one is `pending` per finding.
+// (the project's `assessment_approval`, `inherit` following
+// `ASSESSMENT_REQUIRES_APPROVAL`). At most one is `pending` per finding.
 type Assessment struct {
-	// CanDecide Whether the caller may approve or reject it (a project owner or instance admin who isn't the requester).
+	// CanDecide Whether the caller may approve or reject it: not the requester, and an instance admin, a designated approver of the project, or (with none designated) an owner.
 	CanDecide       *bool      `json:"can_decide,omitempty"`
 	CreatedAt       *time.Time `json:"created_at,omitempty"`
 	CurrentSeverity *Severity  `json:"current_severity,omitempty"`
@@ -5188,10 +5300,25 @@ type Assessment struct {
 
 	// Status The requested status, if any.
 	Status *FindingStatus `json:"status,omitempty"`
+
+	// VexJustification Why a false_positive (not_affected) verdict holds, in CycloneDX's
+	// vocabulary; "" when none was recorded. Exports restate it in each
+	// format's own terms (OpenVEX / CSAF translate it) and only for a
+	// not_affected verdict: a wont_fix one stays in the finding's history.
+	VexJustification *VexJustification `json:"vex_justification,omitempty"`
+	VexResponse      *[]VexResponse    `json:"vex_response,omitempty"`
 }
 
 // AssessmentState defines model for Assessment.State.
 type AssessmentState string
+
+// AssessmentApprover One designated approver, a user or a group (exactly one of the two).
+type AssessmentApprover struct {
+	Email     *string             `json:"email,omitempty"`
+	GroupId   *openapi_types.UUID `json:"group_id,omitempty"`
+	GroupName *string             `json:"group_name,omitempty"`
+	UserId    *openapi_types.UUID `json:"user_id,omitempty"`
+}
 
 // Asset defines model for Asset.
 type Asset struct {
@@ -6287,6 +6414,13 @@ type Finding struct {
 
 	// VersionId The branch / release this finding lives on.
 	VersionId *openapi_types.UUID `json:"version_id,omitempty"`
+
+	// VexJustification Why a false_positive (not_affected) verdict holds, in CycloneDX's
+	// vocabulary; "" when none was recorded. Exports restate it in each
+	// format's own terms (OpenVEX / CSAF translate it) and only for a
+	// not_affected verdict: a wont_fix one stays in the finding's history.
+	VexJustification *VexJustification `json:"vex_justification,omitempty"`
+	VexResponse      *[]VexResponse    `json:"vex_response,omitempty"`
 }
 
 // FindingAssetExposure The exposure of the finding's asset (null = unknown or no asset).
@@ -7406,6 +7540,9 @@ type Project struct {
 	ArchivedAt *time.Time          `json:"archived_at,omitempty"`
 	ArchivedBy *openapi_types.UUID `json:"archived_by,omitempty"`
 
+	// AssessmentApproval Whether manual status / severity changes need a second person's approval; inherit follows ASSESSMENT_REQUIRES_APPROVAL.
+	AssessmentApproval *ProjectAssessmentApproval `json:"assessment_approval,omitempty"`
+
 	// BusinessCriticality Business importance. Multiplies the project's risk score in the portfolio rollup.
 	BusinessCriticality *Criticality `json:"business_criticality,omitempty"`
 	CreatedAt           *time.Time   `json:"created_at,omitempty"`
@@ -7427,6 +7564,9 @@ type Project struct {
 	TeamId    *openapi_types.UUID `json:"team_id,omitempty"`
 	UpdatedAt *time.Time          `json:"updated_at,omitempty"`
 }
+
+// ProjectAssessmentApproval Whether manual status / severity changes need a second person's approval; inherit follows ASSESSMENT_REQUIRES_APPROVAL.
+type ProjectAssessmentApproval string
 
 // ProjectSummary defines model for ProjectSummary.
 type ProjectSummary struct {
@@ -8593,6 +8733,10 @@ type TriageRule struct {
 
 	// UpdatedBy Last editor.
 	UpdatedBy *openapi_types.UUID `json:"updated_by,omitempty"`
+
+	// VexJustification Set with a false_positive / wont_fix action; cleared for any other.
+	VexJustification *VexJustification `json:"vex_justification,omitempty"`
+	VexResponse      *[]VexResponse    `json:"vex_response,omitempty"`
 }
 
 // TriageRuleAction defines model for TriageRule.Action.
@@ -8727,6 +8871,15 @@ type VexDocumentTarget struct {
 	VersionId *openapi_types.UUID `json:"version_id,omitempty"`
 }
 
+// VexJustification Why a false_positive (not_affected) verdict holds, in CycloneDX's
+// vocabulary; "" when none was recorded. Exports restate it in each
+// format's own terms (OpenVEX / CSAF translate it) and only for a
+// not_affected verdict: a wont_fix one stays in the finding's history.
+type VexJustification string
+
+// VexResponse What is being done about the finding (CycloneDX analysis response).
+type VexResponse string
+
 // VexStatement defines model for VexStatement.
 type VexStatement struct {
 	CreatedAt *time.Time          `json:"created_at,omitempty"`
@@ -8739,8 +8892,11 @@ type VexStatement struct {
 	// Product A PURL or package name. Empty means every product in the project.
 	Product   *string             `json:"product,omitempty"`
 	ProjectId *openapi_types.UUID `json:"project_id,omitempty"`
-	Source    *VexStatementSource `json:"source,omitempty"`
-	Status    *VexStatementStatus `json:"status,omitempty"`
+
+	// Response The CycloneDX analysis response codes an imported document carried; empty for OpenVEX and CSAF.
+	Response *[]string           `json:"response,omitempty"`
+	Source   *VexStatementSource `json:"source,omitempty"`
+	Status   *VexStatementStatus `json:"status,omitempty"`
 
 	// VulnId The advisory as it names itself: `CVE-…`, `GHSA-…`.
 	VulnId *string `json:"vuln_id,omitempty"`
@@ -9259,7 +9415,7 @@ type ListAssessmentsParams struct {
 	State     *ListAssessmentsParamsState `form:"state,omitempty" json:"state,omitempty"`
 	ProjectId *openapi_types.UUID         `form:"project_id,omitempty" json:"project_id,omitempty"`
 
-	// Actionable Only what you may decide - pending assessments of projects you own that someone else requested.
+	// Actionable Only what you may decide (see `can_decide`) and someone else requested.
 	Actionable *bool `form:"actionable,omitempty" json:"actionable,omitempty"`
 
 	// Limit Page size (max 200).
@@ -9269,6 +9425,25 @@ type ListAssessmentsParams struct {
 
 // ListAssessmentsParamsState defines parameters for ListAssessments.
 type ListAssessmentsParamsState string
+
+// ApproveAssessmentsJSONBody defines parameters for ApproveAssessments.
+type ApproveAssessmentsJSONBody struct {
+	Ids  []openapi_types.UUID `json:"ids"`
+	Note *string              `json:"note,omitempty"`
+
+	// VexJustification Why a false_positive (not_affected) verdict holds, in CycloneDX's
+	// vocabulary; "" when none was recorded. Exports restate it in each
+	// format's own terms (OpenVEX / CSAF translate it) and only for a
+	// not_affected verdict: a wont_fix one stays in the finding's history.
+	VexJustification *VexJustification `json:"vex_justification,omitempty"`
+	VexResponse      *[]VexResponse    `json:"vex_response,omitempty"`
+}
+
+// RejectAssessmentsJSONBody defines parameters for RejectAssessments.
+type RejectAssessmentsJSONBody struct {
+	Ids  []openapi_types.UUID `json:"ids"`
+	Note *string              `json:"note,omitempty"`
+}
 
 // ApproveAssessmentJSONBody defines parameters for ApproveAssessment.
 type ApproveAssessmentJSONBody struct {
@@ -9833,6 +10008,13 @@ type BulkUpdateFindingsJSONBody struct {
 	// Status `remediated` is set by the system when a scanner stops reporting a finding —
 	// don't set it by hand. The triage states are sticky: they survive re-scans.
 	Status *FindingStatus `json:"status,omitempty"`
+
+	// VexJustification Why a false_positive (not_affected) verdict holds, in CycloneDX's
+	// vocabulary; "" when none was recorded. Exports restate it in each
+	// format's own terms (OpenVEX / CSAF translate it) and only for a
+	// not_affected verdict: a wont_fix one stays in the finding's history.
+	VexJustification *VexJustification `json:"vex_justification,omitempty"`
+	VexResponse      *[]VexResponse    `json:"vex_response,omitempty"`
 }
 
 // GetFindingsExpiringParams defines parameters for GetFindingsExpiring.
@@ -9931,6 +10113,13 @@ type UpdateFindingJSONBody struct {
 	// Status `remediated` is set by the system when a scanner stops reporting a finding —
 	// don't set it by hand. The triage states are sticky: they survive re-scans.
 	Status FindingStatus `json:"status"`
+
+	// VexJustification Why a false_positive (not_affected) verdict holds, in CycloneDX's
+	// vocabulary; "" when none was recorded. Exports restate it in each
+	// format's own terms (OpenVEX / CSAF translate it) and only for a
+	// not_affected verdict: a wont_fix one stays in the finding's history.
+	VexJustification *VexJustification `json:"vex_justification,omitempty"`
+	VexResponse      *[]VexResponse    `json:"vex_response,omitempty"`
 }
 
 // CreateFindingAiProposalJSONBody defines parameters for CreateFindingAiProposal.
@@ -10348,7 +10537,8 @@ type DeleteProjectParams struct {
 // UpdateProjectJSONBody defines parameters for UpdateProject.
 type UpdateProjectJSONBody struct {
 	// AiTriageOptOut Keep this project's findings away from the AI triage model (nothing is ever sent).
-	AiTriageOptOut *bool `json:"ai_triage_opt_out,omitempty"`
+	AiTriageOptOut     *bool                                    `json:"ai_triage_opt_out,omitempty"`
+	AssessmentApproval *UpdateProjectJSONBodyAssessmentApproval `json:"assessment_approval,omitempty"`
 
 	// BusinessCriticality Business importance. Multiplies the project's risk score in the portfolio rollup.
 	BusinessCriticality *Criticality        `json:"business_criticality,omitempty"`
@@ -10357,6 +10547,9 @@ type UpdateProjectJSONBody struct {
 	ParentId            *openapi_types.UUID `json:"parent_id,omitempty"`
 	RepoUrl             *string             `json:"repo_url,omitempty"`
 }
+
+// UpdateProjectJSONBodyAssessmentApproval defines parameters for UpdateProject.
+type UpdateProjectJSONBodyAssessmentApproval string
 
 // GetProjectAccessParams defines parameters for GetProjectAccess.
 type GetProjectAccessParams struct {
@@ -10383,6 +10576,12 @@ type GetProjectAccessParamsSource string
 
 // GetProjectAccessParamsPrincipalKind defines parameters for GetProjectAccess.
 type GetProjectAccessParamsPrincipalKind string
+
+// SetAssessmentApproversJSONBody defines parameters for SetAssessmentApprovers.
+type SetAssessmentApproversJSONBody struct {
+	GroupIds *[]openapi_types.UUID `json:"group_ids,omitempty"`
+	UserIds  *[]openapi_types.UUID `json:"user_ids,omitempty"`
+}
 
 // ListProjectAssetsParams defines parameters for ListProjectAssets.
 type ListProjectAssetsParams struct {
@@ -11402,6 +11601,12 @@ type ImportAdvisoriesJSONRequestBody ImportAdvisoriesJSONBody
 // PutAdvisoryJSONRequestBody defines body for PutAdvisory for application/json ContentType.
 type PutAdvisoryJSONRequestBody = AdvisoryInput
 
+// ApproveAssessmentsJSONRequestBody defines body for ApproveAssessments for application/json ContentType.
+type ApproveAssessmentsJSONRequestBody ApproveAssessmentsJSONBody
+
+// RejectAssessmentsJSONRequestBody defines body for RejectAssessments for application/json ContentType.
+type RejectAssessmentsJSONRequestBody RejectAssessmentsJSONBody
+
 // ApproveAssessmentJSONRequestBody defines body for ApproveAssessment for application/json ContentType.
 type ApproveAssessmentJSONRequestBody ApproveAssessmentJSONBody
 
@@ -11623,6 +11828,9 @@ type PutPolicyJSONRequestBody = Policy
 
 // UpdateProjectJSONRequestBody defines body for UpdateProject for application/json ContentType.
 type UpdateProjectJSONRequestBody UpdateProjectJSONBody
+
+// SetAssessmentApproversJSONRequestBody defines body for SetAssessmentApprovers for application/json ContentType.
+type SetAssessmentApproversJSONRequestBody SetAssessmentApproversJSONBody
 
 // CreateProjectAssetJSONRequestBody defines body for CreateProjectAsset for application/json ContentType.
 type CreateProjectAssetJSONRequestBody CreateProjectAssetJSONBody
@@ -12083,18 +12291,65 @@ type ClientInterface interface {
 
 	// ListAssessments The manual-assessment review queue
 	//
-	// Assessments across every project you can see, newest first. With
-	// `ASSESSMENT_REQUIRES_APPROVAL=true`, status / severity changes made through
+	// Assessments across every project you can see, newest first. Where a
+	// project requires approval (its `assessment_approval`, `inherit` following
+	// `ASSESSMENT_REQUIRES_APPROVAL`), status / severity changes made through
 	// `PATCH /findings/{findingID}` and `POST /findings/bulk` land here as
 	// `pending` until approved.
 	//
 	// Corresponds with GET /assessments (the `ListAssessments` operationId).
 	ListAssessments(ctx context.Context, params *ListAssessmentsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ApproveAssessmentsWithBody Approve many pending assessments
+	//
+	// Each id is authorized like `POST /assessments/{assessmentID}/approve`;
+	// one the caller may not decide is listed in `failed` and left as it is
+	// (one in a project they can't see as "assessment not found"). With
+	// `vex_justification` / `vex_response`, every approved assessment applies
+	// that analysis instead of its own ("approve with edits").
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /assessments/approve (the `ApproveAssessments` operationId).
+	ApproveAssessmentsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ApproveAssessments Approve many pending assessments
+	//
+	// Each id is authorized like `POST /assessments/{assessmentID}/approve`;
+	// one the caller may not decide is listed in `failed` and left as it is
+	// (one in a project they can't see as "assessment not found"). With
+	// `vex_justification` / `vex_response`, every approved assessment applies
+	// that analysis instead of its own ("approve with edits").
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /assessments/approve (the `ApproveAssessments` operationId).
+	ApproveAssessments(ctx context.Context, body ApproveAssessmentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RejectAssessmentsWithBody Reject many pending assessments
+	//
+	// Same authorization and `failed` reporting as bulk approve; every finding stays as it is.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /assessments/reject (the `RejectAssessments` operationId).
+	RejectAssessmentsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RejectAssessments Reject many pending assessments
+	//
+	// Same authorization and `failed` reporting as bulk approve; every finding stays as it is.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /assessments/reject (the `RejectAssessments` operationId).
+	RejectAssessments(ctx context.Context, body RejectAssessmentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ApproveAssessmentWithBody Approve a pending assessment
 	//
-	// Needs `owner` on the finding's project (or instance admin), and four-eyes:
-	// the requester can't approve their own (403). Applies the requested status /
+	// Needs one of the project's designated approvers who can still see it
+	// (any role), or, with none designated, `owner` (or instance admin); a
+	// custom role denying `triage` refuses it. Four-eyes: the requester can't
+	// approve their own (403). Applies the requested status /
 	// severity exactly as a direct change would (resolved_at, exception audit row,
 	// dedup regroup), attributed in the history to the requester with their
 	// reason; the approval is recorded as an `assessment` event by the approver.
@@ -12108,8 +12363,10 @@ type ClientInterface interface {
 
 	// ApproveAssessment Approve a pending assessment
 	//
-	// Needs `owner` on the finding's project (or instance admin), and four-eyes:
-	// the requester can't approve their own (403). Applies the requested status /
+	// Needs one of the project's designated approvers who can still see it
+	// (any role), or, with none designated, `owner` (or instance admin); a
+	// custom role denying `triage` refuses it. Four-eyes: the requester can't
+	// approve their own (403). Applies the requested status /
 	// severity exactly as a direct change would (resolved_at, exception audit row,
 	// dedup regroup), attributed in the history to the requester with their
 	// reason; the approval is recorded as an `assessment` event by the approver.
@@ -14856,6 +15113,43 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /projects/{projectID}/access (the `GetProjectAccess` operationId).
 	GetProjectAccess(ctx context.Context, projectID ProjectID, params *GetProjectAccessParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListAssessmentApprovers Who decides this project's assessments
+	//
+	// The designated approvers as stored (users and groups); empty means any owner decides.
+	//
+	// Corresponds with GET /projects/{projectID}/assessment-approvers (the `ListAssessmentApprovers` operationId).
+	ListAssessmentApprovers(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetAssessmentApproversWithBody Designate who decides this project's assessments
+	//
+	// Replaces the designated approvers with exactly these users and groups;
+	// both empty restores "any owner decides". While any are designated,
+	// only they decide (owners included only if designated). Every user
+	// must have access to the project and every group must belong to its
+	// organization (400 names the rest); a group's members decide only
+	// while they can see the project themselves. Project owner, and a custom
+	// role must not deny `manage_members`.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /projects/{projectID}/assessment-approvers (the `SetAssessmentApprovers` operationId).
+	SetAssessmentApproversWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetAssessmentApprovers Designate who decides this project's assessments
+	//
+	// Replaces the designated approvers with exactly these users and groups;
+	// both empty restores "any owner decides". While any are designated,
+	// only they decide (owners included only if designated). Every user
+	// must have access to the project and every group must belong to its
+	// organization (400 names the rest); a group's members decide only
+	// while they can see the project themselves. Project owner, and a custom
+	// role must not deny `manage_members`.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /projects/{projectID}/assessment-approvers (the `SetAssessmentApprovers` operationId).
+	SetAssessmentApprovers(ctx context.Context, projectID ProjectID, body SetAssessmentApproversJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListProjectAssets A project's assets
 	//
@@ -18052,8 +18346,9 @@ func (c *Client) ListAiProposals(ctx context.Context, params *ListAiProposalsPar
 
 // ListAssessments The manual-assessment review queue
 //
-// Assessments across every project you can see, newest first. With
-// `ASSESSMENT_REQUIRES_APPROVAL=true`, status / severity changes made through
+// Assessments across every project you can see, newest first. Where a
+// project requires approval (its `assessment_approval`, `inherit` following
+// `ASSESSMENT_REQUIRES_APPROVAL`), status / severity changes made through
 // `PATCH /findings/{findingID}` and `POST /findings/bulk` land here as
 // `pending` until approved.
 //
@@ -18070,10 +18365,96 @@ func (c *Client) ListAssessments(ctx context.Context, params *ListAssessmentsPar
 	return c.Client.Do(req)
 }
 
+// ApproveAssessmentsWithBody Approve many pending assessments
+//
+// Each id is authorized like `POST /assessments/{assessmentID}/approve`;
+// one the caller may not decide is listed in `failed` and left as it is
+// (one in a project they can't see as "assessment not found"). With
+// `vex_justification` / `vex_response`, every approved assessment applies
+// that analysis instead of its own ("approve with edits").
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /assessments/approve (the `ApproveAssessments` operationId).
+func (c *Client) ApproveAssessmentsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewApproveAssessmentsRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ApproveAssessments Approve many pending assessments
+//
+// Each id is authorized like `POST /assessments/{assessmentID}/approve`;
+// one the caller may not decide is listed in `failed` and left as it is
+// (one in a project they can't see as "assessment not found"). With
+// `vex_justification` / `vex_response`, every approved assessment applies
+// that analysis instead of its own ("approve with edits").
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /assessments/approve (the `ApproveAssessments` operationId).
+func (c *Client) ApproveAssessments(ctx context.Context, body ApproveAssessmentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewApproveAssessmentsRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RejectAssessmentsWithBody Reject many pending assessments
+//
+// Same authorization and `failed` reporting as bulk approve; every finding stays as it is.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /assessments/reject (the `RejectAssessments` operationId).
+func (c *Client) RejectAssessmentsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRejectAssessmentsRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RejectAssessments Reject many pending assessments
+//
+// Same authorization and `failed` reporting as bulk approve; every finding stays as it is.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /assessments/reject (the `RejectAssessments` operationId).
+func (c *Client) RejectAssessments(ctx context.Context, body RejectAssessmentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRejectAssessmentsRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ApproveAssessmentWithBody Approve a pending assessment
 //
-// Needs `owner` on the finding's project (or instance admin), and four-eyes:
-// the requester can't approve their own (403). Applies the requested status /
+// Needs one of the project's designated approvers who can still see it
+// (any role), or, with none designated, `owner` (or instance admin); a
+// custom role denying `triage` refuses it. Four-eyes: the requester can't
+// approve their own (403). Applies the requested status /
 // severity exactly as a direct change would (resolved_at, exception audit row,
 // dedup regroup), attributed in the history to the requester with their
 // reason; the approval is recorded as an `assessment` event by the approver.
@@ -18097,8 +18478,10 @@ func (c *Client) ApproveAssessmentWithBody(ctx context.Context, assessmentID ope
 
 // ApproveAssessment Approve a pending assessment
 //
-// Needs `owner` on the finding's project (or instance admin), and four-eyes:
-// the requester can't approve their own (403). Applies the requested status /
+// Needs one of the project's designated approvers who can still see it
+// (any role), or, with none designated, `owner` (or instance admin); a
+// custom role denying `triage` refuses it. Four-eyes: the requester can't
+// approve their own (403). Applies the requested status /
 // severity exactly as a direct change would (resolved_at, exception audit row,
 // dedup regroup), attributed in the history to the requester with their
 // reason; the approval is recorded as an `assessment` event by the approver.
@@ -23686,6 +24069,73 @@ func (c *Client) UpdateProject(ctx context.Context, projectID ProjectID, body Up
 // Corresponds with GET /projects/{projectID}/access (the `GetProjectAccess` operationId).
 func (c *Client) GetProjectAccess(ctx context.Context, projectID ProjectID, params *GetProjectAccessParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetProjectAccessRequest(c.Server, projectID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListAssessmentApprovers Who decides this project's assessments
+//
+// The designated approvers as stored (users and groups); empty means any owner decides.
+//
+// Corresponds with GET /projects/{projectID}/assessment-approvers (the `ListAssessmentApprovers` operationId).
+func (c *Client) ListAssessmentApprovers(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAssessmentApproversRequest(c.Server, projectID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetAssessmentApproversWithBody Designate who decides this project's assessments
+//
+// Replaces the designated approvers with exactly these users and groups;
+// both empty restores "any owner decides". While any are designated,
+// only they decide (owners included only if designated). Every user
+// must have access to the project and every group must belong to its
+// organization (400 names the rest); a group's members decide only
+// while they can see the project themselves. Project owner, and a custom
+// role must not deny `manage_members`.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /projects/{projectID}/assessment-approvers (the `SetAssessmentApprovers` operationId).
+func (c *Client) SetAssessmentApproversWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetAssessmentApproversRequestWithBody(c.Server, projectID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetAssessmentApprovers Designate who decides this project's assessments
+//
+// Replaces the designated approvers with exactly these users and groups;
+// both empty restores "any owner decides". While any are designated,
+// only they decide (owners included only if designated). Every user
+// must have access to the project and every group must belong to its
+// organization (400 names the rest); a group's members decide only
+// while they can see the project themselves. Project owner, and a custom
+// role must not deny `manage_members`.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /projects/{projectID}/assessment-approvers (the `SetAssessmentApprovers` operationId).
+func (c *Client) SetAssessmentApprovers(ctx context.Context, projectID ProjectID, body SetAssessmentApproversJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetAssessmentApproversRequest(c.Server, projectID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -30304,6 +30754,86 @@ func NewListAssessmentsRequest(server string, params *ListAssessmentsParams) (*h
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewApproveAssessmentsRequest calls the generic ApproveAssessments builder with application/json body
+func NewApproveAssessmentsRequest(server string, body ApproveAssessmentsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewApproveAssessmentsRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewApproveAssessmentsRequestWithBody constructs an http.Request for the ApproveAssessments method, with any body, and a specified content type
+func NewApproveAssessmentsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/assessments/approve")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewRejectAssessmentsRequest calls the generic RejectAssessments builder with application/json body
+func NewRejectAssessmentsRequest(server string, body RejectAssessmentsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRejectAssessmentsRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewRejectAssessmentsRequestWithBody constructs an http.Request for the RejectAssessments method, with any body, and a specified content type
+func NewRejectAssessmentsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/assessments/reject")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -40925,6 +41455,87 @@ func NewGetProjectAccessRequest(server string, projectID ProjectID, params *GetP
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewListAssessmentApproversRequest constructs an http.Request for the ListAssessmentApprovers method
+func NewListAssessmentApproversRequest(server string, projectID ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/assessment-approvers", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSetAssessmentApproversRequest calls the generic SetAssessmentApprovers builder with application/json body
+func NewSetAssessmentApproversRequest(server string, projectID ProjectID, body SetAssessmentApproversJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetAssessmentApproversRequestWithBody(server, projectID, "application/json", bodyReader)
+}
+
+// NewSetAssessmentApproversRequestWithBody constructs an http.Request for the SetAssessmentApprovers method, with any body, and a specified content type
+func NewSetAssessmentApproversRequestWithBody(server string, projectID ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/assessment-approvers", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -53031,8 +53642,9 @@ type ClientWithResponsesInterface interface {
 
 	// ListAssessmentsWithResponse The manual-assessment review queue
 	//
-	// Assessments across every project you can see, newest first. With
-	// `ASSESSMENT_REQUIRES_APPROVAL=true`, status / severity changes made through
+	// Assessments across every project you can see, newest first. Where a
+	// project requires approval (its `assessment_approval`, `inherit` following
+	// `ASSESSMENT_REQUIRES_APPROVAL`), status / severity changes made through
 	// `PATCH /findings/{findingID}` and `POST /findings/bulk` land here as
 	// `pending` until approved.
 	//
@@ -53041,10 +53653,56 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /assessments (the `ListAssessments` operationId).
 	ListAssessmentsWithResponse(ctx context.Context, params *ListAssessmentsParams, reqEditors ...RequestEditorFn) (*ListAssessmentsResponse, error)
 
+	// ApproveAssessmentsWithBodyWithResponse Approve many pending assessments
+	//
+	// Each id is authorized like `POST /assessments/{assessmentID}/approve`;
+	// one the caller may not decide is listed in `failed` and left as it is
+	// (one in a project they can't see as "assessment not found"). With
+	// `vex_justification` / `vex_response`, every approved assessment applies
+	// that analysis instead of its own ("approve with edits").
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /assessments/approve (the `ApproveAssessments` operationId).
+	ApproveAssessmentsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApproveAssessmentsResponse, error)
+
+	// ApproveAssessmentsWithResponse Approve many pending assessments
+	//
+	// Each id is authorized like `POST /assessments/{assessmentID}/approve`;
+	// one the caller may not decide is listed in `failed` and left as it is
+	// (one in a project they can't see as "assessment not found"). With
+	// `vex_justification` / `vex_response`, every approved assessment applies
+	// that analysis instead of its own ("approve with edits").
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /assessments/approve (the `ApproveAssessments` operationId).
+	ApproveAssessmentsWithResponse(ctx context.Context, body ApproveAssessmentsJSONRequestBody, reqEditors ...RequestEditorFn) (*ApproveAssessmentsResponse, error)
+
+	// RejectAssessmentsWithBodyWithResponse Reject many pending assessments
+	//
+	// Same authorization and `failed` reporting as bulk approve; every finding stays as it is.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /assessments/reject (the `RejectAssessments` operationId).
+	RejectAssessmentsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RejectAssessmentsResponse, error)
+
+	// RejectAssessmentsWithResponse Reject many pending assessments
+	//
+	// Same authorization and `failed` reporting as bulk approve; every finding stays as it is.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /assessments/reject (the `RejectAssessments` operationId).
+	RejectAssessmentsWithResponse(ctx context.Context, body RejectAssessmentsJSONRequestBody, reqEditors ...RequestEditorFn) (*RejectAssessmentsResponse, error)
+
 	// ApproveAssessmentWithBodyWithResponse Approve a pending assessment
 	//
-	// Needs `owner` on the finding's project (or instance admin), and four-eyes:
-	// the requester can't approve their own (403). Applies the requested status /
+	// Needs one of the project's designated approvers who can still see it
+	// (any role), or, with none designated, `owner` (or instance admin); a
+	// custom role denying `triage` refuses it. Four-eyes: the requester can't
+	// approve their own (403). Applies the requested status /
 	// severity exactly as a direct change would (resolved_at, exception audit row,
 	// dedup regroup), attributed in the history to the requester with their
 	// reason; the approval is recorded as an `assessment` event by the approver.
@@ -53058,8 +53716,10 @@ type ClientWithResponsesInterface interface {
 
 	// ApproveAssessmentWithResponse Approve a pending assessment
 	//
-	// Needs `owner` on the finding's project (or instance admin), and four-eyes:
-	// the requester can't approve their own (403). Applies the requested status /
+	// Needs one of the project's designated approvers who can still see it
+	// (any role), or, with none designated, `owner` (or instance admin); a
+	// custom role denying `triage` refuses it. Four-eyes: the requester can't
+	// approve their own (403). Applies the requested status /
 	// severity exactly as a direct change would (resolved_at, exception audit row,
 	// dedup regroup), attributed in the history to the requester with their
 	// reason; the approval is recorded as an `assessment` event by the approver.
@@ -56084,6 +56744,45 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /projects/{projectID}/access (the `GetProjectAccess` operationId).
 	GetProjectAccessWithResponse(ctx context.Context, projectID ProjectID, params *GetProjectAccessParams, reqEditors ...RequestEditorFn) (*GetProjectAccessResponse, error)
+
+	// ListAssessmentApproversWithResponse Who decides this project's assessments
+	//
+	// The designated approvers as stored (users and groups); empty means any owner decides.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /projects/{projectID}/assessment-approvers (the `ListAssessmentApprovers` operationId).
+	ListAssessmentApproversWithResponse(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*ListAssessmentApproversResponse, error)
+
+	// SetAssessmentApproversWithBodyWithResponse Designate who decides this project's assessments
+	//
+	// Replaces the designated approvers with exactly these users and groups;
+	// both empty restores "any owner decides". While any are designated,
+	// only they decide (owners included only if designated). Every user
+	// must have access to the project and every group must belong to its
+	// organization (400 names the rest); a group's members decide only
+	// while they can see the project themselves. Project owner, and a custom
+	// role must not deny `manage_members`.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /projects/{projectID}/assessment-approvers (the `SetAssessmentApprovers` operationId).
+	SetAssessmentApproversWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetAssessmentApproversResponse, error)
+
+	// SetAssessmentApproversWithResponse Designate who decides this project's assessments
+	//
+	// Replaces the designated approvers with exactly these users and groups;
+	// both empty restores "any owner decides". While any are designated,
+	// only they decide (owners included only if designated). Every user
+	// must have access to the project and every group must belong to its
+	// organization (400 names the rest); a group's members decide only
+	// while they can see the project themselves. Project owner, and a custom
+	// role must not deny `manage_members`.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /projects/{projectID}/assessment-approvers (the `SetAssessmentApprovers` operationId).
+	SetAssessmentApproversWithResponse(ctx context.Context, projectID ProjectID, body SetAssessmentApproversJSONRequestBody, reqEditors ...RequestEditorFn) (*SetAssessmentApproversResponse, error)
 
 	// ListProjectAssetsWithResponse A project's assets
 	//
@@ -60002,13 +60701,134 @@ func (r ListAssessmentsResponse) ContentType() string {
 	return ""
 }
 
+type ApproveAssessmentsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Approved *[]Assessment `json:"approved,omitempty"`
+		Failed   *[]struct {
+			Error *string `json:"error,omitempty"`
+			Id    *string `json:"id,omitempty"`
+		} `json:"failed,omitempty"`
+	}
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ApproveAssessmentsResponse) GetJSON200() *struct {
+	Approved *[]Assessment `json:"approved,omitempty"`
+	Failed   *[]struct {
+		Error *string `json:"error,omitempty"`
+		Id    *string `json:"id,omitempty"`
+	} `json:"failed,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r ApproveAssessmentsResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetBody returns the raw response body bytes
+func (r ApproveAssessmentsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ApproveAssessmentsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ApproveAssessmentsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ApproveAssessmentsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RejectAssessmentsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Failed *[]struct {
+			Error *string `json:"error,omitempty"`
+			Id    *string `json:"id,omitempty"`
+		} `json:"failed,omitempty"`
+		Rejected *[]Assessment `json:"rejected,omitempty"`
+	}
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RejectAssessmentsResponse) GetJSON200() *struct {
+	Failed *[]struct {
+		Error *string `json:"error,omitempty"`
+		Id    *string `json:"id,omitempty"`
+	} `json:"failed,omitempty"`
+	Rejected *[]Assessment `json:"rejected,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r RejectAssessmentsResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetBody returns the raw response body bytes
+func (r RejectAssessmentsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RejectAssessmentsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RejectAssessmentsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RejectAssessmentsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ApproveAssessmentResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	// JSON200 the response for an HTTP 200 `application/json` response
 	JSON200 *struct {
 		// Assessment A manual status and/or severity change held for a second person's approval
-		// (`ASSESSMENT_REQUIRES_APPROVAL=true`). At most one is `pending` per finding.
+		// (the project's `assessment_approval`, `inherit` following
+		// `ASSESSMENT_REQUIRES_APPROVAL`). At most one is `pending` per finding.
 		Assessment *Assessment `json:"assessment,omitempty"`
 
 		// Finding A persistent vulnerability, unique per (project version, fingerprint). It
@@ -60030,7 +60850,8 @@ type ApproveAssessmentResponse struct {
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
 func (r ApproveAssessmentResponse) GetJSON200() *struct {
 	// Assessment A manual status and/or severity change held for a second person's approval
-	// (`ASSESSMENT_REQUIRES_APPROVAL=true`). At most one is `pending` per finding.
+	// (the project's `assessment_approval`, `inherit` following
+	// `ASSESSMENT_REQUIRES_APPROVAL`). At most one is `pending` per finding.
 	Assessment *Assessment `json:"assessment,omitempty"`
 
 	// Finding A persistent vulnerability, unique per (project version, fingerprint). It
@@ -65535,7 +66356,8 @@ type AcceptFindingAiProposalResponse struct {
 	// JSON200 the response for an HTTP 200 `application/json` response
 	JSON200 *struct {
 		// Assessment A manual status and/or severity change held for a second person's approval
-		// (`ASSESSMENT_REQUIRES_APPROVAL=true`). At most one is `pending` per finding.
+		// (the project's `assessment_approval`, `inherit` following
+		// `ASSESSMENT_REQUIRES_APPROVAL`). At most one is `pending` per finding.
 		Assessment *Assessment `json:"assessment,omitempty"`
 
 		// Finding A persistent vulnerability, unique per (project version, fingerprint). It
@@ -65554,7 +66376,8 @@ type AcceptFindingAiProposalResponse struct {
 	// JSON202 the response for an HTTP 202 `application/json` response
 	JSON202 *struct {
 		// Assessment A manual status and/or severity change held for a second person's approval
-		// (`ASSESSMENT_REQUIRES_APPROVAL=true`). At most one is `pending` per finding.
+		// (the project's `assessment_approval`, `inherit` following
+		// `ASSESSMENT_REQUIRES_APPROVAL`). At most one is `pending` per finding.
 		Assessment *Assessment `json:"assessment,omitempty"`
 
 		// Finding A persistent vulnerability, unique per (project version, fingerprint). It
@@ -65577,7 +66400,8 @@ type AcceptFindingAiProposalResponse struct {
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
 func (r AcceptFindingAiProposalResponse) GetJSON200() *struct {
 	// Assessment A manual status and/or severity change held for a second person's approval
-	// (`ASSESSMENT_REQUIRES_APPROVAL=true`). At most one is `pending` per finding.
+	// (the project's `assessment_approval`, `inherit` following
+	// `ASSESSMENT_REQUIRES_APPROVAL`). At most one is `pending` per finding.
 	Assessment *Assessment `json:"assessment,omitempty"`
 
 	// Finding A persistent vulnerability, unique per (project version, fingerprint). It
@@ -65599,7 +66423,8 @@ func (r AcceptFindingAiProposalResponse) GetJSON200() *struct {
 // GetJSON202 returns the response for an HTTP 202 `application/json` response
 func (r AcceptFindingAiProposalResponse) GetJSON202() *struct {
 	// Assessment A manual status and/or severity change held for a second person's approval
-	// (`ASSESSMENT_REQUIRES_APPROVAL=true`). At most one is `pending` per finding.
+	// (the project's `assessment_approval`, `inherit` following
+	// `ASSESSMENT_REQUIRES_APPROVAL`). At most one is `pending` per finding.
 	Assessment *Assessment `json:"assessment,omitempty"`
 
 	// Finding A persistent vulnerability, unique per (project version, fingerprint). It
@@ -71310,6 +72135,110 @@ func (r GetProjectAccessResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetProjectAccessResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListAssessmentApproversResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Approvers *[]AssessmentApprover `json:"approvers,omitempty"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListAssessmentApproversResponse) GetJSON200() *struct {
+	Approvers *[]AssessmentApprover `json:"approvers,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ListAssessmentApproversResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListAssessmentApproversResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListAssessmentApproversResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListAssessmentApproversResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SetAssessmentApproversResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Approvers *[]AssessmentApprover `json:"approvers,omitempty"`
+	}
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SetAssessmentApproversResponse) GetJSON200() *struct {
+	Approvers *[]AssessmentApprover `json:"approvers,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r SetAssessmentApproversResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r SetAssessmentApproversResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r SetAssessmentApproversResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SetAssessmentApproversResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetAssessmentApproversResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetAssessmentApproversResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -84065,8 +84994,9 @@ func (c *ClientWithResponses) ListAiProposalsWithResponse(ctx context.Context, p
 
 // ListAssessmentsWithResponse The manual-assessment review queue
 //
-// Assessments across every project you can see, newest first. With
-// `ASSESSMENT_REQUIRES_APPROVAL=true`, status / severity changes made through
+// Assessments across every project you can see, newest first. Where a
+// project requires approval (its `assessment_approval`, `inherit` following
+// `ASSESSMENT_REQUIRES_APPROVAL`), status / severity changes made through
 // `PATCH /findings/{findingID}` and `POST /findings/bulk` land here as
 // `pending` until approved.
 //
@@ -84081,10 +85011,80 @@ func (c *ClientWithResponses) ListAssessmentsWithResponse(ctx context.Context, p
 	return ParseListAssessmentsResponse(rsp)
 }
 
+// ApproveAssessmentsWithBodyWithResponse Approve many pending assessments
+//
+// Each id is authorized like `POST /assessments/{assessmentID}/approve`;
+// one the caller may not decide is listed in `failed` and left as it is
+// (one in a project they can't see as "assessment not found"). With
+// `vex_justification` / `vex_response`, every approved assessment applies
+// that analysis instead of its own ("approve with edits").
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /assessments/approve (the `ApproveAssessments` operationId).
+func (c *ClientWithResponses) ApproveAssessmentsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApproveAssessmentsResponse, error) {
+	rsp, err := c.ApproveAssessmentsWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseApproveAssessmentsResponse(rsp)
+}
+
+// ApproveAssessmentsWithResponse Approve many pending assessments
+//
+// Each id is authorized like `POST /assessments/{assessmentID}/approve`;
+// one the caller may not decide is listed in `failed` and left as it is
+// (one in a project they can't see as "assessment not found"). With
+// `vex_justification` / `vex_response`, every approved assessment applies
+// that analysis instead of its own ("approve with edits").
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /assessments/approve (the `ApproveAssessments` operationId).
+func (c *ClientWithResponses) ApproveAssessmentsWithResponse(ctx context.Context, body ApproveAssessmentsJSONRequestBody, reqEditors ...RequestEditorFn) (*ApproveAssessmentsResponse, error) {
+	rsp, err := c.ApproveAssessments(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseApproveAssessmentsResponse(rsp)
+}
+
+// RejectAssessmentsWithBodyWithResponse Reject many pending assessments
+//
+// Same authorization and `failed` reporting as bulk approve; every finding stays as it is.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /assessments/reject (the `RejectAssessments` operationId).
+func (c *ClientWithResponses) RejectAssessmentsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RejectAssessmentsResponse, error) {
+	rsp, err := c.RejectAssessmentsWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRejectAssessmentsResponse(rsp)
+}
+
+// RejectAssessmentsWithResponse Reject many pending assessments
+//
+// Same authorization and `failed` reporting as bulk approve; every finding stays as it is.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /assessments/reject (the `RejectAssessments` operationId).
+func (c *ClientWithResponses) RejectAssessmentsWithResponse(ctx context.Context, body RejectAssessmentsJSONRequestBody, reqEditors ...RequestEditorFn) (*RejectAssessmentsResponse, error) {
+	rsp, err := c.RejectAssessments(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRejectAssessmentsResponse(rsp)
+}
+
 // ApproveAssessmentWithBodyWithResponse Approve a pending assessment
 //
-// Needs `owner` on the finding's project (or instance admin), and four-eyes:
-// the requester can't approve their own (403). Applies the requested status /
+// Needs one of the project's designated approvers who can still see it
+// (any role), or, with none designated, `owner` (or instance admin); a
+// custom role denying `triage` refuses it. Four-eyes: the requester can't
+// approve their own (403). Applies the requested status /
 // severity exactly as a direct change would (resolved_at, exception audit row,
 // dedup regroup), attributed in the history to the requester with their
 // reason; the approval is recorded as an `assessment` event by the approver.
@@ -84104,8 +85104,10 @@ func (c *ClientWithResponses) ApproveAssessmentWithBodyWithResponse(ctx context.
 
 // ApproveAssessmentWithResponse Approve a pending assessment
 //
-// Needs `owner` on the finding's project (or instance admin), and four-eyes:
-// the requester can't approve their own (403). Applies the requested status /
+// Needs one of the project's designated approvers who can still see it
+// (any role), or, with none designated, `owner` (or instance admin); a
+// custom role denying `triage` refuses it. Four-eyes: the requester can't
+// approve their own (403). Applies the requested status /
 // severity exactly as a direct change would (resolved_at, exception audit row,
 // dedup regroup), attributed in the history to the requester with their
 // reason; the approval is recorded as an `assessment` event by the approver.
@@ -88839,6 +89841,63 @@ func (c *ClientWithResponses) GetProjectAccessWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseGetProjectAccessResponse(rsp)
+}
+
+// ListAssessmentApproversWithResponse Who decides this project's assessments
+//
+// The designated approvers as stored (users and groups); empty means any owner decides.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /projects/{projectID}/assessment-approvers (the `ListAssessmentApprovers` operationId).
+func (c *ClientWithResponses) ListAssessmentApproversWithResponse(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*ListAssessmentApproversResponse, error) {
+	rsp, err := c.ListAssessmentApprovers(ctx, projectID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListAssessmentApproversResponse(rsp)
+}
+
+// SetAssessmentApproversWithBodyWithResponse Designate who decides this project's assessments
+//
+// Replaces the designated approvers with exactly these users and groups;
+// both empty restores "any owner decides". While any are designated,
+// only they decide (owners included only if designated). Every user
+// must have access to the project and every group must belong to its
+// organization (400 names the rest); a group's members decide only
+// while they can see the project themselves. Project owner, and a custom
+// role must not deny `manage_members`.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /projects/{projectID}/assessment-approvers (the `SetAssessmentApprovers` operationId).
+func (c *ClientWithResponses) SetAssessmentApproversWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetAssessmentApproversResponse, error) {
+	rsp, err := c.SetAssessmentApproversWithBody(ctx, projectID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetAssessmentApproversResponse(rsp)
+}
+
+// SetAssessmentApproversWithResponse Designate who decides this project's assessments
+//
+// Replaces the designated approvers with exactly these users and groups;
+// both empty restores "any owner decides". While any are designated,
+// only they decide (owners included only if designated). Every user
+// must have access to the project and every group must belong to its
+// organization (400 names the rest); a group's members decide only
+// while they can see the project themselves. Project owner, and a custom
+// role must not deny `manage_members`.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /projects/{projectID}/assessment-approvers (the `SetAssessmentApprovers` operationId).
+func (c *ClientWithResponses) SetAssessmentApproversWithResponse(ctx context.Context, projectID ProjectID, body SetAssessmentApproversJSONRequestBody, reqEditors ...RequestEditorFn) (*SetAssessmentApproversResponse, error) {
+	rsp, err := c.SetAssessmentApprovers(ctx, projectID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetAssessmentApproversResponse(rsp)
 }
 
 // ListProjectAssetsWithResponse A project's assets
@@ -94440,6 +95499,84 @@ func ParseListAssessmentsResponse(rsp *http.Response) (*ListAssessmentsResponse,
 	return response, nil
 }
 
+// ParseApproveAssessmentsResponse parses an HTTP response from a ApproveAssessmentsWithResponse call
+func ParseApproveAssessmentsResponse(rsp *http.Response) (*ApproveAssessmentsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ApproveAssessmentsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Approved *[]Assessment `json:"approved,omitempty"`
+			Failed   *[]struct {
+				Error *string `json:"error,omitempty"`
+				Id    *string `json:"id,omitempty"`
+			} `json:"failed,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRejectAssessmentsResponse parses an HTTP response from a RejectAssessmentsWithResponse call
+func ParseRejectAssessmentsResponse(rsp *http.Response) (*RejectAssessmentsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RejectAssessmentsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Failed *[]struct {
+				Error *string `json:"error,omitempty"`
+				Id    *string `json:"id,omitempty"`
+			} `json:"failed,omitempty"`
+			Rejected *[]Assessment `json:"rejected,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseApproveAssessmentResponse parses an HTTP response from a ApproveAssessmentWithResponse call
 func ParseApproveAssessmentResponse(rsp *http.Response) (*ApproveAssessmentResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -94457,7 +95594,8 @@ func ParseApproveAssessmentResponse(rsp *http.Response) (*ApproveAssessmentRespo
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest struct {
 			// Assessment A manual status and/or severity change held for a second person's approval
-			// (`ASSESSMENT_REQUIRES_APPROVAL=true`). At most one is `pending` per finding.
+			// (the project's `assessment_approval`, `inherit` following
+			// `ASSESSMENT_REQUIRES_APPROVAL`). At most one is `pending` per finding.
 			Assessment *Assessment `json:"assessment,omitempty"`
 
 			// Finding A persistent vulnerability, unique per (project version, fingerprint). It
@@ -98261,7 +99399,8 @@ func ParseAcceptFindingAiProposalResponse(rsp *http.Response) (*AcceptFindingAiP
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest struct {
 			// Assessment A manual status and/or severity change held for a second person's approval
-			// (`ASSESSMENT_REQUIRES_APPROVAL=true`). At most one is `pending` per finding.
+			// (the project's `assessment_approval`, `inherit` following
+			// `ASSESSMENT_REQUIRES_APPROVAL`). At most one is `pending` per finding.
 			Assessment *Assessment `json:"assessment,omitempty"`
 
 			// Finding A persistent vulnerability, unique per (project version, fingerprint). It
@@ -98285,7 +99424,8 @@ func ParseAcceptFindingAiProposalResponse(rsp *http.Response) (*AcceptFindingAiP
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
 		var dest struct {
 			// Assessment A manual status and/or severity change held for a second person's approval
-			// (`ASSESSMENT_REQUIRES_APPROVAL=true`). At most one is `pending` per finding.
+			// (the project's `assessment_approval`, `inherit` following
+			// `ASSESSMENT_REQUIRES_APPROVAL`). At most one is `pending` per finding.
 			Assessment *Assessment `json:"assessment,omitempty"`
 
 			// Finding A persistent vulnerability, unique per (project version, fingerprint). It
@@ -102154,6 +103294,76 @@ func ParseGetProjectAccessResponse(rsp *http.Response) (*GetProjectAccessRespons
 			//
 			// Example: {"count":1,"has_more":true,"limit":1,"offset":0}
 			Pagination *Pagination `json:"pagination,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListAssessmentApproversResponse parses an HTTP response from a ListAssessmentApproversWithResponse call
+func ParseListAssessmentApproversResponse(rsp *http.Response) (*ListAssessmentApproversResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListAssessmentApproversResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Approvers *[]AssessmentApprover `json:"approvers,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetAssessmentApproversResponse parses an HTTP response from a SetAssessmentApproversWithResponse call
+func ParseSetAssessmentApproversResponse(rsp *http.Response) (*SetAssessmentApproversResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetAssessmentApproversResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Approvers *[]AssessmentApprover `json:"approvers,omitempty"`
 		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err

@@ -45,6 +45,7 @@
 	import CustomFieldsEditor from '#lib/components/CustomFieldsEditor.svelte';
 	import ManualControls from '#lib/components/ManualControls.svelte';
 	import PriorityWeights from '#lib/components/PriorityWeights.svelte';
+	import AssessmentApproval from '#lib/components/AssessmentApproval.svelte';
 	import TriageCarry from '#lib/components/TriageCarry.svelte';
 	import { OPEN_BY_SEVERITY, RISK, FLOW, fmtCount, fmtRisk, windowStats } from '#lib/trends.js';
 	import { parentChoices } from '#lib/projectTree.js';
@@ -1470,6 +1471,7 @@
 				<AccessTable entries={access} showProject={false} />
 			{/if}
 		</div>
+		<AssessmentApproval {project} groups={orgGroups} />
 
 	{:else if tab === 'vex'}
 		<div class="mb-3 flex items-center justify-between gap-3">

@@ -300,7 +300,7 @@ roles, and password login can optionally be turned off. See [Single sign-on](#si
 | GET    | `/api/v1/findings/tags`             | Tags in use on the findings you can see, with open-finding counts |
 | GET    | `/api/v1/projects/{id}/findings`    | List findings (`?status/severity/category/sla/assignee`, `?branch=`/`?version_id=`/`?all_versions=true`) |
 | GET    | `/api/v1/findings/{id}`             | Read a finding                       |
-| PATCH  | `/api/v1/findings/{id}`             | Triage a finding (status + exception `reason`/`expires_at`); `202` + a pending assessment with `ASSESSMENT_REQUIRES_APPROVAL` |
+| PATCH  | `/api/v1/findings/{id}`             | Triage a finding (status + exception `reason`/`expires_at`, and for `false_positive`/`wont_fix` an optional `vex_justification`/`vex_response`); `202` + a pending assessment where the project requires approval |
 | POST   | `/api/v1/findings/bulk`             | Change status / severity / assignee / tags (`add_tags`, `remove_tags`) of up to 5000 findings by `ids` or `filter` (each authorized on its project); status / severity become `pending` assessments with `ASSESSMENT_REQUIRES_APPROVAL` |
 | PUT    | `/api/v1/findings/{id}/assignee`    | Assign (or `null` to unassign); the assignee must see the project |
 | PUT    | `/api/v1/findings/{id}/tags`        | Replace a finding's tags (normalized, ≤ 20; recorded in history) |
@@ -608,6 +608,17 @@ If no name is given, the default version is used (`main` if none exists yet).
   outcome the request shows. Assignee changes and comments are not gated. The
   review queue is `GET /assessments?state=pending` (the UI's *Approvals* page),
   and the finding page shows its pending request with Approve / Reject.
+  `POST /assessments/approve|reject` decides many at once (`ids`, each
+  authorized on its own project, the rest listed in `failed`); bulk approve
+  may override the requested analysis ("approve with edits").
+- Per project, `assessment_approval` (`inherit`, `required`, `off`; set on
+  `PATCH /projects/{id}`, under the project's Members tab) overrides the
+  instance default, and `PUT /projects/{id}/assessment-approvers` designates who
+  decides (users and groups). While any are designated only they decide, of any
+  role, and only while they can still see the project; owners decide only if
+  listed. Every designated user must have access to the project and every
+  group must belong to its organization. Deciding is refused by a custom role
+  that denies `triage`, and a project-scoped token decides only in its project.
 
 Search and tags. `?q=` on any finding list is full-text search in websearch
 syntax (words in any order, `"a phrase"`, `-excluded`, `or`) over title, rule
@@ -1904,6 +1915,16 @@ and the verdict is no longer asserted.
 
 #### Exporting VEX and BOMs
 
+A manual verdict carries the same analysis a VEX document would. A
+`false_positive` or `wont_fix` set by hand, in bulk, through an approved
+assessment, by a triage rule or by a vulnerability policy may record a CycloneDX
+`vex_justification` (`code_not_reachable`, `protected_at_perimeter`, …) and
+`vex_response` codes (`will_not_fix`, `workaround_available`, …). Changes are
+kept in the finding's history as `vex` events, carried across branches with the
+decision (triage carry), and cleared when the finding moves to any other status.
+Imported CycloneDX VEX response codes are kept on the statement and applied to
+the findings it covers; unknown codes are dropped, not guessed.
+
 In the other direction, `GET /projects/{id}/vex/export?format=openvex|cyclonedx|csaf`
 publishes the project's analysis (default version, or `?branch=` / `?version_id=`)
 as OpenVEX v0.2.0, CycloneDX VEX (1.6, or 1.7 with `&spec=1.7`) or
@@ -1916,10 +1937,10 @@ as stored.
 
 | Finding status | VEX status | Carries |
 | -------------- | ---------- | ------- |
-| `false_positive` | `not_affected` | the stored justification when a VEX statement triaged it (or `fixed`, if that statement said fixed); otherwise the exception reason as `impact_statement`. A justification code is not invented |
+| `false_positive` | `not_affected` | the stored justification when a VEX statement triaged it (or `fixed`, if that statement said fixed); otherwise the finding's own `vex_justification` and `vex_response` if recorded, with the exception reason as `impact_statement`. A justification code is not invented |
 | `remediated` | `fixed` | |
 | `confirmed` | `affected` | action: "Upgrade to *fixed version*" (CycloneDX response `update`, CSAF `vendor_fix`), else `none_available` |
-| `risk_accepted` / `wont_fix` | `affected` | action: the exception reason and expiry (`will_not_fix`, CSAF `no_fix_planned`) |
+| `risk_accepted` / `wont_fix` | `affected` | action: the exception reason and expiry (`will_not_fix`, or a `wont_fix` finding's own `vex_response`; CSAF `no_fix_planned`). A justification explains `not_affected` only, so a `wont_fix` one is not exported |
 | `open` | `under_investigation` | |
 
 The product is the package purl. For a package the scanner gave no purl, it is
@@ -2863,7 +2884,7 @@ a warning, and the running keys stay.
 | `ARCHIVE_RETENTION`           | `30d` (`720h`)       | archived projects, engagements, scans, and findings stay restorable for this long, then the retention job deletes them (`0` = keep forever) |
 | `FINDING_ARCHIVE_AFTER`       | `0` (off)            | archive findings fixed longer ago than this (e.g. `4320h`), in batches; `ARCHIVE_RETENTION` then purges them, and one reported again comes back open |
 | `INBOX_RETENTION`             | `90d` (`2160h`)      | delete read in-app inbox items older than this (`0` = keep forever); unread items are never purged |
-| `ASSESSMENT_REQUIRES_APPROVAL` | `false`             | four-eyes for manual status and severity changes: they become pending assessments until a different project owner (or instance admin) approves them |
+| `ASSESSMENT_REQUIRES_APPROVAL` | `false`             | four-eyes for manual status and severity changes: they become pending assessments until a different project owner, designated approver or instance admin approves them. A project's `assessment_approval` overrides it |
 | `RISK_ACCEPTANCE_REQUIRES_APPROVAL` | `true` in production, else `false` | four-eyes for risk acceptances: the requester cannot approve or reject their own; imported acceptances wait as requests |
 | `RISK_ACCEPTANCE_EXPIRY_WARNING` | `168h` | announce approved risk acceptances this long before they expire (`0` = never) |
 | `INTEGRATION_SECRET_KEY`      | -                    | base64 32-byte key (`openssl rand -base64 32`) that encrypts issue-tracker and connector tokens, SSO provider client secrets and SP keys, the generated SAML SP key, and two-factor secrets at rest. If unset, two-factor sign-in, trackers, connectors, and admin-managed SSO providers cannot be enabled (the account page says so; production logs a warning). **Changing it makes stored secrets unreadable: re-enter them (and reset users' two-factor).** |

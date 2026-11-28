@@ -1150,6 +1150,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{projectID}/assessment-approvers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who decides this project's assessments
+         * @description The designated approvers as stored (users and groups); empty means any owner decides.
+         */
+        get: operations["listAssessmentApprovers"];
+        /**
+         * Designate who decides this project's assessments
+         * @description Replaces the designated approvers with exactly these users and groups;
+         *     both empty restores "any owner decides". While any are designated,
+         *     only they decide (owners included only if designated). Every user
+         *     must have access to the project and every group must belong to its
+         *     organization (400 names the rest); a group's members decide only
+         *     while they can see the project themselves. Project owner, and a custom
+         *     role must not deny `manage_members`.
+         */
+        put: operations["setAssessmentApprovers"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{projectID}/assignees": {
         parameters: {
             query?: never;
@@ -6414,14 +6444,59 @@ export interface paths {
         };
         /**
          * The manual-assessment review queue
-         * @description Assessments across every project you can see, newest first. With
-         *     `ASSESSMENT_REQUIRES_APPROVAL=true`, status / severity changes made through
+         * @description Assessments across every project you can see, newest first. Where a
+         *     project requires approval (its `assessment_approval`, `inherit` following
+         *     `ASSESSMENT_REQUIRES_APPROVAL`), status / severity changes made through
          *     `PATCH /findings/{findingID}` and `POST /findings/bulk` land here as
          *     `pending` until approved.
          */
         get: operations["listAssessments"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/assessments/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve many pending assessments
+         * @description Each id is authorized like `POST /assessments/{assessmentID}/approve`;
+         *     one the caller may not decide is listed in `failed` and left as it is
+         *     (one in a project they can't see as "assessment not found"). With
+         *     `vex_justification` / `vex_response`, every approved assessment applies
+         *     that analysis instead of its own ("approve with edits").
+         */
+        post: operations["approveAssessments"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/assessments/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject many pending assessments
+         * @description Same authorization and `failed` reporting as bulk approve; every finding stays as it is.
+         */
+        post: operations["rejectAssessments"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6439,8 +6514,10 @@ export interface paths {
         put?: never;
         /**
          * Approve a pending assessment
-         * @description Needs `owner` on the finding's project (or instance admin), and four-eyes:
-         *     the requester can't approve their own (403). Applies the requested status /
+         * @description Needs one of the project's designated approvers who can still see it
+         *     (any role), or, with none designated, `owner` (or instance admin); a
+         *     custom role denying `triage` refuses it. Four-eyes: the requester can't
+         *     approve their own (403). Applies the requested status /
          *     severity exactly as a direct change would (resolved_at, exception audit row,
          *     dedup regroup), attributed in the history to the requester with their
          *     reason; the approval is recorded as an `assessment` event by the approver.
@@ -8346,6 +8423,11 @@ export interface components {
             readonly archived_by?: string | null;
             /** @description The project opted out of AI triage. */
             ai_triage_opt_out?: boolean;
+            /**
+             * @description Whether manual status / severity changes need a second person's approval; inherit follows ASSESSMENT_REQUIRES_APPROVAL.
+             * @enum {string}
+             */
+            assessment_approval?: "inherit" | "required" | "off";
             /** Format: date-time */
             created_at?: string;
         };
@@ -9656,6 +9738,8 @@ export interface components {
             exception_by?: string;
             /** Format: date-time */
             exception_expires_at?: string | null;
+            vex_justification?: components["schemas"]["VexJustification"];
+            vex_response?: components["schemas"]["VexResponse"][];
             /** @description The live risk acceptance covering the finding (id */
             risk_acceptance?: Record<string, never> | null;
             /** Format: date-time */
@@ -9752,8 +9836,31 @@ export interface components {
             reason?: string;
         };
         /**
+         * @description Why a false_positive (not_affected) verdict holds, in CycloneDX's
+         *     vocabulary; "" when none was recorded. Exports restate it in each
+         *     format's own terms (OpenVEX / CSAF translate it) and only for a
+         *     not_affected verdict: a wont_fix one stays in the finding's history.
+         * @enum {string}
+         */
+        VexJustification: "" | "code_not_present" | "code_not_reachable" | "requires_configuration" | "requires_dependency" | "requires_environment" | "protected_by_compiler" | "protected_at_runtime" | "protected_at_perimeter" | "protected_by_mitigating_control";
+        /**
+         * @description What is being done about the finding (CycloneDX analysis response).
+         * @enum {string}
+         */
+        VexResponse: "can_not_fix" | "will_not_fix" | "update" | "rollback" | "workaround_available";
+        /** @description One designated approver, a user or a group (exactly one of the two). */
+        AssessmentApprover: {
+            /** Format: uuid */
+            user_id?: string;
+            email?: string;
+            /** Format: uuid */
+            group_id?: string;
+            group_name?: string;
+        };
+        /**
          * @description A manual status and/or severity change held for a second person's approval
-         *     (`ASSESSMENT_REQUIRES_APPROVAL=true`). At most one is `pending` per finding.
+         *     (the project's `assessment_approval`, `inherit` following
+         *     `ASSESSMENT_REQUIRES_APPROVAL`). At most one is `pending` per finding.
          */
         Assessment: {
             /** Format: uuid */
@@ -9773,6 +9880,8 @@ export interface components {
             reason?: string;
             /** Format: date-time */
             expires_at?: string | null;
+            vex_justification?: components["schemas"]["VexJustification"];
+            vex_response?: components["schemas"]["VexResponse"][];
             /** @enum {string} */
             state?: "pending" | "approved" | "rejected";
             /** Format: uuid */
@@ -9787,7 +9896,7 @@ export interface components {
             current_status?: components["schemas"]["FindingStatus"];
             current_severity?: components["schemas"]["Severity"];
             project_name?: string;
-            /** @description Whether the caller may approve or reject it (a project owner or instance admin who isn't the requester). */
+            /** @description Whether the caller may approve or reject it: not the requester, and an instance admin, a designated approver of the project, or (with none designated) an owner. */
             can_decide?: boolean;
         };
         BulkResult: {
@@ -10336,6 +10445,8 @@ export interface components {
             /** @example vulnerable_code_not_in_execute_path */
             justification?: string;
             detail?: string;
+            /** @description The CycloneDX analysis response codes an imported document carried; empty for OpenVEX and CSAF. */
+            response?: string[];
             /** @enum {string} */
             source?: "openvex" | "cyclonedx";
             /** Format: date-time */
@@ -10895,6 +11006,9 @@ export interface components {
              *     see the project) skips that finding.
              */
             custom_value?: string | number | null;
+            /** @description Set with a false_positive / wont_fix action; cleared for any other. */
+            vex_justification?: components["schemas"]["VexJustification"];
+            vex_response?: components["schemas"]["VexResponse"][];
             /** @description Recorded in the finding's audit trail. */
             reason?: string;
             /** @description Match findings whose EPSS is at least this (inclusive). A finding with no EPSS score never matches. */
@@ -13271,6 +13385,63 @@ export interface operations {
             404: components["responses"]["Error"];
         };
     };
+    listAssessmentApprovers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approvers?: components["schemas"]["AssessmentApprover"][];
+                    };
+                };
+            };
+        };
+    };
+    setAssessmentApprovers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    user_ids?: string[];
+                    group_ids?: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description The approvers now designated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approvers?: components["schemas"]["AssessmentApprover"][];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
     listProjectAssignees: {
         parameters: {
             query?: never;
@@ -15318,6 +15489,8 @@ export interface operations {
                     business_criticality?: components["schemas"]["Criticality"];
                     /** @description Keep this project's findings away from the AI triage model (nothing is ever sent). */
                     ai_triage_opt_out?: boolean;
+                    /** @enum {string} */
+                    assessment_approval?: "inherit" | "required" | "off";
                     /** Format: uuid */
                     parent_id?: string | null;
                     is_collection?: boolean;
@@ -17803,6 +17976,8 @@ export interface operations {
                      * @description For `risk_accepted` — the finding reopens when this passes.
                      */
                     expires_at?: string;
+                    vex_justification?: components["schemas"]["VexJustification"];
+                    vex_response?: components["schemas"]["VexResponse"][];
                 };
             };
         };
@@ -18722,6 +18897,8 @@ export interface operations {
                     reason?: string;
                     /** Format: date-time */
                     expires_at?: string;
+                    vex_justification?: components["schemas"]["VexJustification"];
+                    vex_response?: components["schemas"]["VexResponse"][];
                     severity?: components["schemas"]["Severity"];
                     /** Format: uuid */
                     assignee_id?: string | null;
@@ -22874,7 +23051,7 @@ export interface operations {
             query?: {
                 state?: "pending" | "approved" | "rejected";
                 project_id?: string;
-                /** @description Only what you may decide - pending assessments of projects you own that someone else requested. */
+                /** @description Only what you may decide (see `can_decide`) and someone else requested. */
                 actionable?: boolean;
                 /** @description Page size (max 200). */
                 limit?: components["parameters"]["Limit"];
@@ -22895,6 +23072,76 @@ export interface operations {
                     "application/json": {
                         assessments?: components["schemas"]["Assessment"][];
                         pagination?: components["schemas"]["Pagination"];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    approveAssessments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    ids: string[];
+                    note?: string;
+                    vex_justification?: components["schemas"]["VexJustification"];
+                    vex_response?: components["schemas"]["VexResponse"][];
+                };
+            };
+        };
+        responses: {
+            /** @description Decided */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approved?: components["schemas"]["Assessment"][];
+                        failed?: {
+                            id?: string;
+                            error?: string;
+                        }[];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    rejectAssessments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    ids: string[];
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Decided */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        rejected?: components["schemas"]["Assessment"][];
+                        failed?: {
+                            id?: string;
+                            error?: string;
+                        }[];
                     };
                 };
             };
