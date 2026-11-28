@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -53,6 +55,8 @@ type Service struct {
 	cipher      *secretbox.Keyring // webhook signing secrets (unconfigured: none can be stored or used)
 	features    Features           // optional; nil = every feature on
 	inbox       inboxFiller        // optional; nil = no in-app inbox
+	jobFailMu   sync.Mutex
+	jobFailures map[string]int // job name -> consecutive failure count
 }
 
 // NewService wires the dispatcher against the repository. smtp may be the zero
@@ -114,6 +118,60 @@ func (s *Service) WithInbox(f inboxFiller) *Service {
 
 func (s *Service) personalOn(ctx context.Context) bool {
 	return s.features == nil || s.features.Enabled(ctx, "personal_notifications")
+}
+
+// OnFindingsChanged makes the service a finding change trigger
+// (finding.Repository.WithChangeTrigger): a person's status or severity
+// decision on ids raises one finding.status_changed for the project.
+func (s *Service) OnFindingsChanged(ctx context.Context, projectID string, ids []string, actor string) {
+	s.Notify(ctx, Event{
+		Type: EventStatusChanged, ProjectID: projectID,
+		Title:  fmt.Sprintf("%d finding(s) changed", len(ids)),
+		Fields: map[string]string{"count": strconv.Itoa(len(ids)), "actor": "user:" + actor},
+	})
+}
+
+// ReportJobResult records a leader-elected background job's outcome and
+// raises system.job_failed the first time it fails — not on every later tick
+// of the same failure streak, which would page relentlessly for a feed
+// that's been down for days. A later success resets the streak, so the next
+// failure alerts again.
+func (s *Service) ReportJobResult(ctx context.Context, job string, err error) {
+	s.jobFailMu.Lock()
+	if s.jobFailures == nil {
+		s.jobFailures = map[string]int{}
+	}
+	if err == nil {
+		delete(s.jobFailures, job)
+		s.jobFailMu.Unlock()
+		return
+	}
+	s.jobFailures[job]++
+	first := s.jobFailures[job] == 1
+	s.jobFailMu.Unlock()
+	if !first {
+		return
+	}
+	s.Notify(ctx, Event{
+		Type:  EventSystemJobFailed,
+		Title: fmt.Sprintf("Background job %q is failing", job),
+		Text:  publicJobError(err),
+		Fields: map[string]string{
+			"job": job,
+		},
+	})
+}
+
+// publicJobError is what a job's failure may say in a notification: a remote
+// system's own words (a response body, a dial error with a URL) stay in the
+// server log, so only a message the error marks as public (a RemoteError's
+// Public) is passed on.
+func publicJobError(err error) string {
+	var pub interface{ Public() string }
+	if errors.As(err, &pub) {
+		return pub.Public()
+	}
+	return "The job failed; the server log has the details."
 }
 
 // Notify queues an event for every subscribed channel in the durable outbox;

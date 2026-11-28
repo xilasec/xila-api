@@ -3,12 +3,14 @@ package vulnpolicy
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/xilasec/xila-api/internal/domain"
 	"github.com/xilasec/xila-api/internal/expr"
 	"github.com/xilasec/xila-api/internal/finding"
+	"github.com/xilasec/xila-api/internal/notify"
 )
 
 // policyActor is recorded as the actor on findings a policy sets, so a person
@@ -43,6 +45,11 @@ type deduper interface {
 	Deduplicate(ctx context.Context, projectID string) (int, error)
 }
 
+// eventNotifier dispatches events (notify.Service satisfies it). Optional.
+type eventNotifier interface {
+	Notify(ctx context.Context, e notify.Event)
+}
+
 // Service applies vulnerability policies to component/vulnerability pairs
 // (package findings).
 type Service struct {
@@ -50,11 +57,19 @@ type Service struct {
 	findings findingStore
 	dedup    deduper
 	now      func() time.Time
+	notifier eventNotifier // optional
 }
 
 // NewService constructs the apply Service. dedup may be nil.
 func NewService(policies policyStore, findings findingStore, dedup deduper) *Service {
 	return &Service{policies: policies, findings: findings, dedup: dedup, now: time.Now}
+}
+
+// WithNotifier raises finding.status_changed once per evaluation when any
+// policy changed a finding's status or severity (batched, never per finding).
+func (s *Service) WithNotifier(n eventNotifier) *Service {
+	s.notifier = n
+	return s
 }
 
 // Name identifies this pass in the ingest pipeline. It runs after VEX
@@ -165,6 +180,13 @@ func (s *Service) evaluate(ctx context.Context, projectID string, findings []fin
 		if _, err := s.dedup.Deduplicate(ctx, projectID); err != nil {
 			return changed, err
 		}
+	}
+	if changed > 0 && s.notifier != nil {
+		go s.notifier.Notify(context.WithoutCancel(ctx), notify.Event{
+			Type: notify.EventStatusChanged, ProjectID: projectID,
+			Title:  fmt.Sprintf("Vulnerability policies changed %d finding(s)", changed),
+			Fields: map[string]string{"count": strconv.Itoa(changed), "actor": "vuln-policy"},
+		})
 	}
 	return changed, nil
 }

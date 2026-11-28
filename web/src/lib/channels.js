@@ -66,6 +66,8 @@ export const kafkaFromChannel = (/** @type {any} */ ch) => ({
 export const EVENT_TYPES = [
 	{ id: '*', key: 'event.all' },
 	{ id: 'finding.critical', key: 'event.findingCritical' },
+	{ id: 'finding.new', key: 'event.findingNew' },
+	{ id: 'finding.status_changed', key: 'event.statusChanged' },
 	{ id: 'finding.exploitable', key: 'event.findingExploitable' },
 	{ id: 'finding.assigned', key: 'event.findingAssigned' },
 	{ id: 'risk_acceptance.requested', key: 'event.raRequested' },
@@ -81,7 +83,12 @@ export const EVENT_TYPES = [
 	{ id: 'exception.expired', key: 'event.exceptionExpired' },
 	{ id: 'ingestion.anomaly', key: 'event.ingestionAnomaly' },
 	{ id: 'mention', key: 'event.mention' },
-	{ id: 'triage.rule', key: 'event.triageRule' }
+	{ id: 'triage.rule', key: 'event.triageRule' },
+	{ id: 'sbom.processed', key: 'event.sbomProcessed' },
+	{ id: 'sbom.failed', key: 'event.sbomFailed' },
+	{ id: 'vex.processed', key: 'event.vexProcessed' },
+	{ id: 'gate.changed', key: 'event.gateChanged' },
+	{ id: 'system.job_failed', key: 'event.jobFailed' }
 ];
 
 /**

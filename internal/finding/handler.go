@@ -206,6 +206,7 @@ func filterFrom(params map[string]string, userID string) (Filter, error) {
 		Scope:             domain.DepScope(get("scope")),
 		SLA:               domain.SLAStatus(get("sla")),
 		IncludeDuplicates: flag("include_duplicates"),
+		FailsGate:         flag("fails_gate"),
 		Archived:          flag("archived"),
 		Sort:              get("sort"),
 		Query:             strings.TrimSpace(get("q")),

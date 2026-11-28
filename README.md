@@ -666,6 +666,14 @@ than a clean project); failed latest scans; failing connectors; and
 uploads that exhausted their ingest retries. The leader checks hourly and sends
 `ingestion.anomaly` once per new problem, and again only if it clears and returns.
 
+More events (13.7): `finding.new` (a scan introduced findings of any severity on
+the default version, one event per scan), `finding.status_changed` (one per
+project per person's decision or per triage/vulnerability-policy run, never per
+finding), `sbom.processed` / `sbom.failed`, `vex.processed`, `gate.changed` (above)
+and `system.job_failed` (a background job or feed started failing: once per failure
+streak, to global channels and admins, with the remote's own error text left in
+the server log).
+
 Per-channel rules. Each channel can set a minimum severity (lower-severity
 events skip it; events without a severity always pass) and a scheduled summary:
 `daily` at an hour or `weekly` on a weekday at an hour (UTC). A summary covers
@@ -1086,6 +1094,14 @@ body. Waived and duplicate findings do not trip it (which is why the noise-reduc
 work comes first). Pass a policy in the request body to gate with ad-hoc
 thresholds without storing them. Set the policy at `PUT /projects/{id}/gate/policy`
 or the Gate tab.
+
+Stored gate state: every project version's result under its effective policy is
+re-evaluated after each ingest, after exploit-intel sweeps and every
+`GATE_SWEEP_INTERVAL`, and kept (`GET /projects/{id}/gate/status`, the Gate tab).
+It follows the same rules as `POST .../gate`, expected scans included. When it
+flips, pass to fail or back, `gate.changed` is sent once per flip, even when
+evaluations overlap. `?fails_gate=true` on any finding list (or export) shows the
+live default-version backlog of projects whose stored default gate is failing.
 
 New-only gating (PR checks): set `new_only` (policy flag, or `"new_only": true`
 in the request / `xila gate --new`) to fail only on newly introduced findings.
@@ -2884,6 +2900,7 @@ a warning, and the running keys stay.
 | `POLICY_EVAL_INTERVAL`        | `6h`                 | re-evaluate component policies on every project (also on upload and policy edits); `0` = off. Replaces the removed `LICENSE_DENYLIST` (ignored, with a startup warning) |
 | `VULN_POLICY_EVAL_INTERVAL`   | `6h`                 | re-evaluate vulnerability policies on every project (also on ingest and policy edits); catches a validity window's expiry; `0` = off |
 | `TRIAGE_SCHEDULE_INTERVAL`    | `1h`                 | how often the leader runs triage rules whose `schedule` is due (`daily`: once a day); `0` = off |
+| `GATE_SWEEP_INTERVAL`         | `15m`                | re-evaluate every project's stored default-version gate result (also after each ingest); `0` = off |
 | `VULN_POLICY_BUNDLE_URL`      | *(empty)*            | fetch a GitOps vulnerability-policy bundle (YAML or JSON) from this URL and replace the whole set on `VULN_POLICY_BUNDLE_INTERVAL`; a failed fetch keeps the current set |
 | `VULN_POLICY_BUNDLE_INTERVAL` | `1h`                 | how often to re-fetch `VULN_POLICY_BUNDLE_URL` |
 | `ENRICH_ENABLED`              | `true`               | run periodic EPSS/KEV enrichment         |

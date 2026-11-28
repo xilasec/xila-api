@@ -5762,6 +5762,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{projectID}/gate/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The stored gate result
+         * @description The result of the last re-evaluation under the project's effective policy,
+         *     not a fresh run: after every ingest, after exploit-intel sweeps, and every
+         *     `GATE_SWEEP_INTERVAL`. When it flips (pass to fail or back) a
+         *     `gate.changed` notification is sent, once per flip. `evaluated` is false
+         *     until the first evaluation. `?branch=`, `?release=` or `?version_id=`
+         *     selects a version (default: the default version).
+         */
+        get: operations["getGateStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{projectID}/gate/policy": {
         parameters: {
             query?: never;
@@ -11684,7 +11709,7 @@ export interface components {
              */
             project_id?: string | null;
             /** @description `*` for everything. */
-            events?: ("*" | "finding.critical" | "finding.exploitable" | "finding.assigned" | "finding.sla_breach" | "finding.sla_due_soon" | "risk_acceptance.requested" | "risk_acceptance.approved" | "risk_acceptance.expiring" | "risk_acceptance.expired" | "policy.violation" | "exception.expired" | "ingestion.anomaly" | "cra.case_opened" | "cra.deadline_due_soon" | "cra.deadline_missed")[];
+            events?: ("*" | "finding.critical" | "finding.new" | "finding.exploitable" | "finding.assigned" | "finding.status_changed" | "finding.sla_breach" | "finding.sla_due_soon" | "risk_acceptance.requested" | "risk_acceptance.approved" | "risk_acceptance.expiring" | "risk_acceptance.expired" | "policy.violation" | "exception.expired" | "ingestion.anomaly" | "cra.case_opened" | "cra.deadline_due_soon" | "cra.deadline_missed" | "sbom.processed" | "sbom.failed" | "vex.processed" | "gate.changed" | "system.job_failed" | "mention" | "triage.rule")[];
             enabled?: boolean;
             /** Format: date-time */
             created_at?: string;
@@ -11956,6 +11981,8 @@ export interface components {
         OrgID: string;
         TeamID: string;
         ProjectID: string;
+        /** @description Only the live default-version backlog of projects whose stored default-version gate result is failing (see GET /projects/{projectID}/gate/status). */
+        FailsGateFilter: boolean;
         /** @description The project, by slug (case-insensitive). */
         UploadProjectName: string;
         /** @description The project's team, by id or slug. Required with auto_create. */
@@ -16583,6 +16610,8 @@ export interface operations {
                 new?: boolean;
                 /** @description Include each tool's duplicate report instead of one deduplicated issue. */
                 include_duplicates?: boolean;
+                /** @description Only the live default-version backlog of projects whose stored default-version gate result is failing (see GET /projects/{projectID}/gate/status). */
+                fails_gate?: components["parameters"]["FailsGateFilter"];
                 /** @description List archived records instead of live ones (requires `owner`; a portfolio-wide list narrows to the projects you own). */
                 archived?: components["parameters"]["ArchivedFilter"];
                 /** @description Only findings in this SLA state. */
@@ -16658,6 +16687,8 @@ export interface operations {
                 scan_id?: string;
                 new?: boolean;
                 include_duplicates?: boolean;
+                /** @description Only the live default-version backlog of projects whose stored default-version gate result is failing (see GET /projects/{projectID}/gate/status). */
+                fails_gate?: components["parameters"]["FailsGateFilter"];
                 /** @description List archived records instead of live ones (requires `owner`; a portfolio-wide list narrows to the projects you own). */
                 archived?: components["parameters"]["ArchivedFilter"];
                 /** @description Only findings in this SLA state. */
@@ -17729,6 +17760,8 @@ export interface operations {
                 branch?: string;
                 all_versions?: boolean;
                 include_duplicates?: boolean;
+                /** @description Only the live default-version backlog of projects whose stored default-version gate result is failing (see GET /projects/{projectID}/gate/status). */
+                fails_gate?: components["parameters"]["FailsGateFilter"];
                 /** @description List archived records instead of live ones (requires `owner`; a portfolio-wide list narrows to the projects you own). */
                 archived?: components["parameters"]["ArchivedFilter"];
                 sort?: "priority" | "sla_due";
@@ -22263,6 +22296,44 @@ export interface operations {
                     "application/json": components["schemas"]["GateResult"];
                 };
             };
+        };
+    };
+    getGateStatus: {
+        parameters: {
+            query?: {
+                branch?: string;
+                release?: string;
+                version_id?: string;
+            };
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        evaluated?: boolean;
+                        passed?: boolean;
+                        violations?: {
+                            rule?: string;
+                            message?: string;
+                        }[];
+                        /** Format: uuid */
+                        version_id?: string;
+                        /** Format: date-time */
+                        evaluated_at?: string;
+                    };
+                };
+            };
+            404: components["responses"]["Error"];
         };
     };
     getProjectGatePolicy: {

@@ -946,11 +946,15 @@ Tier 1:
 - ✅ 13.6 CycloneDX XML SBOMs (DT): schema 1.0 to 1.6, parsed into the same
   document as JSON (round-trip tested against the official JSON twin); strict
   mode stays JSON-only.
-- ⬜ 13.7 More notification events, and a stored gate state that alerts when
-  it flips, with a "fails gate" filter (all three).
-
-Tier 2:
-
+- ✅ 13.7 More notification events, and a stored gate state that alerts when
+  it flips, with a "fails gate" filter (all three): finding.new,
+  finding.status_changed (from finding.Repository's change trigger, so every
+  person's decision path sends it), sbom.processed/failed, vex.processed,
+  system.job_failed (public error text only) and gate.changed. The stored state
+  follows POST /gate's rules (expected scans included), alerts once per flip
+  under concurrency, and backs ?fails_gate= on every finding list. Migration
+  000127. Not done: advisory.withdrawn (withdrawn advisories already close their
+  findings on the next match, but nothing records why).
 - ✅ 13.8 In-app notification inbox and @mentions (DefectDojo Pro, SecObserve).
   `inbox_items` is filled in the one place every channel is routed
   (notify.Service.Notify): the assignee for finding.assigned, @mentions

@@ -49,6 +49,7 @@ func NewHandler(policies *Repository, stats statsProvider, versions versionFinde
 // need editor, GET needs viewer); the global policy is admin-only.
 func (h *Handler) Register(r fiber.Router) {
 	r.Post("/projects/:projectID/gate", h.Evaluate)
+	r.Get("/projects/:projectID/gate/status", h.Status)
 	r.Get("/projects/:projectID/gate/policy", h.GetProjectPolicy)
 	r.Put("/projects/:projectID/gate/policy", h.SetProjectPolicy)
 	r.Delete("/projects/:projectID/gate/policy", h.DeleteProjectPolicy)
@@ -63,6 +64,26 @@ type evaluateRequest struct {
 	// NewOnly, if set, overrides the policy's new_only for this run — so CI can
 	// switch a stored policy between "total" and "new" without losing thresholds.
 	NewOnly *bool `json:"new_only"`
+}
+
+// missingExpectations is the expected-scans part of a gate run: the scans a
+// policy with RequireExpectedScans counts as missing. One definition for the
+// on-demand endpoint and the stored state (Evaluator), so they can't disagree.
+func missingExpectations(ctx context.Context, checker expectationChecker, projectID string, policy Policy) ([]string, error) {
+	if !policy.RequireExpectedScans || checker == nil {
+		return nil, nil
+	}
+	anomalies, err := checker.Check(ctx, []string{projectID}, time.Now())
+	if err != nil {
+		return nil, err
+	}
+	var missing []string
+	for _, a := range anomalies {
+		if a.Kind == ingesthealth.KindMissing {
+			missing = append(missing, a.Detail)
+		}
+	}
+	return missing, nil
 }
 
 // Evaluate runs the gate for a project. Returns 200 when it passes, 422 when it
@@ -110,19 +131,10 @@ func (h *Handler) Evaluate(c *fiber.Ctx) error {
 		return err
 	}
 
-	var missing []string
-	if policy.RequireExpectedScans {
-		anomalies, err := h.expectations.Check(c.UserContext(), []string{projectID}, time.Now())
-		if err != nil {
-			return err
-		}
-		for _, a := range anomalies {
-			if a.Kind == ingesthealth.KindMissing {
-				missing = append(missing, a.Detail)
-			}
-		}
+	missing, err := missingExpectations(c.UserContext(), h.expectations, projectID, policy)
+	if err != nil {
+		return err
 	}
-
 	result := Evaluate(policy, stats, missing)
 	result.Scope = scope
 	result.VersionID = versionID
@@ -133,6 +145,45 @@ func (h *Handler) Evaluate(c *fiber.Ctx) error {
 		status = fiber.StatusUnprocessableEntity
 	}
 	return c.Status(status).JSON(result)
+}
+
+// statusResponse is GET /projects/{id}/gate/status: the stored result from
+// the last re-evaluation (ingest, enrichment/exploit/KEV sweep, or leader
+// interval), not a fresh run — see Evaluator. Evaluated is false for a
+// project that hasn't been evaluated yet (no scans/SBOMs, or not reached by
+// a sweep yet).
+type statusResponse struct {
+	Evaluated   bool        `json:"evaluated"`
+	Passed      bool        `json:"passed"`
+	Violations  []Violation `json:"violations"`
+	VersionID   string      `json:"version_id,omitempty"`
+	EvaluatedAt *time.Time  `json:"evaluated_at,omitempty"`
+}
+
+// Status handles GET /projects/{id}/gate/status: the project's currently
+// stored gate result, read straight from project_gate_state (no
+// re-evaluation). Same version resolution as Evaluate (?version_id=,
+// ?branch=, ?release=, else the default version).
+func (h *Handler) Status(c *fiber.Ctx) error {
+	projectID, err := httpx.ID(c, "projectID")
+	if err != nil {
+		return err
+	}
+	versionID, err := h.version(c, projectID)
+	if err != nil {
+		return err
+	}
+	st, ok, err := h.policies.GetState(c.UserContext(), projectID, versionID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return c.JSON(statusResponse{Evaluated: false})
+	}
+	return c.JSON(statusResponse{
+		Evaluated: true, Passed: st.Passed, Violations: st.Violations,
+		VersionID: st.VersionID, EvaluatedAt: &st.EvaluatedAt,
+	})
 }
 
 // version resolves which project version a gate evaluates: ?version_id=, or

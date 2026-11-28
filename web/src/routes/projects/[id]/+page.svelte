@@ -251,6 +251,9 @@
 	let gatePolicy = $state(/** @type {any} */ (null));
 	let gateScope = $state('none');
 	let gateResult = $state(/** @type {any} */ (null));
+	// The stored result (re-evaluated after ingests and on a sweep) beside the
+	// live run, and the link to what makes it fail.
+	let gateStored = $state(/** @type {any} */ (null));
 	let gateRunning = $state(false);
 	let tabLoading = $state(false);
 	let loaded = $state(/** @type {Record<string, boolean>} */ ({}));
@@ -474,7 +477,7 @@
 	async function runGate() {
 		gateRunning = true;
 		try {
-			gateResult = await api.runGate(id);
+			[gateResult, gateStored] = await Promise.all([api.runGate(id), api.gateStatus(id).catch(() => null)]);
 		} catch (err) {
 			notify(errorMessage(err));
 		} finally {
@@ -1716,6 +1719,18 @@
 			<span class="font-mono text-xs">POST /projects/{id}/gate</span> {$t('proj.gateReturns')}
 		</p>
 
+		{#if gateStored}
+			<p class="text-sm mb-2">
+				<span class="font-medium">{$t('proj.gateStored')}:</span>
+				{#if gateStored.evaluated}
+					<span class="badge badge-sm {gateStored.passed ? 'badge-success' : 'badge-error'}">{gateStored.passed ? $t('proj.pass') : $t('proj.failUpper')}</span>
+					<span class="text-base-content/60">{$t('proj.gateStoredAt', { date: fmtDate(gateStored.evaluated_at) })}</span>
+					{#if !gateStored.passed}<a class="link link-primary ml-1" href={`/findings?project_id=${id}&fails_gate=true`}>{$t('proj.gateStoredFindings')}</a>{/if}
+				{:else}
+					<span class="text-base-content/60">{$t('proj.gateStoredNone')}</span>
+				{/if}
+			</p>
+		{/if}
 		{#if gateResult}
 			<div class="rounded-box p-4 mb-4 {gateResult.passed ? 'bg-success/10' : 'bg-error/10'}">
 				<div class="flex items-center gap-2">

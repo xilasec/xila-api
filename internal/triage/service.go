@@ -87,7 +87,7 @@ type Service struct {
 	findings findingStore
 	dedup    deduper       // optional
 	custom   customChecker // set_custom_field needs it; without, those rules change nothing
-	notifier notifier      // optional; without, the notify side action never fires
+	notifier notifier      // optional; without, the notify side action and finding.status_changed never fire
 }
 
 // WithCustomFields lets set_custom_field rules validate their writes.
@@ -96,7 +96,9 @@ func (s *Service) WithCustomFields(c customChecker) *Service {
 	return s
 }
 
-// WithNotifier lets the notify side action enqueue its event.
+// WithNotifier lets the notify side action enqueue its event, and raises
+// finding.status_changed once per run when a rule changed a finding's status
+// or severity (batched, never per finding).
 func (s *Service) WithNotifier(n notifier) *Service {
 	s.notifier = n
 	return s
@@ -232,6 +234,13 @@ func (s *Service) applyTo(ctx context.Context, projectID string, load func(conte
 	s.sendNotifications(ctx, rules, notifyAcc)
 	if err := s.rules.RecordHits(ctx, hits); err != nil {
 		return changed, err
+	}
+	if changed > 0 && s.notifier != nil {
+		go s.notifier.Notify(context.WithoutCancel(ctx), notify.Event{
+			Type: notify.EventStatusChanged, ProjectID: projectID,
+			Title:  fmt.Sprintf("Triage rules changed %d finding(s)", changed),
+			Fields: map[string]string{"count": strconv.Itoa(changed), "actor": "triage-rule"},
+		})
 	}
 	return changed, nil
 }
