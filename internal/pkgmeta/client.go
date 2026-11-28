@@ -76,26 +76,35 @@ func NewRegistries(c RegistryConfig) map[string]Registry {
 			}
 		}
 		g := &getter{hc: hc, ua: c.UserAgent, every: time.Second / time.Duration(r)}
-		switch eco {
-		case NPM:
-			out[eco] = &npmRegistry{base: base, g: g}
-		case PyPI:
-			out[eco] = &pypiRegistry{base: base, g: g}
-		case Maven:
-			out[eco] = &mavenRegistry{base: base, g: g}
-		case Golang:
-			out[eco] = &goRegistry{base: base, g: g}
-		case Cargo:
-			out[eco] = &cargoRegistry{base: base, g: g}
-		case NuGet:
-			out[eco] = &nugetRegistry{index: base, g: g}
-		case Gem:
-			out[eco] = &gemRegistry{base: base, g: g}
-		case Composer:
-			out[eco] = &composerRegistry{base: base, g: g}
+		if reg := newRegistry(eco, base, g); reg != nil {
+			out[eco] = reg
 		}
 	}
 	return out
+}
+
+// newRegistry is the client for one ecosystem's registry at base; nil for an
+// unsupported ecosystem.
+func newRegistry(eco, base string, g *getter) Registry {
+	switch eco {
+	case NPM:
+		return &npmRegistry{base: base, g: g}
+	case PyPI:
+		return &pypiRegistry{base: base, g: g}
+	case Maven:
+		return &mavenRegistry{base: base, g: g}
+	case Golang:
+		return &goRegistry{base: base, g: g}
+	case Cargo:
+		return &cargoRegistry{base: base, g: g}
+	case NuGet:
+		return &nugetRegistry{index: base, g: g}
+	case Gem:
+		return &gemRegistry{base: base, g: g}
+	case Composer:
+		return &composerRegistry{base: base, g: g}
+	}
+	return nil
 }
 
 // UserAgent is the User-Agent registries see: "xila/<version> (+<url>)", with
@@ -119,6 +128,9 @@ type getter struct {
 	hc    *http.Client
 	ua    string
 	every time.Duration
+	// auth, when set, signs a request to the registry's own host (a private
+	// registry's credentials; never sent to another host a registry names).
+	auth func(*http.Request)
 
 	mu   sync.Mutex
 	next time.Time
@@ -161,6 +173,9 @@ func (g *getter) get(ctx context.Context, url, accept string, read func(io.Reade
 	}
 	if accept != "" {
 		req.Header.Set("Accept", accept)
+	}
+	if g.auth != nil {
+		g.auth(req)
 	}
 	resp, err := g.hc.Do(req)
 	if err != nil {

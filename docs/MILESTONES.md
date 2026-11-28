@@ -971,7 +971,12 @@ Tier 2:
   under /projects/{id}, owner policies pinned to their project and outside the
   GitOps bundle, an opt-out an admin allows (and withdraws) instance-wide, one
   SQL rule (triage.ProjectSkipsGlobalSQL) for both kinds; a project Rules tab.
-- ⬜ 13.11 Internal components and authenticated private registries (DT).
+- ✅ 13.11 Internal components and authenticated private registries (DT):
+  admin patterns mark components internal at upload; their names only go to
+  internal private registries and private advisory sources (never a public
+  registry, an online source or NVD); private registries per ecosystem with
+  sealed basic/bearer credentials sent to their own host only, chained before
+  the public one. Migration 000126; an Internal Components settings page.
 - ✅ 13.12 Manual concluded-license override that survives re-uploads
   (SecObserve): `/projects/{id}/license-overrides` curates one package's SPDX
   expression (optionally one version range) per project; applied at ingest
@@ -1017,8 +1022,11 @@ Tier 2:
   netguard, and maps them into the pipeline as its own scanner. The connectors
   editor gains the four kinds (credential fields, and Defender's OAuth token
   URL); the kind enum is in the OpenAPI. Migration 000122.
-- ⬜ 13.20 Dependency-graph functions and scope facts in component-policy CEL
-  (DT).
+- ✅ 13.20 Dependency-graph functions and scope facts in component-policy CEL
+  (DT): depends_on, is_dependency_of, is_direct_dependency_of and
+  is_exclusive_dependency_of over each snapshot's graph (exact versionless purl
+  or re:), loaded only when a policy calls one; component.direct / depth /
+  scope / internal facts.
 
 Left for later (small or low value): finding date-range and assessed filters,
 a column chooser, default risk-acceptance expiry, compressed uploads,

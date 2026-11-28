@@ -857,6 +857,24 @@ func (e ComponentKind) Valid() bool {
 	}
 }
 
+// Defines values for ComponentPatternPatternType.
+const (
+	Glob  ComponentPatternPatternType = "glob"
+	Regex ComponentPatternPatternType = "regex"
+)
+
+// Valid indicates whether the value is a known member of the ComponentPatternPatternType enum.
+func (e ComponentPatternPatternType) Valid() bool {
+	switch e {
+	case Glob:
+		return true
+	case Regex:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ConnectorKind.
 const (
 	ConnectorKindAwsSecurityHub    ConnectorKind = "aws-security-hub"
@@ -1988,6 +2006,48 @@ func (e PortfolioSource) Valid() bool {
 	case Live:
 		return true
 	case Snapshots:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PrivateRegistryAuthType.
+const (
+	PrivateRegistryAuthTypeBasic  PrivateRegistryAuthType = "basic"
+	PrivateRegistryAuthTypeBearer PrivateRegistryAuthType = "bearer"
+	PrivateRegistryAuthTypeNone   PrivateRegistryAuthType = "none"
+)
+
+// Valid indicates whether the value is a known member of the PrivateRegistryAuthType enum.
+func (e PrivateRegistryAuthType) Valid() bool {
+	switch e {
+	case PrivateRegistryAuthTypeBasic:
+		return true
+	case PrivateRegistryAuthTypeBearer:
+		return true
+	case PrivateRegistryAuthTypeNone:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PrivateRegistryInputAuthType.
+const (
+	PrivateRegistryInputAuthTypeBasic  PrivateRegistryInputAuthType = "basic"
+	PrivateRegistryInputAuthTypeBearer PrivateRegistryInputAuthType = "bearer"
+	PrivateRegistryInputAuthTypeNone   PrivateRegistryInputAuthType = "none"
+)
+
+// Valid indicates whether the value is a known member of the PrivateRegistryInputAuthType enum.
+func (e PrivateRegistryInputAuthType) Valid() bool {
+	switch e {
+	case PrivateRegistryInputAuthTypeBasic:
+		return true
+	case PrivateRegistryInputAuthTypeBearer:
+		return true
+	case PrivateRegistryInputAuthTypeNone:
 		return true
 	default:
 		return false
@@ -5929,6 +5989,28 @@ type ComponentIntegrity string
 // snapshot's services; the BOM export writes it only there.
 type ComponentKind string
 
+// ComponentPattern At least one of group_pattern and name_pattern; each empty one matches anything.
+type ComponentPattern struct {
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+
+	// Ecosystem A purl type (npm, maven, ...); empty matches every ecosystem.
+	Ecosystem *string `json:"ecosystem,omitempty"`
+
+	// GroupPattern Example: @acme
+	GroupPattern *string             `json:"group_pattern,omitempty"`
+	Id           *openapi_types.UUID `json:"id,omitempty"`
+
+	// NamePattern Example: acme-*
+	NamePattern *string `json:"name_pattern,omitempty"`
+
+	// PatternType Case-insensitive; a glob matches the whole value.
+	PatternType *ComponentPatternPatternType `json:"pattern_type,omitempty"`
+	UpdatedAt   *time.Time                   `json:"updated_at,omitempty"`
+}
+
+// ComponentPatternPatternType Case-insensitive; a glob matches the whole value.
+type ComponentPatternPatternType string
+
 // Connector defines model for Connector.
 type Connector struct {
 	// AuthUrl Wiz OAuth token endpoint; empty for every other kind.
@@ -7569,6 +7651,51 @@ type PriorityWeights struct {
 	// Weaponized Floor set by a weaponized exploit (Metasploit).
 	Weaponized *float32 `json:"weaponized,omitempty"`
 }
+
+// PrivateRegistry defines model for PrivateRegistry.
+type PrivateRegistry struct {
+	AuthType    *PrivateRegistryAuthType `json:"auth_type,omitempty"`
+	CreatedAt   *time.Time               `json:"created_at,omitempty"`
+	Ecosystem   *string                  `json:"ecosystem,omitempty"`
+	HasPassword *bool                    `json:"has_password,omitempty"`
+	HasToken    *bool                    `json:"has_token,omitempty"`
+	Id          *openapi_types.UUID      `json:"id,omitempty"`
+
+	// Internal May see internal component names.
+	Internal  *bool      `json:"internal,omitempty"`
+	SortOrder *int       `json:"sort_order,omitempty"`
+	UpdatedAt *time.Time `json:"updated_at,omitempty"`
+	Url       *string    `json:"url,omitempty"`
+	Username  *string    `json:"username,omitempty"`
+}
+
+// PrivateRegistryAuthType defines model for PrivateRegistry.AuthType.
+type PrivateRegistryAuthType string
+
+// PrivateRegistryInput defines model for PrivateRegistryInput.
+type PrivateRegistryInput struct {
+	AuthType *PrivateRegistryInputAuthType `json:"auth_type,omitempty"`
+
+	// Ecosystem npm, pypi, maven, golang, cargo, nuget, gem or composer.
+	Ecosystem string `json:"ecosystem"`
+	Internal  *bool  `json:"internal,omitempty"`
+
+	// Password For basic auth. Omit on update to keep it.
+	Password  *string `json:"password,omitempty"`
+	SortOrder *int    `json:"sort_order,omitempty"`
+
+	// Token For bearer auth. Omit on update to keep it.
+	Token *string `json:"token,omitempty"`
+
+	// Url The registry's base URL (checked against the outbound policy).
+	Url string `json:"url"`
+
+	// Username For basic auth.
+	Username *string `json:"username,omitempty"`
+}
+
+// PrivateRegistryInputAuthType defines model for PrivateRegistryInput.AuthType.
+type PrivateRegistryInputAuthType string
 
 // Project Example: {"ai_triage_opt_out":false,"archived_at":null,"archived_by":null,"business_criticality":"medium","created_at":"2026-11-12T16:49:59.72317+01:00","custom":{},"description":"","id":"af938283-73e9-4d55-ba64-07a1658d69ce","is_collection":false,"name":"Web","parent_id":null,"repo_url":"","slug":"web","tags":[],"team_id":"4fe52455-3109-4533-824c-23d7a4064213","updated_at":"2026-11-12T16:49:59.72317+01:00"}
 type Project struct {
@@ -11756,6 +11883,12 @@ type SamlSingleLogoutPostByProviderFormdataRequestBody SamlSingleLogoutPostByPro
 // ExchangeTokenFormdataRequestBody defines body for ExchangeToken for application/x-www-form-urlencoded ContentType.
 type ExchangeTokenFormdataRequestBody ExchangeTokenFormdataBody
 
+// CreateComponentPatternJSONRequestBody defines body for CreateComponentPattern for application/json ContentType.
+type CreateComponentPatternJSONRequestBody = ComponentPattern
+
+// UpdateComponentPatternJSONRequestBody defines body for UpdateComponentPattern for application/json ContentType.
+type UpdateComponentPatternJSONRequestBody = ComponentPattern
+
 // UpdateCraCaseJSONRequestBody defines body for UpdateCraCase for application/json ContentType.
 type UpdateCraCaseJSONRequestBody UpdateCraCaseJSONBody
 
@@ -11917,6 +12050,12 @@ type PutOrgSlaPolicyJSONRequestBody = SLADays
 
 // CreateOrgTeamJSONRequestBody defines body for CreateOrgTeam for application/json ContentType.
 type CreateOrgTeamJSONRequestBody CreateOrgTeamJSONBody
+
+// CreatePrivateRegistryJSONRequestBody defines body for CreatePrivateRegistry for application/json ContentType.
+type CreatePrivateRegistryJSONRequestBody = PrivateRegistryInput
+
+// UpdatePrivateRegistryJSONRequestBody defines body for UpdatePrivateRegistry for application/json ContentType.
+type UpdatePrivateRegistryJSONRequestBody = PrivateRegistryInput
 
 // CreatePolicyJSONRequestBody defines body for CreatePolicy for application/json ContentType.
 type CreatePolicyJSONRequestBody = Policy
@@ -13068,6 +13207,53 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /capabilities (the `ListCapabilities` operationId).
 	ListCapabilities(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListComponentPatterns Internal-component patterns
+	//
+	// Instance admin. A component whose ecosystem, group and name match a
+	// pattern is internal (first-party): its name is only ever looked up in
+	// internal private registries and asked of private advisory sources
+	// (the local OSV mirror, private advisories), never a public one.
+	//
+	// Corresponds with GET /component-patterns (the `ListComponentPatterns` operationId).
+	ListComponentPatterns(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateComponentPatternWithBody Add an internal-component pattern
+	//
+	// Instance admin. Existing inventory is re-marked in the background; uploads see the change within seconds on every replica.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /component-patterns (the `CreateComponentPattern` operationId).
+	CreateComponentPatternWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateComponentPattern Add an internal-component pattern
+	//
+	// Instance admin. Existing inventory is re-marked in the background; uploads see the change within seconds on every replica.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /component-patterns (the `CreateComponentPattern` operationId).
+	CreateComponentPattern(ctx context.Context, body CreateComponentPatternJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteComponentPattern Delete an internal-component pattern
+	//
+	// Corresponds with DELETE /component-patterns/{id} (the `DeleteComponentPattern` operationId).
+	DeleteComponentPattern(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateComponentPatternWithBody Replace an internal-component pattern
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /component-patterns/{id} (the `UpdateComponentPattern` operationId).
+	UpdateComponentPatternWithBody(ctx context.Context, id openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateComponentPattern Replace an internal-component pattern
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /component-patterns/{id} (the `UpdateComponentPattern` operationId).
+	UpdateComponentPattern(ctx context.Context, id openapi_types.UUID, body UpdateComponentPatternJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListComponents Which projects ship this package?
 	//
@@ -15039,6 +15225,54 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /pkgmeta/refresh (the `RefreshPkgmeta` operationId).
 	RefreshPkgmeta(ctx context.Context, params *RefreshPkgmetaParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListPrivateRegistries Private package registries
+	//
+	// Instance admin. Registries tried, per ecosystem in `sort_order`, before the
+	// public one when package metadata is fetched. An `internal` registry is the
+	// only kind an internal component is ever looked up in. Credentials are
+	// write-only (`has_password`, `has_token`) and sent to the registry's own
+	// host only.
+	//
+	// Corresponds with GET /pkgmeta/registries (the `ListPrivateRegistries` operationId).
+	ListPrivateRegistries(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreatePrivateRegistryWithBody Add a private package registry
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /pkgmeta/registries (the `CreatePrivateRegistry` operationId).
+	CreatePrivateRegistryWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreatePrivateRegistry Add a private package registry
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /pkgmeta/registries (the `CreatePrivateRegistry` operationId).
+	CreatePrivateRegistry(ctx context.Context, body CreatePrivateRegistryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeletePrivateRegistry Delete a private package registry
+	//
+	// Corresponds with DELETE /pkgmeta/registries/{registryID} (the `DeletePrivateRegistry` operationId).
+	DeletePrivateRegistry(ctx context.Context, registryID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdatePrivateRegistryWithBody Update a private package registry
+	//
+	// A `password` or `token` left out is kept; an empty string clears it.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /pkgmeta/registries/{registryID} (the `UpdatePrivateRegistry` operationId).
+	UpdatePrivateRegistryWithBody(ctx context.Context, registryID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdatePrivateRegistry Update a private package registry
+	//
+	// A `password` or `token` left out is kept; an empty string clears it.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PATCH /pkgmeta/registries/{registryID} (the `UpdatePrivateRegistry` operationId).
+	UpdatePrivateRegistry(ctx context.Context, registryID openapi_types.UUID, body UpdatePrivateRegistryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListPolicies List component policies
 	//
@@ -19885,6 +20119,113 @@ func (c *Client) ListCapabilities(ctx context.Context, reqEditors ...RequestEdit
 	return c.Client.Do(req)
 }
 
+// ListComponentPatterns Internal-component patterns
+//
+// Instance admin. A component whose ecosystem, group and name match a
+// pattern is internal (first-party): its name is only ever looked up in
+// internal private registries and asked of private advisory sources
+// (the local OSV mirror, private advisories), never a public one.
+//
+// Corresponds with GET /component-patterns (the `ListComponentPatterns` operationId).
+func (c *Client) ListComponentPatterns(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListComponentPatternsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateComponentPatternWithBody Add an internal-component pattern
+//
+// Instance admin. Existing inventory is re-marked in the background; uploads see the change within seconds on every replica.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /component-patterns (the `CreateComponentPattern` operationId).
+func (c *Client) CreateComponentPatternWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateComponentPatternRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateComponentPattern Add an internal-component pattern
+//
+// Instance admin. Existing inventory is re-marked in the background; uploads see the change within seconds on every replica.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /component-patterns (the `CreateComponentPattern` operationId).
+func (c *Client) CreateComponentPattern(ctx context.Context, body CreateComponentPatternJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateComponentPatternRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteComponentPattern Delete an internal-component pattern
+//
+// Corresponds with DELETE /component-patterns/{id} (the `DeleteComponentPattern` operationId).
+func (c *Client) DeleteComponentPattern(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteComponentPatternRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateComponentPatternWithBody Replace an internal-component pattern
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /component-patterns/{id} (the `UpdateComponentPattern` operationId).
+func (c *Client) UpdateComponentPatternWithBody(ctx context.Context, id openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateComponentPatternRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateComponentPattern Replace an internal-component pattern
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /component-patterns/{id} (the `UpdateComponentPattern` operationId).
+func (c *Client) UpdateComponentPattern(ctx context.Context, id openapi_types.UUID, body UpdateComponentPatternJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateComponentPatternRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListComponents Which projects ship this package?
 //
 // Cross-portfolio component search — the question you ask the morning a
@@ -23966,6 +24307,114 @@ func (c *Client) GetPkgmeta(ctx context.Context, params *GetPkgmetaParams, reqEd
 // Corresponds with POST /pkgmeta/refresh (the `RefreshPkgmeta` operationId).
 func (c *Client) RefreshPkgmeta(ctx context.Context, params *RefreshPkgmetaParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRefreshPkgmetaRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListPrivateRegistries Private package registries
+//
+// Instance admin. Registries tried, per ecosystem in `sort_order`, before the
+// public one when package metadata is fetched. An `internal` registry is the
+// only kind an internal component is ever looked up in. Credentials are
+// write-only (`has_password`, `has_token`) and sent to the registry's own
+// host only.
+//
+// Corresponds with GET /pkgmeta/registries (the `ListPrivateRegistries` operationId).
+func (c *Client) ListPrivateRegistries(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListPrivateRegistriesRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreatePrivateRegistryWithBody Add a private package registry
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /pkgmeta/registries (the `CreatePrivateRegistry` operationId).
+func (c *Client) CreatePrivateRegistryWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreatePrivateRegistryRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreatePrivateRegistry Add a private package registry
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /pkgmeta/registries (the `CreatePrivateRegistry` operationId).
+func (c *Client) CreatePrivateRegistry(ctx context.Context, body CreatePrivateRegistryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreatePrivateRegistryRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeletePrivateRegistry Delete a private package registry
+//
+// Corresponds with DELETE /pkgmeta/registries/{registryID} (the `DeletePrivateRegistry` operationId).
+func (c *Client) DeletePrivateRegistry(ctx context.Context, registryID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeletePrivateRegistryRequest(c.Server, registryID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdatePrivateRegistryWithBody Update a private package registry
+//
+// A `password` or `token` left out is kept; an empty string clears it.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /pkgmeta/registries/{registryID} (the `UpdatePrivateRegistry` operationId).
+func (c *Client) UpdatePrivateRegistryWithBody(ctx context.Context, registryID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdatePrivateRegistryRequestWithBody(c.Server, registryID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdatePrivateRegistry Update a private package registry
+//
+// A `password` or `token` left out is kept; an empty string clears it.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PATCH /pkgmeta/registries/{registryID} (the `UpdatePrivateRegistry` operationId).
+func (c *Client) UpdatePrivateRegistry(ctx context.Context, registryID openapi_types.UUID, body UpdatePrivateRegistryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdatePrivateRegistryRequest(c.Server, registryID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -33539,6 +33988,154 @@ func NewListCapabilitiesRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewListComponentPatternsRequest constructs an http.Request for the ListComponentPatterns method
+func NewListComponentPatternsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/component-patterns")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateComponentPatternRequest calls the generic CreateComponentPattern builder with application/json body
+func NewCreateComponentPatternRequest(server string, body CreateComponentPatternJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateComponentPatternRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateComponentPatternRequestWithBody constructs an http.Request for the CreateComponentPattern method, with any body, and a specified content type
+func NewCreateComponentPatternRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/component-patterns")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteComponentPatternRequest constructs an http.Request for the DeleteComponentPattern method
+func NewDeleteComponentPatternRequest(server string, id openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/component-patterns/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateComponentPatternRequest calls the generic UpdateComponentPattern builder with application/json body
+func NewUpdateComponentPatternRequest(server string, id openapi_types.UUID, body UpdateComponentPatternJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateComponentPatternRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewUpdateComponentPatternRequestWithBody constructs an http.Request for the UpdateComponentPattern method, with any body, and a specified content type
+func NewUpdateComponentPatternRequestWithBody(server string, id openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/component-patterns/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListComponentsRequest constructs an http.Request for the ListComponents method
 func NewListComponentsRequest(server string, params *ListComponentsParams) (*http.Request, error) {
 	var err error
@@ -41240,6 +41837,154 @@ func NewRefreshPkgmetaRequest(server string, params *RefreshPkgmetaParams) (*htt
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewListPrivateRegistriesRequest constructs an http.Request for the ListPrivateRegistries method
+func NewListPrivateRegistriesRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/pkgmeta/registries")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreatePrivateRegistryRequest calls the generic CreatePrivateRegistry builder with application/json body
+func NewCreatePrivateRegistryRequest(server string, body CreatePrivateRegistryJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreatePrivateRegistryRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreatePrivateRegistryRequestWithBody constructs an http.Request for the CreatePrivateRegistry method, with any body, and a specified content type
+func NewCreatePrivateRegistryRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/pkgmeta/registries")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeletePrivateRegistryRequest constructs an http.Request for the DeletePrivateRegistry method
+func NewDeletePrivateRegistryRequest(server string, registryID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "registryID", registryID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/pkgmeta/registries/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdatePrivateRegistryRequest calls the generic UpdatePrivateRegistry builder with application/json body
+func NewUpdatePrivateRegistryRequest(server string, registryID openapi_types.UUID, body UpdatePrivateRegistryJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdatePrivateRegistryRequestWithBody(server, registryID, "application/json", bodyReader)
+}
+
+// NewUpdatePrivateRegistryRequestWithBody constructs an http.Request for the UpdatePrivateRegistry method, with any body, and a specified content type
+func NewUpdatePrivateRegistryRequestWithBody(server string, registryID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "registryID", registryID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/pkgmeta/registries/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -55514,6 +56259,57 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /capabilities (the `ListCapabilities` operationId).
 	ListCapabilitiesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListCapabilitiesResponse, error)
 
+	// ListComponentPatternsWithResponse Internal-component patterns
+	//
+	// Instance admin. A component whose ecosystem, group and name match a
+	// pattern is internal (first-party): its name is only ever looked up in
+	// internal private registries and asked of private advisory sources
+	// (the local OSV mirror, private advisories), never a public one.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /component-patterns (the `ListComponentPatterns` operationId).
+	ListComponentPatternsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListComponentPatternsResponse, error)
+
+	// CreateComponentPatternWithBodyWithResponse Add an internal-component pattern
+	//
+	// Instance admin. Existing inventory is re-marked in the background; uploads see the change within seconds on every replica.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /component-patterns (the `CreateComponentPattern` operationId).
+	CreateComponentPatternWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateComponentPatternResponse, error)
+
+	// CreateComponentPatternWithResponse Add an internal-component pattern
+	//
+	// Instance admin. Existing inventory is re-marked in the background; uploads see the change within seconds on every replica.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /component-patterns (the `CreateComponentPattern` operationId).
+	CreateComponentPatternWithResponse(ctx context.Context, body CreateComponentPatternJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateComponentPatternResponse, error)
+
+	// DeleteComponentPatternWithResponse Delete an internal-component pattern
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /component-patterns/{id} (the `DeleteComponentPattern` operationId).
+	DeleteComponentPatternWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteComponentPatternResponse, error)
+
+	// UpdateComponentPatternWithBodyWithResponse Replace an internal-component pattern
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /component-patterns/{id} (the `UpdateComponentPattern` operationId).
+	UpdateComponentPatternWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateComponentPatternResponse, error)
+
+	// UpdateComponentPatternWithResponse Replace an internal-component pattern
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /component-patterns/{id} (the `UpdateComponentPattern` operationId).
+	UpdateComponentPatternWithResponse(ctx context.Context, id openapi_types.UUID, body UpdateComponentPatternJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateComponentPatternResponse, error)
+
 	// ListComponentsWithResponse Which projects ship this package?
 	//
 	// Cross-portfolio component search — the question you ask the morning a
@@ -57694,6 +58490,58 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /pkgmeta/refresh (the `RefreshPkgmeta` operationId).
 	RefreshPkgmetaWithResponse(ctx context.Context, params *RefreshPkgmetaParams, reqEditors ...RequestEditorFn) (*RefreshPkgmetaResponse, error)
+
+	// ListPrivateRegistriesWithResponse Private package registries
+	//
+	// Instance admin. Registries tried, per ecosystem in `sort_order`, before the
+	// public one when package metadata is fetched. An `internal` registry is the
+	// only kind an internal component is ever looked up in. Credentials are
+	// write-only (`has_password`, `has_token`) and sent to the registry's own
+	// host only.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /pkgmeta/registries (the `ListPrivateRegistries` operationId).
+	ListPrivateRegistriesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListPrivateRegistriesResponse, error)
+
+	// CreatePrivateRegistryWithBodyWithResponse Add a private package registry
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /pkgmeta/registries (the `CreatePrivateRegistry` operationId).
+	CreatePrivateRegistryWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreatePrivateRegistryResponse, error)
+
+	// CreatePrivateRegistryWithResponse Add a private package registry
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /pkgmeta/registries (the `CreatePrivateRegistry` operationId).
+	CreatePrivateRegistryWithResponse(ctx context.Context, body CreatePrivateRegistryJSONRequestBody, reqEditors ...RequestEditorFn) (*CreatePrivateRegistryResponse, error)
+
+	// DeletePrivateRegistryWithResponse Delete a private package registry
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /pkgmeta/registries/{registryID} (the `DeletePrivateRegistry` operationId).
+	DeletePrivateRegistryWithResponse(ctx context.Context, registryID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeletePrivateRegistryResponse, error)
+
+	// UpdatePrivateRegistryWithBodyWithResponse Update a private package registry
+	//
+	// A `password` or `token` left out is kept; an empty string clears it.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /pkgmeta/registries/{registryID} (the `UpdatePrivateRegistry` operationId).
+	UpdatePrivateRegistryWithBodyWithResponse(ctx context.Context, registryID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdatePrivateRegistryResponse, error)
+
+	// UpdatePrivateRegistryWithResponse Update a private package registry
+	//
+	// A `password` or `token` left out is kept; an empty string clears it.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /pkgmeta/registries/{registryID} (the `UpdatePrivateRegistry` operationId).
+	UpdatePrivateRegistryWithResponse(ctx context.Context, registryID openapi_types.UUID, body UpdatePrivateRegistryJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdatePrivateRegistryResponse, error)
 
 	// ListPoliciesWithResponse List component policies
 	//
@@ -64259,6 +65107,195 @@ func (r ListCapabilitiesResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ListCapabilitiesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListComponentPatternsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Patterns *[]ComponentPattern `json:"patterns,omitempty"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListComponentPatternsResponse) GetJSON200() *struct {
+	Patterns *[]ComponentPattern `json:"patterns,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ListComponentPatternsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListComponentPatternsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListComponentPatternsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListComponentPatternsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateComponentPatternResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *ComponentPattern
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateComponentPatternResponse) GetJSON201() *ComponentPattern {
+	return r.JSON201
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r CreateComponentPatternResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateComponentPatternResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateComponentPatternResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateComponentPatternResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateComponentPatternResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteComponentPatternResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r DeleteComponentPatternResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteComponentPatternResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteComponentPatternResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteComponentPatternResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteComponentPatternResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateComponentPatternResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ComponentPattern
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateComponentPatternResponse) GetJSON200() *ComponentPattern {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r UpdateComponentPatternResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r UpdateComponentPatternResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateComponentPatternResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateComponentPatternResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateComponentPatternResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateComponentPatternResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -72680,6 +73717,195 @@ func (r RefreshPkgmetaResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r RefreshPkgmetaResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListPrivateRegistriesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Registries *[]PrivateRegistry `json:"registries,omitempty"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListPrivateRegistriesResponse) GetJSON200() *struct {
+	Registries *[]PrivateRegistry `json:"registries,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ListPrivateRegistriesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListPrivateRegistriesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListPrivateRegistriesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListPrivateRegistriesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreatePrivateRegistryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *PrivateRegistry
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreatePrivateRegistryResponse) GetJSON201() *PrivateRegistry {
+	return r.JSON201
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r CreatePrivateRegistryResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetBody returns the raw response body bytes
+func (r CreatePrivateRegistryResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreatePrivateRegistryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreatePrivateRegistryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreatePrivateRegistryResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeletePrivateRegistryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r DeletePrivateRegistryResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r DeletePrivateRegistryResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeletePrivateRegistryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeletePrivateRegistryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeletePrivateRegistryResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdatePrivateRegistryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *PrivateRegistry
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdatePrivateRegistryResponse) GetJSON200() *PrivateRegistry {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r UpdatePrivateRegistryResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r UpdatePrivateRegistryResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdatePrivateRegistryResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdatePrivateRegistryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdatePrivateRegistryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdatePrivateRegistryResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -88016,6 +89242,93 @@ func (c *ClientWithResponses) ListCapabilitiesWithResponse(ctx context.Context, 
 	return ParseListCapabilitiesResponse(rsp)
 }
 
+// ListComponentPatternsWithResponse Internal-component patterns
+//
+// Instance admin. A component whose ecosystem, group and name match a
+// pattern is internal (first-party): its name is only ever looked up in
+// internal private registries and asked of private advisory sources
+// (the local OSV mirror, private advisories), never a public one.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /component-patterns (the `ListComponentPatterns` operationId).
+func (c *ClientWithResponses) ListComponentPatternsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListComponentPatternsResponse, error) {
+	rsp, err := c.ListComponentPatterns(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListComponentPatternsResponse(rsp)
+}
+
+// CreateComponentPatternWithBodyWithResponse Add an internal-component pattern
+//
+// Instance admin. Existing inventory is re-marked in the background; uploads see the change within seconds on every replica.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /component-patterns (the `CreateComponentPattern` operationId).
+func (c *ClientWithResponses) CreateComponentPatternWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateComponentPatternResponse, error) {
+	rsp, err := c.CreateComponentPatternWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateComponentPatternResponse(rsp)
+}
+
+// CreateComponentPatternWithResponse Add an internal-component pattern
+//
+// Instance admin. Existing inventory is re-marked in the background; uploads see the change within seconds on every replica.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /component-patterns (the `CreateComponentPattern` operationId).
+func (c *ClientWithResponses) CreateComponentPatternWithResponse(ctx context.Context, body CreateComponentPatternJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateComponentPatternResponse, error) {
+	rsp, err := c.CreateComponentPattern(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateComponentPatternResponse(rsp)
+}
+
+// DeleteComponentPatternWithResponse Delete an internal-component pattern
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /component-patterns/{id} (the `DeleteComponentPattern` operationId).
+func (c *ClientWithResponses) DeleteComponentPatternWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteComponentPatternResponse, error) {
+	rsp, err := c.DeleteComponentPattern(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteComponentPatternResponse(rsp)
+}
+
+// UpdateComponentPatternWithBodyWithResponse Replace an internal-component pattern
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /component-patterns/{id} (the `UpdateComponentPattern` operationId).
+func (c *ClientWithResponses) UpdateComponentPatternWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateComponentPatternResponse, error) {
+	rsp, err := c.UpdateComponentPatternWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateComponentPatternResponse(rsp)
+}
+
+// UpdateComponentPatternWithResponse Replace an internal-component pattern
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /component-patterns/{id} (the `UpdateComponentPattern` operationId).
+func (c *ClientWithResponses) UpdateComponentPatternWithResponse(ctx context.Context, id openapi_types.UUID, body UpdateComponentPatternJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateComponentPatternResponse, error) {
+	rsp, err := c.UpdateComponentPattern(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateComponentPatternResponse(rsp)
+}
+
 // ListComponentsWithResponse Which projects ship this package?
 //
 // Cross-portfolio component search — the question you ask the morning a
@@ -91467,6 +92780,94 @@ func (c *ClientWithResponses) RefreshPkgmetaWithResponse(ctx context.Context, pa
 		return nil, err
 	}
 	return ParseRefreshPkgmetaResponse(rsp)
+}
+
+// ListPrivateRegistriesWithResponse Private package registries
+//
+// Instance admin. Registries tried, per ecosystem in `sort_order`, before the
+// public one when package metadata is fetched. An `internal` registry is the
+// only kind an internal component is ever looked up in. Credentials are
+// write-only (`has_password`, `has_token`) and sent to the registry's own
+// host only.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /pkgmeta/registries (the `ListPrivateRegistries` operationId).
+func (c *ClientWithResponses) ListPrivateRegistriesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListPrivateRegistriesResponse, error) {
+	rsp, err := c.ListPrivateRegistries(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListPrivateRegistriesResponse(rsp)
+}
+
+// CreatePrivateRegistryWithBodyWithResponse Add a private package registry
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /pkgmeta/registries (the `CreatePrivateRegistry` operationId).
+func (c *ClientWithResponses) CreatePrivateRegistryWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreatePrivateRegistryResponse, error) {
+	rsp, err := c.CreatePrivateRegistryWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreatePrivateRegistryResponse(rsp)
+}
+
+// CreatePrivateRegistryWithResponse Add a private package registry
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /pkgmeta/registries (the `CreatePrivateRegistry` operationId).
+func (c *ClientWithResponses) CreatePrivateRegistryWithResponse(ctx context.Context, body CreatePrivateRegistryJSONRequestBody, reqEditors ...RequestEditorFn) (*CreatePrivateRegistryResponse, error) {
+	rsp, err := c.CreatePrivateRegistry(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreatePrivateRegistryResponse(rsp)
+}
+
+// DeletePrivateRegistryWithResponse Delete a private package registry
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /pkgmeta/registries/{registryID} (the `DeletePrivateRegistry` operationId).
+func (c *ClientWithResponses) DeletePrivateRegistryWithResponse(ctx context.Context, registryID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeletePrivateRegistryResponse, error) {
+	rsp, err := c.DeletePrivateRegistry(ctx, registryID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeletePrivateRegistryResponse(rsp)
+}
+
+// UpdatePrivateRegistryWithBodyWithResponse Update a private package registry
+//
+// A `password` or `token` left out is kept; an empty string clears it.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /pkgmeta/registries/{registryID} (the `UpdatePrivateRegistry` operationId).
+func (c *ClientWithResponses) UpdatePrivateRegistryWithBodyWithResponse(ctx context.Context, registryID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdatePrivateRegistryResponse, error) {
+	rsp, err := c.UpdatePrivateRegistryWithBody(ctx, registryID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdatePrivateRegistryResponse(rsp)
+}
+
+// UpdatePrivateRegistryWithResponse Update a private package registry
+//
+// A `password` or `token` left out is kept; an empty string clears it.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /pkgmeta/registries/{registryID} (the `UpdatePrivateRegistry` operationId).
+func (c *ClientWithResponses) UpdatePrivateRegistryWithResponse(ctx context.Context, registryID openapi_types.UUID, body UpdatePrivateRegistryJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdatePrivateRegistryResponse, error) {
+	rsp, err := c.UpdatePrivateRegistry(ctx, registryID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdatePrivateRegistryResponse(rsp)
 }
 
 // ListPoliciesWithResponse List component policies
@@ -99252,6 +100653,136 @@ func ParseListCapabilitiesResponse(rsp *http.Response) (*ListCapabilitiesRespons
 	return response, nil
 }
 
+// ParseListComponentPatternsResponse parses an HTTP response from a ListComponentPatternsWithResponse call
+func ParseListComponentPatternsResponse(rsp *http.Response) (*ListComponentPatternsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListComponentPatternsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Patterns *[]ComponentPattern `json:"patterns,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateComponentPatternResponse parses an HTTP response from a CreateComponentPatternWithResponse call
+func ParseCreateComponentPatternResponse(rsp *http.Response) (*CreateComponentPatternResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateComponentPatternResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ComponentPattern
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteComponentPatternResponse parses an HTTP response from a DeleteComponentPatternWithResponse call
+func ParseDeleteComponentPatternResponse(rsp *http.Response) (*DeleteComponentPatternResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteComponentPatternResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateComponentPatternResponse parses an HTTP response from a UpdateComponentPatternWithResponse call
+func ParseUpdateComponentPatternResponse(rsp *http.Response) (*UpdateComponentPatternResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateComponentPatternResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ComponentPattern
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListComponentsResponse parses an HTTP response from a ListComponentsWithResponse call
 func ParseListComponentsResponse(rsp *http.Response) (*ListComponentsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -105011,6 +106542,136 @@ func ParseRefreshPkgmetaResponse(rsp *http.Response) (*RefreshPkgmetaResponse, e
 			return nil, err
 		}
 		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListPrivateRegistriesResponse parses an HTTP response from a ListPrivateRegistriesWithResponse call
+func ParseListPrivateRegistriesResponse(rsp *http.Response) (*ListPrivateRegistriesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListPrivateRegistriesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Registries *[]PrivateRegistry `json:"registries,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreatePrivateRegistryResponse parses an HTTP response from a CreatePrivateRegistryWithResponse call
+func ParseCreatePrivateRegistryResponse(rsp *http.Response) (*CreatePrivateRegistryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreatePrivateRegistryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest PrivateRegistry
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeletePrivateRegistryResponse parses an HTTP response from a DeletePrivateRegistryWithResponse call
+func ParseDeletePrivateRegistryResponse(rsp *http.Response) (*DeletePrivateRegistryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeletePrivateRegistryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdatePrivateRegistryResponse parses an HTTP response from a UpdatePrivateRegistryWithResponse call
+func ParseUpdatePrivateRegistryResponse(rsp *http.Response) (*UpdatePrivateRegistryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdatePrivateRegistryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PrivateRegistry
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	}
 

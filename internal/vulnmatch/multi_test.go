@@ -40,7 +40,7 @@ func TestMultiSourceMergesByIDAndAliases(t *testing.T) {
 			Fixed: "3.2.11"}, // a fix below the installed version is no use
 	}}}
 	m := NewMultiSource(
-		NamedSource{SourceOSV, osv}, NamedSource{SourceGitHub, github}, NamedSource{SourcePrivate, private})
+		NamedSource{Name: SourceOSV, Source: osv}, NamedSource{Name: SourceGitHub, Source: github}, NamedSource{Name: SourcePrivate, Source: private})
 	got, err := m.Query(context.Background(), []string{p})
 	if err != nil {
 		t.Fatalf("Query: %v", err)
@@ -72,7 +72,7 @@ func TestMultiSourceMergesByIDAndAliases(t *testing.T) {
 	// The canonical id must not depend on which sources answered: with only
 	// PyPA's record (which aliases the GHSA) it stays the record's own id, but
 	// with the GHSA present the GHSA wins regardless of order.
-	m2 := NewMultiSource(NamedSource{SourcePrivate, private}, NamedSource{SourceGitHub, github})
+	m2 := NewMultiSource(NamedSource{Name: SourcePrivate, Source: private}, NamedSource{Name: SourceGitHub, Source: github})
 	got2, _ := m2.Query(context.Background(), []string{p})
 	if len(got2[p]) != 1 || got2[p][0].ID != "GHSA-53qw-q765-4fww" {
 		t.Errorf("merged id = %+v, want GHSA-53qw-q765-4fww", got2[p])
@@ -83,7 +83,7 @@ func TestMultiSourceFailureSemantics(t *testing.T) {
 	ok := staticSource{res: map[string][]Vuln{"pkg:npm/a@1.0.0": {{ID: "GHSA-a"}}}}
 	bad := staticSource{err: errors.New("github down")}
 
-	got, err := NewMultiSource(NamedSource{SourceOSV, ok}, NamedSource{SourceGitHub, bad}).
+	got, err := NewMultiSource(NamedSource{Name: SourceOSV, Source: ok}, NamedSource{Name: SourceGitHub, Source: bad}).
 		Query(context.Background(), []string{"pkg:npm/a@1.0.0"})
 	var partial *PartialError
 	if !errors.As(err, &partial) || !slices.Equal(partial.FailedSources(), []string{"github"}) {
@@ -93,7 +93,7 @@ func TestMultiSourceFailureSemantics(t *testing.T) {
 		t.Errorf("healthy source's results dropped: %v", got)
 	}
 
-	_, err = NewMultiSource(NamedSource{SourceOSV, bad}, NamedSource{SourceGitHub, bad}).
+	_, err = NewMultiSource(NamedSource{Name: SourceOSV, Source: bad}, NamedSource{Name: SourceGitHub, Source: bad}).
 		Query(context.Background(), []string{"pkg:npm/a@1.0.0"})
 	if err == nil || errors.As(err, &partial) {
 		t.Errorf("err = %v, want a hard error when every source failed", err)
@@ -109,8 +109,8 @@ func TestMatchWithFailedSourceDoesNotAutoClose(t *testing.T) {
 		{SbomID: "s2", ProjectID: "p2", Name: "b", Version: "1.0.0", Purl: "pkg:npm/b@1.0.0", Current: true},
 	}}
 	src := NewMultiSource(
-		NamedSource{SourceOSV, staticSource{res: map[string][]Vuln{"pkg:npm/a@1.0.0": {{ID: "GHSA-a", Severity: domain.SeverityHigh}}}}},
-		NamedSource{SourceGitHub, staticSource{err: errors.New("rate limited")}},
+		NamedSource{Name: SourceOSV, Source: staticSource{res: map[string][]Vuln{"pkg:npm/a@1.0.0": {{ID: "GHSA-a", Severity: domain.SeverityHigh}}}}},
+		NamedSource{Name: SourceGitHub, Source: staticSource{err: errors.New("rate limited")}},
 	)
 	app := &fakeApplier{}
 	n, err := NewService(inv, app, src).Match(context.Background())

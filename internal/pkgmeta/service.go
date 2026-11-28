@@ -65,11 +65,38 @@ type SweepResult struct {
 // Service keeps package metadata fresh for current SBOM inventory.
 type Service struct {
 	store      store
-	registries map[string]Registry
+	registries map[string]Registry // the public (or env-mirrored) registry per ecosystem
+	private    privateLoader       // optional: admin-configured registries, tried first
+	internal   InternalMatcher     // optional: nil treats every package as external
 	ttl        time.Duration
 	conc       int
 	now        func() time.Time
 	sweeping   sync.Mutex
+}
+
+// privateLoader builds the configured private registries' clients for a sweep
+// (*PrivateRegistries).
+type privateLoader interface {
+	load(ctx context.Context) ([]configured, error)
+}
+
+// InternalMatcher returns, for one sweep, whether a package (ecosystem,
+// namespace, name) is internal (internal/component.Service.Current).
+type InternalMatcher func(ctx context.Context) func(ecosystem, namespace, name string) bool
+
+// WithPrivateRegistries tries the configured registries before the public one.
+func (s *Service) WithPrivateRegistries(p *PrivateRegistries) *Service {
+	if p != nil { // a nil *PrivateRegistries must not become a non-nil interface
+		s.private = p
+	}
+	return s
+}
+
+// WithInternal keeps internal (first-party) packages to internal registries:
+// their names never reach a public one (M13 13.11).
+func (s *Service) WithInternal(m InternalMatcher) *Service {
+	s.internal = m
+	return s
 }
 
 // NewService constructs the service over registries keyed by ecosystem.
@@ -194,14 +221,84 @@ func (s *Service) run(ctx context.Context, projectID string, newOnly bool) (Swee
 	return res, err
 }
 
+// lane is the registries one group of packages is looked up in: an
+// ecosystem's, for internal packages or for the rest.
+type lane struct {
+	ecosystem string
+	internal  bool
+}
+
+// lanes builds each lane's registry chain for this sweep. An internal package
+// only goes to internal private registries; any other to the other private
+// registries, then the public one. A lane with no registry is absent (its
+// packages are skipped), so a failure to load the private registries never
+// sends an internal package to the public registry instead.
+func (s *Service) lanes(ctx context.Context) map[lane]Registry {
+	chains := map[lane][]Registry{}
+	if s.private != nil {
+		regs, err := s.private.load(ctx)
+		if err != nil {
+			slog.WarnContext(ctx, "pkgmeta: some private registries could not be loaded; skipping them this sweep", "error", err)
+		}
+		for _, c := range regs {
+			l := lane{ecosystem: c.ecosystem, internal: c.internal}
+			chains[l] = append(chains[l], c.reg)
+		}
+	}
+	out := map[lane]Registry{}
+	for _, eco := range Ecosystems {
+		ext := lane{ecosystem: eco}
+		if pub := s.registries[eco]; pub != nil {
+			chains[ext] = append(chains[ext], pub)
+		}
+		for _, l := range []lane{ext, {ecosystem: eco, internal: true}} {
+			switch regs := chains[l]; len(regs) {
+			case 0:
+			case 1:
+				out[l] = regs[0]
+			default:
+				out[l] = chainRegistry{ecosystem: eco, regs: regs}
+			}
+		}
+	}
+	return out
+}
+
+// chainRegistry tries registries in order: one that doesn't have the package
+// passes it on; any other answer, success or failure, is the chain's.
+type chainRegistry struct {
+	ecosystem string
+	regs      []Registry
+}
+
+func (c chainRegistry) Ecosystem() string { return c.ecosystem }
+
+func (c chainRegistry) Fetch(ctx context.Context, p PURL) (Package, error) {
+	var err error
+	for _, r := range c.regs {
+		var pkg Package
+		if pkg, err = r.Fetch(ctx, p); !errors.Is(err, ErrNotFound) {
+			return pkg, err
+		}
+	}
+	return Package{}, err
+}
+
 // fetch looks up the due packages, each registry in parallel with a bounded
 // number of packages in flight, recording success or backoff for each.
 // Returns the packages fetched successfully.
 func (s *Service) fetch(ctx context.Context, pkgs map[string]PURL, todo []due, res *SweepResult) []string {
-	byEco := map[string][]due{}
+	isInternal := func(PURL) bool { return false }
+	if s.internal != nil {
+		m := s.internal(ctx)
+		isInternal = func(p PURL) bool { return m(p.Type, p.Namespace, p.Name) }
+	}
+	registries := s.lanes(ctx)
+	byLane := map[lane][]due{}
 	for _, d := range todo {
-		eco := pkgs[d.Base].Type
-		byEco[eco] = append(byEco[eco], d)
+		p := pkgs[d.Base]
+		l := lane{ecosystem: p.Type, internal: isInternal(p)}
+		byLane[l] = append(byLane[l], d)
 	}
 	var (
 		mu        sync.Mutex
@@ -211,8 +308,9 @@ func (s *Service) fetch(ctx context.Context, pkgs map[string]PURL, todo []due, r
 		skipped   atomic.Int64
 		wg        sync.WaitGroup
 	)
-	for eco, list := range byEco {
-		reg := s.registries[eco]
+	for l, list := range byLane {
+		eco := l.ecosystem
+		reg := registries[l]
 		if reg == nil {
 			skipped.Add(int64(len(list)))
 			continue

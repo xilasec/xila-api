@@ -41,6 +41,10 @@ type Enricher interface {
 type NamedSource struct {
 	Name   string
 	Source Source
+	// Private: the source answers from data held here (the local OSV
+	// mirror, private advisories), so a query never leaves the instance.
+	// Only private sources are asked about internal components (M13 13.11).
+	Private bool
 }
 
 // MultiSource queries every configured source and merges their answers per
@@ -148,7 +152,7 @@ func NewSources(names []string, d SourceDeps) (*MultiSource, error) {
 		if slices.ContainsFunc(out, func(n NamedSource) bool { return n.Name == name }) {
 			continue
 		}
-		out = append(out, NamedSource{Name: name, Source: s})
+		out = append(out, NamedSource{Name: name, Source: s, Private: name == SourceOSVLocal || name == SourcePrivate})
 	}
 	if len(out) == 0 && cpe == nil {
 		return nil, errors.New("VULNMATCH_SOURCES needs at least one matching source (jvn only enriches)")
@@ -190,10 +194,31 @@ func (m *MultiSource) Query(ctx context.Context, purls []string) (map[string][]V
 		}
 		return nil, errors.New("no advisory sources configured")
 	}
-	results := make([]map[string][]Vuln, len(m.sources))
-	errs := make([]error, len(m.sources))
+	return m.query(ctx, m.sources, purls)
+}
+
+// QueryPrivate is Query over the private sources only: what internal
+// components are matched against, so their names never reach an online
+// source. Without one configured, nothing matches (and nothing fails).
+func (m *MultiSource) QueryPrivate(ctx context.Context, purls []string) (map[string][]Vuln, error) {
+	var private []NamedSource
+	for _, s := range m.sources {
+		if s.Private {
+			private = append(private, s)
+		}
+	}
+	if len(private) == 0 || len(purls) == 0 {
+		return map[string][]Vuln{}, nil
+	}
+	return m.query(ctx, private, purls)
+}
+
+// query fans purls out to sources and merges their answers.
+func (m *MultiSource) query(ctx context.Context, sources []NamedSource, purls []string) (map[string][]Vuln, error) {
+	results := make([]map[string][]Vuln, len(sources))
+	errs := make([]error, len(sources))
 	var wg sync.WaitGroup
-	for i, s := range m.sources {
+	for i, s := range sources {
 		wg.Go(func() {
 			res, err := s.Source.Query(ctx, purls)
 			if err != nil {
@@ -217,13 +242,13 @@ func (m *MultiSource) Query(ctx context.Context, purls []string) (map[string][]V
 	failed := map[string]error{}
 	for i, err := range errs {
 		if err != nil {
-			failed[m.sources[i].Name] = err
+			failed[sources[i].Name] = err
 		}
 	}
-	if len(failed) == len(m.sources) {
+	if len(failed) == len(sources) {
 		all := make([]error, 0, len(failed))
 		for i, err := range errs {
-			all = append(all, fmt.Errorf("%s: %w", m.sources[i].Name, err))
+			all = append(all, fmt.Errorf("%s: %w", sources[i].Name, err))
 		}
 		return nil, errors.Join(all...)
 	}

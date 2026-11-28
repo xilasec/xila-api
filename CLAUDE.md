@@ -184,6 +184,14 @@ Package freshness: `internal/pkgmeta` caches registry metadata per base purl
 per exact purl on fetch. Component queries join it. "Latest" means the newest stable,
 non-yanked release. Unknown is null, not "up to date".
 
+**Internal components (M13 13.11)**: `internal/component` patterns mark SBOM
+components `internal` at upload (`component.Service.Current`, re-checked across
+replicas). An internal name must never leave the instance: pkgmeta looks it up
+only in private registries marked `internal` (a "lane" with no such registry is
+skipped, never routed to the public one), and vulnmatch asks only private
+sources (`NamedSource.Private`: `osv-local`, `private`; no NVD for an internal
+CPE). A new outbound lookup keyed by component name must apply the same rule.
+
 Reachability (SBOM-derived): `domain.Reachability` + `domain.Priority`.
 The SBOM parsers recover the dependency graph (CycloneDX `dependencies` + `scope`,
 SPDX relationships) into `Component.Direct/Depth/Scope`. `correlation.Reacher`

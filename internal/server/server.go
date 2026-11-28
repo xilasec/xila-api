@@ -31,6 +31,7 @@ import (
 	"github.com/xilasec/xila-api/internal/authz"
 	"github.com/xilasec/xila-api/internal/badge"
 	"github.com/xilasec/xila-api/internal/compliance"
+	"github.com/xilasec/xila-api/internal/component"
 	"github.com/xilasec/xila-api/internal/config"
 	"github.com/xilasec/xila-api/internal/connector"
 	"github.com/xilasec/xila-api/internal/correlation"
@@ -143,6 +144,7 @@ type Handlers struct {
 	// provider directory (404 unless PSIRT_PUBLIC).
 	PSIRT           *psirt.Handler
 	PkgMeta         *pkgmeta.Handler
+	Component       *component.Handler
 	License         *license.Handler
 	LicenseOverride *license.OverrideHandler
 	Policy          *policy.Handler
@@ -367,6 +369,7 @@ func New(cfg config.Config, h Handlers) *Server {
 	h.Policy.Register(secured)
 	h.VulnPolicy.Register(secured)
 	h.PkgMeta.Register(secured)
+	h.Component.Register(secured)
 	h.SSO.Register(secured)
 	if h.Enrichment != nil {
 		h.Enrichment.Register(secured)

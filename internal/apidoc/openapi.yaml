@@ -5655,6 +5655,70 @@ paths:
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
 
+  /pkgmeta/registries:
+    get:
+      operationId: listPrivateRegistries
+      tags: [SBOM]
+      summary: Private package registries
+      description: |
+        Instance admin. Registries tried, per ecosystem in `sort_order`, before the
+        public one when package metadata is fetched. An `internal` registry is the
+        only kind an internal component is ever looked up in. Credentials are
+        write-only (`has_password`, `has_token`) and sent to the registry's own
+        host only.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  registries: { type: array, items: { $ref: "#/components/schemas/PrivateRegistry" } }
+    post:
+      operationId: createPrivateRegistry
+      tags: [SBOM]
+      summary: Add a private package registry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PrivateRegistryInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PrivateRegistry" }
+        "400": { $ref: "#/components/responses/Error" }
+  /pkgmeta/registries/{registryID}:
+    patch:
+      operationId: updatePrivateRegistry
+      tags: [SBOM]
+      summary: Update a private package registry
+      description: A `password` or `token` left out is kept; an empty string clears it.
+      parameters: [{ name: registryID, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PrivateRegistryInput" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PrivateRegistry" }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deletePrivateRegistry
+      tags: [SBOM]
+      summary: Delete a private package registry
+      parameters: [{ name: registryID, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Error" }
   /pkgmeta:
     get:
       operationId: getPkgmeta
@@ -6116,6 +6180,69 @@ paths:
         "200": { $ref: "#/components/responses/Export" }
         "400": { $ref: "#/components/responses/Error" }
 
+  /component-patterns:
+    get:
+      operationId: listComponentPatterns
+      tags: [SBOM]
+      summary: Internal-component patterns
+      description: |
+        Instance admin. A component whose ecosystem, group and name match a
+        pattern is internal (first-party): its name is only ever looked up in
+        internal private registries and asked of private advisory sources
+        (the local OSV mirror, private advisories), never a public one.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  patterns: { type: array, items: { $ref: "#/components/schemas/ComponentPattern" } }
+    post:
+      operationId: createComponentPattern
+      tags: [SBOM]
+      summary: Add an internal-component pattern
+      description: Instance admin. Existing inventory is re-marked in the background; uploads see the change within seconds on every replica.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ComponentPattern" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ComponentPattern" }
+        "400": { $ref: "#/components/responses/Error" }
+  /component-patterns/{id}:
+    put:
+      operationId: updateComponentPattern
+      tags: [SBOM]
+      summary: Replace an internal-component pattern
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ComponentPattern" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ComponentPattern" }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deleteComponentPattern
+      tags: [SBOM]
+      summary: Delete an internal-component pattern
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Error" }
   /components:
     get:
       operationId: listComponents
@@ -13450,6 +13577,43 @@ components:
       properties:
         skip_global_rules: { type: boolean, description: "The project skips global triage rules and global vulnerability policies (counts only while allow_skip_global_rules is on)." }
         allow_skip_global_rules: { type: boolean, readOnly: true }
+    ComponentPattern:
+      type: object
+      description: "At least one of group_pattern and name_pattern; each empty one matches anything."
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        ecosystem: { type: string, description: "A purl type (npm, maven, ...); empty matches every ecosystem." }
+        group_pattern: { type: string, examples: ["@acme"] }
+        name_pattern: { type: string, examples: ["acme-*"] }
+        pattern_type: { type: string, enum: [glob, regex], default: glob, description: "Case-insensitive; a glob matches the whole value." }
+        created_at: { type: string, format: date-time, readOnly: true }
+        updated_at: { type: string, format: date-time, readOnly: true }
+    PrivateRegistry:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        ecosystem: { type: string }
+        url: { type: string }
+        auth_type: { type: string, enum: [none, basic, bearer] }
+        username: { type: string }
+        has_password: { type: boolean }
+        has_token: { type: boolean }
+        internal: { type: boolean, description: "May see internal component names." }
+        sort_order: { type: integer }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    PrivateRegistryInput:
+      type: object
+      required: [ecosystem, url]
+      properties:
+        ecosystem: { type: string, description: "npm, pypi, maven, golang, cargo, nuget, gem or composer." }
+        url: { type: string, description: "The registry's base URL (checked against the outbound policy)." }
+        auth_type: { type: string, enum: [none, basic, bearer], default: none }
+        username: { type: string, description: "For basic auth." }
+        password: { type: string, writeOnly: true, description: "For basic auth. Omit on update to keep it." }
+        token: { type: string, writeOnly: true, description: "For bearer auth. Omit on update to keep it." }
+        internal: { type: boolean }
+        sort_order: { type: integer }
     VulnPolicy:
       type: object
       required: [name, condition, scope, mode]

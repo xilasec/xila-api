@@ -133,6 +133,11 @@ type Component struct {
 	sbom.InventoryComponent
 	License license.Expr
 	Meta    *PackageInfo
+	// Graph is the component's snapshot dependency graph and GraphNode its
+	// node there (M13 13.20), loaded only when a policy calls a graph
+	// function; nil makes every such function false.
+	Graph     *expr.Graph
+	GraphNode string
 }
 
 // Match is a condition that held for a component, and the fact that made it so.

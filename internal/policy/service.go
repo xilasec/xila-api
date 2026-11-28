@@ -32,9 +32,11 @@ type policyStore interface {
 	NewViolations(ctx context.Context, scanID string) ([]NewViolation, error)
 }
 
-// inventoryStore yields current SBOM inventory with its facts (sbom.Repository).
+// inventoryStore yields current SBOM inventory with its facts, and the
+// snapshots' dependency graphs (sbom.Repository).
 type inventoryStore interface {
 	CurrentInventory(ctx context.Context, projectIDs []string, versionID string) ([]sbom.InventoryComponent, error)
+	SnapshotGraphs(ctx context.Context, sbomIDs []string) (map[string]sbom.SnapshotGraph, error)
 }
 
 // packageMeta yields package-repository metadata per purl (pkgmeta.Repository);
@@ -161,6 +163,9 @@ func (s *Service) compileAll(ctx context.Context, policies []Policy) []compiledP
 		slog.WarnContext(ctx, "policy: custom fields unavailable; expressions see none", "error", err)
 		schema = ComponentSchema
 	}
+	// This run's own frame: the graph functions read the component it is
+	// evaluating, so two runs must never share one.
+	schema.Frame = expr.NewGraphFrame()
 	out := make([]compiledPolicy, 0, len(policies))
 	for _, p := range policies {
 		cp, err := validate(&p, resolve, schema)
@@ -327,9 +332,15 @@ func (s *Service) components(ctx context.Context, projectIDs []string, versionID
 		}
 		out = append(out, c)
 	}
-	needMeta := false
+	needMeta, needGraph := false, false
 	for _, cp := range policies {
 		needMeta = needMeta || cp.needsMeta()
+		needGraph = needGraph || cp.needsGraph()
+	}
+	if needGraph {
+		if err := s.attachGraphs(ctx, out); err != nil {
+			return nil, err
+		}
 	}
 	if needMeta && len(purls) > 0 {
 		info, err := s.meta.Info(ctx, purls)
@@ -343,6 +354,45 @@ func (s *Service) components(ctx context.Context, projectIDs []string, versionID
 		}
 	}
 	return out, nil
+}
+
+// attachGraphs gives every component its snapshot's dependency graph, built
+// once per snapshot: every component of it a node (its versionless purl for
+// exact patterns, the full one for regexes), every edge the SBOM recorded.
+func (s *Service) attachGraphs(ctx context.Context, comps []*Component) error {
+	var ids []string
+	for _, c := range comps {
+		if !slices.Contains(ids, c.SbomID) {
+			ids = append(ids, c.SbomID)
+		}
+	}
+	stored, err := s.inventory.SnapshotGraphs(ctx, ids)
+	if err != nil {
+		return fmt.Errorf("dependency graphs: %w", err)
+	}
+	graphs := make(map[string]*expr.Graph, len(ids))
+	for id, sg := range stored {
+		g := expr.NewGraph(sg.Root)
+		for _, e := range sg.Edges {
+			g.AddEdge(e.Parent, e.Child)
+		}
+		graphs[id] = g
+	}
+	for _, c := range comps {
+		g := graphs[c.SbomID]
+		if g == nil {
+			continue
+		}
+		node := sbom.ComponentRef(c.BomRef, c.ID)
+		base := ""
+		if p, err := pkgmeta.ParsePURL(c.Purl); err == nil {
+			p.Version = ""
+			base = p.Base()
+		}
+		g.AddNode(expr.GraphNode{ID: node, Base: base, Purl: c.Purl})
+		c.Graph, c.GraphNode = g, node
+	}
+	return nil
 }
 
 // notifyFailures sends one policy.violation event for the new violations of
@@ -428,6 +478,7 @@ func (s *Service) Preview(ctx context.Context, p Policy, projectIDs []string) (P
 	if err != nil {
 		return PreviewResult{}, err
 	}
+	schema.Frame = expr.NewGraphFrame() // this preview's own; see compileAll
 	cp, err := validate(&p, s.strictGroups(ctx), schema)
 	if err != nil {
 		return PreviewResult{}, err

@@ -32,6 +32,8 @@ var Registry = []SealedColumn{
 	{Table: "issue_trackers", PKColumn: "id", Column: "token_enc", AADExpr: "project_id::text"},
 	{Table: "connectors", PKColumn: "id", Column: "token_enc", AADExpr: "project_id::text"},
 	{Table: "notification_channels", PKColumn: "id", Column: "signing_secret", AADExpr: "id::text"},
+	{Table: "pkgmeta_registries", PKColumn: "id", Column: "password_enc", AADExpr: "'pkgmeta_registry:' || id::text || ':password'"},
+	{Table: "pkgmeta_registries", PKColumn: "id", Column: "token_enc", AADExpr: "'pkgmeta_registry:' || id::text || ':token'"},
 	{Table: "notification_channels", PKColumn: "id", Column: "url_enc", AADExpr: "id::text"},
 	{Table: "users", PKColumn: "id", Column: "mfa_secret_enc", AADExpr: "'mfa:' || id::text"},
 	{Table: "saml_sp_keys", PKColumn: "id", Column: "key_enc", AADExpr: "'saml-sp-key'"},

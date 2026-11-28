@@ -29,6 +29,7 @@ import (
 	"github.com/xilasec/xila-api/internal/auth"
 	"github.com/xilasec/xila-api/internal/badge"
 	"github.com/xilasec/xila-api/internal/compliance"
+	"github.com/xilasec/xila-api/internal/component"
 	"github.com/xilasec/xila-api/internal/computed"
 	"github.com/xilasec/xila-api/internal/config"
 	"github.com/xilasec/xila-api/internal/connector"
@@ -420,9 +421,18 @@ func run() error {
 		}
 		return license.NewMatcher(overrides, sbom.CompareVersions), nil
 	}
+	// Internal (first-party) components (M13 13.11): admin patterns mark them
+	// at ingest, and their names stay away from public registries and online
+	// advisory sources.
+	componentRepo := component.NewRepository(db)
+	componentSvc := component.NewService(componentRepo, componentRepo)
+	if err := componentSvc.Warm(rootCtx); err != nil {
+		slog.WarnContext(rootCtx, "component patterns: initial load failed; retried on the next upload", "error", err)
+	}
 	sbomSvc := sbom.NewService(sbomRepo, projectRepo, policySvc, reacher).
 		WithLicenses(license.Resolve).WithStrictValidation(cfg.SBOMStrictValidation).
-		WithLicenseOverrides(func(ctx context.Context) (sbom.LicenseOverrideMatcher, error) { return loadLicenseOverrides(ctx) })
+		WithLicenseOverrides(func(ctx context.Context) (sbom.LicenseOverrideMatcher, error) { return loadLicenseOverrides(ctx) }).
+		WithInternalComponents(componentSvc.Current)
 	licenseOverrideHandler := license.NewOverrideHandler(licenseOverrideRepo,
 		license.NewReapplier(sbomRepo, loadLicenseOverrides)).
 		WithPolicyReevaluation(policySvc)
@@ -510,12 +520,18 @@ func run() error {
 	// Outdated components: registry metadata for current SBOM inventory. Off
 	// with PKGMETA_ENABLED (air-gapped); PKGMETA_<ECO>_URL points at mirrors.
 	var pkgmetaSvc *pkgmeta.Service
+	registryCfg := pkgmeta.RegistryConfig{
+		UserAgent:         pkgmeta.UserAgent(cfg.PublicURL),
+		RequestsPerSecond: cfg.PkgMeta.RequestsPerSecond,
+		URLs:              cfg.PkgMeta.URLs,
+	}
+	// Admin-configured, authenticated registries (M13 13.11), tried before
+	// the public one; credentials sealed with INTEGRATION_SECRET_KEY.
+	privateRegistries := pkgmeta.NewPrivateRegistries(db, trackerCipher, registryCfg)
 	if cfg.PkgMeta.Enabled {
-		pkgmetaSvc = pkgmeta.NewService(pkgmetaRepo, pkgmeta.NewRegistries(pkgmeta.RegistryConfig{
-			UserAgent:         pkgmeta.UserAgent(cfg.PublicURL),
-			RequestsPerSecond: cfg.PkgMeta.RequestsPerSecond,
-			URLs:              cfg.PkgMeta.URLs,
-		}), pkgmeta.Options{TTL: cfg.PkgMeta.TTL, Concurrency: cfg.PkgMeta.Concurrency})
+		pkgmetaSvc = pkgmeta.NewService(pkgmetaRepo, pkgmeta.NewRegistries(registryCfg),
+			pkgmeta.Options{TTL: cfg.PkgMeta.TTL, Concurrency: cfg.PkgMeta.Concurrency}).
+			WithPrivateRegistries(privateRegistries).WithInternal(componentSvc.Current)
 		// A fresh SBOM's new packages are looked up right away; policies then
 		// re-evaluate so outdated/age conditions judge them immediately too.
 		sbomSvc.WithPackageMeta(policySvc.AfterRefresh(pkgmetaSvc))
@@ -610,7 +626,8 @@ func run() error {
 		Advisory:     vulnmatch.NewAdvisoryHandler(advisoryRepo, onAdvisoryChange),
 		FeedRules:    vulnmatch.NewFeedRuleHandler(feedRuleRepo, onFeedRuleChange),
 		PSIRT:        psirt.NewHandler(psirtSvc, psirtRepo),
-		PkgMeta:      pkgmeta.NewHandler(pkgmetaRepo, pkgmetaSvc),
+		PkgMeta:      pkgmeta.NewHandler(pkgmetaRepo, pkgmetaSvc).WithPrivateRegistries(privateRegistries),
+		Component:    component.NewHandler(componentSvc),
 		Correlation:  correlation.NewHandler(correlationSvc),
 		ApiToken:     apitoken.NewHandler(tokenRepo, tokenSvc).WithReauthWindow(cfg.JWT.ReauthWindow),
 		SvcAccount:   serviceaccount.NewHandler(serviceaccount.NewRepository(db), tokenSvc, tokenRepo, cfg.ServiceAccounts.KeyMaxDays),
