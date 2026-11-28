@@ -2,15 +2,19 @@ apiVersion: v2
 name: xila
 description: >-
   Xila — security findings platform (scanner/SBOM ingestion, dedup, SLA,
-  compliance, portfolio). One image serves the UI and the API; PostgreSQL 15+
-  is the only dependency.
+  compliance, portfolio). One image serves the UI and the API; PostgreSQL 15+ is
+  the only dependency.
 type: application
-# Chart version: bump on every chart change.
 version: 0.1.2
-# Default image tag (image.tag overrides it).
-appVersion: "0.1.0"
-kubeVersion: ">=1.25.0-0"
-keywords: [security, vulnerability-management, sbom, appsec, defectdojo, dependency-track]
+appVersion: 0.1.0
+kubeVersion: '>=1.25.0-0'
+keywords:
+  - security
+  - vulnerability-management
+  - sbom
+  - appsec
+  - defectdojo
+  - dependency-track
 home: https://github.com/xilasec/xila-api
 annotations:
   artifacthub.io/license: AGPL-3.0-only
