@@ -25,6 +25,7 @@ workflows:
         - 'pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115'
     '.github/workflows/security.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
+        - 'github/codeql-action@fca7ace96b7d713c7035871441bd52efbe39e27e'
 dependencies:
     'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1':
         ref: 'v7.0.1'
@@ -71,6 +72,11 @@ dependencies:
         commit: 'sha1-f87e5991a6d7451dcb8d9637bfbc97413f497069'
         owner_id: 5429470
         repo_id: 288485773
+    'github/codeql-action@fca7ace96b7d713c7035871441bd52efbe39e27e':
+        ref: 'main'
+        commit: 'sha1-fca7ace96b7d713c7035871441bd52efbe39e27e'
+        owner_id: 9919
+        repo_id: 259445878
     'pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115':
         ref: 'v6.1.1'
         commit: 'sha1-73e46992e05b19abd31f2f3c20e0e7370d762115'
