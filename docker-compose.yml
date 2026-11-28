@@ -17,7 +17,7 @@
 # Every secret here is a fixed, public development value. Never reuse them.
 services:
   postgres:
-    image: postgres:18-alpine
+    image: postgres:19-alpine
     # SSD-era planner costs: the stock random_page_cost (4) models spinning disks
     # and picks whole-table scans over index scans that are 3–6× faster on SSDs
     # (docs/SCALE.md). On a database you run yourself, set it there.
