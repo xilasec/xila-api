@@ -370,8 +370,10 @@ roles, and password login can optionally be turned off. See [Single sign-on](#si
 | GET/PUT/DELETE | `/api/v1/sla/policy`               | The instance-wide SLA policy (admin) |
 | POST   | `/api/v1/sla/sweep`                 | Send breach / due-soon alerts now (admin; also runs on `SLA_SWEEP_INTERVAL`) |
 | GET/PUT | `/api/v1/sla/settings`             | Scale every SLA by project business criticality (switch + factors) and the resulting matrix (admin) |
-| GET/PUT/DELETE | `/api/v1/projects/{id}/issue-tracker` | The project's Jira / GitHub / GitLab tracker (token write-only); set/remove needs project owner |
+| GET/PUT/DELETE | `/api/v1/projects/{id}/issue-tracker` | The project's tracker (token write-only; templates, comment sync); set/remove needs project owner |
 | POST   | `/api/v1/projects/{id}/issue-tracker/test` | Verify the stored tracker credentials (owner) |
+| POST/DELETE | `/api/v1/projects/{id}/issue-tracker/webhook-secret` | Turn the webhook receiver on (secret returned once, or the tracker's own) / off (owner) |
+| POST   | `/api/v1/issue-trackers/{id}/webhook` | Tracker webhook receiver (public; verified with the tracker's secret) |
 | GET/POST | `/api/v1/findings/{id}/issue`     | The finding's linked issue / create it now (editor; idempotent) |
 | POST   | `/api/v1/issue-trackers/sync`       | Two-way issue sync + auto-create now (admin; also runs on `ISSUE_SYNC_INTERVAL`) |
 | GET    | `/api/v1/projects/{id}/remediation` | The project's remediation actions (`?status=` comma list or `all`, default live; `?kind=`) |
@@ -900,6 +902,32 @@ Cloud authenticates with `jira_email` + API token; Server / Data Center and
 Azure DevOps use a PAT as the Basic auth password with an empty username;
 Linear sends its API key as-is (no `Bearer` prefix). A failing tracker or
 issue is logged and counted, and does not stop the run.
+
+Ticket templates: `title_template` / `body_template` are Go `text/template`
+sources over the finding (`.Title`, `.Severity`, `.Package`, `.CVEs`,
+`.XilaURL`... and `.Default`, the built-in body, so a template can add to it
+rather than replace it). They are checked on save against a sample finding.
+One that still fails on a real finding, or renders over 64 KiB, files the
+built-in text, so a ticket is always filed. Remediation-action tickets keep
+their own format.
+
+Comments: with `sync_comments`, comments posted on a finding after its issue
+was filed are added to the issue, right away and again by the sync if that
+failed (each once). Comments written in the tracker come back through the
+webhook as finding comments by `<tracker>: <name>`. Xila's own comments
+coming back are recognized and skipped.
+
+Webhook receiver: `POST /projects/{id}/issue-tracker/webhook-secret` turns
+it on and returns the secret once (or stores the tracker's own, for Linear);
+the tracker then posts to `POST /api/v1/issue-trackers/{tracker id}/webhook`.
+Each delivery is verified the tracker's way (GitHub, Jira and Linear HMAC
+signatures, the GitLab secret token, Azure DevOps basic auth, a Bearer token
+from a ServiceNow business rule). An issue change reconciles that issue's
+finding immediately by re-reading the issue through the API, so a delivery
+can make Xila look but never sets a state itself. Linear deliveries older
+than five minutes are refused. Every delivery is in the audit log (a verified
+one as `issue-tracker:<kind>`, a forged one as anonymous). The sync interval
+still runs and catches anything a delivery missed.
 
 Remediation actions: open findings grouped by the single change that fixes
 them, tracked as work items with an owner, a due date and a status (`open`,

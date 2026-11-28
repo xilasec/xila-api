@@ -30,6 +30,7 @@ type SealedColumn struct {
 // by hand.
 var Registry = []SealedColumn{
 	{Table: "issue_trackers", PKColumn: "id", Column: "token_enc", AADExpr: "project_id::text"},
+	{Table: "issue_trackers", PKColumn: "id", Column: "webhook_secret_enc", AADExpr: "'issue-webhook:' || id::text"},
 	{Table: "connectors", PKColumn: "id", Column: "token_enc", AADExpr: "project_id::text"},
 	{Table: "notification_channels", PKColumn: "id", Column: "signing_secret", AADExpr: "id::text"},
 	{Table: "pkgmeta_registries", PKColumn: "id", Column: "password_enc", AADExpr: "'pkgmeta_registry:' || id::text || ':password'"},

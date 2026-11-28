@@ -719,7 +719,9 @@ Audit log: `internal/audit` records every mutating request on `secured`
 (middleware between auth and authz, so refusals are logged) and the public
 sign-in endpoints (`Recorder.Auth`, matched in `authAction`; a new public auth
 endpoint must be added there). New secured routes are covered automatically
-(`TestAuditLogCoversEveryMutatingRoute` walks the route table). A handler that
+(`TestAuditLogCoversEveryMutatingRoute` walks the route table). Public
+mutating routes outside `secured` audit themselves like SCIM
+(`issuetracker.Handler.auditDelivery` for tracker webhooks). A handler that
 knows the prior state calls `audit.SetChanges(c, before, after)`. Otherwise the
 request body is stored redacted, so a new request field holding a credential
 must match the one policy in `audit/redact.go` (add it there and to its test).
@@ -939,6 +941,11 @@ and `internal/server/smoke_test.go` (missing smoke wiring causes a nil panic in 
   must re-apply windows: `sla.reapply` / the `projects_sla_criticality` trigger.
   `sla_settings` is a singleton *row*, so `pgtest.Truncate` resets it rather than
   truncating it.
+- Fiber request strings (`c.Params`, `c.Query`, `c.Get`, `c.Body`) point into
+  buffers Fiber reuses for the next request. Copy one (`strings.Clone`) before
+  it outlives the handler: a `go` statement, a cache, a channel. `httpx.ID`
+  already returns a copy (`TestIDOutlivesRequest`). CI runs `-race`, which is
+  where this shows up.
 - `-p 1` for integration tests. They share one DB and truncate; parallel
   packages deadlock on `TRUNCATE`.
 - Live-testing the binary: use fresh ports each run and stop by PID.

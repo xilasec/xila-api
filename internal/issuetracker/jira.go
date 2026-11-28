@@ -108,3 +108,14 @@ func (c *jiraClient) transition(ctx context.Context, key, name string) error {
 func (c *jiraClient) Check(ctx context.Context) error {
 	return c.do(ctx, http.MethodGet, "/rest/api/2/project/"+url.PathEscape(c.project), nil, nil)
 }
+
+// Comment: https://developer.atlassian.com/cloud/jira/platform/rest/v2/api-group-issue-comments/#api-rest-api-2-issue-issueidorkey-comment-post
+func (c *jiraClient) Comment(ctx context.Context, key, body string) (string, error) {
+	var out struct {
+		ID string `json:"id"`
+	}
+	if err := c.do(ctx, http.MethodPost, "/rest/api/2/issue/"+url.PathEscape(key)+"/comment", map[string]string{"body": body}, &out); err != nil {
+		return "", err
+	}
+	return out.ID, nil
+}

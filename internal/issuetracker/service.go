@@ -52,6 +52,14 @@ type Store interface {
 	SetLinkState(ctx context.Context, linkID string, s State) error
 	AutoCreateCandidates(ctx context.Context, projectID string, minSeverity domain.Severity, limit int) ([]string, error)
 	TrySyncLock(ctx context.Context) (release func(), ok bool, err error)
+	Get(ctx context.Context, id string) (Tracker, error)
+	SetWebhookSecret(ctx context.Context, trackerID string, sealed []byte) error
+	LinksByExternal(ctx context.Context, trackerID, externalID string) ([]Link, error)
+	WithLinkLock(ctx context.Context, linkID string, fn func(context.Context) error) (bool, error)
+	GetSyncItem(ctx context.Context, linkID string) (SyncItem, error)
+	PendingComments(ctx context.Context, link Link, limit int) ([]finding.Comment, error)
+	RecordOutbound(ctx context.Context, linkID, commentID, remoteID string) error
+	AddInbound(ctx context.Context, link Link, remoteID, author, body string) (bool, error)
 }
 
 // Findings is the finding access the service needs (implemented by
@@ -126,6 +134,9 @@ type Input struct {
 	AutoCreate       bool            `json:"auto_create"`
 	Labels           []string        `json:"labels"`
 	Enabled          *bool           `json:"enabled"`
+	TitleTemplate    string          `json:"title_template"`
+	BodyTemplate     string          `json:"body_template"`
+	SyncComments     bool            `json:"sync_comments"`
 }
 
 // baseURLExample is the hint shown when a kind with no DefaultBaseURL is
@@ -159,6 +170,9 @@ func (in Input) Normalize(projectID string) (Tracker, error) {
 		DoneTransition:   cmpOr(in.DoneTransition, defDone),
 		ReopenTransition: cmpOr(in.ReopenTransition, defReopen),
 		Labels:           []string{},
+		TitleTemplate:    strings.TrimSpace(in.TitleTemplate),
+		BodyTemplate:     strings.TrimSpace(in.BodyTemplate),
+		SyncComments:     in.SyncComments,
 	}
 	if !t.Kind.Valid() {
 		return Tracker{}, invalid("kind must be jira, github, gitlab, azure-devops, linear or servicenow")
@@ -225,6 +239,9 @@ func (in Input) Normalize(projectID string) (Tracker, error) {
 	if len(t.Labels) > 20 {
 		return Tracker{}, invalid("at most 20 labels")
 	}
+	if err := checkTemplates(t); err != nil {
+		return Tracker{}, err
+	}
 	return t, nil
 }
 
@@ -237,7 +254,16 @@ func cmpOr(v, fallback string) string {
 
 // Get returns the project's tracker.
 func (s *Service) Get(ctx context.Context, projectID string) (Tracker, error) {
-	return s.store.GetByProject(ctx, projectID)
+	t, err := s.store.GetByProject(ctx, projectID)
+	return s.withWebhookURL(t), err
+}
+
+// withWebhookURL fills in where the tracker's webhooks go.
+func (s *Service) withWebhookURL(t Tracker) Tracker {
+	if t.ID != "" {
+		t.WebhookURL = s.publicURL + "/api/v1" + WebhookPath(t.ID)
+	}
+	return t
 }
 
 // Put creates or replaces the project's tracker. A token is required when
@@ -260,7 +286,8 @@ func (s *Service) Put(ctx context.Context, projectID string, in Input) (Tracker,
 	} else if err != nil {
 		return Tracker{}, err
 	}
-	return s.store.Put(ctx, t, sealed)
+	out, err := s.store.Put(ctx, t, sealed)
+	return s.withWebhookURL(out), err
 }
 
 // Delete removes the project's tracker and its links (the issues themselves
@@ -320,9 +347,39 @@ func (s *Service) CreateIssue(ctx context.Context, findingID string) (Link, bool
 		return Link{}, false, err
 	}
 	return s.store.LinkOnce(ctx, findingID, t.ID, func(ctx context.Context) (string, string, error) {
-		ref, err := c.Create(ctx, BuildIssue(f, t.Labels, s.publicURL))
+		ref, err := c.Create(ctx, s.issueFor(ctx, t, f))
 		return ref.ExternalID, ref.URL, err
 	})
+}
+
+// issueFor renders a finding's issue with the tracker's templates, each
+// falling back to the built-in rendering when it is unset or fails on this
+// finding (a template is checked on save, but a real finding can still
+// outgrow the size cap): a ticket is always filed.
+func (s *Service) issueFor(ctx context.Context, t Tracker, f finding.Finding) Issue {
+	is := BuildIssue(f, t.Labels, s.publicURL)
+	d := templateData(f, s.publicURL, is.Body)
+	apply := func(name, src string, set func(string)) {
+		tpl, err := parseTemplate(name, src)
+		if err == nil && tpl != nil {
+			var out string
+			if out, err = render(tpl, d); err == nil && strings.TrimSpace(out) != "" {
+				set(out)
+				return
+			}
+		}
+		if err != nil {
+			slog.WarnContext(ctx, "issue template failed, using the built-in one",
+				"tracker_id", t.ID, "finding_id", f.ID, "template", name, "error", err)
+		}
+	}
+	apply("title_template", t.TitleTemplate, func(v string) {
+		is.Title = truncateRunes(strings.Join(strings.Fields(v), " "), maxTitle)
+	})
+	apply("body_template", t.BodyTemplate, func(v string) {
+		is.Body = truncateRunes(v, maxDescription+2000) // room for a template's own text around .Default
+	})
+	return is
 }
 
 // maxTitle keeps titles within every tracker's limit (GitHub 256, Jira 255).
@@ -404,7 +461,9 @@ type SyncResult struct {
 	// Remediation actions closed / reopened from their ticket.
 	ResolvedActions int `json:"resolved_actions"`
 	ReopenedActions int `json:"reopened_actions"`
-	Errors          int `json:"errors"`
+	// Finding comments posted to their issue.
+	PushedComments int `json:"pushed_comments"`
+	Errors         int `json:"errors"`
 }
 
 // Sync reconciles every enabled tracker's links in both directions, then opens
@@ -447,7 +506,7 @@ func (s *Service) syncTracker(ctx context.Context, t Tracker, res *SyncResult) e
 		return err
 	}
 	for _, it := range items {
-		if err := s.reconcile(ctx, c, it, res); err != nil {
+		if err := s.syncLink(ctx, t, c, it.ID, res); err != nil {
 			res.Errors++
 			slog.WarnContext(ctx, "issue sync failed",
 				"tracker_id", t.ID, "finding_id", it.FindingID, "issue", it.ExternalID, "error", err)
@@ -471,7 +530,7 @@ func (s *Service) syncTracker(ctx context.Context, t Tracker, res *SyncResult) e
 			if err != nil {
 				return "", "", err
 			}
-			ref, err := c.Create(ctx, BuildIssue(f, t.Labels, s.publicURL))
+			ref, err := c.Create(ctx, s.issueFor(ctx, t, f))
 			return ref.ExternalID, ref.URL, err
 		})
 		if err != nil {
@@ -484,6 +543,84 @@ func (s *Service) syncTracker(ctx context.Context, t Tracker, res *SyncResult) e
 		}
 	}
 	return nil
+}
+
+// syncLink reconciles one link's state and, with comment sync on, pushes its
+// finding's new comments, holding the link's lock and reading it afresh. A
+// link someone else is syncing is skipped: they reach the same result.
+func (s *Service) syncLink(ctx context.Context, t Tracker, c Client, linkID string, res *SyncResult) error {
+	_, err := s.store.WithLinkLock(ctx, linkID, func(ctx context.Context) error {
+		it, err := s.store.GetSyncItem(ctx, linkID)
+		if errors.Is(err, ErrNoLink) {
+			return nil // deleted meanwhile
+		}
+		if err != nil {
+			return err
+		}
+		if err := s.reconcile(ctx, c, it, res); err != nil {
+			return err
+		}
+		if t.SyncComments {
+			return s.pushComments(ctx, c, it.Link, res)
+		}
+		return nil
+	})
+	return err
+}
+
+// commentBatch bounds how many comments one link pushes per pass; the rest
+// follow on the next.
+const commentBatch = 20
+
+// pushedFooter ends every comment Xila posts: an inbound comment carrying it
+// is Xila's own coming back (the tracker's webhook for it can arrive before
+// its remote id is recorded).
+const pushedFooter = "(posted from Xila)"
+
+// pushComments posts the link's finding's comments the issue hasn't seen.
+func (s *Service) pushComments(ctx context.Context, c Client, l Link, res *SyncResult) error {
+	pending, err := s.store.PendingComments(ctx, l, commentBatch)
+	if err != nil {
+		return err
+	}
+	for _, cm := range pending {
+		author := cmpOr(cm.Author, "Xila")
+		remoteID, err := c.Comment(ctx, l.ExternalID, author+" commented in Xila:\n\n"+cm.Body+"\n\n"+pushedFooter)
+		if err != nil {
+			return err
+		}
+		if err := s.store.RecordOutbound(ctx, l.ID, cm.ID, remoteID); err != nil {
+			return err
+		}
+		res.PushedComments++
+	}
+	return nil
+}
+
+// commentPushTimeout bounds the push CommentAdded does outside any request.
+const commentPushTimeout = 30 * time.Second
+
+// CommentAdded pushes a new finding comment to its linked issue right away
+// (finding.CommentListener). Best effort: a failure is logged and the next
+// sync run retries.
+func (s *Service) CommentAdded(ctx context.Context, findingID string) {
+	ctx, cancel := context.WithTimeout(ctx, commentPushTimeout)
+	defer cancel()
+	l, err := s.store.GetLink(ctx, findingID)
+	if err != nil {
+		return // no issue (ErrNoLink), or the sync run will retry
+	}
+	t, err := s.store.Get(ctx, l.TrackerID)
+	if err != nil || !t.Enabled || !t.SyncComments {
+		return
+	}
+	c, err := s.client(t)
+	if err == nil {
+		err = s.syncLink(ctx, t, c, l.ID, &SyncResult{})
+	}
+	if err != nil {
+		slog.WarnContext(ctx, "issue comment push failed", "tracker_id", t.ID, "finding_id", findingID, "error", err)
+	}
 }
 
 // reconcile applies Decide to one link.

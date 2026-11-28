@@ -110,3 +110,10 @@ func truncateRunes(s string, n int) string {
 	}
 	return string(r[:n-1]) + "…"
 }
+
+// Comment appends a work note (the internal journal; "comments" would be
+// visible to the caller of an incident). A journal entry has no id of its own.
+// https://developer.servicenow.com/dev.do#!/reference/api/latest/rest/c_TableAPI (PATCH)
+func (c *serviceNowClient) Comment(ctx context.Context, sysID, body string) (string, error) {
+	return "", c.do(ctx, http.MethodPatch, c.tablePath("/"+url.PathEscape(sysID)), map[string]string{"work_notes": body}, nil)
+}

@@ -80,6 +80,9 @@ linters:
   #   lll, prealloc, ireturn: too noisy or opinionated for this codebase.
 
   settings:
+    misspell:
+      # Real API field names, not typos (GitLab's noteable_type).
+      ignore-rules: [noteable]
     gocritic:
       disabled-checks:
         # Style preferences with real counter-cases: a single-case switch over

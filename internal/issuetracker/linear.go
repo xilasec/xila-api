@@ -185,3 +185,24 @@ func (c *linearClient) Check(ctx context.Context) error {
 	}
 	return c.graphQL(ctx, linearCheckQuery, map[string]any{"teamId": c.team}, &out)
 }
+
+// Comment: https://linear.app/developers/graphql (commentCreate; issueId takes
+// the identifier as well as the uuid).
+func (c *linearClient) Comment(ctx context.Context, identifier, body string) (string, error) {
+	var out struct {
+		CommentCreate struct {
+			Success bool `json:"success"`
+			Comment struct {
+				ID string `json:"id"`
+			} `json:"comment"`
+		} `json:"commentCreate"`
+	}
+	const q = `mutation($issueId: String!, $body: String!) { commentCreate(input: {issueId: $issueId, body: $body}) { success comment { id } } }`
+	if err := c.graphQL(ctx, q, map[string]string{"issueId": identifier, "body": body}, &out); err != nil {
+		return "", err
+	}
+	if !out.CommentCreate.Success {
+		return "", errors.New("linear: commentCreate did not succeed")
+	}
+	return out.CommentCreate.Comment.ID, nil
+}

@@ -1,7 +1,8 @@
 <script>
-	// Configures a project's issue tracker (Jira / GitHub / GitLab). The token is
-	// write-only: the API only says whether one is stored, and leaving the field
-	// blank on save keeps it. Saving / testing / removing need project owner.
+	// Configures a project's issue tracker. The token is write-only: the API only
+	// says whether one is stored, and leaving the field blank on save keeps it.
+	// Templates, comment sync and the webhook receiver are M13 13.18. Saving /
+	// testing / removing need project owner.
 	import { api, ApiError, errorMessage } from '#lib/api.js';
 	import { notify } from '#lib/stores.js';
 	import { SEVERITIES } from '#lib/format.js';
@@ -21,7 +22,7 @@
 		{ id: 'jira', label: 'Jira', url: 'https://your-site.atlassian.net', target: 'it.targetJira', done: 'Done', reopen: 'To Do' }
 	];
 
-	/** @returns {{ kind: string, base_url: string, target: string, token?: string, jira_email: string, auth_user: string, issue_type: string, done_transition: string, reopen_transition: string, min_severity: string, auto_create: boolean, labels: string, enabled: boolean }} */
+	/** @returns {{ kind: string, base_url: string, target: string, token?: string, jira_email: string, auth_user: string, issue_type: string, done_transition: string, reopen_transition: string, min_severity: string, auto_create: boolean, labels: string, enabled: boolean, sync_comments: boolean, title_template: string, body_template: string }} */
 	const blank = () => ({
 		kind: 'github',
 		base_url: '',
@@ -35,7 +36,10 @@
 		min_severity: 'high',
 		auto_create: false,
 		labels: '',
-		enabled: true
+		enabled: true,
+		sync_comments: false,
+		title_template: '',
+		body_template: ''
 	});
 
 	let tracker = $state(/** @type {any} */ (null)); // stored config, null = none
@@ -74,9 +78,46 @@
 					min_severity: t.min_severity,
 					auto_create: t.auto_create,
 					labels: (t.labels ?? []).join(', '),
-					enabled: t.enabled
+					enabled: t.enabled,
+					sync_comments: t.sync_comments,
+					title_template: t.title_template ?? '',
+					body_template: t.body_template ?? ''
 				}
 			: blank();
+	}
+
+	let shownSecret = $state(''); // the secret just issued, shown this once
+	let ownSecret = $state('');
+
+	/** @param {string} [own] the tracker's own secret */
+	async function setSecret(own) {
+		busy = true;
+		try {
+			const out = await api.rotateIssueWebhookSecret(projectId, own);
+			shownSecret = own ? '' : out.secret;
+			ownSecret = '';
+			tracker = { ...tracker, has_webhook_secret: true, webhook_url: out.webhook_url };
+			notify($t('it.webhookSaved'), 'success');
+		} catch (err) {
+			ownerError(err, 'configure');
+		} finally {
+			busy = false;
+		}
+	}
+
+	async function clearSecret() {
+		if (!confirm($t('it.webhookConfirmOff'))) return;
+		busy = true;
+		try {
+			await api.clearIssueWebhookSecret(projectId);
+			shownSecret = '';
+			tracker = { ...tracker, has_webhook_secret: false };
+			notify($t('it.webhookCleared'), 'success');
+		} catch (err) {
+			ownerError(err, 'configure');
+		} finally {
+			busy = false;
+		}
 	}
 
 	$effect(() => {
@@ -234,7 +275,24 @@
 					<input type="checkbox" bind:checked={form.enabled} class="checkbox checkbox-sm" />
 					<span class="label-text">{$t('it.enabled')}</span>
 				</label>
+				<label class="label cursor-pointer gap-2" title={$t('it.syncCommentsHint')}>
+					<input type="checkbox" bind:checked={form.sync_comments} class="checkbox checkbox-sm" />
+					<span class="label-text">{$t('it.syncComments')}</span>
+				</label>
 			</div>
+
+			<details class="collapse collapse-arrow border border-base-300" open={!!(form.title_template || form.body_template)}>
+				<summary class="collapse-title text-sm font-medium">{$t('it.templates')}</summary>
+				<div class="collapse-content grid gap-3">
+					<p class="text-xs text-base-content/60">{$t('it.templateHint')}</p>
+					<Field label={$t('it.titleTemplate')}>
+						<input bind:value={form.title_template} maxlength="10000" placeholder={'[{{.Severity}}] {{.Title}}'} class="input input-bordered input-sm font-mono" />
+					</Field>
+					<Field label={$t('it.bodyTemplate')}>
+						<textarea bind:value={form.body_template} maxlength="10000" rows="5" placeholder={'{{.Default}}'} class="textarea textarea-bordered textarea-sm font-mono"></textarea>
+					</Field>
+				</div>
+			</details>
 
 			<div class="flex flex-wrap gap-2">
 				<button class="btn btn-primary btn-sm" disabled={busy}>{$t('common.save')}</button>
@@ -245,4 +303,46 @@
 			</div>
 		</div>
 	</form>
+
+	{#if tracker}
+		<section class="card bg-base-100 shadow-sm mt-4" aria-labelledby="it-webhook">
+			<div class="card-body gap-3">
+				<div class="flex flex-wrap items-center gap-2">
+					<h3 id="it-webhook" class="font-semibold">{$t('it.webhook')}</h3>
+					<span class="badge {tracker.has_webhook_secret ? 'badge-success' : 'badge-ghost'}">
+						{tracker.has_webhook_secret ? $t('it.webhookOn') : $t('it.webhookOff')}
+					</span>
+				</div>
+				<p class="text-sm text-base-content/60">{$t('it.webhookIntro')}</p>
+				<Field label={$t('it.webhookUrl')}>
+					<input value={tracker.webhook_url} readonly class="input input-bordered input-sm font-mono" onfocus={(e) => e.currentTarget.select()} />
+				</Field>
+				<p class="text-xs text-base-content/70">
+					{$t(/** @type {import('#lib/i18n.js').MessageKey} */ (`it.webhookHow.${tracker.kind}`))}
+				</p>
+				{#if shownSecret}
+					<div class="alert alert-warning text-sm flex-col items-start" role="status">
+						<span>{$t('it.webhookSecretOnce')}</span>
+						<code class="break-all select-all">{shownSecret}</code>
+					</div>
+				{/if}
+				<div class="flex flex-wrap items-end gap-2">
+					<button type="button" class="btn btn-outline btn-sm" disabled={busy} onclick={() => setSecret()}>
+						{tracker.has_webhook_secret ? $t('it.webhookRotate') : $t('it.webhookGenerate')}
+					</button>
+					{#if tracker.has_webhook_secret}
+						<button type="button" class="btn btn-ghost btn-sm text-error" disabled={busy} onclick={clearSecret}>{$t('it.webhookDisable')}</button>
+					{/if}
+				</div>
+				<div class="flex flex-wrap items-end gap-2">
+					<Field label={$t('it.webhookOwnSecret')} hint={$t('it.webhookOwnSecretHint')}>
+						<input bind:value={ownSecret} type="password" autocomplete="off" minlength="16" class="input input-bordered input-sm" />
+					</Field>
+					<button type="button" class="btn btn-outline btn-sm" disabled={busy || ownSecret.trim().length < 16} onclick={() => setSecret(ownSecret.trim())}>
+						{$t('it.webhookUseOwn')}
+					</button>
+				</div>
+			</div>
+		</section>
+	{/if}
 {/if}

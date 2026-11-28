@@ -335,6 +335,13 @@ export const api = {
 	deleteIssueTracker: (projectId) => request('DELETE', `/projects/${projectId}/issue-tracker`),
 	/** @param {string} projectId */
 	testIssueTracker: (projectId) => request('POST', `/projects/${projectId}/issue-tracker/test`),
+	// Webhook receiver (M13 13.18): generate a secret, or store the tracker's
+	// own (Linear generates it); the secret is returned once.
+	/** @param {string} projectId @param {string} [secret] */
+	rotateIssueWebhookSecret: (projectId, secret) =>
+		request('POST', `/projects/${projectId}/issue-tracker/webhook-secret`, { body: secret ? { secret } : {} }),
+	/** @param {string} projectId */
+	clearIssueWebhookSecret: (projectId) => request('DELETE', `/projects/${projectId}/issue-tracker/webhook-secret`),
 	/** @param {string} findingId */
 	findingIssue: (findingId) => request('GET', `/findings/${findingId}/issue`),
 	/** @param {string} findingId */

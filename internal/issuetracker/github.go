@@ -77,3 +77,14 @@ func (c *githubClient) Reopen(ctx context.Context, number string) error {
 func (c *githubClient) Check(ctx context.Context) error {
 	return c.do(ctx, http.MethodGet, c.repoPath(), nil, nil)
 }
+
+// Comment: https://docs.github.com/en/rest/issues/comments#create-an-issue-comment
+func (c *githubClient) Comment(ctx context.Context, number, body string) (string, error) {
+	var out struct {
+		ID int64 `json:"id"`
+	}
+	if err := c.do(ctx, http.MethodPost, c.issuePath(number)+"/comments", map[string]string{"body": body}, &out); err != nil {
+		return "", err
+	}
+	return strconv.FormatInt(out.ID, 10), nil
+}
