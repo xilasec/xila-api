@@ -256,6 +256,14 @@
 <State {loading} {error} />
 
 {#if !loading && finding}
+	{#if finding.malicious}
+		<div class="alert alert-error mt-2" role="alert">
+			<div>
+				<h2 class="font-bold">{$t('finding.maliciousHeading')}</h2>
+				<p class="text-sm">{$t('finding.maliciousFix')}</p>
+			</div>
+		</div>
+	{/if}
 	<div class="mt-2 mb-4 flex flex-wrap items-start justify-between gap-3 rounded-box border-l-4 {severityAccent(finding.severity)} bg-base-100 p-5 shadow-sm">
 		<div class="min-w-0">
 			<div class="mb-2 flex flex-wrap items-center gap-2">
@@ -264,6 +272,7 @@
 				<span class="badge badge-neutral badge-md">{$t('finding.priority', { value: Math.round(finding.priority) })}</span>
 				{#if finding.kev}<span class="badge badge-error badge-md" title={finding.kev_sources?.length ? $t('finding.kevTitle', { catalogs: kevCatalogs(finding.kev_sources) }) : $t('finding.kevTitleAny')}>KEV{#if finding.kev_sources?.length} · {finding.kev_sources.join(', ')}{/if}</span>{/if}
 				{#if finding.kev_ransomware}<span class="badge badge-error badge-outline badge-md" title={$t('finding.ransomwareTitle')}>{$t('finding.ransomware')}</span>{/if}
+				{#if finding.malicious}<span class="badge badge-error badge-md" title={$t('finding.maliciousTitle')}>{$t('finding.malicious')}</span>{/if}
 				<ExploitBadge maturity={finding.exploit_maturity} size="md" />
 				{#if finding.epss}<span class="badge badge-outline badge-md">EPSS {fmtNumber(finding.epss, { style: 'percent' })}</span>{/if}
 				{#if finding.cvss}

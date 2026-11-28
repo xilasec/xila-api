@@ -845,6 +845,14 @@ export const api = {
 	/** @param {string} projectId @param {string} id @param {'approve' | 'reject' | 'revoke'} action @param {string} note */
 	decideRiskAcceptance: (projectId, id, action, note) =>
 		request('POST', `/projects/${projectId}/risk-acceptances/${id}/${action}`, { body: { note } }),
+	// Extend an approved acceptance (applies at once for an owner, else waits),
+	// and decide a pending extension.
+	/** @param {string} projectId @param {string} id @param {string} expiresAt @param {string} reason */
+	extendRiskAcceptance: (projectId, id, expiresAt, reason) =>
+		request('POST', `/projects/${projectId}/risk-acceptances/${id}/extend`, { body: { expires_at: expiresAt, reason } }),
+	/** @param {string} projectId @param {string} id @param {string} extensionId @param {'approve' | 'reject'} action @param {string} note */
+	decideRiskAcceptanceExtension: (projectId, id, extensionId, action, note) =>
+		request('POST', `/projects/${projectId}/risk-acceptances/${id}/extensions/${extensionId}/${action}`, { body: { note } }),
 	/** @param {string} projectId @param {string} id @param {string} findingId */
 	removeRiskAcceptanceFinding: (projectId, id, findingId) =>
 		request('DELETE', `/projects/${projectId}/risk-acceptances/${id}/findings/${findingId}`),

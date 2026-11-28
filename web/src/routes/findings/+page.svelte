@@ -67,6 +67,7 @@
 		rule_id: p.get('rule_id') ?? '',
 		kev: p.get('kev') === 'true',
 		kev_ransomware: p.get('kev_ransomware') === 'true',
+		malicious: p.get('malicious') === 'true',
 		reachable: p.get('reachable') === 'true',
 		include_duplicates: p.get('include_duplicates') === 'true',
 		all_versions: p.get('all_versions') === 'true',
@@ -93,12 +94,12 @@
 	const anyFilter = $derived(
 		filters.severity || filters.status || filters.category || filters.project_id || filters.sla || filters.exploit || filters.assignee ||
 			filters.scanner || filters.rule_id || filters.q || filters.tag ||
-			filters.kev || filters.kev_ransomware || filters.reachable || filters.include_duplicates || filters.all_versions || filters.fails_gate || (cf.key && cf.value)
+			filters.kev || filters.kev_ransomware || filters.malicious || filters.reachable || filters.include_duplicates || filters.all_versions || filters.fails_gate || (cf.key && cf.value)
 	);
 	// Filters behind "More filters": the panel opens by itself when a link or
 	// a reload arrives with one of them set, so nothing active is hidden.
 	const moreCount = $derived(
-		[filters.category, filters.sla, filters.exploit, filters.tag, filters.kev_ransomware, filters.reachable,
+		[filters.category, filters.sla, filters.exploit, filters.tag, filters.kev_ransomware, filters.malicious, filters.reachable,
 			filters.include_duplicates, filters.all_versions, filters.fails_gate, cf.key && cf.value].filter(Boolean).length
 	);
 	let showMore = $state(untrack(() => moreCount > 0));
@@ -109,7 +110,7 @@
 	const matchesFilter = (status) => !filters.status || filters.status === status;
 
 	const TEXT_KEYS = /** @type {const} */ (['severity', 'status', 'category', 'project_id', 'sla', 'exploit', 'assignee', 'scanner', 'rule_id', 'q', 'tag']);
-	const FLAG_KEYS = /** @type {const} */ (['kev', 'kev_ransomware', 'reachable', 'include_duplicates', 'all_versions', 'fails_gate']);
+	const FLAG_KEYS = /** @type {const} */ (['kev', 'kev_ransomware', 'malicious', 'reachable', 'include_duplicates', 'all_versions', 'fails_gate']);
 
 	// Persist filters into the URL so a reload — or a shared link — keeps them.
 	function syncURL() {
@@ -118,6 +119,7 @@
 		params.set('sort', filters.sort);
 		if (filters.kev) params.set('kev', 'true');
 		if (filters.kev_ransomware) params.set('kev_ransomware', 'true');
+		if (filters.malicious) params.set('malicious', 'true');
 		if (filters.reachable) params.set('reachable', 'true');
 		if (filters.include_duplicates) params.set('include_duplicates', 'true');
 		if (filters.all_versions) params.set('all_versions', 'true');
@@ -183,7 +185,7 @@
 		loadFindings();
 	}
 	function clearFilters() {
-		filters = { ...filters, severity: '', status: '', category: '', project_id: '', sla: '', exploit: '', assignee: '', scanner: '', rule_id: '', q: '', tag: '', kev: false, kev_ransomware: false, reachable: false, include_duplicates: false, all_versions: false, fails_gate: false };
+		filters = { ...filters, severity: '', status: '', category: '', project_id: '', sla: '', exploit: '', assignee: '', scanner: '', rule_id: '', q: '', tag: '', kev: false, kev_ransomware: false, malicious: false, reachable: false, include_duplicates: false, all_versions: false, fails_gate: false };
 		searchText = '';
 		cf = { key: '', value: '' };
 		applyFilters();
@@ -512,6 +514,10 @@
 		<input type="checkbox" bind:checked={filters.kev_ransomware} onchange={applyFilters} class="checkbox checkbox-sm" />
 		<span class="label-text">{$t('findings.ransomwareOnly')}</span>
 	</label>
+	<label class="label cursor-pointer gap-2" title={$t('finding.maliciousTitle')}>
+		<input type="checkbox" bind:checked={filters.malicious} onchange={applyFilters} class="checkbox checkbox-sm" />
+		<span class="label-text">{$t('findings.maliciousOnly')}</span>
+	</label>
 	<label class="label cursor-pointer gap-2" title={$t('findings.failsGateTitle')}>
 		<input type="checkbox" bind:checked={filters.fails_gate} onchange={applyFilters} class="checkbox checkbox-sm" />
 		<span class="label-text">{$t('findings.failsGate')}</span>
@@ -555,6 +561,7 @@
 							<span class="font-semibold tabular-nums">{fmtNumber(Math.round(f.priority))}</span>
 							{#if f.kev}<span class="badge badge-error badge-xs ml-1" title={kevCatalogs(f.kev_sources) || 'KEV'}>KEV</span>{/if}
 							{#if f.kev_ransomware}<span class="badge badge-error badge-outline badge-xs ml-1" title={$t('finding.ransomwareTitle')}>{$t('finding.ransomware')}</span>{/if}
+							{#if f.malicious}<span class="badge badge-error badge-xs ml-1" title={$t('finding.maliciousTitle')}>{$t('finding.malicious')}</span>{/if}
 							<ExploitBadge maturity={f.exploit_maturity} />
 							{#if f.epss}<span class="ml-1 text-xs text-base-content/40" title="EPSS">{fmtNumber(f.epss, { style: 'percent' })}</span>{/if}
 						</td>

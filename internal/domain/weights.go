@@ -116,7 +116,7 @@ func (w Weights) SeverityWeight(s Severity) float64 {
 
 // Exploitability is x's factor under w (see Exploitability.Multiplier).
 func (w Weights) Exploitability(x Exploitability) float64 {
-	if x.KEV {
+	if x.KEV || x.Malicious {
 		return w.KEV
 	}
 	m := 1.0 + w.EPSSSlope*x.EPSS
@@ -157,9 +157,17 @@ func (w Weights) Exposure(e Exposure) float64 {
 
 // Priority is the priority formula under w. The zero Weights (nothing
 // loaded) means the defaults, never a priority of 0.
+//
+// A malicious package is never discounted: it runs on every machine that
+// installs it (install scripts run for dev and transitive dependencies too),
+// whether or not that machine is reachable from outside. An exposure uplift
+// still applies.
 func (w Weights) Priority(sev Severity, x Exploitability, reach Reachability, exp Exposure) float64 {
 	if w == (Weights{}) {
 		w = DefaultWeights
+	}
+	if x.Malicious {
+		return w.SeverityWeight(sev) * w.Exploitability(x) * max(1, w.Exposure(exp))
 	}
 	return w.SeverityWeight(sev) * w.Exploitability(x) * w.Reachability(reach) * w.Exposure(exp)
 }

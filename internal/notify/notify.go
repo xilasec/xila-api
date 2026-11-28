@@ -26,6 +26,10 @@ const (
 	EventRiskAcceptanceApproved  = "risk_acceptance.approved"
 	EventRiskAcceptanceExpiring  = "risk_acceptance.expiring"
 	EventRiskAcceptanceExpired   = "risk_acceptance.expired"
+	// EventRiskAcceptanceExtensionRequested: an extension waits for an owner;
+	// EventRiskAcceptanceExtended: an acceptance's expiry was pushed out.
+	EventRiskAcceptanceExtensionRequested = "risk_acceptance.extension_requested"
+	EventRiskAcceptanceExtended           = "risk_acceptance.extended"
 	// EventExceptionExpired: false positive / won't fix exceptions lapsed.
 	EventExceptionExpired = "exception.expired"
 	EventCriticalFinding  = "finding.critical"

@@ -40,6 +40,9 @@ func (h *Handler) registerAcceptances(r fiber.Router) {
 	r.Post("/projects/:projectID/risk-acceptances/:acceptanceID/approve", h.ApproveAcceptance)
 	r.Post("/projects/:projectID/risk-acceptances/:acceptanceID/reject", h.RejectAcceptance)
 	r.Post("/projects/:projectID/risk-acceptances/:acceptanceID/revoke", h.RevokeAcceptance)
+	r.Post("/projects/:projectID/risk-acceptances/:acceptanceID/extend", h.ExtendAcceptance)
+	r.Post("/projects/:projectID/risk-acceptances/:acceptanceID/extensions/:extensionID/approve", h.ApproveExtension)
+	r.Post("/projects/:projectID/risk-acceptances/:acceptanceID/extensions/:extensionID/reject", h.RejectExtension)
 	r.Post("/projects/:projectID/risk-acceptances/:acceptanceID/findings", h.AddAcceptanceFindings)
 	r.Delete("/projects/:projectID/risk-acceptances/:acceptanceID/findings/:findingID", h.RemoveAcceptanceFinding)
 	r.Get("/findings/:findingID/risk-acceptances", h.FindingLedger)
@@ -52,6 +55,8 @@ func acceptanceError(err error) error {
 		return fiber.NewError(fiber.StatusNotFound, "risk acceptance not found")
 	case errors.Is(err, ErrNotMember):
 		return fiber.NewError(fiber.StatusNotFound, err.Error())
+	case errors.Is(err, ErrExtensionNotFound):
+		return fiber.NewError(fiber.StatusNotFound, err.Error())
 	case errors.Is(err, ErrAcceptanceSelfDecision):
 		return fiber.NewError(fiber.StatusForbidden, err.Error())
 	case errors.Is(err, ErrAcceptanceState), errors.Is(err, ErrAcceptanceLapsed):
@@ -60,29 +65,148 @@ func acceptanceError(err error) error {
 	return err
 }
 
-// markAcceptances sets CanApprove / CanRevoke for the caller: an owner of the
-// project (or instance admin) may revoke a live acceptance and decide a
-// request — except, with four-eyes, their own.
+// markAcceptances sets the caller's permissions on each acceptance: an owner
+// of the project (or instance admin) may revoke a live acceptance and decide a
+// request or an extension, except, with four-eyes, their own; an editor may
+// ask to extend an approved one.
 func (h *Handler) markAcceptances(c *fiber.Ctx, as []RiskAcceptance) error {
 	uid := auth.UserID(c)
-	owner := map[string]bool{}
+	type roles struct{ owner, editor bool }
+	seen := map[string]roles{}
 	for i := range as {
 		a := &as[i]
 		if !a.State.Live() {
 			continue
 		}
-		ok, seen := owner[a.ProjectID]
-		if !seen {
+		r, ok := seen[a.ProjectID]
+		if !ok {
 			var err error
-			if ok, err = h.can(c, uid, a.ProjectID, domain.TeamOwner); err != nil {
+			if r.owner, err = h.can(c, uid, a.ProjectID, domain.TeamOwner); err != nil {
 				return err
 			}
-			owner[a.ProjectID] = ok
+			if r.editor, err = h.can(c, uid, a.ProjectID, domain.TeamEditor); err != nil {
+				return err
+			}
+			seen[a.ProjectID] = r
 		}
-		a.CanRevoke = ok
-		a.CanApprove = ok && a.State == AcceptanceRequested && !h.selfDecision(*a, uid)
+		a.CanRevoke = r.owner
+		a.CanApprove = r.owner && a.State == AcceptanceRequested && !h.selfDecision(*a, uid)
+		a.CanExtend = r.editor && a.State == AcceptanceApproved && a.ExpiresAt != nil && a.PendingExtension == nil
+		a.CanDecideExtension = r.owner && a.PendingExtension != nil &&
+			!(h.acceptanceApproval && a.PendingExtension.requestedBy(uid))
 	}
 	return nil
+}
+
+// mayDecideExtension reports whether uid may decide an extension of an
+// acceptance of projectID: an instance admin, or a project owner whose
+// grants don't deny deciding risk acceptances (the capability authz checks on
+// the approve route, which an extension that applies at once must honor too).
+func (h *Handler) mayDecideExtension(c *fiber.Ctx, uid, projectID string) (bool, error) {
+	isAdmin, _, err := h.access.AdminStatus(c.UserContext(), uid)
+	if err != nil || isAdmin {
+		return isAdmin, err
+	}
+	if ok, err := h.can(c, uid, projectID, domain.TeamOwner); err != nil || !ok {
+		return false, err
+	}
+	return h.access.ProjectCapabilityAllowed(c.UserContext(), uid, projectID, domain.TeamOwner, domain.CapRiskAcceptanceApprove)
+}
+
+type extendRequest struct {
+	ExpiresAt string `json:"expires_at"`
+	Reason    string `json:"reason"`
+}
+
+// maxExtensionReason bounds an extension's reason.
+const maxExtensionReason = 2000
+
+// ExtendAcceptance handles POST /projects/{id}/risk-acceptances/{aid}/extend
+// ({"expires_at", "reason"}): an approved acceptance's expiry changes only
+// this way. A project owner's extension applies at once (with four-eyes it
+// waits for another owner); an editor's waits for an owner while the
+// acceptance stays active on its current expiry.
+func (h *Handler) ExtendAcceptance(c *fiber.Ctx) error {
+	pid, id, err := acceptanceIDs(c)
+	if err != nil {
+		return err
+	}
+	var body extendRequest
+	if err := httpx.Parse(c, &body); err != nil {
+		return err
+	}
+	to, err := time.Parse(time.RFC3339, strings.TrimSpace(body.ExpiresAt))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "expires_at must be an RFC 3339 time")
+	}
+	reason := strings.TrimSpace(body.Reason)
+	if reason == "" || len([]rune(reason)) > maxExtensionReason {
+		return fiber.NewError(fiber.StatusBadRequest, "reason must be 1–2000 characters")
+	}
+	uid := auth.UserID(c)
+	apply, err := h.mayDecideExtension(c, uid, pid)
+	if err != nil {
+		return err
+	}
+	// Four-eyes: an owner's own extension needs a second owner, like their
+	// own acceptance request.
+	apply = apply && !h.acceptanceApproval
+	a, e, err := h.repo.RequestExtension(c.UserContext(), pid, id, uid, reason, to, apply)
+	if err != nil {
+		return acceptanceError(err)
+	}
+	if apply {
+		h.notifyAcceptance(notify.EventRiskAcceptanceExtended, "Risk acceptance extended", a)
+	} else {
+		h.notifyAcceptance(notify.EventRiskAcceptanceExtensionRequested, "Extension requested", a)
+	}
+	as := []RiskAcceptance{a}
+	if err := h.markAcceptances(c, as); err != nil {
+		return err
+	}
+	status := fiber.StatusOK
+	if !apply {
+		status = fiber.StatusAccepted
+	}
+	return c.Status(status).JSON(fiber.Map{"risk_acceptance": as[0], "extension": e})
+}
+
+// ApproveExtension handles POST
+// /projects/{id}/risk-acceptances/{aid}/extensions/{eid}/approve: the
+// acceptance's expiry moves to the extension's. Owner (authz); with four-eyes
+// not the person who asked.
+func (h *Handler) ApproveExtension(c *fiber.Ctx) error { return h.decideExtension(c, true) }
+
+// RejectExtension handles POST
+// /projects/{id}/risk-acceptances/{aid}/extensions/{eid}/reject: the
+// acceptance keeps its expiry.
+func (h *Handler) RejectExtension(c *fiber.Ctx) error { return h.decideExtension(c, false) }
+
+func (h *Handler) decideExtension(c *fiber.Ctx, approve bool) error {
+	pid, id, err := acceptanceIDs(c)
+	if err != nil {
+		return err
+	}
+	eid, err := httpx.ID(c, "extensionID")
+	if err != nil {
+		return err
+	}
+	body, err := parseDecision(c)
+	if err != nil {
+		return err
+	}
+	a, e, err := h.repo.DecideExtension(c.UserContext(), pid, id, eid, auth.UserID(c), body.Note, approve, h.acceptanceApproval)
+	if err != nil {
+		return acceptanceError(err)
+	}
+	if approve {
+		h.notifyAcceptance(notify.EventRiskAcceptanceExtended, "Risk acceptance extended", a)
+	}
+	as := []RiskAcceptance{a}
+	if err := h.markAcceptances(c, as); err != nil {
+		return err
+	}
+	return c.JSON(fiber.Map{"risk_acceptance": as[0], "extension": e})
 }
 
 // selfDecision reports whether four-eyes forbids uid deciding a.
@@ -159,7 +283,7 @@ func (h *Handler) ListAllAcceptances(c *fiber.Ctx) error {
 		if err != nil {
 			return err
 		}
-		f.State, f.ProjectIDs = AcceptanceRequested, ids
+		f.Actionable, f.ProjectIDs = true, ids
 		if h.acceptanceApproval {
 			f.ExcludeRequester = uid
 		}
@@ -291,11 +415,15 @@ func (h *Handler) GetAcceptance(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+	extensions, err := h.repo.Extensions(c.UserContext(), id)
+	if err != nil {
+		return err
+	}
 	as := []RiskAcceptance{a}
 	if err := h.markAcceptances(c, as); err != nil {
 		return err
 	}
-	return c.JSON(fiber.Map{"risk_acceptance": as[0], "findings": members})
+	return c.JSON(fiber.Map{"risk_acceptance": as[0], "findings": members, "extensions": extensions})
 }
 
 func acceptanceIDs(c *fiber.Ctx) (string, string, error) {

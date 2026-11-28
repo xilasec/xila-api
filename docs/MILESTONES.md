@@ -1055,3 +1055,24 @@ housekeeping, an org-level gate, saved views, View As User, custom
 dashboards, cloud IAM database login, project export, contextual VEX
 ratings, CEL violation messages, an instance time zone.
 
+## M14: Parity review 5 (November 2026)
+
+Compared with DefectDojo Pro 3.5.300, SecObserve 1.66.0 and Dependency-Track
+5.2.2 (what shipped since M13's review). Every gap was checked against the code.
+
+Tier 1:
+
+- ✅ 14.1 Malicious packages (DefectDojo Pro package analysis): OSV `MAL-`
+  advisories carry no CVE or severity, so they used to default to medium. A
+  finding naming a `MAL-` id (rule id, CVEs, aliases; any producer) is now
+  `malicious`, set on every upsert: severity critical, priority at the
+  exploitability ceiling with no reachability or exposure discount
+  (`domain.Exploitability.Malicious`, passed by every priority writer), a
+  gate violation unless `allow_malicious`, a filter, a CEL fact, a badge and a
+  remediation banner. OSV-Scanner reports now keep advisory aliases.
+- ✅ 14.2 Extending an approved risk acceptance (DefectDojo Pro 3.5.300): an
+  approved acceptance's expiry changes only through an extension with a
+  reason. An owner's applies at once (four-eyes: waits for another owner),
+  anyone else's waits while the acceptance stays active; one pending at a
+  time, withdrawn when the acceptance ends, listed in the approval queue.
+

@@ -50,7 +50,7 @@ func (r *Repository) Reprioritize(ctx context.Context, s PriorityScope) ([]strin
 		asset = &s.AssetID
 	}
 	rows, err := r.db.Query(ctx, `
-		SELECT id, severity, epss, kev, COALESCE(exploit_maturity, ''), dep_direct, dep_scope, `+assetExposureSQL+`,
+		SELECT id, severity, epss, kev, malicious, COALESCE(exploit_maturity, ''), dep_direct, dep_scope, `+assetExposureSQL+`,
 			(SELECT priority_weights FROM projects pw WHERE pw.id = findings.project_id)
 		FROM findings
 		WHERE ($1::uuid IS NULL OR last_scan_id = $1) AND ($2::uuid IS NULL OR asset_id = $2)
@@ -66,17 +66,18 @@ func (r *Repository) Reprioritize(ctx context.Context, s PriorityScope) ([]strin
 			sev      domain.Severity
 			epss     *float64
 			kev      bool
+			bad      bool
 			maturity domain.ExploitMaturity
 			direct   *bool
 			scope    domain.DepScope
 			exposure domain.Exposure
 			weights  []byte
 		)
-		if err := rows.Scan(&id, &sev, &epss, &kev, &maturity, &direct, &scope, &exposure, &weights); err != nil {
+		if err := rows.Scan(&id, &sev, &epss, &kev, &bad, &maturity, &direct, &scope, &exposure, &weights); err != nil {
 			rows.Close()
 			return nil, 0, fmt.Errorf("scan priority inputs: %w", err)
 		}
-		x := domain.Exploitability{KEV: kev, Maturity: maturity}
+		x := domain.Exploitability{KEV: kev, Maturity: maturity, Malicious: bad}
 		if epss != nil {
 			x.EPSS = *epss
 		}

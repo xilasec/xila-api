@@ -56,7 +56,7 @@ func FindingDoc(f finding.Finding, p ProjectFacts) map[string]any {
 			"scanner": f.Scanner, "category": string(f.Category), "rule_id": f.RuleID, "title": f.Title,
 			"severity": string(f.Severity), "status": string(f.Status),
 			"cve": str(f.CVE), "cwe": cwe, "cvss": cvss, "epss": epss, "kev": f.KEV,
-			"kev_sources": str(f.KEVSources), "kev_ransomware": f.KEVRansomware,
+			"kev_sources": str(f.KEVSources), "kev_ransomware": f.KEVRansomware, "malicious": f.Malicious,
 			"package": f.PackageName, "version": f.PackageVersion, "fixed_version": f.FixedVersion, "purl": f.Purl,
 			"file_path": f.FilePath, "url": f.URL, "tags": str(f.Tags),
 			"dep_direct": direct, "dep_depth": depth, "dep_scope": scope,

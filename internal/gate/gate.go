@@ -31,6 +31,9 @@ type Policy struct {
 	MaxLow      *int    `json:"max_low"`
 	MaxInfo     *int    `json:"max_info"`
 	BlockKEV    bool    `json:"block_kev"`
+	// AllowMalicious lets a malicious package pass. Off by default, so a
+	// malicious package fails every gate, including a project with no policy.
+	AllowMalicious bool `json:"allow_malicious"`
 	// KEVSources limits block_kev to findings these catalogs assert (cisa,
 	// enisa, vulncheck); empty = any catalog.
 	KEVSources   []string `json:"kev_sources"`
@@ -99,6 +102,9 @@ func Evaluate(p Policy, s finding.GateStats, missingExpectations []string) Resul
 			add(c.rule, fmt.Sprintf("%d open %s findings exceed the limit of %d", c.open, c.sev, *c.max))
 		}
 	}
+	if !p.AllowMalicious && s.OpenMalicious > 0 {
+		add("malicious", fmt.Sprintf("%d open finding(s) are malicious packages: remove them and rotate the secrets of every machine that installed them", s.OpenMalicious))
+	}
 	if p.BlockKEV {
 		if n := openKEV(p.KEVSources, s); n > 0 {
 			add("block_kev", fmt.Sprintf("%d open finding(s) are on a KEV list (%s)", n, kevLabel(p.KEVSources)))
@@ -157,11 +163,11 @@ func NewRepository(db *pgxpool.Pool) *Repository {
 	return &Repository{db: db}
 }
 
-const policyColumns = `project_id, max_critical, max_high, max_medium, max_low, max_info, block_kev, kev_sources, max_epss, block_license, new_only, block_sla_breach, baseline_branch, max_risk_score, require_expected_scans, updated_at`
+const policyColumns = `project_id, max_critical, max_high, max_medium, max_low, max_info, block_kev, kev_sources, max_epss, block_license, new_only, block_sla_breach, baseline_branch, max_risk_score, require_expected_scans, allow_malicious, updated_at`
 
 func scanPolicy(row pgx.Row) (Policy, error) {
 	var p Policy
-	err := row.Scan(&p.ProjectID, &p.MaxCritical, &p.MaxHigh, &p.MaxMedium, &p.MaxLow, &p.MaxInfo, &p.BlockKEV, &p.KEVSources, &p.MaxEPSS, &p.BlockLicense, &p.NewOnly, &p.BlockSLABreach, &p.BaselineBranch, &p.MaxRiskScore, &p.RequireExpectedScans, &p.UpdatedAt)
+	err := row.Scan(&p.ProjectID, &p.MaxCritical, &p.MaxHigh, &p.MaxMedium, &p.MaxLow, &p.MaxInfo, &p.BlockKEV, &p.KEVSources, &p.MaxEPSS, &p.BlockLicense, &p.NewOnly, &p.BlockSLABreach, &p.BaselineBranch, &p.MaxRiskScore, &p.RequireExpectedScans, &p.AllowMalicious, &p.UpdatedAt)
 	return p, err
 }
 
@@ -201,10 +207,10 @@ func (r *Repository) Upsert(ctx context.Context, p Policy) (Policy, error) {
 		UPDATE gate_policies SET
 			max_critical=$2, max_high=$3, block_kev=$4, max_epss=$5, block_license=$6, new_only=$7, block_sla_breach=$8,
 			kev_sources=$9, baseline_branch=$10, max_risk_score=$11, max_medium=$12, max_low=$13, max_info=$14,
-			require_expected_scans=$15, updated_at=now()
+			require_expected_scans=$15, allow_malicious=$16, updated_at=now()
 		WHERE project_id IS NOT DISTINCT FROM $1
 		RETURNING ` + policyColumns
-	out, err := scanPolicy(r.db.QueryRow(ctx, q, p.ProjectID, p.MaxCritical, p.MaxHigh, p.BlockKEV, p.MaxEPSS, p.BlockLicense, p.NewOnly, p.BlockSLABreach, kevSources(p), p.BaselineBranch, p.MaxRiskScore, p.MaxMedium, p.MaxLow, p.MaxInfo, p.RequireExpectedScans))
+	out, err := scanPolicy(r.db.QueryRow(ctx, q, p.ProjectID, p.MaxCritical, p.MaxHigh, p.BlockKEV, p.MaxEPSS, p.BlockLicense, p.NewOnly, p.BlockSLABreach, kevSources(p), p.BaselineBranch, p.MaxRiskScore, p.MaxMedium, p.MaxLow, p.MaxInfo, p.RequireExpectedScans, p.AllowMalicious))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return r.insert(ctx, p)
 	}
@@ -223,9 +229,9 @@ func kevSources(p Policy) []string {
 }
 
 func (r *Repository) insert(ctx context.Context, p Policy) (Policy, error) {
-	const q = `INSERT INTO gate_policies (project_id, max_critical, max_high, block_kev, max_epss, block_license, new_only, block_sla_breach, kev_sources, baseline_branch, max_risk_score, max_medium, max_low, max_info, require_expected_scans)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING ` + policyColumns
-	out, err := scanPolicy(r.db.QueryRow(ctx, q, p.ProjectID, p.MaxCritical, p.MaxHigh, p.BlockKEV, p.MaxEPSS, p.BlockLicense, p.NewOnly, p.BlockSLABreach, kevSources(p), p.BaselineBranch, p.MaxRiskScore, p.MaxMedium, p.MaxLow, p.MaxInfo, p.RequireExpectedScans))
+	const q = `INSERT INTO gate_policies (project_id, max_critical, max_high, block_kev, max_epss, block_license, new_only, block_sla_breach, kev_sources, baseline_branch, max_risk_score, max_medium, max_low, max_info, require_expected_scans, allow_malicious)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING ` + policyColumns
+	out, err := scanPolicy(r.db.QueryRow(ctx, q, p.ProjectID, p.MaxCritical, p.MaxHigh, p.BlockKEV, p.MaxEPSS, p.BlockLicense, p.NewOnly, p.BlockSLABreach, kevSources(p), p.BaselineBranch, p.MaxRiskScore, p.MaxMedium, p.MaxLow, p.MaxInfo, p.RequireExpectedScans, p.AllowMalicious))
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23503" {
 		return Policy{}, ErrNoProject

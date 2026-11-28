@@ -74,6 +74,8 @@ export const EVENT_TYPES = [
 	{ id: 'risk_acceptance.approved', key: 'event.raApproved' },
 	{ id: 'risk_acceptance.expiring', key: 'event.raExpiring' },
 	{ id: 'risk_acceptance.expired', key: 'event.raExpired' },
+	{ id: 'risk_acceptance.extension_requested', key: 'event.raExtensionRequested' },
+	{ id: 'risk_acceptance.extended', key: 'event.raExtended' },
 	{ id: 'finding.sla_breach', key: 'event.slaBreach' },
 	{ id: 'finding.sla_due_soon', key: 'event.slaDueSoon' },
 	{ id: 'cra.case_opened', key: 'event.craOpened' },
