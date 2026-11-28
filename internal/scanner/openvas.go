@@ -65,7 +65,7 @@ type openvasResult struct {
 	Description string `xml:"description"`
 }
 
-var openvasCWEURL = regexp.MustCompile(`cwe\.mitre\.org/data/definitions/(\d+)`)
+var openvasCWEURL = regexp.MustCompile(`^(?:https?://)?(?:www\.)?cwe\.mitre\.org/data/definitions/(\d+)`)
 
 // Parse implements Parser.
 func (OpenVAS) Parse(r io.Reader) ([]ParsedFinding, error) {

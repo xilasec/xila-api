@@ -110,7 +110,7 @@ func runSeed(args []string) error {
 	}
 	fmt.Printf("done in %s: %d findings, %d components across %d projects\n",
 		res.Elapsed.Round(time.Second), res.TotalFindings, res.TotalComponents, len(res.Projects))
-	fmt.Printf("admin login: %s / %s\n", res.AdminEmail, res.AdminPassword)
+	fmt.Printf("admin login: %s (password as provided via --admin-password)\n", res.AdminEmail)
 	for _, p := range res.Projects {
 		if p.Big {
 			fmt.Printf("big project: id=%s findings=%d\n", p.ID, p.Findings)

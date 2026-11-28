@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"math"
 	"net"
 	"net/url"
 	"os"
@@ -716,8 +717,8 @@ func Load() (Config, error) {
 			Password:             sec.get("DB_PASSWORD", "xila"),
 			Name:                 getenv("DB_NAME", "xila"),
 			SSLMode:              getenv("DB_SSLMODE", "disable"),
-			MaxConns:             int32(getint("DB_MAX_CONNS", 20)),
-			MinConns:             int32(getint("DB_MIN_CONNS", 2)),
+			MaxConns:             getint32("DB_MAX_CONNS", 20),
+			MinConns:             getint32("DB_MIN_CONNS", 2),
 			MaxConnLifetime:      getdur("DB_MAX_CONN_LIFETIME", time.Hour),
 			MaxConnIdleTime:      getdur("DB_MAX_CONN_IDLE_TIME", 30*time.Minute),
 			HealthCheckPeriod:    getdur("DB_HEALTH_CHECK_PERIOD", time.Minute),
@@ -725,7 +726,7 @@ func Load() (Config, error) {
 			StatementTimeout:     getdur("DB_STATEMENT_TIMEOUT", 30*time.Second),
 			ReadURL:              sec.get("DB_READ_URL", ""),
 			ReadStatementTimeout: getdur("DB_READ_STATEMENT_TIMEOUT", 0),
-			ReadMaxConns:         int32(getint("DB_READ_MAX_CONNS", 10)),
+			ReadMaxConns:         getint32("DB_READ_MAX_CONNS", 10),
 			JobStatementTimeout:  getdur("DB_JOB_STATEMENT_TIMEOUT", 15*time.Minute),
 		},
 		JWT: JWT{
@@ -1495,6 +1496,21 @@ func getint(key string, fallback int) int {
 		}
 	}
 	return fallback
+}
+
+// getint32 reads an int-valued env var and narrows it to int32 with an
+// explicit bound, so a hostile or fat-fingered value can't wrap to a negative
+// pool size when converted.
+func getint32(key string, fallback int32) int32 {
+	n := getint(key, int(fallback))
+	switch {
+	case n > math.MaxInt32:
+		return math.MaxInt32
+	case n < math.MinInt32:
+		return math.MinInt32
+	default:
+		return int32(n)
+	}
 }
 
 func getbool(key string, fallback bool) bool {
