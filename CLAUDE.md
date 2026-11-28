@@ -38,7 +38,7 @@ Run `gofmt -w`, `go vet ./...`, and the tests before declaring a change done.
 ## Running the tests (they need a real Postgres)
 
 Integration and smoke tests are gated on `TEST_DATABASE_URL` and skip without it.
-They **TRUNCATE tables between tests (see `internal/pgtest`), so point them at a
+They **empty every table between tests (see `internal/pgtest`), so point them at a
 disposable database, not one with data you care about.**
 
 ```bash
@@ -706,7 +706,7 @@ Writes never fail the request. The table is append-only (trigger). Only
 
 Add a migration: `NNNNNN_name.up.sql` / `.down.sql` in
 `internal/database/migrations/` (embedded). If it adds a table, also add it
-to `pgtest.allTables` (children first; tables are truncated between tests).
+to `pgtest.allTables` (the tables emptied between tests; any order).
 
 Add a column to `findings`: this table has a hand-written positional
 upsert. Update these together: the `Finding` struct, `findingColumns`,
