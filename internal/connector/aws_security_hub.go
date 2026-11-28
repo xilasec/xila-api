@@ -131,7 +131,7 @@ func (a *awsSecurityHub) findingFilters() *types.AwsSecurityFindingFilters {
 	if a.filter == "" {
 		return f
 	}
-	for _, kv := range strings.Split(a.filter, ",") {
+	for kv := range strings.SplitSeq(a.filter, ",") {
 		key, val, ok := strings.Cut(kv, "=")
 		if !ok {
 			continue

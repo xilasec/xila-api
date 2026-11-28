@@ -94,7 +94,8 @@ func NewClient(c Connector, token string, hc *http.Client) (Client, error) {
 				return nil, err
 			}
 		}
-		return &trivyOperator{base: c.BaseURL, namespace: c.RemoteProject, bearerToken: creds.BearerToken, hc: client}, nil
+		return &trivyOperator{base: c.BaseURL, namespace: c.RemoteProject, bearerToken: creds.BearerToken, hc: client,
+			tokenPath: trivyInClusterToken, caPath: trivyInClusterCA}, nil
 	}
 	return nil, fmt.Errorf("unsupported connector kind %q", c.Kind)
 }
