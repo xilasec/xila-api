@@ -941,6 +941,11 @@ and `internal/server/smoke_test.go` (missing smoke wiring causes a nil panic in 
   must re-apply windows: `sla.reapply` / the `projects_sla_criticality` trigger.
   `sla_settings` is a singleton *row*, so `pgtest.Truncate` resets it rather than
   truncating it.
+- Fiber request strings (`c.Params`, `c.Query`, `c.Get`, `c.Body`) point into
+  buffers Fiber reuses for the next request. Copy one (`strings.Clone`) before
+  it outlives the handler: a `go` statement, a cache, a channel. `httpx.ID`
+  already returns a copy (`TestIDOutlivesRequest`). CI runs `-race`, which is
+  where this shows up.
 - `-p 1` for integration tests. They share one DB and truncate; parallel
   packages deadlock on `TRUNCATE`.
 - Live-testing the binary: use fresh ports each run and stop by PID.

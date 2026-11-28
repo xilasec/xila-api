@@ -3,6 +3,7 @@ package httpx
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -47,12 +48,15 @@ func Meta(p Page, count int, hasMore bool) fiber.Map {
 }
 
 // ID reads a UUID path parameter, returning a 400 fiber error when malformed.
+// The result is a copy, safe to keep after the request ends.
 func ID(c *fiber.Ctx, name string) (string, error) {
 	raw := c.Params(name)
 	if _, err := uuid.Parse(raw); err != nil {
 		return "", fiber.NewError(fiber.StatusBadRequest, "invalid "+name)
 	}
-	return raw, nil
+	// Params points into a buffer Fiber reuses for the next request; ids are
+	// handed to goroutines (notifications, tracker pushes), so copy it.
+	return strings.Clone(raw), nil
 }
 
 // Parse decodes the JSON request body into dst, returning a 400 on failure.
