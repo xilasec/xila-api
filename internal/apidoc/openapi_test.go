@@ -23,6 +23,8 @@ type spec struct {
 		Schemas    map[string]any `yaml:"schemas"`
 		Parameters map[string]any `yaml:"parameters"`
 		Responses  map[string]any `yaml:"responses"`
+		// RequestBodies holds bodies shared by several operations.
+		RequestBodies map[string]any `yaml:"requestBodies"`
 	} `yaml:"components"`
 }
 
@@ -181,6 +183,8 @@ func TestNoDanglingRefs(t *testing.T) {
 			target = s.Components.Parameters
 		case "responses":
 			target = s.Components.Responses
+		case "requestBodies":
+			target = s.Components.RequestBodies
 		default:
 			t.Errorf("$ref %q points at an unknown component section", ref)
 			continue

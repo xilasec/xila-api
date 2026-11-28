@@ -10,15 +10,18 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/xilasec/xila-api/internal/httpx"
+	"github.com/xilasec/xila-api/internal/project"
 )
 
 // Handler exposes scan ingestion and listing over HTTP.
 type Handler struct {
-	repo   *Repository
-	ingest *Service
-	async  bool          // enqueue uploads for background processing instead of blocking
-	queue  *QueueMonitor // optional: queue depth for /ingest/queue + backpressure
-	pool   *WorkerPool   // optional: this node's worker count, for /ingest/settings
+	repo     *Repository
+	ingest   *Service
+	async    bool                 // enqueue uploads for background processing instead of blocking
+	queue    *QueueMonitor        // optional: queue depth for /ingest/queue + backpressure
+	pool     *WorkerPool          // optional: this node's worker count, for /ingest/settings
+	resolver *project.Resolver    // optional: enables POST /scans (project by name)
+	access   project.UploadAccess // required alongside resolver
 }
 
 // NewHandler constructs a scan Handler. When async is true, uploads are queued
@@ -29,9 +32,17 @@ func NewHandler(repo *Repository, ingest *Service, async bool, queue *QueueMonit
 	return &Handler{repo: repo, ingest: ingest, async: async, queue: queue, pool: pool}
 }
 
+// WithProjectByName enables POST /scans (CI uploads that know a project —
+// and optionally a team — by name, not by id; see project.Resolver).
+func (h *Handler) WithProjectByName(resolver *project.Resolver, access project.UploadAccess) *Handler {
+	h.resolver, h.access = resolver, access
+	return h
+}
+
 // Register mounts scan routes.
 func (h *Handler) Register(r fiber.Router) {
 	r.Post("/projects/:projectID/scans", h.Ingest)
+	r.Post("/scans", h.IngestByName)
 	r.Get("/projects/:projectID/scans", h.List)
 	r.Get("/scans/:scanID", h.Get)
 	r.Get("/ingest/queue", h.Queue)
@@ -118,6 +129,28 @@ func (h *Handler) Ingest(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+	return h.ingestProject(c, projectID)
+}
+
+// IngestByName handles POST /scans: an alternative to
+// POST /projects/{id}/scans for CI that knows a project (and team) by name,
+// not by id (project_name, team, auto_create — see project.Resolver). Every
+// other parameter is the same query-string metadata Ingest reads. No project
+// id is in the path, so the route-level authz middleware can't authorize
+// this route (see authz.parseScope's routeScope{} for "scans"): this handler
+// re-checks the resolved project itself (project.ResolveUpload).
+func (h *Handler) IngestByName(c *fiber.Ctx) error {
+	if h.resolver == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "project-by-name upload is not configured")
+	}
+	p, err := project.ResolveUpload(c, h.resolver, h.access)
+	if err != nil {
+		return err
+	}
+	return h.ingestProject(c, p.ID)
+}
+
+func (h *Handler) ingestProject(c *fiber.Ctx, projectID string) error {
 	scannerName := strings.TrimSpace(c.Query("scanner"))
 	if scannerName == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "scanner query parameter is required")
@@ -162,6 +195,7 @@ func (h *Handler) Ingest(c *fiber.Ctx) error {
 	// Async: persist the payload + a scan row and return 202 immediately; a worker
 	// runs the pipeline. Sync: process inline and return 201 with the finished scan.
 	var sc Scan
+	var err error
 	if h.async {
 		sc, err = h.ingest.Enqueue(c.UserContext(), req, append([]byte(nil), c.Body()...))
 	} else {

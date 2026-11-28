@@ -25,6 +25,11 @@ type Document struct {
 	// the document doesn't name one.
 	RootRef string
 	Edges   []Edge
+	// XML marks a document parsed from CycloneDX XML rather than JSON: strict
+	// schema validation (SBOM_STRICT_VALIDATION / ?strict=true) checks the JSON
+	// schema only, so an XML upload in strict mode is refused, not silently
+	// skipped (see ErrStrictXMLUnsupported).
+	XML bool
 }
 
 // Edge is one "Parent depends on Child" link of the dependency graph.
@@ -56,25 +61,18 @@ type cycloneDependency struct {
 }
 
 type cycloneComponent struct {
-	BomRef   string           `json:"bom-ref"`
-	Scope    string           `json:"scope"`
-	Type     string           `json:"type"`
-	Group    string           `json:"group"`
-	Name     string           `json:"name"`
-	Version  string           `json:"version"`
-	Purl     string           `json:"purl"`
-	Cpe      string           `json:"cpe"`
-	Licenses []cycloneLicense `json:"licenses"`
-	Hashes   []cycloneHash    `json:"hashes"`
-	Evidence struct {
-		Occurrences []struct {
-			Location string `json:"location"`
-		} `json:"occurrences"`
-	} `json:"evidence"`
-	Properties []struct {
-		Name  string `json:"name"`
-		Value string `json:"value"`
-	} `json:"properties"`
+	BomRef     string            `json:"bom-ref"`
+	Scope      string            `json:"scope"`
+	Type       string            `json:"type"`
+	Group      string            `json:"group"`
+	Name       string            `json:"name"`
+	Version    string            `json:"version"`
+	Purl       string            `json:"purl"`
+	Cpe        string            `json:"cpe"`
+	Licenses   []cycloneLicense  `json:"licenses"`
+	Hashes     []cycloneHash     `json:"hashes"`
+	Evidence   cycloneEvidence   `json:"evidence"`
+	Properties []cycloneProperty `json:"properties"`
 
 	// ML-BOM: who made it, what it is and the model card (see MLFacts).
 	Supplier           *cycloneOrg       `json:"supplier"`
@@ -120,6 +118,23 @@ type cycloneHash struct {
 	Content string `json:"content"`
 }
 
+// cycloneOccurrence is one evidence.occurrences[] entry (named, not inline,
+// so the XML parser can build the same value CycloneDX JSON decodes into).
+type cycloneOccurrence struct {
+	Location string `json:"location"`
+}
+
+// cycloneEvidence is a component's evidence.occurrences[].
+type cycloneEvidence struct {
+	Occurrences []cycloneOccurrence `json:"occurrences"`
+}
+
+// cycloneProperty is one CycloneDX name/value property.
+type cycloneProperty struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
 // parseCycloneDX decodes a CycloneDX JSON BOM into a Document.
 func parseCycloneDX(r io.Reader) (Document, error) {
 	var doc cycloneDoc
@@ -129,7 +144,14 @@ func parseCycloneDX(r io.Reader) (Document, error) {
 	if !strings.EqualFold(doc.BomFormat, "CycloneDX") {
 		return Document{}, fmt.Errorf("not a CycloneDX document (bomFormat=%q)", doc.BomFormat)
 	}
+	return buildCycloneDocument(doc)
+}
 
+// buildCycloneDocument turns a decoded cycloneDoc (from JSON or, via
+// parseCycloneDXXML's conversion, XML) into a Document. Both formats share
+// this one walk, so a document means the same thing either way it was
+// encoded.
+func buildCycloneDocument(doc cycloneDoc) (Document, error) {
 	out := Document{
 		Format:       "CycloneDX",
 		SpecVersion:  doc.SpecVersion,
