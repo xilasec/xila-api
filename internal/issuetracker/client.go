@@ -44,20 +44,20 @@ func NewClient(t Tracker, token string, hc *http.Client) (Client, error) {
 	base := strings.TrimRight(t.BaseURL, "/")
 	switch t.Kind {
 	case KindJira:
-		return &jiraClient{api: api{base: base, hc: hc, auth: jiraAuth(t.JiraEmail, token)},
+		return &jiraClient{base: base, hc: hc, auth: jiraAuth(t.JiraEmail, token),
 			project: t.Target, issueType: t.IssueType, done: t.DoneTransition, reopen: t.ReopenTransition}, nil
 	case KindGitHub:
-		return &githubClient{api: api{base: base, hc: hc, auth: githubAuth(token)}, repo: t.Target}, nil
+		return &githubClient{base: base, hc: hc, auth: githubAuth(token), repo: t.Target}, nil
 	case KindGitLab:
-		return &gitlabClient{api: api{base: base + "/api/v4", hc: hc, auth: gitlabAuth(token)}, project: t.Target}, nil
+		return &gitlabClient{base: base + "/api/v4", hc: hc, auth: gitlabAuth(token), project: t.Target}, nil
 	case KindAzureDevOps:
-		return &azureClient{api: api{base: base, hc: hc, auth: azureAuth(token)},
+		return &azureClient{base: base, hc: hc, auth: azureAuth(token),
 			project: t.Target, workType: t.IssueType, done: t.DoneTransition, reopen: t.ReopenTransition}, nil
 	case KindLinear:
-		return &linearClient{api: api{base: base, hc: hc, auth: linearAuth(token)},
+		return &linearClient{base: base, hc: hc, auth: linearAuth(token),
 			team: t.Target, done: t.DoneTransition, reopen: t.ReopenTransition}, nil
 	case KindServiceNow:
-		return &serviceNowClient{api: api{base: base, hc: hc, auth: serviceNowAuth(t.AuthUser, token)},
+		return &serviceNowClient{base: base, hc: hc, auth: serviceNowAuth(t.AuthUser, token),
 			table: t.Target, done: t.DoneTransition, reopen: t.ReopenTransition}, nil
 	}
 	return nil, fmt.Errorf("unsupported tracker kind %q", t.Kind)

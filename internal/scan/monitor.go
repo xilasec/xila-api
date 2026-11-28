@@ -151,8 +151,8 @@ func (m *QueueMonitor) Snapshot() QueueStats {
 // for an hour is worse than one the client is told to retry, because the client
 // still believes it was ingested and its gate result is stale.
 func (m *QueueMonitor) Saturated() bool {
-	max := m.maxDepth.Load()
-	return max > 0 && m.pending.Load() >= max
+	peak := m.maxDepth.Load()
+	return peak > 0 && m.pending.Load() >= peak
 }
 
 // EffectiveMaxDepth returns the queue-depth backpressure threshold currently
@@ -195,21 +195,21 @@ func (m *QueueMonitor) RegisterMetrics() error {
 // Worker-side instruments. The global meter delegates until the SDK provider is
 // installed, so creating them at init is safe and keeps ProcessJob allocation-free.
 var (
-	ingestMeter    = otel.Meter("github.com/xilasec/xila-api/internal/scan")
-	jobsProcessed  metric.Int64Counter
-	jobDuration    metric.Float64Histogram
-	outcomeKey     = attribute.Key("outcome")
-	instrumentInit error
+	ingestMeter       = otel.Meter("github.com/xilasec/xila-api/internal/scan")
+	jobsProcessed     metric.Int64Counter
+	jobDuration       metric.Float64Histogram
+	outcomeKey        = attribute.Key("outcome")
+	errInstrumentInit error
 )
 
 func init() {
-	jobsProcessed, instrumentInit = ingestMeter.Int64Counter("xila.ingest.jobs",
+	jobsProcessed, errInstrumentInit = ingestMeter.Int64Counter("xila.ingest.jobs",
 		metric.WithDescription("Ingest jobs run by a worker"),
 		metric.WithUnit("{job}"))
-	if instrumentInit != nil {
+	if errInstrumentInit != nil {
 		return
 	}
-	jobDuration, instrumentInit = ingestMeter.Float64Histogram("xila.ingest.job.duration",
+	jobDuration, errInstrumentInit = ingestMeter.Float64Histogram("xila.ingest.job.duration",
 		metric.WithDescription("Time a worker spent running one ingest job end to end"),
 		metric.WithUnit("s"))
 }
@@ -218,7 +218,7 @@ func init() {
 // gauges this is enough to answer the only question that matters under load:
 // are we draining faster than we're filling?
 func observeJob(ctx context.Context, start time.Time, err error) {
-	if instrumentInit != nil {
+	if errInstrumentInit != nil {
 		return
 	}
 	outcome := "success"

@@ -117,7 +117,9 @@ func TestCheckAndSweep(t *testing.T) {
 		t.Errorf("recovery alerted %d", n)
 	}
 	var open int
-	pool.QueryRow(ctx, `SELECT count(*) FROM ingestion_anomalies`).Scan(&open)
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM ingestion_anomalies`).Scan(&open); err != nil {
+		t.Fatal(err)
+	}
 	if open != 2 {
 		t.Errorf("open anomalies after trivy recovered = %d, want 2", open)
 	}

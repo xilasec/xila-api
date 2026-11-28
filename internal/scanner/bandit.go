@@ -73,10 +73,10 @@ func (Bandit) Parse(r io.Reader) ([]ParsedFinding, error) {
 			},
 		}
 		if res.IssueCWE != nil && res.IssueCWE.ID > 0 {
-			f.CWE = intPtr(res.IssueCWE.ID)
+			f.CWE = new(res.IssueCWE.ID)
 		}
 		if res.LineNumber > 0 {
-			f.Line = intPtr(res.LineNumber)
+			f.Line = new(res.LineNumber)
 		}
 		out = append(out, f)
 	}

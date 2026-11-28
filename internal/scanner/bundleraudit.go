@@ -108,7 +108,7 @@ func (BundlerAudit) Parse(r io.Reader) ([]ParsedFinding, error) {
 				score = a.CVSSv2
 			}
 			if score != nil && *score > 0 {
-				f.CVSS = floatPtr(*score)
+				f.CVSS = new(*score)
 				if a.Criticality == "" {
 					f.Severity = severityFromCVSS(*score)
 				}

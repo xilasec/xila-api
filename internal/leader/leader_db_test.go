@@ -61,11 +61,9 @@ func TestOneLeaderAndFailover(t *testing.T) {
 		ctx context.Context
 		c   *candidate
 	}{{ctxA, a}, {ctxB, b}} {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			leader.Run(c.ctx, pool, testKey, opts, c.c.lead(&leading))
-		}()
+		})
 	}
 	t.Cleanup(func() { stopA(); stopB(); wg.Wait() })
 

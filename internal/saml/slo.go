@@ -217,7 +217,7 @@ var querySignatureAlgorithms = map[string]x509.SignatureAlgorithm{
 // value could change them. A repeated parameter is refused as ambiguous.
 func rawQueryValues(rawQuery string) (map[string]string, error) {
 	out := map[string]string{}
-	for _, part := range strings.Split(rawQuery, "&") {
+	for part := range strings.SplitSeq(rawQuery, "&") {
 		if part == "" {
 			continue
 		}
@@ -421,10 +421,12 @@ func (s *Service) logoutResponse(requestID, relayState string, preferPost bool) 
 // completing an SP-initiated logout: crewjam checks the IdP's signature,
 // Destination, expiry, issuer and a Success status.
 func (s *Service) parseLogoutResponseRedirect(encoded string) error {
+	//nolint:staticcheck // SA1019: ParseLogoutResponse needs a *net/http.Request; the Fiber handler has the raw SAMLResponse, and this still runs crewjam's full signature, destination, expiry and issuer checks
 	return s.sp.ValidateLogoutResponseRedirect(encoded)
 }
 
 // parseLogoutResponsePost validates a HTTP-POST-bound LogoutResponse.
 func (s *Service) parseLogoutResponsePost(encoded string) error {
+	//nolint:staticcheck // SA1019: as above, for the HTTP-POST binding
 	return s.sp.ValidateLogoutResponseForm(encoded)
 }

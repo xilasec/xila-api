@@ -132,7 +132,7 @@ func (h *Handler) Attest(c *fiber.Ctx) error {
 		return attestError(err)
 	}
 	a, err := h.repo.Attest(c.UserContext(), projectID, key, code, auth.UserID(c),
-		AttestationInput{Note: in.Note, EvidenceURL: in.EvidenceURL, ExpiresAt: in.ExpiresAt})
+		AttestationInput{Note: in.Note, EvidenceURL: in.EvidenceURL, ExpiresAt: in.ExpiresAt}) //nolint:staticcheck // S1016: the request body stays independent of the domain input
 	if err != nil {
 		return attestError(err)
 	}

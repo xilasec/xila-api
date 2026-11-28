@@ -3,6 +3,7 @@ package sbom
 import (
 	"cmp"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"slices"
@@ -56,7 +57,7 @@ func parseSPDX(r io.Reader) (Document, error) {
 		return Document{}, fmt.Errorf("decode spdx: %w", err)
 	}
 	if doc.SpdxVersion == "" {
-		return Document{}, fmt.Errorf("not an SPDX document (missing spdxVersion)")
+		return Document{}, errors.New("not an SPDX document (missing spdxVersion)")
 	}
 
 	out := Document{

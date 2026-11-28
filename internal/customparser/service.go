@@ -136,7 +136,7 @@ func (s *Service) Resolve(ctx context.Context, name string) (scanner.Parser, boo
 		return nil, false, err
 	}
 	if cached, ok := s.cache.Load(name); ok {
-		if entry := cached.(cacheEntry); entry.updatedAt.Equal(def.UpdatedAt) {
+		if entry, ok := cached.(cacheEntry); ok && entry.updatedAt.Equal(def.UpdatedAt) {
 			return entry.parser, true, nil
 		}
 	}

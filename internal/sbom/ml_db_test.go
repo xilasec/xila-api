@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"strings"
@@ -56,7 +57,7 @@ func TestMLBOMStoredFilteredAndRoundTripped(t *testing.T) {
 	sbom.NewHandler(repo, svc).Register(app)
 	get := func(path string) (int, []byte) {
 		t.Helper()
-		res, err := app.Test(httptest.NewRequest("GET", path, nil), -1)
+		res, err := app.Test(httptest.NewRequest(http.MethodGet, path, nil), -1)
 		if err != nil {
 			t.Fatalf("GET %s: %v", path, err)
 		}

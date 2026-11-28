@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"log/slog"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -26,7 +27,7 @@ func TestRequestLogRecordsErrorStatus(t *testing.T) {
 
 	for path, want := range map[string]int{"/denied": 403, "/ok": 200} {
 		buf.Reset()
-		resp, err := app.Test(httptest.NewRequest("GET", path, nil))
+		resp, err := app.Test(httptest.NewRequest(http.MethodGet, path, nil))
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -117,7 +117,7 @@ func Evaluate(p Policy, s finding.GateStats, missingExpectations []string) Resul
 		add("max_risk_score", fmt.Sprintf("risk score %.1f exceeds the limit of %.1f", s.RiskScore, *p.MaxRiskScore))
 	}
 	if p.RequireExpectedScans && len(missingExpectations) > 0 {
-		add("require_expected_scans", fmt.Sprintf("missing expected scan(s): %s", strings.Join(missingExpectations, "; ")))
+		add("require_expected_scans", "missing expected scan(s): "+strings.Join(missingExpectations, "; "))
 	}
 	return Result{Passed: len(violations) == 0, Violations: violations, Stats: s}
 }

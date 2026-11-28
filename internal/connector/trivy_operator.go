@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
 	"os"
@@ -46,7 +47,7 @@ import (
 const (
 	trivyGroupVersion      = "apis/aquasecurity.github.io/v1alpha1"
 	trivyPageLimit         = 500
-	trivyInClusterToken    = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+	trivyInClusterToken    = "/var/run/secrets/kubernetes.io/serviceaccount/token" //nolint:gosec // G101: the service-account token path, not a token
 	trivyInClusterCA       = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 	labelResourceKind      = "trivy-operator.resource.kind"
 	labelResourceName      = "trivy-operator.resource.name"
@@ -58,7 +59,7 @@ type trivyOperator struct {
 	base, namespace, bearerToken string
 	hc                           *http.Client
 	// tokenPath/caPath are the in-cluster service account files used when
-	// base == ""; overridden by tests, the real mounted paths in production.
+	// base == "": the mounted trivyInClusterToken / trivyInClusterCA.
 	tokenPath, caPath string
 }
 
@@ -92,7 +93,7 @@ func trivyTLSClient(caPEM string) (*http.Client, error) {
 // system pool.
 func inClusterClient(caPath string) *http.Client {
 	cfg := tls.Config{MinVersion: tls.VersionTLS12}
-	if ca, err := os.ReadFile(caPath); err == nil {
+	if ca, err := os.ReadFile(caPath); err == nil { //nolint:gosec // G304: the mounted in-cluster CA path (trivyInClusterCA), never request input
 		pool := x509.NewCertPool()
 		if pool.AppendCertsFromPEM(ca) {
 			cfg.RootCAs = pool
@@ -452,8 +453,6 @@ func cmp(s, def string) string {
 
 func cloneMeta(m map[string]any) map[string]any {
 	out := make(map[string]any, len(m))
-	for k, v := range m {
-		out[k] = v
-	}
+	maps.Copy(out, m)
 	return out
 }

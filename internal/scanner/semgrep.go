@@ -89,7 +89,7 @@ func (Semgrep) Parse(r io.Reader) ([]ParsedFinding, error) {
 			Metadata:    map[string]any{},
 		}
 		if res.Start.Line > 0 {
-			f.Line = intPtr(res.Start.Line)
+			f.Line = new(res.Start.Line)
 		}
 		for _, k := range []string{"confidence", "likelihood", "impact", "category", "subcategory"} {
 			if v := metaString(md, k); v != "" {
@@ -147,8 +147,8 @@ func semgrepTitle(checkID, message string) string {
 		}
 		return line
 	}
-	if i := strings.LastIndex(checkID, "."); i >= 0 {
-		return checkID[i+1:]
+	if _, after, ok := strings.CutLast(checkID, "."); ok {
+		return after
 	}
 	return checkID
 }

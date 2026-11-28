@@ -334,8 +334,7 @@ func (h *Handler) validate(c *fiber.Ctx, p *Policy) error {
 
 // validationError maps a *ValidationError to 400.
 func validationError(err error) error {
-	var v *ValidationError
-	if errors.As(err, &v) {
+	if v, ok := errors.AsType[*ValidationError](err); ok {
 		return fiber.NewError(fiber.StatusBadRequest, v.Error())
 	}
 	return err

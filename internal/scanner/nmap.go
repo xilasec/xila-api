@@ -4,6 +4,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"maps"
 	"strconv"
 	"strings"
 
@@ -181,9 +182,7 @@ func (s nmapService) metadata(extra map[string]any) map[string]any {
 		m["product"] = s.product
 		m["version"] = s.version
 	}
-	for k, v := range extra {
-		m[k] = v
-	}
+	maps.Copy(m, extra)
 	return m
 }
 
@@ -232,7 +231,7 @@ func nmapScriptFindings(s nmapScript, svc nmapService) []ParsedFinding {
 		if scores, ok := t.table("scores"); ok {
 			for _, e := range scores.Elems {
 				if v, err := strconv.ParseFloat(strings.TrimSpace(e.Value), 64); err == nil && v > 0 {
-					f.CVSS, f.Severity = floatPtr(v), severityFromCVSS(v)
+					f.CVSS, f.Severity = new(v), severityFromCVSS(v)
 					break
 				}
 			}
@@ -294,7 +293,7 @@ func nmapVulners(s nmapScript, svc nmapService) []ParsedFinding {
 				}),
 			}
 			if score, err := strconv.ParseFloat(v.elem("cvss"), 64); err == nil && score > 0 {
-				f.CVSS, f.Severity = floatPtr(score), severityFromCVSS(score)
+				f.CVSS, f.Severity = new(score), severityFromCVSS(score)
 			}
 			out = append(out, f)
 		}

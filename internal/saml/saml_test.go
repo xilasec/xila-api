@@ -495,39 +495,49 @@ func TestRejectedResponses(t *testing.T) {
 		build func(t *testing.T, id string) string
 	}{
 		{"unsigned assertion", func(t *testing.T, id string) string {
+			t.Helper()
 			return encode(t, responseEl(id, claims{inResponseTo: id, email: "a@x.io"}.assertion().Element()))
 		}},
 		{"signed by another key", func(t *testing.T, id string) string {
+			t.Helper()
 			return rogueIdP.signedResponse(t, claims{inResponseTo: id, email: "a@x.io"})
 		}},
 		{"wrong audience", func(t *testing.T, id string) string {
+			t.Helper()
 			return theIdP.signedResponse(t, claims{inResponseTo: id, email: "a@x.io", audience: "https://other-sp.test"})
 		}},
 		{"expired", func(t *testing.T, id string) string {
+			t.Helper()
 			return theIdP.signedResponse(t, claims{inResponseTo: id, email: "a@x.io", issued: past, notOnOrAfter: past.Add(5 * time.Minute)})
 		}},
 		{"InResponseTo another request", func(t *testing.T, _ string) string {
+			t.Helper()
 			return theIdP.signedResponse(t, claims{inResponseTo: "id-someone-elses-request", email: "a@x.io"})
 		}},
 		{"transient NameID", func(t *testing.T, id string) string {
+			t.Helper()
 			return theIdP.signedResponse(t, claims{inResponseTo: id, email: "a@x.io", nameIDFormat: string(crewjam.TransientNameIDFormat)})
 		}},
 		{"tampered signed assertion", func(t *testing.T, id string) string {
+			t.Helper()
 			signed := theIdP.signedAssertion(t, claims{inResponseTo: id, email: "victim@x.io"})
 			signed.FindElement("./Subject/NameID").SetText("admin")
 			return encode(t, responseEl(id, signed))
 		}},
 		{"tampered signed response", func(t *testing.T, id string) string {
+			t.Helper()
 			signed := theIdP.signedResponseEl(t, claims{inResponseTo: id, email: "victim@x.io"})
 			signed.FindElement("./Assertion/Subject/NameID").SetText("admin")
 			return encode(t, signed)
 		}},
 		{"signature wrapping: forged unsigned assertion next to a signed one", func(t *testing.T, id string) string {
+			t.Helper()
 			forged := claims{inResponseTo: id, nameID: "admin", email: "admin@x.io"}.assertion().Element()
 			legit := theIdP.signedAssertion(t, claims{inResponseTo: id, email: "victim@x.io"})
 			return encode(t, responseEl(id, forged, legit))
 		}},
 		{"signature wrapping: legit signed assertion first, forged second", func(t *testing.T, id string) string {
+			t.Helper()
 			forged := claims{inResponseTo: id, nameID: "admin", email: "admin@x.io"}.assertion().Element()
 			legit := theIdP.signedAssertion(t, claims{inResponseTo: id, email: "victim@x.io"})
 			return encode(t, responseEl(id, legit, forged))
@@ -569,6 +579,7 @@ func TestRequestTracking(t *testing.T) {
 
 func TestIDPInitiated(t *testing.T) {
 	unsolicited := func(t *testing.T) string {
+		t.Helper()
 		return theIdP.signedResponse(t, claims{email: "a@x.io"})
 	}
 	off := newHarness(t)

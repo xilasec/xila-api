@@ -7,6 +7,7 @@ package oidc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"slices"
@@ -57,7 +58,7 @@ type discovery struct {
 
 func newClient(ctx context.Context, p sso.Provider, httpClient *http.Client) (*Client, error) {
 	if p.Issuer == "" || p.ClientID == "" || p.Endpoints.RedirectURI == "" {
-		return nil, fmt.Errorf("oidc: issuer, client id and redirect url are required")
+		return nil, errors.New("oidc: issuer, client id and redirect url are required")
 	}
 	if httpClient == nil {
 		// Discovery, JWKS and token calls go to an admin-entered issuer.
@@ -146,14 +147,14 @@ func (c *Client) exchange(ctx context.Context, code, nonce, pkceVerifier string)
 	}
 	rawID, ok := tok.Extra("id_token").(string)
 	if !ok || rawID == "" {
-		return sso.Assertion{}, fmt.Errorf("no id_token in token response")
+		return sso.Assertion{}, errors.New("no id_token in token response")
 	}
 	idToken, err := c.verifier.Verify(ctx, rawID)
 	if err != nil {
 		return sso.Assertion{}, fmt.Errorf("verify id token: %w", err)
 	}
 	if nonce == "" || idToken.Nonce != nonce {
-		return sso.Assertion{}, fmt.Errorf("nonce mismatch")
+		return sso.Assertion{}, errors.New("nonce mismatch")
 	}
 	var claims map[string]any
 	if err := idToken.Claims(&claims); err != nil {

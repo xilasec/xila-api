@@ -78,7 +78,7 @@ func (f *jfrogXrayRefs) UnmarshalJSON(b []byte) error {
 	}
 	var many []string
 	if err := json.Unmarshal(b, &many); err != nil {
-		return nil // an unexpected shape loses the references, not the finding
+		return nil //nolint:nilerr // an unexpected shape loses the references, not the finding
 	}
 	*f = many
 	return nil
@@ -194,7 +194,7 @@ func jfrogXrayFinding(row jfrogXrayRow) ParsedFinding {
 		Metadata:       meta,
 	}
 	if score := max(row.CVSS3MaxScore, best); score > 0 {
-		f.CVSS = floatPtr(score)
+		f.CVSS = new(score)
 	}
 	return f
 }

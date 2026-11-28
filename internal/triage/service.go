@@ -154,15 +154,6 @@ func (s *Service) factsFor(ctx context.Context, projectID string, rules []Rule) 
 	return ProjectFacts{}, nil
 }
 
-// firstMatch returns the first rule (in evaluation order) matching f — the
-// only rule that acts on it.
-func firstMatch(rules []Rule, f finding.Finding, p ProjectFacts) (*Rule, bool) {
-	if i, ok := matchFrom(rules, 0, f, p); ok {
-		return &rules[i], true
-	}
-	return nil, false
-}
-
 // matchFrom returns the index of the first rule at or after start matching f.
 func matchFrom(rules []Rule, start int, f finding.Finding, p ProjectFacts) (int, bool) {
 	for i := start; i < len(rules); i++ {

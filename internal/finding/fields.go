@@ -272,7 +272,7 @@ func SourceURL(repoURL, ref, path string, line *int) (string, bool) {
 		ref = "HEAD"
 	}
 	escaped := make([]string, 0, 8)
-	for _, seg := range strings.Split(path, "/") {
+	for seg := range strings.SplitSeq(path, "/") {
 		escaped = append(escaped, url.PathEscape(seg))
 	}
 	p := strings.Join(escaped, "/")

@@ -2,6 +2,7 @@ package asset_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -48,7 +49,7 @@ func TestAssetCRUDAndConstraints(t *testing.T) {
 	_, err = repo.Create(ctx, asset.Asset{
 		ProjectID: projectID, Type: domain.AssetContainerImage, Name: "dupe", Identifier: "registry/web@sha256:abc",
 	})
-	if err != asset.ErrDuplicate {
+	if !errors.Is(err, asset.ErrDuplicate) {
 		t.Errorf("duplicate err = %v, want ErrDuplicate", err)
 	}
 
@@ -56,7 +57,7 @@ func TestAssetCRUDAndConstraints(t *testing.T) {
 	_, err = repo.Create(ctx, asset.Asset{
 		ProjectID: "00000000-0000-0000-0000-000000000000", Type: domain.AssetHost, Name: "h",
 	})
-	if err != asset.ErrNoProject {
+	if !errors.Is(err, asset.ErrNoProject) {
 		t.Errorf("no-project err = %v, want ErrNoProject", err)
 	}
 
@@ -82,7 +83,7 @@ func TestAssetCRUDAndConstraints(t *testing.T) {
 	if err := repo.Delete(ctx, a.ID); err != nil {
 		t.Fatalf("delete: %v", err)
 	}
-	if err := repo.Delete(ctx, a.ID); err != asset.ErrNotFound {
+	if err := repo.Delete(ctx, a.ID); !errors.Is(err, asset.ErrNotFound) {
 		t.Errorf("second delete err = %v, want ErrNotFound", err)
 	}
 }
@@ -159,7 +160,7 @@ func TestDownstreamTraversal(t *testing.T) {
 		t.Errorf("downstream of base = %+v, want app/mid at 1, workload at 2 via deployed_as, no db, no base", down)
 	}
 
-	if _, err := repo.CreateRelation(ctx, asset.Relation{FromAssetID: app, ToAssetID: app, Kind: asset.BuiltFrom}); err != asset.ErrSelfRelation {
+	if _, err := repo.CreateRelation(ctx, asset.Relation{FromAssetID: app, ToAssetID: app, Kind: asset.BuiltFrom}); !errors.Is(err, asset.ErrSelfRelation) {
 		t.Errorf("self relation err = %v", err)
 	}
 	if err := repo.Delete(ctx, mid); err != nil {

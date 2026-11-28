@@ -160,7 +160,7 @@ func acunetixFinding(it acunetixItem, base string) (ParsedFinding, bool) {
 	}
 	for _, s := range []string{it.CVSS3, it.CVSS} {
 		if v, err := strconv.ParseFloat(strings.TrimSpace(s), 64); err == nil && v > 0 {
-			f.CVSS = floatPtr(v)
+			f.CVSS = new(v)
 			break
 		}
 	}

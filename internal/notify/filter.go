@@ -92,7 +92,9 @@ var filterCache sync.Map // string → *expr.Program
 
 func compiledFilter(src string) (*expr.Program, error) {
 	if p, ok := filterCache.Load(src); ok {
-		return p.(*expr.Program), nil
+		if prog, ok := p.(*expr.Program); ok {
+			return prog, nil
+		}
 	}
 	p, err := expr.Compile(EventSchema, src)
 	if err != nil {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 
 	"github.com/xilasec/xila-api/internal/domain"
@@ -303,10 +304,8 @@ func gitlabValidProject(path string) bool {
 	if path == "" || strings.HasPrefix(path, "/") || strings.HasSuffix(path, "/") {
 		return false
 	}
-	for _, seg := range strings.Split(path, "/") {
-		if seg == "" {
-			return false
-		}
+	if slices.Contains(strings.Split(path, "/"), "") {
+		return false
 	}
 	return strings.Contains(path, "/")
 }

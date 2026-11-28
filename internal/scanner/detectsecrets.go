@@ -112,7 +112,7 @@ func detectSecretsFinding(file string, line int, entries []detectSecretsEntry) P
 		},
 	}
 	if line > 0 {
-		f.Line = intPtr(line)
+		f.Line = new(line)
 	}
 	if verified {
 		f.Severity = domain.SeverityCritical

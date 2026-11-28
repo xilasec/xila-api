@@ -77,7 +77,8 @@ func (r *Repository) SnapshotTriage(ctx context.Context, sbomID string) ([]Triag
 			&t.FixedVersion, &t.At, &stStatus, &stJust, &stDtl); err != nil {
 			return nil, fmt.Errorf("scan snapshot triage: %w", err)
 		}
-		t.IDs = append(cves, ruleID)
+		cves = append(cves, ruleID)
+		t.IDs = cves
 		if stStatus != nil {
 			t.Statement = &vex.Statement{Status: vex.Status(*stStatus), Justification: *stJust, Detail: *stDtl}
 		}

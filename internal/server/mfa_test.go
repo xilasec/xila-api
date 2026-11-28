@@ -2,7 +2,7 @@ package server
 
 import (
 	"crypto/hmac"
-	"crypto/sha1" //nolint:gosec // RFC 6238
+	"crypto/sha1" // RFC 6238 mandates HMAC-SHA1
 	"encoding/base32"
 	"encoding/binary"
 	"fmt"

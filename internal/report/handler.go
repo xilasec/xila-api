@@ -55,6 +55,7 @@ var page = template.Must(template.New("report").Funcs(template.FuncMap{
 		if !hexColor.MatchString(s) {
 			return ""
 		}
+		//nolint:gosec // G203: only a validated #rrggbb reaches here
 		return template.CSS(s) // nosemgrep: go.lang.security.audit.xss.template-html-does-not-escape.unsafe-template-type -- only a validated #rrggbb reaches here
 	},
 	// dataURI admits only an image data: URI as the logo's src; html/template
@@ -62,6 +63,7 @@ var page = template.Must(template.New("report").Funcs(template.FuncMap{
 	"dataURI": func(s string) template.URL {
 		for _, p := range logoPrefix {
 			if strings.HasPrefix(s, p) {
+				//nolint:gosec // G203: only an image data: URI reaches here
 				return template.URL(s) // nosemgrep: go.lang.security.audit.xss.template-html-does-not-escape.unsafe-template-type -- only image data: URIs reach here
 			}
 		}

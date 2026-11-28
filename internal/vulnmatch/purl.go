@@ -359,8 +359,8 @@ var pypiSep = regexp.MustCompile(`[-_.]+`)
 // the ordering its ranges use, and the fallback match key an advisory written
 // for "any release" (no colon) is found by.
 func packageFamily(ecosystem string) string {
-	if i := strings.IndexByte(ecosystem, ':'); i >= 0 {
-		return ecosystem[:i]
+	if before, _, ok := strings.Cut(ecosystem, ":"); ok {
+		return before
 	}
 	return ecosystem
 }

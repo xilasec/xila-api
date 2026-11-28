@@ -47,7 +47,7 @@ func TestParseTokenRejectsExpired(t *testing.T) {
 func TestParseTokenRejectsWrongSigningMethod(t *testing.T) {
 	// A token signed with "none" must be rejected: our parser pins HMAC.
 	tok := jwt.NewWithClaims(jwt.SigningMethodNone, Claims{
-		RegisteredClaims: jwt.RegisteredClaims{Subject: "attacker"},
+		Subject: "attacker",
 	})
 	raw, err := tok.SignedString(jwt.UnsafeAllowNoneSignatureType)
 	if err != nil {
@@ -73,7 +73,7 @@ func TestParseTokenByKid(t *testing.T) {
 	}
 
 	legacy, err := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
-		RegisteredClaims: jwt.RegisteredClaims{Subject: "user-456", ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour))},
+		Subject: "user-456", ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
 	}).SignedString([]byte("current-secret"))
 	if err != nil {
 		t.Fatal(err)

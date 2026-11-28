@@ -12,6 +12,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"regexp"
 	"slices"
@@ -360,9 +361,7 @@ func Samples(defs []Definition) map[string]any {
 // still visible to everyone else — triage rules, policies, filters, exports).
 func FilterComputed(values map[string]any, defs []Definition) map[string]any {
 	out := make(map[string]any, len(values))
-	for k, v := range values {
-		out[k] = v
-	}
+	maps.Copy(out, values)
 	for _, d := range defs {
 		if d.Computed {
 			delete(out, d.Key)
@@ -392,8 +391,7 @@ func scan(row pgx.Row) (Definition, error) {
 }
 
 func writeErr(err error, what string) error {
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
+	if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok {
 		switch pgErr.Code {
 		case "23505":
 			return ErrDuplicate

@@ -16,22 +16,22 @@ func TestIsDue(t *testing.T) {
 		{"daily, right hour, never run", Schedule{Enabled: true, Cadence: CadenceDaily, Hour: 8}, true},
 		{"daily, wrong hour", Schedule{Enabled: true, Cadence: CadenceDaily, Hour: 9}, false},
 		{"daily, already ran today", Schedule{Enabled: true, Cadence: CadenceDaily, Hour: 8,
-			LastRunAt: timePtr(now.Add(-time.Hour))}, false},
+			LastRunAt: new(now.Add(-time.Hour))}, false},
 		{"daily, ran yesterday", Schedule{Enabled: true, Cadence: CadenceDaily, Hour: 8,
-			LastRunAt: timePtr(now.AddDate(0, 0, -1))}, true},
+			LastRunAt: new(now.AddDate(0, 0, -1))}, true},
 		{"disabled", Schedule{Enabled: false, Cadence: CadenceDaily, Hour: 8}, false},
 		{"weekly, matching weekday", Schedule{Enabled: true, Cadence: CadenceWeekly, Hour: 8, Weekday: new(2)}, true},
 		{"weekly, wrong weekday", Schedule{Enabled: true, Cadence: CadenceWeekly, Hour: 8, Weekday: new(3)}, false},
 		{"weekly, already ran this week", Schedule{Enabled: true, Cadence: CadenceWeekly, Hour: 8, Weekday: new(2),
-			LastRunAt: timePtr(now.AddDate(0, 0, -1))}, false},
+			LastRunAt: new(now.AddDate(0, 0, -1))}, false},
 		{"weekly, ran last week", Schedule{Enabled: true, Cadence: CadenceWeekly, Hour: 8, Weekday: new(2),
-			LastRunAt: timePtr(now.AddDate(0, 0, -7))}, true},
+			LastRunAt: new(now.AddDate(0, 0, -7))}, true},
 		{"monthly, matching day", Schedule{Enabled: true, Cadence: CadenceMonthly, Hour: 8, DayOfMonth: new(6)}, true},
 		{"monthly, wrong day", Schedule{Enabled: true, Cadence: CadenceMonthly, Hour: 8, DayOfMonth: new(7)}, false},
 		{"monthly, already ran this month", Schedule{Enabled: true, Cadence: CadenceMonthly, Hour: 8, DayOfMonth: new(6),
-			LastRunAt: timePtr(now.AddDate(0, 0, -5))}, false},
+			LastRunAt: new(now.AddDate(0, 0, -5))}, false},
 		{"monthly, ran last month", Schedule{Enabled: true, Cadence: CadenceMonthly, Hour: 8, DayOfMonth: new(6),
-			LastRunAt: timePtr(now.AddDate(0, -1, 0))}, true},
+			LastRunAt: new(now.AddDate(0, -1, 0))}, true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -41,8 +41,6 @@ func TestIsDue(t *testing.T) {
 		})
 	}
 }
-
-func timePtr(t time.Time) *time.Time { return &t }
 
 func TestInputNormalize(t *testing.T) {
 	pid := "11111111-1111-1111-1111-111111111111"

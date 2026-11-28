@@ -80,7 +80,7 @@ func (Nancy) Parse(r io.Reader) ([]ParsedFinding, error) {
 				Metadata:       map[string]any{"cvss_vector": v.CvssVector},
 			}
 			if score > 0 {
-				f.CVSS = floatPtr(score)
+				f.CVSS = new(score)
 			}
 			out = append(out, f)
 		}

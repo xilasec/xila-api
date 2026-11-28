@@ -180,7 +180,7 @@ func TestAPITokenNeedsRecentAuth(t *testing.T) {
 	}
 	now := time.Now()
 	stale, err := jwt.NewWithClaims(jwt.SigningMethodHS256, auth.Claims{TokenVersion: tv, AuthTime: now.Add(-time.Hour).Unix(),
-		RegisteredClaims: jwt.RegisteredClaims{Subject: id, IssuedAt: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(now.Add(time.Hour))}}).
+		Subject: id, IssuedAt: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(now.Add(time.Hour))}).
 		SignedString([]byte("smoke-secret"))
 	if err != nil {
 		t.Fatal(err)

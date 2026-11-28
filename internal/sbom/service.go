@@ -200,9 +200,12 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest, raw io.Reader) 
 				"count", n, "project_id", req.ProjectID, "sbom_id", stored.ID)
 		}
 	}
+	// The matcher and registry refresh outlive the upload request but keep its
+	// trace and log values.
+	detached := ctx
 	if s.matcher != nil {
 		go func(projectID, sbomID string) {
-			ctx, cancel := context.WithTimeout(context.Background(), matchTimeout)
+			ctx, cancel := context.WithTimeout(context.WithoutCancel(detached), matchTimeout)
 			defer cancel()
 			if _, err := s.matcher.MatchProject(ctx, projectID); err != nil {
 				slog.WarnContext(ctx, "advisory match after upload failed", "error", err, "sbom_id", sbomID)
@@ -211,7 +214,7 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest, raw io.Reader) 
 	}
 	if s.packages != nil {
 		go func(projectID, sbomID string) {
-			ctx, cancel := context.WithTimeout(context.Background(), packageMetaTimeout)
+			ctx, cancel := context.WithTimeout(context.WithoutCancel(detached), packageMetaTimeout)
 			defer cancel()
 			if err := s.packages.RefreshProject(ctx, projectID); err != nil {
 				slog.WarnContext(ctx, "package metadata refresh after upload failed", "error", err, "sbom_id", sbomID)

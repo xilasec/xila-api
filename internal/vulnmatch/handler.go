@@ -52,8 +52,7 @@ func (h *Handler) Register(r fiber.Router) {
 // Run re-evaluates every SBOM snapshot against the advisory sources now.
 func (h *Handler) Run(c *fiber.Ctx) error {
 	n, err := h.svc.Match(c.UserContext())
-	var partial *PartialError
-	if errors.As(err, &partial) {
+	if partial, ok := errors.AsType[*PartialError](err); ok {
 		return c.JSON(fiber.Map{"findings": n, "partial": true, "failed_sources": partial.FailedSources()})
 	}
 	if err != nil {

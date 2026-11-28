@@ -31,7 +31,7 @@ var depScopePool = []domain.DepScope{domain.DepScopeUnknown, domain.DepScopeRunt
 // different calls (different projects) never collide. priority is computed
 // with the same domain.Priority the application writes on every real upsert.
 func findingRows(projectID, versionID string, n, cvePool int, scanners []string, seed uint64) [][]any {
-	rng := rand.New(rand.NewPCG(seed, seed^0x9E3779B97F4A7C15))
+	rng := rand.New(rand.NewPCG(seed, seed^0x9E3779B97F4A7C15)) //nolint:gosec // G404: seeded synthetic load data, not a security decision
 	now := time.Now()
 	rows := make([][]any, n)
 	for i := range n {

@@ -86,7 +86,7 @@ func (NJSScan) Parse(r io.Reader) ([]ParsedFinding, error) {
 					},
 				}
 				if len(m.MatchLines) > 0 && m.MatchLines[0] > 0 {
-					f.Line = intPtr(m.MatchLines[0])
+					f.Line = new(m.MatchLines[0])
 					f.Metadata["end_line"] = m.MatchLines[len(m.MatchLines)-1]
 				}
 				for k, v := range map[string]string{

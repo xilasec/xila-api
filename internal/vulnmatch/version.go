@@ -423,6 +423,8 @@ func isAlnum(c byte) bool { return isAlpha(c) || isDigitByte(c) }
 // end of a segment, '^' sorts after anything including the end of a segment,
 // and whichever string still has characters left after the common prefix is
 // newer. Reference cases: tests/rpmvercmp.at in the same repository.
+//
+//nolint:gocyclo // a faithful port of rpm's rpmvercmp; keeping its shape keeps it auditable against the reference
 func rpmvercmp(a, b string) int {
 	if a == b {
 		return 0

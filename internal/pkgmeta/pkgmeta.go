@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"slices"
 	"time"
 
@@ -304,7 +305,7 @@ func (r *Repository) SaveStatuses(ctx context.Context, upserts []status, deletes
 			purls[i], bases[i], versions[i], latest[i] = s.Purl, s.Base, s.Version, s.Latest
 			outdated[i], published[i], latestPublished[i] = s.Outdated, s.Published, s.LatestPublished
 			if s.VersionsBehind != nil {
-				behind[i] = int32(*s.VersionsBehind)
+				behind[i] = int32(min(max(*s.VersionsBehind, 0), math.MaxInt32))
 			}
 		}
 		tag, err := r.db.Exec(ctx, q, purls, bases, versions, latest, outdated, behind, published, latestPublished)

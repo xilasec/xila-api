@@ -138,7 +138,7 @@ func TestQueueStatsTracksBacklog(t *testing.T) {
 		t.Fatalf("empty queue stats = %+v, err %v", s, err)
 	}
 
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		if _, err := svc.Enqueue(ctx, scan.IngestRequest{ProjectID: projectID, Scanner: "trivy"}, []byte(trivyReport)); err != nil {
 			t.Fatalf("enqueue: %v", err)
 		}

@@ -50,7 +50,7 @@ func ghFromEnv() (*ghClient, int, bool) {
 // the event payload; for pull_request_target and re-runs the ref is the fallback.
 func prNumber() (int, bool) {
 	if path := os.Getenv("GITHUB_EVENT_PATH"); path != "" {
-		if data, err := os.ReadFile(path); err == nil {
+		if data, err := os.ReadFile(path); err == nil { //nolint:gosec // G304: the GitHub Actions event file the runner names //nolint:gosec // G304: the GitHub Actions event file the runner names
 			var event struct {
 				PullRequest struct {
 					Number int `json:"number"`
@@ -109,7 +109,7 @@ func prHeadSHA() string {
 	if path == "" {
 		return ""
 	}
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // G304: the GitHub Actions event file the runner names
 	if err != nil {
 		return ""
 	}

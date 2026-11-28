@@ -71,7 +71,7 @@ func (Nuclei) Parse(r io.Reader) ([]ParsedFinding, error) {
 			f.CWE = cweFrom(n.Info.Classification.CweID[0])
 		}
 		if n.Info.Classification.CVSSScore > 0 {
-			f.CVSS = floatPtr(n.Info.Classification.CVSSScore)
+			f.CVSS = new(n.Info.Classification.CVSSScore)
 		}
 		if len(n.Info.Reference) > 0 {
 			f.URL = n.Info.Reference[0]

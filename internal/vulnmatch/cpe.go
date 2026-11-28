@@ -196,7 +196,9 @@ func NormalizeCPE(raw string) (string, bool) {
 			return "", false
 		}
 	}
-	if !strings.Contains("aho", f[0]) || len(f[0]) != 1 {
+	switch f[0] { // CPE part: application, hardware or operating system
+	case "a", "h", "o":
+	default:
 		return "", false
 	}
 	out := make([]string, 11)

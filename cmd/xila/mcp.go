@@ -41,9 +41,12 @@ func cmdMCP(args []string, in io.Reader, out, errw io.Writer) int {
 		}
 		reply := forwardMCP(hc, endpoint, bearer, line, errw)
 		if reply != nil {
-			w.Write(reply)
-			w.WriteByte('\n')
-			w.Flush()
+			_, _ = w.Write(reply)
+			_ = w.WriteByte('\n')
+			if err := w.Flush(); err != nil {
+				fmt.Fprintln(errw, "xila mcp: write stdout:", err)
+				return 2
+			}
 		}
 	}
 	if err := sc.Err(); err != nil {

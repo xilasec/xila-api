@@ -191,7 +191,7 @@ func ddGenericCVSS(f ddGenericFinding) *float64 {
 		return p
 	}
 	if s, ok := cvss3BaseScore(f.CVSSv3); ok {
-		return floatPtr(s)
+		return new(s)
 	}
 	if p := f.CVSSv4Score.ptr(); p != nil && *p > 0 {
 		return p

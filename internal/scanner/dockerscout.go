@@ -152,7 +152,7 @@ func (DockerScout) Parse(r io.Reader) ([]ParsedFinding, error) {
 				},
 			}
 			if p.CVSSV3 > 0 {
-				f.CVSS = floatPtr(p.CVSSV3)
+				f.CVSS = new(p.CVSSV3)
 				f.Metadata["cvss_vector"] = p.CVSSV3Vector
 			}
 			out = append(out, f)

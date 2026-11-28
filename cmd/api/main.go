@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -117,6 +118,7 @@ func main() {
 	}
 }
 
+//nolint:gocyclo,funlen // startup wiring: one flat sequence that builds every repository, service, handler and cron
 func run() error {
 	cfg, err := config.Load()
 	if err != nil {
@@ -656,8 +658,7 @@ func run() error {
 	go leader.Run(rootCtx, db, leader.JobsLockKey, leader.Options{}, func(ctx context.Context) {
 		var wg sync.WaitGroup
 		job := func(run func()) {
-			wg.Add(1)
-			go func() { defer wg.Done(); run() }()
+			wg.Go(func() { ; run() })
 		}
 		// Resolve the licenses of components stored before license resolution
 		// existed (one-off; a no-op once done).
@@ -872,7 +873,7 @@ func sweepExceptions(ctx context.Context, repo *finding.Repository, warnAhead ti
 			Type:   notify.EventExceptionExpired,
 			Title:  "Exceptions expired",
 			Text:   fmt.Sprintf("%d finding(s) had their false positive / won't fix exception lapse and were reopened.", n),
-			Fields: map[string]string{"count": fmt.Sprintf("%d", n)},
+			Fields: map[string]string{"count": strconv.FormatInt(n, 10)},
 		})
 	}
 	expired, err := repo.ExpireAcceptances(ctx)
@@ -1398,7 +1399,7 @@ func healthcheck() int {
 		port = "8080"
 	}
 	client := &http.Client{Timeout: 3 * time.Second}
-	res, err := client.Get("http://127.0.0.1:" + port + "/health")
+	res, err := client.Get("http://127.0.0.1:" + port + "/health") //nolint:gosec // G704: the healthcheck subcommand only calls this process on loopback
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "unhealthy:", err)
 		return 1

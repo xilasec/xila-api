@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -286,10 +287,8 @@ func Render(a Advisory, pub Publisher, baseURL, status string, now time.Time) (c
 }
 
 func appendNew(list []string, s string) []string {
-	for _, x := range list {
-		if x == s {
-			return list
-		}
+	if slices.Contains(list, s) {
+		return list
 	}
 	return append(list, s)
 }

@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,7 +19,7 @@ import (
 
 // defaultVaultK8STokenPath is where Kubernetes projects the pod's service
 // account token.
-const defaultVaultK8STokenPath = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+const defaultVaultK8STokenPath = "/var/run/secrets/kubernetes.io/serviceaccount/token" //nolint:gosec // G101: the service-account token path, not a token
 
 // vaultBackend resolves vault:// references over plain HTTPS. The token
 // comes from VAULT_TOKEN(_FILE), or a login (VAULT_AUTH=kubernetes or
@@ -33,15 +34,15 @@ type vaultBackend struct {
 
 func (b *vaultBackend) httpClient() (*http.Client, error) {
 	return b.client.get(func() (*http.Client, error) {
-		tr := http.DefaultTransport.(*http.Transport).Clone()
+		tr := http.DefaultTransport.(*http.Transport).Clone() //nolint:errcheck,forcetypeassert // net/http's DefaultTransport is always *http.Transport; nothing in this binary replaces it
 		if ca := os.Getenv("VAULT_CACERT"); ca != "" {
-			pem, err := os.ReadFile(filepath.Clean(ca))
+			pem, err := os.ReadFile(filepath.Clean(ca)) //nolint:gosec // G703: VAULT_CACERT is operator configuration
 			if err != nil {
 				return nil, fmt.Errorf("VAULT_CACERT: %w", err)
 			}
 			pool := x509.NewCertPool()
 			if !pool.AppendCertsFromPEM(pem) {
-				return nil, fmt.Errorf("VAULT_CACERT: no PEM certificate found")
+				return nil, errors.New("VAULT_CACERT: no PEM certificate found")
 			}
 			tr.TLSClientConfig = &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12}
 		}
@@ -52,7 +53,7 @@ func (b *vaultBackend) httpClient() (*http.Client, error) {
 func (b *vaultBackend) resolve(ctx context.Context, r ref, k8sTokenPathOverride string) (string, error) {
 	addr := strings.TrimRight(os.Getenv("VAULT_ADDR"), "/")
 	if addr == "" {
-		return "", fmt.Errorf("VAULT_ADDR is not set")
+		return "", errors.New("VAULT_ADDR is not set")
 	}
 	client, err := b.httpClient()
 	if err != nil {
@@ -128,7 +129,7 @@ func (b *vaultBackend) login(ctx context.Context, client *http.Client, addr, k8s
 	case "approle":
 		return b.loginAppRole(ctx, client, addr)
 	case "":
-		return "", fmt.Errorf("no VAULT_TOKEN(_FILE) and no VAULT_AUTH login method configured")
+		return "", errors.New("no VAULT_TOKEN(_FILE) and no VAULT_AUTH login method configured")
 	default:
 		return "", fmt.Errorf("unknown VAULT_AUTH %q", auth)
 	}
@@ -137,7 +138,7 @@ func (b *vaultBackend) login(ctx context.Context, client *http.Client, addr, k8s
 func (b *vaultBackend) loginKubernetes(ctx context.Context, client *http.Client, addr, tokenPathOverride string) (string, error) {
 	role := os.Getenv("VAULT_K8S_ROLE")
 	if role == "" {
-		return "", fmt.Errorf("VAULT_K8S_ROLE is not set")
+		return "", errors.New("VAULT_K8S_ROLE is not set")
 	}
 	mount := cmp.Or(os.Getenv("VAULT_K8S_MOUNT"), "kubernetes")
 	tokenPath := cmp.Or(tokenPathOverride, defaultVaultK8STokenPath)
@@ -154,14 +155,14 @@ func (b *vaultBackend) loginKubernetes(ctx context.Context, client *http.Client,
 func (b *vaultBackend) loginAppRole(ctx context.Context, client *http.Client, addr string) (string, error) {
 	roleID := os.Getenv("VAULT_ROLE_ID")
 	if roleID == "" {
-		return "", fmt.Errorf("VAULT_ROLE_ID is not set")
+		return "", errors.New("VAULT_ROLE_ID is not set")
 	}
 	secretID, err := readEnvOrFile("VAULT_SECRET_ID")
 	if err != nil {
 		return "", err
 	}
 	if secretID == "" {
-		return "", fmt.Errorf("VAULT_SECRET_ID(_FILE) is not set")
+		return "", errors.New("VAULT_SECRET_ID(_FILE) is not set")
 	}
 	mount := cmp.Or(os.Getenv("VAULT_APPROLE_MOUNT"), "approle")
 	return b.vaultLogin(ctx, client, addr, "auth/"+mount+"/login", map[string]string{
@@ -175,13 +176,13 @@ func (b *vaultBackend) vaultLogin(ctx context.Context, client *http.Client, addr
 	if err != nil {
 		return "", err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, addr+"/v1/"+path, bytes.NewReader(payload))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, addr+"/v1/"+path, bytes.NewReader(payload)) //nolint:gosec // G704: VAULT_ADDR is operator infrastructure, resolved before the outbound policy exists
 	if err != nil {
 		return "", err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	applyVaultNamespace(req)
-	resp, err := client.Do(req)
+	resp, err := client.Do(req) //nolint:gosec // G704: VAULT_ADDR is operator infrastructure
 	if err != nil {
 		return "", err
 	}
@@ -202,7 +203,7 @@ func (b *vaultBackend) vaultLogin(ctx context.Context, client *http.Client, addr
 		return "", fmt.Errorf("login: invalid response: %w", err)
 	}
 	if out.Auth.ClientToken == "" {
-		return "", fmt.Errorf("login: no client_token in response")
+		return "", errors.New("login: no client_token in response")
 	}
 	return out.Auth.ClientToken, nil
 }
@@ -210,13 +211,13 @@ func (b *vaultBackend) vaultLogin(ctx context.Context, client *http.Client, addr
 // readSecret performs GET {addr}/v1/{path} and returns the raw body and
 // status; the caller decides whether a 403 warrants a re-login retry.
 func (b *vaultBackend) readSecret(ctx context.Context, client *http.Client, addr, token, path string) ([]byte, int, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, addr+"/v1/"+strings.TrimLeft(path, "/"), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, addr+"/v1/"+strings.TrimLeft(path, "/"), nil) //nolint:gosec // G704: VAULT_ADDR is operator infrastructure, resolved before the outbound policy exists
 	if err != nil {
 		return nil, 0, err
 	}
 	req.Header.Set("X-Vault-Token", token)
 	applyVaultNamespace(req)
-	resp, err := client.Do(req)
+	resp, err := client.Do(req) //nolint:gosec // G704: VAULT_ADDR is operator infrastructure
 	if err != nil {
 		return nil, 0, err
 	}
@@ -244,7 +245,7 @@ func vaultFields(body []byte) (map[string]json.RawMessage, error) {
 		return nil, fmt.Errorf("invalid response: %w", err)
 	}
 	if outer.Data == nil {
-		return nil, fmt.Errorf("response has no data")
+		return nil, errors.New("response has no data")
 	}
 	if nested, ok := outer.Data["data"]; ok {
 		var fields map[string]json.RawMessage

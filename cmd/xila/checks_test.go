@@ -16,11 +16,11 @@ import (
 func TestBuildAnnotationsPathLineLevel(t *testing.T) {
 	findings := []prFinding{
 		{ID: "f1", Title: "RCE", Severity: "critical", CVE: []string{"CVE-2021-44228"},
-			FilePath: "config/prod.env", Line: intp(12)},
+			FilePath: "config/prod.env", Line: new(12)},
 		{ID: "f2", Title: "Hardcoded key", Severity: "medium", KEV: true,
-			FilePath: "src/app.js", Line: intp(5)},
+			FilePath: "src/app.js", Line: new(5)},
 		{ID: "f3", Title: "Minor issue", Severity: "low",
-			FilePath: "src/app.js", Line: intp(9)},
+			FilePath: "src/app.js", Line: new(9)},
 		{ID: "f4", Title: "No location", Severity: "critical"}, // no file/line: skipped
 	}
 
@@ -56,7 +56,7 @@ func TestBuildAnnotationsCapsAtMax(t *testing.T) {
 	for i := range maxAnnotations + 37 {
 		findings = append(findings, prFinding{
 			ID: fmt.Sprintf("f%d", i), Title: "finding", Severity: "high",
-			FilePath: "a.go", Line: intp(i + 1),
+			FilePath: "a.go", Line: new(i + 1),
 		})
 	}
 	got := buildAnnotations(findings)

@@ -3,6 +3,7 @@ package sbom
 import (
 	"cmp"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"slices"
@@ -79,13 +80,15 @@ func isScanCodeIO(raw []byte) bool {
 }
 
 // parseScanCodeIO decodes a ScanCode.io project's JSON results.
+//
+//nolint:gocyclo // format parser: one branch per ScanCode.io section
 func parseScanCodeIO(r io.Reader) (Document, error) {
 	var doc scancodeDoc
 	if err := json.NewDecoder(r).Decode(&doc); err != nil {
 		return Document{}, fmt.Errorf("decode scancode.io results: %w", err)
 	}
 	if len(doc.Headers) == 0 {
-		return Document{}, fmt.Errorf("not a ScanCode.io project (missing headers)")
+		return Document{}, errors.New("not a ScanCode.io project (missing headers)")
 	}
 	out := Document{
 		Format:      "ScanCode.io",

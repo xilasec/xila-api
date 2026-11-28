@@ -146,7 +146,7 @@ func clairV4Findings(rep clairV4Report) []ParsedFinding {
 				f.URL = links[0]
 			}
 			if s, ok := cvss[vulnID]; ok {
-				f.CVSS = floatPtr(s)
+				f.CVSS = new(s)
 			}
 			if pkg.Source != nil && pkg.Source.Name != "" && pkg.Source.Name != pkg.Name {
 				f.Metadata["source_package"] = pkg.Source.Name

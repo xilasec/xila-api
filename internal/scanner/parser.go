@@ -76,9 +76,6 @@ func (r *Registry) Supported() []string {
 	return out
 }
 
-// intPtr is a small helper for optional integer fields.
-func intPtr(v int) *int { return &v }
-
 // normalizeSeverity maps the severity vocabularies tools actually emit onto our
 // enum. Every scanner spells this differently ("moderate", "negligible", "note",
 // "warning", "informational"), so the mapping lives here once rather than being
@@ -140,9 +137,6 @@ func cvesFrom(ids ...string) []string {
 	}
 	return out
 }
-
-// floatPtr is a small helper for optional score fields.
-func floatPtr(v float64) *float64 { return &v }
 
 // decodeJSONLines walks a newline-delimited JSON stream, calling fn per object.
 // Several tools (TruffleHog, Nuclei, govulncheck) stream one object per line.

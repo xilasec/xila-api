@@ -339,7 +339,7 @@ func (h nessusHit) finding() ParsedFinding {
 	}
 	for _, s := range []string{h.cvss3, h.cvss} {
 		if v, err := strconv.ParseFloat(s, 64); err == nil && v > 0 {
-			f.CVSS = floatPtr(v)
+			f.CVSS = new(v)
 			break
 		}
 	}

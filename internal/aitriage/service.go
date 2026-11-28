@@ -259,7 +259,7 @@ func (s *Service) Accept(ctx context.Context, findingID, id, actor, note string)
 				res.RiskAcceptance = &created[0]
 				d.outcome, d.outcomeRef = OutcomeAcceptanceRequested, &created[0].ID
 				if s.notifier != nil {
-					go s.notifier.Notify(context.Background(), finding.AcceptanceEvent(
+					go s.notifier.Notify(context.WithoutCancel(ctx), finding.AcceptanceEvent(
 						notify.EventRiskAcceptanceRequested, "Risk acceptance requested", created[0]))
 				}
 			case len(busy) == 1:

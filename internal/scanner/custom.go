@@ -632,6 +632,8 @@ func expandTemplate(tmpl string, rec customRecord) string {
 }
 
 // mapRecord applies the definition's field mappings to one record.
+//
+//nolint:gocyclo // one branch per mappable custom-parser field
 func (p *CustomParser) mapRecord(rec customRecord) (ParsedFinding, error) {
 	titleSpec, ok := p.def.Fields[CFTitle]
 	if !ok {
@@ -692,7 +694,7 @@ func (p *CustomParser) mapRecord(rec customRecord) (ParsedFinding, error) {
 	if spec, ok := p.def.Fields[CFLine]; ok {
 		if raw, has := resolveFieldRaw(spec, rec); has {
 			if n, err := strconv.Atoi(strings.TrimSpace(raw)); err == nil {
-				pf.Line = intPtr(n)
+				pf.Line = new(n)
 			}
 		}
 	}
@@ -719,10 +721,9 @@ func (p *CustomParser) mapRecord(rec customRecord) (ParsedFinding, error) {
 	if spec, ok := p.def.Fields[CFCVSS]; ok {
 		if raw, has := resolveFieldRaw(spec, rec); has {
 			if f, err := strconv.ParseFloat(strings.TrimSpace(raw), 64); err == nil {
-				pf.CVSS = floatPtr(f)
+				pf.CVSS = new(f)
 				if !severitySet {
 					pf.Severity = severityFromCVSS(f)
-					severitySet = true
 				}
 			}
 		}

@@ -35,7 +35,7 @@ func newDemoDeps(pool *pgxpool.Pool) demo.Deps {
 	}
 }
 
-func count(t *testing.T, pool *pgxpool.Pool, ctx context.Context, table, projectID string) int {
+func count(t *testing.T, ctx context.Context, pool *pgxpool.Pool, table, projectID string) int {
 	t.Helper()
 	var n int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM `+table+` WHERE project_id = $1`, projectID).Scan(&n); err != nil {
@@ -67,19 +67,19 @@ func TestSeedIsIdempotent(t *testing.T) {
 		t.Error("first run: want a bootstrapped admin login")
 	}
 
-	findingCount := count(t, pool, ctx, "findings", first.ProjectID)
+	findingCount := count(t, ctx, pool, "findings", first.ProjectID)
 	if findingCount == 0 {
 		t.Error("want findings after seeding")
 	}
-	sbomCount := count(t, pool, ctx, "sboms", first.ProjectID)
+	sbomCount := count(t, ctx, pool, "sboms", first.ProjectID)
 	if sbomCount != 1 {
 		t.Errorf("sbom count = %d, want 1", sbomCount)
 	}
-	versionCount := count(t, pool, ctx, "project_versions", first.ProjectID)
+	versionCount := count(t, ctx, pool, "project_versions", first.ProjectID)
 	if versionCount != 2 {
 		t.Errorf("project_versions count = %d, want 2 (main + feature branch)", versionCount)
 	}
-	scanCount := count(t, pool, ctx, "scans", first.ProjectID)
+	scanCount := count(t, ctx, pool, "scans", first.ProjectID)
 	if scanCount != 2 {
 		t.Errorf("scan count = %d, want 2 (trivy + semgrep)", scanCount)
 	}
@@ -99,13 +99,13 @@ func TestSeedIsIdempotent(t *testing.T) {
 		t.Error("second run: want no new admin credential (instance already has a user)")
 	}
 
-	if got := count(t, pool, ctx, "findings", first.ProjectID); got != findingCount {
+	if got := count(t, ctx, pool, "findings", first.ProjectID); got != findingCount {
 		t.Errorf("finding count after second run = %d, want unchanged %d", got, findingCount)
 	}
-	if got := count(t, pool, ctx, "sboms", first.ProjectID); got != sbomCount {
+	if got := count(t, ctx, pool, "sboms", first.ProjectID); got != sbomCount {
 		t.Errorf("sbom count after second run = %d, want unchanged %d", got, sbomCount)
 	}
-	if got := count(t, pool, ctx, "scans", first.ProjectID); got != scanCount {
+	if got := count(t, ctx, pool, "scans", first.ProjectID); got != scanCount {
 		t.Errorf("scan count after second run = %d, want unchanged %d", got, scanCount)
 	}
 }

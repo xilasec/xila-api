@@ -117,7 +117,7 @@ func (Anchore) Parse(r io.Reader) ([]ParsedFinding, error) {
 				s = n.CVSSV2.BaseScore
 			}
 			if s > 0 {
-				f.CVSS = floatPtr(s)
+				f.CVSS = new(s)
 				break
 			}
 		}

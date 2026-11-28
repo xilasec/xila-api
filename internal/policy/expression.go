@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"time"
 
@@ -124,9 +125,7 @@ func componentDoc(c *Component, now time.Time) map[string]any {
 // (project.custom.<key>; an unset field is absent and never matches).
 func projectCustom(m map[string]any) map[string]any {
 	out := make(map[string]any, len(m))
-	for k, v := range m {
-		out[k] = v
-	}
+	maps.Copy(out, m)
 	return out
 }
 

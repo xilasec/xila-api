@@ -3,6 +3,7 @@ package license
 import (
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -87,7 +88,8 @@ func TestParseExpression(t *testing.T) {
 
 func TestParseExpressionErrors(t *testing.T) {
 	for _, in := range []string{
-		"", "   ", "MIT AND", "AND MIT", "MIT OR OR ISC", "(MIT", "MIT)", "()", "MIT ISC",
+		"", "   ", "MIT AND", "AND MIT", "MIT OR OR ISC", //nolint:dupword // a doubled operator is the invalid input under test
+		"(MIT", "MIT)", "()", "MIT ISC",
 		"MIT WITH", "MIT WITH (ISC)", "(MIT) WITH Classpath-exception-2.0", "MIT WITH A WITH B",
 		"Some Custom License", "MIT/ISC", "LicenseRef-a+", "GPL-2.0++", "+",
 	} {
@@ -101,9 +103,11 @@ func TestParseExpressionErrors(t *testing.T) {
 		}
 	}
 	deep := ""
+	var deepSb104 strings.Builder
 	for range maxDepth + 1 {
-		deep += "("
+		deepSb104.WriteString("(")
 	}
+	deep += deepSb104.String()
 	if _, err := ParseExpression(deep + "MIT"); !errors.Is(err, ErrInvalidExpression) {
 		t.Errorf("deeply nested: err = %v", err)
 	}
@@ -179,7 +183,8 @@ func TestAnd(t *testing.T) {
 func FuzzParseExpression(f *testing.F) {
 	for _, s := range []string{
 		"MIT", "MIT OR Apache-2.0", "(MIT AND (ISC OR BSD-3-Clause)) WITH x", "GPL-2.0+ WITH Classpath-exception-2.0",
-		"DocumentRef-a:LicenseRef-b", "((((", "))", "AND", "with with", "MIT\tOR\nISC", "Apache 2.0", "ü+", "a:b",
+		"DocumentRef-a:LicenseRef-b", "((((", "))", "AND", "with with", //nolint:dupword // a doubled keyword is the invalid input under test
+		"MIT\tOR\nISC", "Apache 2.0", "ü+", "a:b",
 		"LicenseRef-", "NOASSERTION", "MIT OR (ISC AND (BSD-2-Clause OR (Zlib AND 0BSD)))",
 	} {
 		f.Add(s)

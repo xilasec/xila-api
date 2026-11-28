@@ -153,7 +153,9 @@ func (t *xlsxTable) Row(cells ...any) error {
 			if err := xml.EscapeText(t.w, []byte(truncateCell(s))); err != nil {
 				return err
 			}
-			t.w.WriteString(`</t></is></c>`)
+			if _, err := t.w.WriteString(`</t></is></c>`); err != nil {
+				return err
+			}
 		}
 	}
 	_, err := t.w.WriteString(`</row>`)

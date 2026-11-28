@@ -71,11 +71,9 @@ func (p *WorkerPool) Resize(ctx context.Context, n int) {
 	for len(p.workers) < n {
 		wctx, cancel := context.WithCancel(ctx)
 		p.workers = append(p.workers, cancel)
-		p.wg.Add(1)
-		go func() {
-			defer p.wg.Done()
+		p.wg.Go(func() {
 			p.run(wctx)
-		}()
+		})
 	}
 	for len(p.workers) > n {
 		last := len(p.workers) - 1

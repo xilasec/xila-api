@@ -50,7 +50,7 @@ type Store interface {
 		create func(context.Context) (string, string, error)) (Link, bool, error)
 	ListSyncItems(ctx context.Context, trackerID string) ([]SyncItem, error)
 	SetLinkState(ctx context.Context, linkID string, s State) error
-	AutoCreateCandidates(ctx context.Context, projectID string, min domain.Severity, limit int) ([]string, error)
+	AutoCreateCandidates(ctx context.Context, projectID string, minSeverity domain.Severity, limit int) ([]string, error)
 	TrySyncLock(ctx context.Context) (release func(), ok bool, err error)
 }
 
@@ -142,6 +142,8 @@ func baseURLExample(k Kind) string {
 
 // Normalize validates the input and applies defaults, returning the tracker
 // config it describes (without the token).
+//
+//nolint:gocyclo // per-tracker-kind input validation
 func (in Input) Normalize(projectID string) (Tracker, error) {
 	kind := Kind(strings.ToLower(strings.TrimSpace(string(in.Kind))))
 	defDone, defReopen := kind.DefaultTransitions()

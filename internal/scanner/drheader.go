@@ -3,6 +3,7 @@ package scanner
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -71,7 +72,7 @@ func (DrHeader) Parse(r io.Reader) ([]ParsedFinding, error) {
 			continue
 		}
 		if probe.Rule == "" {
-			return nil, fmt.Errorf("decode drheader json: entry without a rule — not a drHEADer report")
+			return nil, errors.New("decode drheader json: entry without a rule — not a drHEADer report")
 		}
 		if f, ok := drHeaderFinding(probe.drHeaderRule, ""); ok {
 			out = append(out, f)
@@ -109,7 +110,7 @@ func drHeaderFinding(v drHeaderRule, url string) (ParsedFinding, bool) {
 		Title:       "Header " + rule + ": " + v.Message,
 		Description: desc.String(),
 		Severity:    normalizeSeverity(v.Severity),
-		CWE:         intPtr(drHeaderCWE(rule)),
+		CWE:         new(drHeaderCWE(rule)),
 		FilePath:    url,
 		URL:         url,
 		Metadata:    meta,

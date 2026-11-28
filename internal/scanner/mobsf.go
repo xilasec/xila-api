@@ -405,7 +405,7 @@ func mobsfScanFindings(results map[string]mobsfScanResult) []ParsedFinding {
 			f.Metadata = maps.Clone(base.Metadata)
 			f.FilePath = file.FilePath
 			if len(file.MatchLines) > 0 && file.MatchLines[0] > 0 {
-				f.Line = intPtr(file.MatchLines[0])
+				f.Line = new(file.MatchLines[0])
 			}
 			if file.MatchString != "" {
 				f.Metadata["snippet"] = file.MatchString
@@ -452,7 +452,7 @@ func mobsfStandards(section string, cvss float64, owasp, masvs string) map[strin
 // mobsfFirstLine returns the lowest line of MobSF's "12,7,30" line list.
 func mobsfFirstLine(lines string) *int {
 	best := 0
-	for _, s := range strings.Split(lines, ",") {
+	for s := range strings.SplitSeq(lines, ",") {
 		if n, err := strconv.Atoi(strings.TrimSpace(s)); err == nil && n > 0 && (best == 0 || n < best) {
 			best = n
 		}
@@ -460,7 +460,7 @@ func mobsfFirstLine(lines string) *int {
 	if best == 0 {
 		return nil
 	}
-	return intPtr(best)
+	return new(best)
 }
 
 // mobsfSentence is the first sentence of a MobSF description, used as the

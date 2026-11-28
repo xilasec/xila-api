@@ -3,6 +3,7 @@ package pkgmeta
 import (
 	"errors"
 	"net/url"
+	"slices"
 	"strings"
 )
 
@@ -24,12 +25,7 @@ var Ecosystems = []string{NPM, PyPI, Maven, Golang, Cargo, NuGet, Gem, Composer}
 
 // Supported reports whether a purl type has a registry client.
 func Supported(ecosystem string) bool {
-	for _, e := range Ecosystems {
-		if e == ecosystem {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(Ecosystems, ecosystem)
 }
 
 // ErrBadPurl is returned for a string that isn't a package URL.
@@ -127,7 +123,7 @@ func (p PURL) Base() string {
 	b.WriteString(p.Type)
 	b.WriteByte('/')
 	if p.Namespace != "" {
-		for _, seg := range strings.Split(p.Namespace, "/") {
+		for seg := range strings.SplitSeq(p.Namespace, "/") {
 			b.WriteString(escape(seg))
 			b.WriteByte('/')
 		}

@@ -85,7 +85,7 @@ func TestLicenseOverrideAppliesAtIngestAndReapply(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create override: %v", err)
 	}
-	n, err := sbomRepo.ReapplyLicenseOverrides(ctx, projectID, sbom.LicenseResolver(license.Resolve), mustMatcher(t, loadMatcher, ctx))
+	n, err := sbomRepo.ReapplyLicenseOverrides(ctx, projectID, sbom.LicenseResolver(license.Resolve), mustMatcher(t, ctx, loadMatcher))
 	if err != nil {
 		t.Fatalf("reapply: %v", err)
 	}
@@ -121,7 +121,7 @@ func TestLicenseOverrideAppliesAtIngestAndReapply(t *testing.T) {
 	if err := overrideRepo.Delete(ctx, projectID, ov.ID); err != nil {
 		t.Fatalf("delete override: %v", err)
 	}
-	if _, err := sbomRepo.ReapplyLicenseOverrides(ctx, projectID, sbom.LicenseResolver(license.Resolve), mustMatcher(t, loadMatcher, ctx)); err != nil {
+	if _, err := sbomRepo.ReapplyLicenseOverrides(ctx, projectID, sbom.LicenseResolver(license.Resolve), mustMatcher(t, ctx, loadMatcher)); err != nil {
 		t.Fatalf("reapply after delete: %v", err)
 	}
 	for _, id := range []string{snap.ID, snap2.ID} {
@@ -135,7 +135,7 @@ func TestLicenseOverrideAppliesAtIngestAndReapply(t *testing.T) {
 	}
 }
 
-func mustMatcher(t *testing.T, load func(context.Context) (*license.Matcher, error), ctx context.Context) *license.Matcher {
+func mustMatcher(t *testing.T, ctx context.Context, load func(context.Context) (*license.Matcher, error)) *license.Matcher {
 	t.Helper()
 	m, err := load(ctx)
 	if err != nil {

@@ -205,7 +205,7 @@ func sonarQubeIssueFinding(is sonarQubeIssue, file string) (ParsedFinding, bool)
 		}
 		score := firstNonEmpty(fields["CVSS Score"], fields["Highest CVSS Score"])
 		if v, err := strconv.ParseFloat(score, 64); err == nil {
-			f.CVSS = floatPtr(v)
+			f.CVSS = new(v)
 		}
 	}
 	return f, true
@@ -263,10 +263,10 @@ func sonarQubeSeverity(s string) domain.Severity {
 
 func sonarQubeLine(line int, tr sonarQubeTextRange) *int {
 	if line > 0 {
-		return intPtr(line)
+		return new(line)
 	}
 	if tr.StartLine > 0 {
-		return intPtr(tr.StartLine)
+		return new(tr.StartLine)
 	}
 	return nil
 }

@@ -2,6 +2,7 @@ package finding
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/xilasec/xila-api/internal/domain"
@@ -33,7 +34,7 @@ func (r *Repository) Reprioritize(ctx context.Context, s PriorityScope) ([]strin
 		}
 	}
 	if set != 1 {
-		return nil, 0, fmt.Errorf("reprioritize: exactly one of scan, asset, project or findings is required")
+		return nil, 0, errors.New("reprioritize: exactly one of scan, asset, project or findings is required")
 	}
 	if s.FindingIDs != nil && len(s.FindingIDs) == 0 {
 		return nil, 0, nil

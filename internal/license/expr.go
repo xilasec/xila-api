@@ -200,12 +200,12 @@ func (p *parser) peekOp(op string) bool {
 	return p.pos < len(p.toks) && strings.EqualFold(p.toks[p.pos], op)
 }
 
-// or := and { OR and }
+// or := and { OR and }.
 func (p *parser) or(depth int) (*node, error) {
 	return p.nary(opOr, depth, p.and)
 }
 
-// and := with { AND with }
+// and := with { AND with }.
 func (p *parser) and(depth int) (*node, error) {
 	return p.nary(opAnd, depth, p.with)
 }
@@ -230,7 +230,7 @@ func (p *parser) nary(op string, depth int, next func(int) (*node, error)) (*nod
 	return combine(op, args), nil
 }
 
-// with := "(" or ")" | simple [ WITH exception ]
+// with := "(" or ")" | simple [ WITH exception ].
 func (p *parser) with(depth int) (*node, error) {
 	if p.pos >= len(p.toks) {
 		return nil, fmt.Errorf("%w: unexpected end", ErrInvalidExpression)

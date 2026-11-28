@@ -3,11 +3,12 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"net/http"
-	"sort"
+	"slices"
 	"time"
 )
 
@@ -28,7 +29,7 @@ func runHTTPBench(args []string) error {
 		return err
 	}
 	if *baseURL == "" || *project == "" {
-		return fmt.Errorf("--base-url and --project are required")
+		return errors.New("--base-url and --project are required")
 	}
 
 	token, err := login(*baseURL, *email, *password)
@@ -54,15 +55,16 @@ func runHTTPBench(args []string) error {
 		if err != nil {
 			return fmt.Errorf("%s: %w", c.name, err)
 		}
-		p50, p95, p99, max := percentiles(lat)
-		fmt.Printf("%-28s %8.1f %8.1f %8.1f %8.1f %8d\n", c.name, p50, p95, p99, max, len(lat))
+		p50, p95, p99, maxLatency := percentiles(lat)
+		fmt.Printf("%-28s %8.1f %8.1f %8.1f %8.1f %8d\n", c.name, p50, p95, p99, maxLatency, len(lat))
 	}
 	return nil
 }
 
 func login(baseURL, email, password string) (string, error) {
 	body, _ := json.Marshal(map[string]string{"email": email, "password": password})
-	resp, err := http.Post(baseURL+"/api/v1/auth/login", "application/json", bytes.NewReader(body))
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Post(baseURL+"/api/v1/auth/login", "application/json", bytes.NewReader(body))
 	if err != nil {
 		return "", err
 	}
@@ -78,7 +80,7 @@ func login(baseURL, email, password string) (string, error) {
 		return "", err
 	}
 	if out.Token == "" {
-		return "", fmt.Errorf("empty token in response")
+		return "", errors.New("empty token in response")
 	}
 	return out.Token, nil
 }
@@ -123,12 +125,12 @@ func measure(baseURL, path, token string, warmup, n int) ([]time.Duration, error
 	return lat, nil
 }
 
-func percentiles(lat []time.Duration) (p50, p95, p99, max float64) {
+func percentiles(lat []time.Duration) (p50, p95, p99, maxLatency float64) {
 	if len(lat) == 0 {
 		return 0, 0, 0, 0
 	}
 	sorted := append([]time.Duration(nil), lat...)
-	sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
+	slices.Sort(sorted)
 	pick := func(p float64) float64 {
 		idx := int(p * float64(len(sorted)-1))
 		return float64(sorted[idx]) / float64(time.Millisecond)

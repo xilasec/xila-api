@@ -86,7 +86,7 @@ func (s channelSettings) apply(c *Channel) error {
 	case "", "critical", "high", "medium", "low", "info":
 		c.MinSeverity = strings.ToLower(s.MinSeverity)
 	default:
-		return fmt.Errorf("min_severity must be critical, high, medium, low, info or empty")
+		return errors.New("min_severity must be critical, high, medium, low, info or empty")
 	}
 	if s.Filter != nil {
 		f := strings.TrimSpace(*s.Filter)
@@ -97,7 +97,7 @@ func (s channelSettings) apply(c *Channel) error {
 	}
 	if s.Summary != "" {
 		if !ValidSummary(s.Summary) {
-			return fmt.Errorf("summary must be none, daily or weekly")
+			return errors.New("summary must be none, daily or weekly")
 		}
 		c.Summary = s.Summary
 	}
@@ -106,7 +106,7 @@ func (s channelSettings) apply(c *Channel) error {
 	}
 	if s.SummaryHour != nil {
 		if *s.SummaryHour < 0 || *s.SummaryHour > 23 {
-			return fmt.Errorf("summary_hour must be 0–23 (UTC)")
+			return errors.New("summary_hour must be 0–23 (UTC)")
 		}
 		c.SummaryHour = *s.SummaryHour
 	} else if c.CreatedAt.IsZero() {
@@ -114,7 +114,7 @@ func (s channelSettings) apply(c *Channel) error {
 	}
 	if s.SummaryWeekday != nil {
 		if *s.SummaryWeekday < 0 || *s.SummaryWeekday > 6 {
-			return fmt.Errorf("summary_weekday must be 0–6 (0 = Sunday)")
+			return errors.New("summary_weekday must be 0–6 (0 = Sunday)")
 		}
 		c.SummaryWeekday = *s.SummaryWeekday
 	} else if c.CreatedAt.IsZero() {
@@ -241,6 +241,8 @@ func (h *Handler) sealKafkaPassword(ch *Channel, password string) error {
 // Update handles PATCH /notifications/channels/{id}: name, events, enabled,
 // minimum severity, summary schedule and signing secret. Type, target and
 // scope are fixed — make a new channel to change where it goes.
+//
+//nolint:gocyclo // one branch per optional field of the PATCH body
 func (h *Handler) Update(c *fiber.Ctx) error {
 	id, err := httpx.ID(c, "channelID")
 	if err != nil {

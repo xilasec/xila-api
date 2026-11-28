@@ -3,6 +3,7 @@ package report
 import (
 	"bytes"
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -153,7 +154,7 @@ func TestProjectReportNumbersAndEscaping(t *testing.T) {
 
 func TestProjectReportUnknownProject(t *testing.T) {
 	svc, _ := newTestService(&fakeFindings{}, nil)
-	if _, err := svc.Project(context.Background(), "nope", Options{}); err != ErrProjectNotFound {
+	if _, err := svc.Project(context.Background(), "nope", Options{}); !errors.Is(err, ErrProjectNotFound) {
 		t.Fatalf("err = %v, want ErrProjectNotFound", err)
 	}
 }

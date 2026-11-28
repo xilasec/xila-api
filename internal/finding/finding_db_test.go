@@ -532,16 +532,13 @@ func TestDeduplicateCrossTool(t *testing.T) {
 	}
 }
 
-// intp returns a pointer to n, for the *int fields (Line, CWE).
-func intp(n int) *int { return &n }
-
 // sastFinding builds a non-CVE SAST-style finding at an exact file/line, for
 // the location+CWE correlation key tests below.
 func sastFinding(projectID, fp, scanner, ruleID, file string, line int, cwe *int, sev domain.Severity) finding.Finding {
 	f := sampleFinding(projectID)
 	f.Fingerprint, f.Scanner, f.RuleID, f.Severity = fp, scanner, ruleID, sev
 	f.Category, f.CVE = domain.CategorySAST, nil
-	f.FilePath, f.Line, f.CWE = file, intp(line), cwe
+	f.FilePath, f.Line, f.CWE = file, new(line), cwe
 	return f
 }
 
@@ -707,7 +704,7 @@ func TestDeduplicateCVEUnaffectedByLocationKey(t *testing.T) {
 		f.Fingerprint, f.Scanner, f.Severity = fp, scanner, sev
 		f.CVE, f.PackageName = []string{"CVE-2021-44228"}, "log4j-core"
 		f.Category = domain.CategorySCA
-		f.FilePath, f.Line = "pom.xml", intp(line)
+		f.FilePath, f.Line = "pom.xml", new(line)
 		f.CWE = nil
 		return f
 	}
@@ -746,7 +743,7 @@ func TestDeduplicateCVESameScannerStillCollapses(t *testing.T) {
 		f.Fingerprint, f.Scanner, f.Severity = fp, "trivy", sev
 		f.CVE, f.PackageName = []string{"CVE-2021-44228"}, "log4j-core"
 		f.Category = domain.CategorySCA
-		f.FilePath, f.Line = path, intp(line)
+		f.FilePath, f.Line = path, new(line)
 		return f
 	}
 	a, _ := repo.Upsert(ctx, mk("fp-trivy-a", "services/a/pom.xml", 1, domain.SeverityHigh))
@@ -1110,7 +1107,7 @@ func TestDeduplicateConcurrentSameProject(t *testing.T) {
 			t.Errorf("upsert: %v", err)
 		}
 	}
-	for g := 0; g < groups; g++ {
+	for g := range groups {
 		upsert("trivy", g, domain.SeverityLow)
 	}
 
@@ -1130,16 +1127,14 @@ func TestDeduplicateConcurrentSameProject(t *testing.T) {
 	var wg sync.WaitGroup
 	errs := make(chan error, len(tools))
 	for _, tool := range tools {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for g := 0; g < groups; g++ {
+		wg.Go(func() {
+			for g := range groups {
 				upsert(tool.name, g, tool.sev)
 			}
 			if _, err := repo.Deduplicate(ctx, projectID); err != nil {
 				errs <- err
 			}
-		}()
+		})
 	}
 	wg.Wait()
 	close(errs)
@@ -1197,7 +1192,7 @@ func TestDeduplicateDoesNotRewriteUnchangedRows(t *testing.T) {
 	scanID := seedScan(t, pool, projectID)
 
 	// A realistic mix: duplicate groups, plus findings dedup never groups.
-	for g := 0; g < 10; g++ {
+	for g := range 10 {
 		for _, tool := range []string{"trivy", "grype"} {
 			f := sampleFinding(projectID)
 			f.Fingerprint = fmt.Sprintf("fp-%s-%d", tool, g)
@@ -1210,7 +1205,7 @@ func TestDeduplicateDoesNotRewriteUnchangedRows(t *testing.T) {
 			}
 		}
 	}
-	for i := 0; i < 10; i++ { // no CVE, no file/line: never correlated
+	for i := range 10 { // no CVE, no file/line: never correlated
 		f := sampleFinding(projectID)
 		f.Fingerprint = fmt.Sprintf("fp-secret-%d", i)
 		f.Category = domain.CategorySecret
@@ -1220,7 +1215,7 @@ func TestDeduplicateDoesNotRewriteUnchangedRows(t *testing.T) {
 		}
 	}
 	cweA := 798
-	for g := 0; g < 5; g++ { // location+CWE groups: same tooling mix as the CVE groups above
+	for g := range 5 { // location+CWE groups: same tooling mix as the CVE groups above
 		for _, tool := range []string{"semgrep", "gosec"} {
 			f := sastFinding(projectID, fmt.Sprintf("fp-%s-sast-%d", tool, g), tool, "r", fmt.Sprintf("app/f%d.go", g), 10, &cweA, domain.SeverityMedium)
 			f.LastScanID = &scanID

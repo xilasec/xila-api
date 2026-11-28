@@ -127,7 +127,7 @@ func bearerToFinding(it bearerFinding, sev domain.Severity) ParsedFinding {
 		Metadata:    meta,
 	}
 	if it.LineNumber > 0 {
-		f.Line = intPtr(it.LineNumber)
+		f.Line = new(it.LineNumber)
 	}
 	return f
 }

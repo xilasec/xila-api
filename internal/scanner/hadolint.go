@@ -72,7 +72,7 @@ func (Hadolint) Parse(r io.Reader) ([]ParsedFinding, error) {
 			},
 		}
 		if is.Line > 0 {
-			f.Line = intPtr(is.Line)
+			f.Line = new(is.Line)
 		}
 		if is.Column > 0 {
 			f.Metadata["column"] = is.Column

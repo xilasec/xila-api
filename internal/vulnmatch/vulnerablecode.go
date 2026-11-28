@@ -127,7 +127,7 @@ func (s *VulnerableCodeSource) Query(ctx context.Context, purls []string) (map[s
 func plainPurl(p purl) string {
 	segs := []string{}
 	if p.Namespace != "" {
-		for _, n := range strings.Split(p.Namespace, "/") {
+		for n := range strings.SplitSeq(p.Namespace, "/") {
 			segs = append(segs, url.PathEscape(n))
 		}
 	}

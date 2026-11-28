@@ -53,6 +53,33 @@ jobs:
       - name: Build
         run: go build ./...
 
+  lint:
+    # golangci-lint over the whole repository (.golangci.yml): it is held at
+    # zero findings, so anything new fails here. `make lint` runs the same.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5
+        with:
+          go-version: "1.27"
+          cache: true
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: v2.15.0
+
+  vuln:
+    # Known vulnerabilities in code paths the module actually calls (grype in
+    # the security workflow covers every dependency regardless of reachability).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5
+        with:
+          go-version: "1.27"
+          cache: true
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.10.0 ./...
+
   clients:
     # The generated API clients (clients/) must match the OpenAPI spec: a spec
     # change without `make clients` fails here, as does a broken client.

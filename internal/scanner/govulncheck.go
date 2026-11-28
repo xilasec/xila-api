@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 
 	"github.com/xilasec/xila-api/internal/domain"
@@ -146,7 +147,7 @@ func (GoVulnCheck) Parse(r io.Reader) ([]ParsedFinding, error) {
 		}
 		if pos := lastPosition(fnd); pos != nil {
 			f.FilePath = pos.Filename
-			f.Line = intPtr(pos.Line)
+			f.Line = new(pos.Line)
 		}
 		out = append(out, f)
 	}
@@ -201,9 +202,9 @@ func lastPosition(f govulnFinding) *struct {
 	Filename string `json:"filename"`
 	Line     int    `json:"line"`
 } {
-	for i := len(f.Trace) - 1; i >= 0; i-- {
-		if f.Trace[i].Position != nil {
-			return f.Trace[i].Position
+	for _, v := range slices.Backward(f.Trace) {
+		if v.Position != nil {
+			return v.Position
 		}
 	}
 	return nil

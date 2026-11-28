@@ -2,6 +2,7 @@ package vex
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -31,7 +32,7 @@ func Parse(data []byte) ([]Statement, error) {
 	case strings.EqualFold(probe.BomFormat, "CycloneDX") || len(probe.Vulnerabilities) > 0:
 		return parseCycloneVEX(data)
 	}
-	return nil, fmt.Errorf("unrecognized VEX document (expected OpenVEX, CycloneDX or CSAF)")
+	return nil, errors.New("unrecognized VEX document (expected OpenVEX, CycloneDX or CSAF)")
 }
 
 // --- OpenVEX ---

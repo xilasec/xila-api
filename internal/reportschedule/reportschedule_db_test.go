@@ -2,6 +2,7 @@ package reportschedule_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -94,7 +95,7 @@ func TestRepositoryCRUD(t *testing.T) {
 	if err := repo.Delete(ctx, sch.ID); err != nil {
 		t.Fatalf("delete: %v", err)
 	}
-	if _, err := repo.Get(ctx, sch.ID); err != reportschedule.ErrNotFound {
+	if _, err := repo.Get(ctx, sch.ID); !errors.Is(err, reportschedule.ErrNotFound) {
 		t.Fatalf("expected ErrNotFound, got %v", err)
 	}
 }
