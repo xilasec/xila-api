@@ -15,6 +15,7 @@ on:
 
 permissions:
   contents: read
+  security-events: write
 
 concurrency:
   group: security-${{ github.ref }}
@@ -31,7 +32,16 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Fail on High/Critical vulnerabilities that have a fix
+        env:
+          SARIF_DIR: ${{ runner.temp }}/sarif
         run: scripts/security-scan.sh grype
+      - name: Upload grype-dependencies SARIF to code scanning
+        if: always() && github.event.pull_request.head.repo.fork != true
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@fca7ace96b7d713c7035871441bd52efbe39e27e # v3.28.19
+        with:
+          sarif_file: ${{ runner.temp }}/sarif/grype-dependencies.sarif
+          category: grype-dependencies
 
   sast:
     name: opengrep (SAST)
@@ -45,7 +55,16 @@ jobs:
           echo "${OPENGREP_SHA256}  /usr/local/bin/opengrep" | sha256sum -c -
           chmod +x /usr/local/bin/opengrep
       - name: Fail on any finding
+        env:
+          SARIF_DIR: ${{ runner.temp }}/sarif
         run: scripts/security-scan.sh opengrep
+      - name: Upload opengrep SARIF to code scanning
+        if: always() && github.event.pull_request.head.repo.fork != true
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@fca7ace96b7d713c7035871441bd52efbe39e27e # v3.28.19
+        with:
+          sarif_file: ${{ runner.temp }}/sarif/opengrep.sarif
+          category: opengrep
 
   secrets:
     name: gitleaks (secrets, full history)
@@ -57,7 +76,16 @@ jobs:
         with:
           fetch-depth: 0
       - name: Fail on any secret
+        env:
+          SARIF_DIR: ${{ runner.temp }}/sarif
         run: scripts/security-scan.sh gitleaks --history
+      - name: Upload gitleaks SARIF to code scanning
+        if: always() && github.event.pull_request.head.repo.fork != true
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@fca7ace96b7d713c7035871441bd52efbe39e27e # v3.28.19
+        with:
+          sarif_file: ${{ runner.temp }}/sarif/gitleaks.sarif
+          category: gitleaks
 
   iac:
     name: KICS (infrastructure as code)
@@ -65,7 +93,16 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Fail on Low and above
+        env:
+          SARIF_DIR: ${{ runner.temp }}/sarif
         run: scripts/security-scan.sh kics
+      - name: Upload kics SARIF to code scanning
+        if: always() && github.event.pull_request.head.repo.fork != true
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@fca7ace96b7d713c7035871441bd52efbe39e27e # v3.28.19
+        with:
+          sarif_file: ${{ runner.temp }}/sarif/kics.sarif
+          category: kics
 
   image:
     name: grype (container image)
@@ -77,4 +114,13 @@ jobs:
       - name: Build the image
         run: docker build -t xila-api:ci .
       - name: Fail on High/Critical vulnerabilities that have a fix
+        env:
+          SARIF_DIR: ${{ runner.temp }}/sarif
         run: scripts/security-scan.sh image xila-api:ci
+      - name: Upload grype-image SARIF to code scanning
+        if: always() && github.event.pull_request.head.repo.fork != true
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@fca7ace96b7d713c7035871441bd52efbe39e27e # v3.28.19
+        with:
+          sarif_file: ${{ runner.temp }}/sarif/grype-image.sarif
+          category: grype-image
