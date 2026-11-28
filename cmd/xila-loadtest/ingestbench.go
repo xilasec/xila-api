@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -41,10 +42,10 @@ func runIngestBench(args []string) error {
 	}
 	nodes := splitIDs(*baseURL)
 	if len(nodes) == 0 || len(targets) == 0 {
-		return fmt.Errorf("--base-url and --project (or --projects) are required")
+		return errors.New("--base-url and --project (or --projects) are required")
 	}
 	if *concurrency < 1 {
-		return fmt.Errorf("--concurrency must be at least 1")
+		return errors.New("--concurrency must be at least 1")
 	}
 
 	token, err := login(nodes[0], *email, *password)
@@ -99,11 +100,11 @@ func runIngestBench(args []string) error {
 	}
 
 	totalFindings := len(lat) * *findingsPerScan
-	p50, p95, p99, max := percentiles(lat)
+	p50, p95, p99, maxLatency := percentiles(lat)
 	fmt.Printf("uploaded %d scans (%d uploaders x %d, %d node(s)), %d findings total, in %s\n",
 		len(lat), *concurrency, *scans, len(nodes), totalFindings, elapsed.Round(time.Millisecond))
 	fmt.Printf("throughput: %.0f findings/sec (wall clock, all uploaders)\n", float64(totalFindings)/elapsed.Seconds())
-	fmt.Printf("per-scan latency: p50=%.0fms p95=%.0fms p99=%.0fms max=%.0fms\n", p50, p95, p99, max)
+	fmt.Printf("per-scan latency: p50=%.0fms p95=%.0fms p99=%.0fms max=%.0fms\n", p50, p95, p99, maxLatency)
 	fmt.Printf("429 retries: %d\n", retries)
 	if len(errs) > 0 {
 		return fmt.Errorf("%d uploader(s) failed, first: %w", len(errs), errs[0])
@@ -152,7 +153,7 @@ func uploadOnce(client *http.Client, url, token, baseURL string, report []byte) 
 
 func splitIDs(s string) []string {
 	var out []string
-	for _, p := range strings.Split(s, ",") {
+	for p := range strings.SplitSeq(s, ",") {
 		if p = strings.TrimSpace(p); p != "" {
 			out = append(out, p)
 		}
@@ -186,7 +187,7 @@ func pollScanDone(client *http.Client, baseURL, token, scanID string) error {
 		}
 		time.Sleep(200 * time.Millisecond)
 	}
-	return fmt.Errorf("timed out waiting for scan to finish")
+	return errors.New("timed out waiting for scan to finish")
 }
 
 // trivyReport builds a synthetic `trivy --format json` report with n
@@ -194,7 +195,7 @@ func pollScanDone(client *http.Client, baseURL, token, scanID string) error {
 // dataset's pool so the upload exercises real cross-tool dedup, not an
 // all-new, all-unique backlog.
 func trivyReport(n, seed int) []byte {
-	rnd := rand.New(rand.NewPCG(uint64(seed), 0xC0FFEE))
+	rnd := rand.New(rand.NewPCG(uint64(seed), 0xC0FFEE)) //nolint:gosec // G404: seeded synthetic load data, not a security decision
 	type vuln struct {
 		VulnerabilityID  string `json:"VulnerabilityID"`
 		PkgName          string `json:"PkgName"`

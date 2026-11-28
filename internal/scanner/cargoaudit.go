@@ -115,7 +115,7 @@ func cargoAuditFinding(e cargoAuditEntry, warning bool) (ParsedFinding, bool) {
 	if a.CVSS != "" {
 		f.Metadata["cvss_vector"] = a.CVSS
 		if s, ok := cvss3BaseScore(a.CVSS); ok {
-			f.CVSS = floatPtr(s)
+			f.CVSS = new(s)
 			f.Severity = severityFromCVSS(s)
 		}
 	}

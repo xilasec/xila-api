@@ -139,6 +139,7 @@ func (AWSInspector2) Parse(r io.Reader) ([]ParsedFinding, error) {
 	return mergeSameLocation(out), nil
 }
 
+//nolint:gocyclo // maps each Inspector2 finding type and its optional fields
 func inspector2Findings(f inspector2Finding) []ParsedFinding {
 	resourceID, resourceType := "", ""
 	if len(f.Resources) > 0 {
@@ -182,7 +183,7 @@ func inspector2Findings(f inspector2Finding) []ParsedFinding {
 		Metadata:    meta,
 	}
 	if f.InspectorScore != nil && *f.InspectorScore > 0 {
-		base.CVSS = floatPtr(*f.InspectorScore)
+		base.CVSS = new(*f.InspectorScore)
 	}
 
 	switch f.Type {
@@ -207,7 +208,7 @@ func inspector2Findings(f inspector2Finding) []ParsedFinding {
 		if base.CVSS == nil {
 			for _, c := range d.CVSS {
 				if c.BaseScore > 0 && strings.HasPrefix(c.Version, "3") {
-					base.CVSS = floatPtr(c.BaseScore)
+					base.CVSS = new(c.BaseScore)
 					break
 				}
 			}
@@ -258,7 +259,7 @@ func inspector2Findings(f inspector2Finding) []ParsedFinding {
 			base.FilePath = path
 		}
 		if d.FilePath.StartLine > 0 {
-			base.Line = intPtr(d.FilePath.StartLine)
+			base.Line = new(d.FilePath.StartLine)
 		}
 		meta["detector"] = firstNonEmpty(d.DetectorName, d.DetectorID)
 		if len(d.CWEs) > 1 {

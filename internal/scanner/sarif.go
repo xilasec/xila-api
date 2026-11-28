@@ -131,7 +131,7 @@ func sarifLocation(res sarifResult) (string, *int) {
 	loc := res.Locations[0].PhysicalLocation
 	var line *int
 	if loc.Region.StartLine > 0 {
-		line = intPtr(loc.Region.StartLine)
+		line = new(loc.Region.StartLine)
 	}
 	return loc.ArtifactLocation.URI, line
 }
@@ -174,7 +174,7 @@ func sarifCWE(res sarifResult, rule sarifRule) *int {
 	for _, t := range tags {
 		if m := cweRe.FindStringSubmatch(t); m != nil {
 			if n, err := strconv.Atoi(m[1]); err == nil {
-				return intPtr(n)
+				return new(n)
 			}
 		}
 	}

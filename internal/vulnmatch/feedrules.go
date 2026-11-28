@@ -132,7 +132,9 @@ var FeedSchema = func() expr.Schema {
 		ID: "GHSA-xxxx-xxxx-xxxx", Aliases: []string{"CVE-2024-0001"}, CVEs: []string{"CVE-2024-0001"},
 		Sources: []string{SourceOSV}, Severity: domain.SeverityHigh, CVSS: &cvss, Summary: "s",
 	})
-	doc["pkg"].(map[string]any)["cpe"] = "cpe:2.3:a:vendor:product:1.0.0:*:*:*:*:*:*:*"
+	if pkg, ok := doc["pkg"].(map[string]any); ok {
+		pkg["cpe"] = "cpe:2.3:a:vendor:product:1.0.0:*:*:*:*:*:*:*"
+	}
 	return expr.Schema{Vars: []string{"advisory", "pkg"}, Sample: doc}
 }()
 

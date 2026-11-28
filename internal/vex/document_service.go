@@ -33,7 +33,7 @@ func NewDocumentService(repo *DocumentRepository, access access, prefix string) 
 	return &DocumentService{repo: repo, access: access, prefix: prefix}
 }
 
-func (s *DocumentService) authorize(ctx context.Context, userID string, isAdmin bool, d Document, min domain.TeamRole) error {
+func (s *DocumentService) authorize(ctx context.Context, userID string, isAdmin bool, d Document, minRole domain.TeamRole) error {
 	if isAdmin {
 		return nil
 	}
@@ -44,7 +44,7 @@ func (s *DocumentService) authorize(ctx context.Context, userID string, isAdmin 
 	if err != nil {
 		return err
 	}
-	if !ok || !role.AtLeast(min) {
+	if !ok || !role.AtLeast(minRole) {
 		return ErrDocForbidden
 	}
 	return nil

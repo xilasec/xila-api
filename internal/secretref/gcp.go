@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"hash/crc32"
 	"io"
@@ -107,7 +108,7 @@ func (b *gcpBackend) resolve(ctx context.Context, r ref, tsOverride oauth2.Token
 		want, err := strconv.ParseUint(out.Payload.DataCRC32C, 10, 32)
 		if err == nil {
 			if got := uint64(crc32.Checksum(data, crc32.MakeTable(crc32.Castagnoli))); got != want {
-				return "", fmt.Errorf("checksum mismatch")
+				return "", errors.New("checksum mismatch")
 			}
 		}
 	}

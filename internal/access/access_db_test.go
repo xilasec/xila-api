@@ -24,6 +24,7 @@ type world struct {
 }
 
 func seed(t *testing.T) (*world, *access.Repository, *membership.Repository) {
+	t.Helper()
 	pool := pgtest.Pool(t)
 	ctx := context.Background()
 	w := &world{t: t, ctx: ctx}

@@ -129,9 +129,11 @@ func TestLoadProductionHardensDefaults(t *testing.T) {
 		t.Fatal("expected production warnings for the insecure DB defaults")
 	}
 	joined := ""
+	var joinedSb132 strings.Builder
 	for _, w := range warns {
-		joined += w + "\n"
+		joinedSb132.WriteString(w + "\n")
 	}
+	joined += joinedSb132.String()
 	if !contains(joined, "DB_PASSWORD") || !contains(joined, "DB_SSLMODE") {
 		t.Errorf("warnings missing DB advice:\n%s", joined)
 	}
@@ -150,9 +152,11 @@ func TestLoadProductionWarnsWithoutRiskAcceptanceApproval(t *testing.T) {
 		t.Fatal("RISK_ACCEPTANCE_REQUIRES_APPROVAL=false was ignored")
 	}
 	joined := ""
+	var joinedSb153 strings.Builder
 	for _, w := range cfg.Warnings() {
-		joined += w + "\n"
+		joinedSb153.WriteString(w + "\n")
 	}
+	joined += joinedSb153.String()
 	if !contains(joined, "RISK_ACCEPTANCE_REQUIRES_APPROVAL") {
 		t.Errorf("warnings missing four-eyes advice:\n%s", joined)
 	}
@@ -209,9 +213,11 @@ func TestLoadSMTP(t *testing.T) {
 		t.Errorf("smtp = %+v, want port 587, tls none, configured", cfg.SMTP)
 	}
 	joined := ""
+	var joinedSb212 strings.Builder
 	for _, w := range cfg.Warnings() {
-		joined += w + "\n"
+		joinedSb212.WriteString(w + "\n")
 	}
+	joined += joinedSb212.String()
 	if !contains(joined, "SMTP_TLS=none") {
 		t.Errorf("warnings missing SMTP_TLS advice:\n%s", joined)
 	}
@@ -321,9 +327,11 @@ func TestIntegrationKeyWarningInProduction(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 	joined := ""
+	var joinedSb324 strings.Builder
 	for _, w := range cfg.Warnings() {
-		joined += w + "\n"
+		joinedSb324.WriteString(w + "\n")
 	}
+	joined += joinedSb324.String()
 	if !contains(joined, "INTEGRATION_SECRET_KEY") {
 		t.Errorf("warnings missing INTEGRATION_SECRET_KEY advice:\n%s", joined)
 	}

@@ -1,6 +1,7 @@
 package vulnpolicy
 
 import (
+	"maps"
 	"math"
 	"slices"
 	"strings"
@@ -82,9 +83,7 @@ func pairDoc(f finding.Finding, p ProjectFacts) map[string]any {
 // customDoc copies stored custom values into a document (never nil).
 func customDoc(m map[string]any) map[string]any {
 	out := make(map[string]any, len(m))
-	for k, v := range m {
-		out[k] = v
-	}
+	maps.Copy(out, m)
 	return out
 }
 

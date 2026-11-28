@@ -3,6 +3,7 @@ package sbom
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -13,7 +14,7 @@ import (
 // upload.
 func Parse(raw []byte) (Document, error) {
 	if looksLikeXML(raw) {
-		return Document{}, fmt.Errorf("XML SBOMs are not supported (including XML CycloneDX): upload CycloneDX or SPDX JSON instead")
+		return Document{}, errors.New("XML SBOMs are not supported (including XML CycloneDX): upload CycloneDX or SPDX JSON instead")
 	}
 	var probe struct {
 		BomFormat   string `json:"bomFormat"`
@@ -34,7 +35,7 @@ func Parse(raw []byte) (Document, error) {
 	case isScanCodeIO(raw):
 		return parseScanCodeIO(bytes.NewReader(raw))
 	default:
-		return Document{}, fmt.Errorf("unrecognized SBOM format (need CycloneDX, SPDX, Syft or ScanCode.io JSON)")
+		return Document{}, errors.New("unrecognized SBOM format (need CycloneDX, SPDX, Syft or ScanCode.io JSON)")
 	}
 }
 

@@ -12,6 +12,7 @@ package secretref
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -117,7 +118,7 @@ var Default = NewResolver()
 func (r *Resolver) Resolve(ctx context.Context, v string) (string, error) {
 	rf, ok := parse(v)
 	if !ok {
-		return "", fmt.Errorf("not a secret reference")
+		return "", errors.New("not a secret reference")
 	}
 	var (
 		val string

@@ -142,6 +142,7 @@ func TestRiskAcceptanceMigrationConvertsOldData(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer rows.Close()
 	for rows.Next() {
 		var fid string
 		var x acc
@@ -150,7 +151,9 @@ func TestRiskAcceptanceMigrationConvertsOldData(t *testing.T) {
 		}
 		got[fid] = x
 	}
-	rows.Close()
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
 	if len(got) != 4 {
 		t.Fatalf("converted memberships = %d (%v), want a, b, c and the pending request", len(got), got)
 	}

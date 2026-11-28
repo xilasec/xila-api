@@ -2,7 +2,7 @@ package issuetracker
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -38,7 +38,7 @@ func (c *gitlabClient) Create(ctx context.Context, is Issue) (Ref, error) {
 		return Ref{}, err
 	}
 	if out.IID == 0 {
-		return Ref{}, fmt.Errorf("gitlab: create returned no issue iid")
+		return Ref{}, errors.New("gitlab: create returned no issue iid")
 	}
 	return Ref{ExternalID: strconv.Itoa(out.IID), URL: out.WebURL}, nil
 }

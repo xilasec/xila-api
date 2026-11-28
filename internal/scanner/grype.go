@@ -120,7 +120,7 @@ func (Grype) Parse(r io.Reader) ([]ParsedFinding, error) {
 			f.FilePath = m.Artifact.Locations[0].Path
 		}
 		if len(v.CVSS) > 0 && v.CVSS[0].Metrics.BaseScore > 0 {
-			f.CVSS = floatPtr(v.CVSS[0].Metrics.BaseScore)
+			f.CVSS = new(v.CVSS[0].Metrics.BaseScore)
 		}
 		out = append(out, f)
 	}

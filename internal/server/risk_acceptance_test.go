@@ -168,7 +168,6 @@ func TestRiskAcceptancesRBACAndFourEyes(t *testing.T) {
 	if resp, _ := req(t, app, http.MethodDelete, base+"/"+aid, second, ""); resp.StatusCode != http.StatusConflict {
 		t.Errorf("deleting an approved acceptance = %d, want 409 (revoke instead)", resp.StatusCode)
 	}
-
 }
 
 // The "My work" queues: ?actionable=true keeps only what the caller may

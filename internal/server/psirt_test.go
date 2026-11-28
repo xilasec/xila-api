@@ -135,7 +135,7 @@ func TestPSIRTPublishing(t *testing.T) {
 	}
 	code, index := publicGet(t, app, "/csaf/advisories/index.txt")
 	file := strings.TrimSpace(index)
-	if code != http.StatusOK || !strings.HasSuffix(file, strings.ToLower(strings.ReplaceAll(tracking, "_", "_"))+".json") {
+	if code != http.StatusOK || !strings.HasSuffix(file, strings.ToLower(tracking)+".json") {
 		t.Fatalf("index: %d %q", code, index)
 	}
 	code, body := publicGet(t, app, "/csaf/advisories/"+file)

@@ -15,7 +15,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/filesystem"
-	"github.com/gofiber/fiber/v2/middleware/recover"
+	fiberrecover "github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
 	"go.opentelemetry.io/otel/trace"
 
@@ -221,7 +221,7 @@ func New(cfg config.Config, h Handlers) *Server {
 
 	// Order matters: request id -> panic recovery -> CORS -> tracing -> logging.
 	app.Use(requestid.New())
-	app.Use(recover.New())
+	app.Use(fiberrecover.New())
 	// CORS: skip entirely when same-origin only (empty allow-list); the embedded
 	// SPA needs no cross-origin headers.
 	if origins := cfg.Security.AllowedOrigins; len(origins) > 0 {
@@ -439,8 +439,7 @@ func errorHandler(c *fiber.Ctx, err error) error {
 	code := fiber.StatusInternalServerError
 	msg := "internal server error"
 
-	var fe *fiber.Error
-	if errors.As(err, &fe) {
+	if fe, ok := errors.AsType[*fiber.Error](err); ok {
 		code = fe.Code
 		msg = fe.Message
 	} else {

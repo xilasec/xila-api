@@ -50,8 +50,8 @@ func TestPackageKeyIgnoresVersionAndQualifiers(t *testing.T) {
 
 func hit(name, version string, vulns ...string) ComponentHit {
 	return ComponentHit{
-		Component: Component{Name: name, Version: version, Purl: "pkg:npm/" + name + "@" + version},
-		VulnState: VulnState{Vulns: vulns},
+		Name: name, Version: version, Purl: "pkg:npm/" + name + "@" + version,
+		Vulns: vulns,
 	}
 }
 
@@ -114,10 +114,10 @@ func TestDiffComponents(t *testing.T) {
 func TestGraphPaths(t *testing.T) {
 	s := Sbom{ID: "s", RootRef: "app", Artifact: "app"}
 	comps := []ComponentHit{
-		{Component: Component{ID: "1", BomRef: "express", Name: "express"}},
-		{Component: Component{ID: "2", BomRef: "body-parser", Name: "body-parser"}},
-		{Component: Component{ID: "3", BomRef: "qs", Name: "qs"}},
-		{Component: Component{ID: "4", Name: "unlisted"}}, // no bom-ref: present, unconnected
+		{ID: "1", BomRef: "express", Name: "express"},
+		{ID: "2", BomRef: "body-parser", Name: "body-parser"},
+		{ID: "3", BomRef: "qs", Name: "qs"},
+		{ID: "4", Name: "unlisted"}, // no bom-ref: present, unconnected
 	}
 	svcs := []BomService{{ID: "s1", BomRef: "payments-api", Name: "Payments API"}}
 	edges := []Edge{

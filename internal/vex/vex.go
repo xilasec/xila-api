@@ -15,6 +15,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -48,12 +49,7 @@ var statuses = []Status{StatusNotAffected, StatusAffected, StatusFixed, StatusUn
 
 // Valid reports whether s is a known VEX status.
 func (s Status) Valid() bool {
-	for _, x := range statuses {
-		if x == s {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(statuses, s)
 }
 
 // Statement is one analysis: for this project, vulnerability X against product Y

@@ -26,6 +26,7 @@ type fakeModel struct {
 }
 
 func newFakeModel(t *testing.T) *fakeModel {
+	t.Helper()
 	m := &fakeModel{}
 	m.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {

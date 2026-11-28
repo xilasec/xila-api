@@ -81,8 +81,7 @@ func (r *Repository) CreateRelation(ctx context.Context, rel Relation) (Relation
 		INSERT INTO asset_relations (from_asset_id, to_asset_id, kind, created_by)
 		VALUES ($1, $2, $3, $4)
 		RETURNING `+relationColumns, rel.FromAssetID, rel.ToAssetID, rel.Kind, by))
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
+	if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok {
 		switch pgErr.Code {
 		case "23505":
 			return Relation{}, ErrRelationDuplicate

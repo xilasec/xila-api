@@ -3,7 +3,7 @@ package issuetracker
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
+	"errors"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -72,7 +72,7 @@ func (c *azureClient) Create(ctx context.Context, is Issue) (Ref, error) {
 		return Ref{}, err
 	}
 	if out.ID == 0 {
-		return Ref{}, fmt.Errorf("azure-devops: create returned no work item id")
+		return Ref{}, errors.New("azure-devops: create returned no work item id")
 	}
 	return Ref{ExternalID: strconv.Itoa(out.ID), URL: out.Links.HTML.Href}, nil
 }

@@ -127,4 +127,4 @@ func (c *client) once(req *http.Request) (int, []byte, http.Header, error) {
 }
 
 // defaultRand is the jitter source in production.
-func defaultRand(n int64) int64 { return rand.Int64N(n) }
+func defaultRand(n int64) int64 { return rand.Int64N(n) } //nolint:gosec // G404: retry jitter, not a security decision

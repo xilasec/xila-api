@@ -3,6 +3,7 @@ package scanner
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"slices"
@@ -66,7 +67,7 @@ func (RetireJS) Parse(r io.Reader) ([]ParsedFinding, error) {
 		}
 		if err = json.Unmarshal(data, &doc); err == nil {
 			if doc.Data == nil {
-				return nil, fmt.Errorf(`decode retire.js report: no "data" array`)
+				return nil, errors.New(`decode retire.js report: no "data" array`)
 			}
 			files = *doc.Data
 		}

@@ -120,7 +120,7 @@ func TestLogoutRedirect(t *testing.T) {
 	}
 	// HTTP-Redirect binding: the signature covers the raw query octets and is
 	// checkable with the SP certificate the IdP has from our metadata.
-	signedPart := u.RawQuery[:strings.Index(u.RawQuery, "&Signature=")]
+	signedPart, _, _ := strings.Cut(u.RawQuery, "&Signature=")
 	sig, _ := base64.StdEncoding.DecodeString(q.Get("Signature"))
 	block, _ := pem.Decode([]byte(spKeyPEM.cert))
 	spCert, err := x509.ParseCertificate(block.Bytes)
@@ -241,35 +241,44 @@ func TestIDPInitiatedLogoutRedirect(t *testing.T) {
 func TestIDPInitiatedLogoutRefused(t *testing.T) {
 	now := time.Now()
 	good := func() *crewjam.LogoutRequest { return idpLogoutRequest(idpEntity, "jdoe", "s", now) }
-	unsigned := func(t *testing.T) string { return encode(t, good().Element()) }
+	unsigned := func(t *testing.T) string { t.Helper(); return encode(t, good().Element()) }
 
 	tamperedQuery := func(t *testing.T) string {
+		t.Helper()
 		q := theIdP.querySigned(t, good(), "relay")
 		return strings.Replace(q, "RelayState=relay", "RelayState=evil", 1)
 	}
 	unsignedQuery := func(t *testing.T) string {
+		t.Helper()
 		q := theIdP.querySigned(t, good(), "")
-		return q[:strings.Index(q, "&SigAlg=")]
+		unsigned, _, _ := strings.Cut(q, "&SigAlg=")
+		return unsigned
 	}
 	cases := map[string]func(t *testing.T) *http.Request{
-		"unsigned POST":         func(t *testing.T) *http.Request { return postSLO(unsigned(t)) },
-		"signed by another IdP": func(t *testing.T) *http.Request { return postSLO(rogueIdP.signedPost(t, good())) },
+		"unsigned POST":         func(t *testing.T) *http.Request { t.Helper(); return postSLO(unsigned(t)) },
+		"signed by another IdP": func(t *testing.T) *http.Request { t.Helper(); return postSLO(rogueIdP.signedPost(t, good())) },
 		"wrong issuer": func(t *testing.T) *http.Request {
+			t.Helper()
 			return postSLO(theIdP.signedPost(t, idpLogoutRequest("https://rogue.test", "jdoe", "s", now)))
 		},
 		"expired": func(t *testing.T) *http.Request {
+			t.Helper()
 			return postSLO(theIdP.signedPost(t, idpLogoutRequest(idpEntity, "jdoe", "s", now.Add(-time.Hour))))
 		},
 		"query signed by another": func(t *testing.T) *http.Request {
+			t.Helper()
 			return httptest.NewRequest(http.MethodGet, SLOPath+"?"+rogueIdP.querySigned(t, good(), ""), nil)
 		},
 		"query tampered after signing": func(t *testing.T) *http.Request {
+			t.Helper()
 			return httptest.NewRequest(http.MethodGet, SLOPath+"?"+tamperedQuery(t), nil)
 		},
 		"redirect without any signature": func(t *testing.T) *http.Request {
+			t.Helper()
 			return httptest.NewRequest(http.MethodGet, SLOPath+"?"+unsignedQuery(t), nil)
 		},
 		"signed POST, edited after signing": func(t *testing.T) *http.Request {
+			t.Helper()
 			signed, _ := base64.StdEncoding.DecodeString(theIdP.signedPost(t, good()))
 			edited := strings.Replace(string(signed), ">jdoe<", ">admin<", 1)
 			return postSLO(base64.StdEncoding.EncodeToString([]byte(edited)))

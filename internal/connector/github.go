@@ -157,7 +157,7 @@ type githubDependabotAlert struct {
 // nextLink extracts the rel="next" URL from a GitHub-style Link header, "" if
 // there is no further page.
 func nextLink(h http.Header) string {
-	for _, part := range strings.Split(h.Get("Link"), ",") {
+	for part := range strings.SplitSeq(h.Get("Link"), ",") {
 		seg := strings.Split(part, ";")
 		if len(seg) < 2 {
 			continue

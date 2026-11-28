@@ -114,8 +114,7 @@ func TestMatchWithFailedSourceDoesNotAutoClose(t *testing.T) {
 	)
 	app := &fakeApplier{}
 	n, err := NewService(inv, app, src).Match(context.Background())
-	var partial *PartialError
-	if !errors.As(err, &partial) {
+	if _, ok := errors.AsType[*PartialError](err); !ok {
 		t.Fatalf("err = %v, want the PartialError surfaced", err)
 	}
 	if n != 1 || len(app.calls) != 1 || !app.calls[0].additive || app.calls[0].projectID != "p1" {

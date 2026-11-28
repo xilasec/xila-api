@@ -117,8 +117,7 @@ func (Veracode) Parse(r io.Reader) ([]ParsedFinding, error) {
 	dec.CharsetReader = veracodeCharsetReader
 	var rep veracodeReport
 	if err := dec.Decode(&rep); err != nil {
-		var unexpected xml.UnmarshalError
-		if errors.As(err, &unexpected) {
+		if _, ok := errors.AsType[xml.UnmarshalError](err); ok {
 			return nil, errors.New("decode veracode report: no <detailedreport> root — not a Veracode detailed XML report")
 		}
 		return nil, fmt.Errorf("decode veracode report: %w", err)
@@ -133,7 +132,7 @@ func (Veracode) Parse(r io.Reader) ([]ParsedFinding, error) {
 					if f, ok := veracodeFlawFinding(fl, cwe, mitigation); ok {
 						f.FilePath = path.Join(fl.SourceFilePath, fl.SourceFile)
 						if n, err := strconv.Atoi(fl.Line); err == nil && n > 0 {
-							f.Line = intPtr(n)
+							f.Line = new(n)
 						}
 						f.Metadata["module"] = fl.Module
 						f.Metadata["function"] = fl.FunctionPrototype
@@ -185,7 +184,7 @@ func (Veracode) Parse(r io.Reader) ([]ParsedFinding, error) {
 				Metadata:       meta,
 			}
 			if score, err := strconv.ParseFloat(v.CVSS, 64); err == nil {
-				f.CVSS = floatPtr(score)
+				f.CVSS = new(score)
 				if v.Severity == "" {
 					f.Severity = severityFromCVSS(score)
 				}

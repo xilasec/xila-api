@@ -3,7 +3,7 @@ package issuetracker
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
+	"errors"
 	"net/http"
 	"net/url"
 	"strings"
@@ -62,7 +62,7 @@ func (c *serviceNowClient) Create(ctx context.Context, is Issue) (Ref, error) {
 		return Ref{}, err
 	}
 	if out.Result.SysID == "" {
-		return Ref{}, fmt.Errorf("servicenow: create returned no sys_id")
+		return Ref{}, errors.New("servicenow: create returned no sys_id")
 	}
 	return Ref{ExternalID: out.Result.SysID, URL: c.recordURL(out.Result.SysID)}, nil
 }

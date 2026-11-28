@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/base64"
 	"os"
 	"path/filepath"
@@ -56,8 +55,7 @@ func TestKeyRotationFromRefreshedFiles(t *testing.T) {
 	}
 	keys := auth.NewKeys(cfg.JWT.Secret, cfg.JWT.Previous)
 	wireKeyRotation(cfg, keys, ring, sso.NewRegistry(nil, sso.EnvProviders(cfg), nil))
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go cfg.Secrets.Run(ctx)
 
 	sealed, err := ring.Seal("token", "aad")
@@ -66,7 +64,7 @@ func TestKeyRotationFromRefreshedFiles(t *testing.T) {
 	}
 	sign := func(secret string) string {
 		s, err := jwt.NewWithClaims(jwt.SigningMethodHS256, auth.Claims{
-			RegisteredClaims: jwt.RegisteredClaims{Subject: "u", ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour))},
+			Subject: "u", ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
 		}).SignedString([]byte(secret))
 		if err != nil {
 			t.Fatal(err)

@@ -516,7 +516,7 @@ func (r *Repository) partsFromSnapshot(ctx context.Context, out *Overview, pids 
 	defer rows.Close()
 	var scores []ProjectCompliance
 	var sla []finding.SLAParts
-	any := false
+	found := false
 	for rows.Next() {
 		var c []ProjectCompliance
 		var s finding.SLAParts
@@ -524,7 +524,7 @@ func (r *Repository) partsFromSnapshot(ctx context.Context, out *Overview, pids 
 		if err := rows.Scan(&c, &s, &at); err != nil {
 			return false, fmt.Errorf("scan portfolio parts: %w", err)
 		}
-		any = true
+		found = true
 		scores = append(scores, c...)
 		sla = append(sla, s)
 		if out.AsOf == nil || at.Before(*out.AsOf) {
@@ -534,7 +534,7 @@ func (r *Repository) partsFromSnapshot(ctx context.Context, out *Overview, pids 
 	if err := rows.Err(); err != nil {
 		return false, err
 	}
-	if !any {
+	if !found {
 		var taken bool
 		if err := r.db.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM portfolio_parts)`).Scan(&taken); err != nil {
 			return false, err

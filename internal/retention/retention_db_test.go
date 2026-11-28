@@ -2,7 +2,7 @@ package retention_test
 
 import (
 	"context"
-	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -47,7 +47,7 @@ func TestRetentionKeepsWhatMatters(t *testing.T) {
 	var webSnaps []string
 	for i := range 5 {
 		webSnaps = append(webSnaps, q(`INSERT INTO sboms (project_id, version_id, artifact, version, created_at)
-			VALUES ($1, $2, 'web', $3, now() - make_interval(days => $4)) RETURNING id`, projectID, mainV, fmt.Sprint(i), (4-i)*100))
+			VALUES ($1, $2, 'web', $3, now() - make_interval(days => $4)) RETURNING id`, projectID, mainV, strconv.Itoa(i), (4-i)*100))
 	}
 	cliSnap := q(`INSERT INTO sboms (project_id, version_id, artifact, version, created_at)
 		VALUES ($1, $2, 'cli', '1', now() - interval '500 days') RETURNING id`, projectID, mainV)

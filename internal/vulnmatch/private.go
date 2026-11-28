@@ -57,7 +57,7 @@ func (a *Advisory) Validate() error {
 		return errors.New("id must look like PREFIX-…, e.g. XILA-2026-0001")
 	}
 	if !a.Severity.Valid() {
-		return fmt.Errorf("severity must be one of critical, high, medium, low, info")
+		return errors.New("severity must be one of critical, high, medium, low, info")
 	}
 	if a.Aliases == nil {
 		a.Aliases = []string{}

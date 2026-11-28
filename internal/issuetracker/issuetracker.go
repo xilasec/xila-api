@@ -396,7 +396,7 @@ const severityRank = `CASE %s WHEN 'critical' THEN 4 WHEN 'high' THEN 3 WHEN 'me
 
 // AutoCreateCandidates returns up to limit live, non-duplicate findings of the
 // project at or above minSeverity that have no issue yet, most urgent first.
-func (r *Repository) AutoCreateCandidates(ctx context.Context, projectID string, min domain.Severity, limit int) ([]string, error) {
+func (r *Repository) AutoCreateCandidates(ctx context.Context, projectID string, minSeverity domain.Severity, limit int) ([]string, error) {
 	q := `SELECT f.id FROM findings f
 		WHERE f.project_id = $1
 		  AND f.status IN ('open', 'confirmed')
@@ -406,7 +406,7 @@ func (r *Repository) AutoCreateCandidates(ctx context.Context, projectID string,
 		  AND NOT EXISTS (SELECT 1 FROM finding_issues fi WHERE fi.finding_id = f.id)
 		ORDER BY ` + fmt.Sprintf(severityRank, "f.severity") + ` DESC, f.priority DESC, f.first_seen_at, f.id
 		LIMIT $3`
-	rows, err := r.db.Query(ctx, q, projectID, string(min), limit)
+	rows, err := r.db.Query(ctx, q, projectID, string(minSeverity), limit)
 	if err != nil {
 		return nil, fmt.Errorf("list auto-create candidates: %w", err)
 	}

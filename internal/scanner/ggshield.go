@@ -97,7 +97,8 @@ func (GGShield) Parse(r io.Reader) ([]ParsedFinding, error) {
 						f.Line = line
 					}
 					if commit != "" {
-						f.Metadata["commits"] = append(f.Metadata["commits"].([]string), commit)
+						commits, _ := f.Metadata["commits"].([]string)
+						f.Metadata["commits"] = append(commits, commit)
 					}
 					continue
 				}

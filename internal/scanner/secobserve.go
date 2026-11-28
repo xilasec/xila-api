@@ -218,7 +218,7 @@ func secObserveCVSS(o secObserveObservation) *float64 {
 		return p
 	}
 	if s, ok := cvss3BaseScore(o.CVSS3Vector); ok {
-		return floatPtr(s)
+		return new(s)
 	}
 	if p := o.CVSS4Score.ptr(); p != nil && *p > 0 {
 		return p

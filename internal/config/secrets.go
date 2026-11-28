@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"maps"
 	"strings"
 	"sync"
 	"time"
@@ -108,9 +109,7 @@ func (s *Secrets) Run(ctx context.Context) {
 func (s *Secrets) refreshAll(ctx context.Context) {
 	s.mu.RLock()
 	refs := make(map[string]func(time.Duration) (string, error), len(s.refs))
-	for name, read := range s.refs {
-		refs[name] = read
-	}
+	maps.Copy(refs, s.refs)
 	s.mu.RUnlock()
 
 	for name, read := range refs {

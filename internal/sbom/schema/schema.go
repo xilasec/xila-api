@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"strings"
@@ -52,7 +53,7 @@ var cycloneDXSchema = map[string]string{
 var (
 	compilerOnce sync.Once
 	compiler     *jsonschema.Compiler
-	compilerErr  error
+	errCompile   error
 
 	mu       sync.Mutex
 	compiled = map[string]*jsonschema.Schema{}
@@ -64,7 +65,7 @@ var (
 func loadCompiler() (*jsonschema.Compiler, error) {
 	compilerOnce.Do(func() {
 		c := jsonschema.NewCompiler()
-		compilerErr = fs.WalkDir(cyclonedxFS, "cyclonedx", func(path string, d fs.DirEntry, err error) error {
+		errCompile = fs.WalkDir(cyclonedxFS, "cyclonedx", func(path string, d fs.DirEntry, err error) error {
 			if err != nil || d.IsDir() {
 				return err
 			}
@@ -88,7 +89,7 @@ func loadCompiler() (*jsonschema.Compiler, error) {
 		})
 		compiler = c
 	})
-	return compiler, compilerErr
+	return compiler, errCompile
 }
 
 // compiledSchema returns the compiled schema for a CycloneDX specVersion,
@@ -136,7 +137,7 @@ func ValidateCycloneDX(raw []byte) ([]FieldError, error) {
 		return nil, fmt.Errorf("decode json: %w", err)
 	}
 	if err := sch.Validate(inst); err != nil {
-		ve, ok := err.(*jsonschema.ValidationError)
+		ve, ok := errors.AsType[*jsonschema.ValidationError](err)
 		if !ok {
 			return nil, err
 		}

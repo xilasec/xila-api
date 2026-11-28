@@ -3,6 +3,7 @@ package notify
 import (
 	"context"
 	"encoding/json"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -90,9 +91,7 @@ func TestPersonalNotifications(t *testing.T) {
 	}
 	mu.Lock()
 	got := map[string]int{}
-	for k, v := range hits {
-		got[k] = v
-	}
+	maps.Copy(got, hits)
 	mu.Unlock()
 	if got["alice"] != 1 || got["bob"] != 1 || got["carol"] != 0 || got["dave"] != 0 || got["erin"] != 0 {
 		t.Errorf("deliveries = %v; want alice (assignee) and bob (watcher) once, nobody else", got)

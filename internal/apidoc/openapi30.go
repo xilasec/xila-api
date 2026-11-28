@@ -2,6 +2,7 @@ package apidoc
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 
 	"gopkg.in/yaml.v3"
@@ -25,7 +26,7 @@ func downgrade30(spec []byte) ([]byte, error) {
 		return nil, fmt.Errorf("parse openapi spec: %w", err)
 	}
 	if len(doc.Content) != 1 || doc.Content[0].Kind != yaml.MappingNode {
-		return nil, fmt.Errorf("openapi spec: not a mapping")
+		return nil, errors.New("openapi spec: not a mapping")
 	}
 	root := doc.Content[0]
 	if v := mapValue(root, "openapi"); v != nil {

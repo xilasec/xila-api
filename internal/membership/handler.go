@@ -1,6 +1,7 @@
 package membership
 
 import (
+	"context"
 	"errors"
 	"strings"
 
@@ -109,7 +110,17 @@ func (b grantRequest) validate() error {
 // AddProject grants a user or group a role on one project, without adding
 // them to its team.
 func (h *Handler) AddProject(c *fiber.Ctx) error {
-	projectID, err := httpx.ID(c, "projectID")
+	return h.grant(c, "projectID", h.repo.AddProjectGroup, h.repo.AddToProject)
+}
+
+// grantFunc adds one grant on a team or project (scopeID) to a user or group.
+type grantFunc func(ctx context.Context, scopeID, granteeID string, role domain.TeamRole, customRoleID string) error
+
+// grant is the body shared by Add (team) and AddProject: a user, by email, or
+// a group gets a role on the scope the scopeParam path parameter names. One
+// body keeps team and project grants from drifting apart.
+func (h *Handler) grant(c *fiber.Ctx, scopeParam string, addGroup, addUser grantFunc) error {
+	scopeID, err := httpx.ID(c, scopeParam)
 	if err != nil {
 		return err
 	}
@@ -121,7 +132,7 @@ func (h *Handler) AddProject(c *fiber.Ctx) error {
 		return err
 	}
 	if body.GroupID != "" {
-		if err := h.repo.AddProjectGroup(c.UserContext(), projectID, body.GroupID, body.Role, body.CustomRoleID); err != nil {
+		if err := addGroup(c.UserContext(), scopeID, body.GroupID, body.Role, body.CustomRoleID); err != nil {
 			return mapGrantError(err)
 		}
 		g, err := h.repo.GetGroup(c.UserContext(), body.GroupID)
@@ -138,7 +149,7 @@ func (h *Handler) AddProject(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	if err := h.repo.AddToProject(c.UserContext(), projectID, u.ID, body.Role, body.CustomRoleID); err != nil {
+	if err := addUser(c.UserContext(), scopeID, u.ID, body.Role, body.CustomRoleID); err != nil {
 		return mapGrantError(err)
 	}
 	return c.Status(fiber.StatusCreated).JSON(Member{UserID: u.ID, Email: u.Email, Role: body.Role, CustomRoleID: body.CustomRoleID})
@@ -209,39 +220,7 @@ func (h *Handler) List(c *fiber.Ctx) error {
 
 // Add invites a user (by email) or grants a group a role on the team.
 func (h *Handler) Add(c *fiber.Ctx) error {
-	teamID, err := httpx.ID(c, "teamID")
-	if err != nil {
-		return err
-	}
-	var body grantRequest
-	if err := httpx.Parse(c, &body); err != nil {
-		return err
-	}
-	if err := body.validate(); err != nil {
-		return err
-	}
-	if body.GroupID != "" {
-		if err := h.repo.AddGroup(c.UserContext(), teamID, body.GroupID, body.Role, body.CustomRoleID); err != nil {
-			return mapGrantError(err)
-		}
-		g, err := h.repo.GetGroup(c.UserContext(), body.GroupID)
-		if err != nil {
-			return err
-		}
-		return c.Status(fiber.StatusCreated).JSON(Member{GroupID: g.ID, GroupName: g.Name, Role: body.Role, CustomRoleID: body.CustomRoleID})
-	}
-	body.Email = strings.TrimSpace(strings.ToLower(body.Email))
-	u, err := h.users.GetByEmail(c.UserContext(), body.Email)
-	if errors.Is(err, user.ErrNotFound) {
-		return fiber.NewError(fiber.StatusNotFound, "no user with that email")
-	}
-	if err != nil {
-		return err
-	}
-	if err := h.repo.Add(c.UserContext(), teamID, u.ID, body.Role, body.CustomRoleID); err != nil {
-		return mapGrantError(err)
-	}
-	return c.Status(fiber.StatusCreated).JSON(Member{UserID: u.ID, Email: u.Email, Role: body.Role, CustomRoleID: body.CustomRoleID})
+	return h.grant(c, "teamID", h.repo.AddGroup, h.repo.Add)
 }
 
 // Remove drops a member from the team.

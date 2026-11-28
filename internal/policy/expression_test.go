@@ -8,7 +8,6 @@ import (
 
 	"github.com/xilasec/xila-api/internal/domain"
 	"github.com/xilasec/xila-api/internal/license"
-	"github.com/xilasec/xila-api/internal/sbom"
 )
 
 func exprCond(t *testing.T, src string) (compiled, error) {
@@ -22,15 +21,13 @@ func TestExpressionConditions(t *testing.T) {
 	behind := 4
 	gpl, _ := license.ParseExpression("GPL-3.0-only OR MIT")
 	known := &Component{
-		InventoryComponent: sbom.InventoryComponent{
-			Group: "org.apache.logging.log4j", Name: "log4j-core", Version: "2.14.1", Purl: "pkg:maven/org.apache.logging.log4j/log4j-core@2.14.1",
-			VulnIDs: []string{"CVE-2021-44228"}, MaxSeverity: &crit, KEV: true, ProjectName: "web",
-		},
+		Group: "org.apache.logging.log4j", Name: "log4j-core", Version: "2.14.1", Purl: "pkg:maven/org.apache.logging.log4j/log4j-core@2.14.1",
+		VulnIDs: []string{"CVE-2021-44228"}, MaxSeverity: &crit, KEV: true, ProjectName: "web",
 		License: gpl,
 		Meta:    &PackageInfo{Latest: "2.24.0", Outdated: true, VersionsBehind: &behind},
 	}
 	// Nothing known beyond its name: no vulns, no license, no registry data.
-	unknown := &Component{InventoryComponent: sbom.InventoryComponent{Name: "mystery", Version: "0.1"}}
+	unknown := &Component{Name: "mystery", Version: "0.1"}
 
 	cases := []struct {
 		src            string

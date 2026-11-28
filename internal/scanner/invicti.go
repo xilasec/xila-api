@@ -144,7 +144,7 @@ func invictiSeverity(s string) (domain.Severity, bool) {
 func invictiState(state string) (status domain.FindingStatus, reason string, gone bool) {
 	present := false
 	fixed := false
-	for _, s := range strings.Split(state, ",") {
+	for s := range strings.SplitSeq(state, ",") {
 		switch strings.ToLower(strings.TrimSpace(s)) {
 		case "present", "revived", "new", "scanning":
 			present = true
@@ -229,7 +229,7 @@ func invictiFinding(v invictiVuln, target, tool string) (ParsedFinding, bool) {
 	}
 	if c := v.Classification; c != nil {
 		var cwes []string
-		for _, s := range strings.Split(c.CWE, ",") {
+		for s := range strings.SplitSeq(c.CWE, ",") {
 			if s = strings.TrimSpace(s); s != "" {
 				cwes = append(cwes, s)
 			}
@@ -251,7 +251,7 @@ func invictiFinding(v invictiVuln, target, tool string) (ParsedFinding, bool) {
 				continue
 			}
 			if s, err := strconv.ParseFloat(cv.BaseScore.Value, 64); err == nil && s > 0 {
-				f.CVSS = floatPtr(s)
+				f.CVSS = new(s)
 				meta["cvss_vector"] = cv.Vector
 				break
 			}

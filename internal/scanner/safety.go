@@ -167,9 +167,9 @@ func safetySeverity(raw json.RawMessage) (string, *float64) {
 func (s safetyScore) score() *float64 {
 	switch {
 	case s.CVSSv3 != nil && s.CVSSv3.BaseScore > 0:
-		return floatPtr(s.CVSSv3.BaseScore)
+		return new(s.CVSSv3.BaseScore)
 	case s.CVSSv2 != nil && s.CVSSv2.BaseScore > 0:
-		return floatPtr(s.CVSSv2.BaseScore)
+		return new(s.CVSSv2.BaseScore)
 	}
 	return nil
 }

@@ -31,11 +31,11 @@ type resolver interface {
 	// role's deny-list on top of the minimum role: a capability denied by one
 	// grant is still allowed if another grant meeting min doesn't deny it
 	// (roles only add access — see membership.anyGrantAllows).
-	TeamCapabilityAllowed(ctx context.Context, userID, teamID string, min domain.TeamRole, cap domain.Capability) (bool, error)
-	ProjectCapabilityAllowed(ctx context.Context, userID, projectID string, min domain.TeamRole, cap domain.Capability) (bool, error)
+	TeamCapabilityAllowed(ctx context.Context, userID, teamID string, minRole domain.TeamRole, capability domain.Capability) (bool, error)
+	ProjectCapabilityAllowed(ctx context.Context, userID, projectID string, minRole domain.TeamRole, capability domain.Capability) (bool, error)
 	// ProjectIDsAllowing narrows ids to the projects where some grant of
 	// userID doesn't deny cap.
-	ProjectIDsAllowing(ctx context.Context, userID string, ids []string, cap domain.Capability) ([]string, error)
+	ProjectIDsAllowing(ctx context.Context, userID string, ids []string, capability domain.Capability) ([]string, error)
 }
 
 // Scope is the set of resources an actor may see, stashed for list handlers.
@@ -48,6 +48,8 @@ type Scope struct {
 }
 
 // Middleware enforces RBAC. It must run after auth.Middleware.
+//
+//nolint:gocyclo // the whole authorization decision in one place, so every route is denied by default
 func Middleware(m resolver) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		actor := auth.CurrentActor(c)
@@ -247,6 +249,8 @@ func parseScope(path, method string) routeScope {
 // minimum role ("" = none): the route classes a custom role can deny
 // (domain.Capability). Keep it in step with the routes it names; the
 // capability table test walks them.
+//
+//nolint:gocyclo // route-class to capability table; one flat switch is the reviewable form
 func capabilityFor(path, method string) domain.Capability {
 	segs := apiSegments(path)
 	if len(segs) < 2 {
@@ -327,6 +331,7 @@ func apiSegments(path string) []string {
 	return nil
 }
 
+//nolint:gocyclo,funlen // the route table mapping every secured path to its scope; one flat switch is the reviewable form
 func baseScope(path, method string) routeScope {
 	segs := strings.Split(strings.Trim(path, "/"), "/")
 	i := 0

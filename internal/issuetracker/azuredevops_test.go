@@ -116,7 +116,7 @@ func TestAzureDevOpsClient(t *testing.T) {
 		{Op: "add", Path: "/fields/System.Description", Value: "details"},
 		{Op: "add", Path: "/fields/System.Tags", Value: "security; xila"},
 	}
-	if got[0].Method != "POST" || got[0].Path != "/Fabrikam/_apis/wit/workitems/$Bug?api-version=7.1" {
+	if got[0].Method != http.MethodPost || got[0].Path != "/Fabrikam/_apis/wit/workitems/$Bug?api-version=7.1" {
 		t.Fatalf("request 0 = %s %s, want the create path", got[0].Method, got[0].Path)
 	}
 	if len(got[0].Ops) != len(wantCreate) {
@@ -127,7 +127,7 @@ func TestAzureDevOpsClient(t *testing.T) {
 			t.Errorf("create op[%d] = %+v, want %+v", i, got[0].Ops[i], op)
 		}
 	}
-	if got[1].Method != "GET" {
+	if got[1].Method != http.MethodGet {
 		t.Errorf("request 1 = %s, want GET", got[1].Method)
 	}
 	wantClose := []azurePatchOp{{Op: "add", Path: "/fields/System.State", Value: "Closed"}}
@@ -138,7 +138,7 @@ func TestAzureDevOpsClient(t *testing.T) {
 	if len(got[3].Ops) != 1 || got[3].Ops[0] != wantReopen[0] {
 		t.Errorf("reopen ops = %+v, want %+v", got[3].Ops, wantReopen)
 	}
-	if got[4].Method != "GET" || got[4].Path != "/_apis/projects/Fabrikam?api-version=7.1" {
+	if got[4].Method != http.MethodGet || got[4].Path != "/_apis/projects/Fabrikam?api-version=7.1" {
 		t.Errorf("request 4 = %s %s, want the project check", got[4].Method, got[4].Path)
 	}
 }

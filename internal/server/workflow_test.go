@@ -157,5 +157,4 @@ func TestAnalystWorkflow(t *testing.T) {
 		`{"ids":["`+findingA+`"],"filter":{"status":"open"},"severity":"low"}`); resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("ids and filter together = %d, want 400", resp.StatusCode)
 	}
-
 }

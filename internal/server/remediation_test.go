@@ -34,6 +34,7 @@ type remediationFakeGitHub struct {
 }
 
 func newRemediationFakeGitHub(t *testing.T) *remediationFakeGitHub {
+	t.Helper()
 	f := &remediationFakeGitHub{states: map[string]string{}}
 	f.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()

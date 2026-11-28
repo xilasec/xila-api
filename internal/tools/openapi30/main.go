@@ -24,7 +24,7 @@ func main() {
 	if *out == "" {
 		_, err = os.Stdout.Write(spec)
 	} else {
-		err = os.WriteFile(*out, spec, 0o644)
+		err = os.WriteFile(*out, spec, 0o644) //nolint:gosec // G306: a generated file committed to the repository
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)

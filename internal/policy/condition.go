@@ -172,6 +172,8 @@ type compiled struct {
 // compile validates c, normalizes its value and builds its matcher. schema is
 // the document an expression is checked against (ComponentSchemaFor the
 // current project custom fields).
+//
+//nolint:gocyclo // one branch per condition subject
 func compile(c Condition, groups groupResolver, schema expr.Schema) (compiled, error) {
 	ops, ok := operators[c.Subject]
 	if !ok {
@@ -381,19 +383,19 @@ func compileBool(c Condition, fact func(*Component) (v, known bool, desc string)
 }
 
 func compileEPSS(c Condition) (matcher, any, error) {
-	var min float64
-	if err := decode(c, &min, "a number"); err != nil {
+	var minimum float64
+	if err := decode(c, &minimum, "a number"); err != nil {
 		return nil, nil, err
 	}
-	if min < 0 || min > 1 {
+	if minimum < 0 || minimum > 1 {
 		return nil, nil, invalid("epss: value must be between 0 and 1")
 	}
 	return func(x *Component, _ time.Time) (bool, string) {
 		if x.EPSS == nil {
 			return false, ""
 		}
-		return *x.EPSS >= min, fmt.Sprintf("epss %.4f", *x.EPSS)
-	}, min, nil
+		return *x.EPSS >= minimum, fmt.Sprintf("epss %.4f", *x.EPSS)
+	}, minimum, nil
 }
 
 // compileKEVSource holds when a catalog listed asserts one of the component's

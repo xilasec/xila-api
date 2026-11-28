@@ -2,6 +2,7 @@ package customfield
 
 import (
 	"context"
+	"maps"
 	"reflect"
 	"slices"
 	"strings"
@@ -67,9 +68,7 @@ func (s *Service) Prepare(ctx context.Context, entity Entity, id string, patch m
 		}
 	}
 	ch := Change{Set: map[string]any{}, Unset: []string{}, Result: map[string]any{}}
-	for k, v := range t.Custom {
-		ch.Result[k] = v
-	}
+	maps.Copy(ch.Result, t.Custom)
 	keys := make([]string, 0, len(patch))
 	for k := range patch {
 		keys = append(keys, k)
@@ -95,7 +94,11 @@ func (s *Service) Prepare(ctx context.Context, entity Entity, id string, patch m
 			continue
 		}
 		if d.Type == TypeUser {
-			if err := s.canSee(ctx, v.(string), t.ProjectID, k); err != nil {
+			uid, ok := v.(string)
+			if !ok {
+				return Change{}, invalid("%s must be a user id", k)
+			}
+			if err := s.canSee(ctx, uid, t.ProjectID, k); err != nil {
 				return Change{}, err
 			}
 		}

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/csv"
 	"encoding/xml"
+	"errors"
 	"io"
 	"path"
 	"strings"
@@ -100,7 +101,9 @@ func TestRowsCap(t *testing.T) {
 	tbl, _ = New(CSV, &buf, "x", []string{"n"})
 	rows = Rows{T: tbl}
 	for i := range MaxRows {
-		rows.Add(i)
+		if err := rows.Add(i); err != nil {
+			t.Fatal(err)
+		}
 	}
 	if rows.Truncated {
 		t.Error("exactly MaxRows rows is a complete export, not a truncated one")
@@ -288,7 +291,7 @@ func assertWellFormed(t *testing.T, name string, b []byte) {
 	d := xml.NewDecoder(bytes.NewReader(b))
 	for {
 		_, err := d.Token()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return
 		}
 		if err != nil {

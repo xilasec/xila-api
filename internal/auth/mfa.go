@@ -81,7 +81,7 @@ func mfaAAD(userID string) string { return "mfa:" + userID }
 
 func totpAt(secret []byte, step int64) string {
 	var msg [8]byte
-	binary.BigEndian.PutUint64(msg[:], uint64(step))
+	binary.BigEndian.PutUint64(msg[:], uint64(step)) //nolint:gosec // G115: the RFC 6238 counter is the uint64 bit pattern of a non-negative Unix time step
 	mac := hmac.New(sha1.New, secret)
 	mac.Write(msg[:])
 	sum := mac.Sum(nil)

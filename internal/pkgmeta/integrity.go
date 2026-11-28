@@ -70,7 +70,7 @@ func addDigest(hashes map[string][]string, algName, value string) {
 
 // addSRI records a Subresource Integrity string ("sha512-<base64> sha1-…").
 func addSRI(hashes map[string][]string, sri string) {
-	for _, part := range strings.Fields(sri) {
+	for part := range strings.FieldsSeq(sri) {
 		if alg, val, ok := strings.Cut(part, "-"); ok {
 			addDigest(hashes, alg, val)
 		}

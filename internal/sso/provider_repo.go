@@ -135,8 +135,7 @@ func (r *ProviderRepository) Unseal(p *Provider) error {
 }
 
 func mapWriteErr(err error) error {
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
+	if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok {
 		switch pgErr.Code {
 		case "23505":
 			return ErrSlugTaken

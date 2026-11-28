@@ -7,16 +7,15 @@ import (
 	"time"
 
 	"github.com/xilasec/xila-api/internal/domain"
-	"github.com/xilasec/xila-api/internal/finding"
 )
 
 var exportScope = ExportScope{ProjectID: "p1", ProjectSlug: "shop", ProjectName: "Shop",
 	VersionID: "v1", VersionName: "release/2.0"}
 
 func exportFinding(cve, purl string, status domain.FindingStatus, by string) ExportFinding {
-	return ExportFinding{Finding: finding.Finding{RuleID: cve, CVE: []string{cve}, Purl: purl,
+	return ExportFinding{RuleID: cve, CVE: []string{cve}, Purl: purl,
 		PackageName: "pkg", PackageVersion: "1.0.0", Status: status, ExceptionReason: "reason for " + cve,
-		ExceptionBy: by, Severity: domain.SeverityHigh, Title: "Bug " + cve}, TriagedAt: time.Unix(1700000000, 0)}
+		ExceptionBy: by, Severity: domain.SeverityHigh, Title: "Bug " + cve, TriagedAt: time.Unix(1700000000, 0)}
 }
 
 func TestVerdictNeverInventsAJustification(t *testing.T) {
@@ -71,7 +70,7 @@ func TestBuildStatementsMergesPerProduct(t *testing.T) {
 		exportFinding("CVE-1", purl, domain.FindingFalsePositive, "bob"),
 		exportFinding("CVE-1", purl, domain.FindingConfirmed, ""),
 		// No package at all: the project version is the product.
-		{Finding: finding.Finding{RuleID: "CVE-2", CVE: []string{"CVE-2"}, Status: domain.FindingOpen}},
+		{RuleID: "CVE-2", CVE: []string{"CVE-2"}, Status: domain.FindingOpen},
 		// A package without a purl: a generic one, by name and version.
 		exportFinding("CVE-3", "", domain.FindingRemediated, ""),
 	}

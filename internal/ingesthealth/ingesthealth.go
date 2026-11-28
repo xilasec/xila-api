@@ -238,8 +238,7 @@ func (r *Repository) CreateExpectation(ctx context.Context, e Expectation) (Expe
 		INSERT INTO project_scan_expectations (project_id, scanner, category, branch, max_age_hours)
 		VALUES ($1, $2, $3, $4, $5) RETURNING `+expectationColumns,
 		e.ProjectID, e.Scanner, e.Category, e.Branch, e.MaxAgeHours))
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
+	if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok {
 		switch pgErr.Code {
 		case "23503":
 			return Expectation{}, ErrNoProject

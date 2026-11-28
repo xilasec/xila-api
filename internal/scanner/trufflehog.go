@@ -86,7 +86,7 @@ func (TruffleHog) Parse(r io.Reader) ([]ParsedFinding, error) {
 			},
 		}
 		if line > 0 {
-			f.Line = intPtr(line)
+			f.Line = new(line)
 		}
 		out = append(out, f)
 		return nil

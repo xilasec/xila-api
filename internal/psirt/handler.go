@@ -296,8 +296,8 @@ func (h *Handler) File(c *fiber.Ctx) error {
 	path := c.Params("year") + "/" + c.Params("file")
 	name, hashExt := path, ""
 	for _, ext := range []string{".sha256", ".sha512"} {
-		if strings.HasSuffix(path, ext) {
-			name, hashExt = strings.TrimSuffix(path, ext), ext
+		if before, ok := strings.CutSuffix(path, ext); ok {
+			name, hashExt = before, ext
 		}
 	}
 	released, err := h.repo.Released(c.UserContext())

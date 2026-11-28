@@ -29,7 +29,7 @@ func (f *fakeComponents) ListComponents(_ context.Context, filter sbom.Component
 }
 
 func TestComponentsForFindingMatchesByPackage(t *testing.T) {
-	comps := &fakeComponents{ret: []sbom.ComponentHit{{Component: sbom.Component{Name: "pkgA"}}}}
+	comps := &fakeComponents{ret: []sbom.ComponentHit{{Name: "pkgA"}}}
 	svc := NewService(fakeFindings{finding: finding.Finding{
 		ProjectID:      "proj-1",
 		Category:       domain.CategorySCA,
@@ -70,7 +70,7 @@ func TestComponentsForFindingPurlFallback(t *testing.T) {
 }
 
 func TestComponentsForFindingNonPackageReturnsEmpty(t *testing.T) {
-	comps := &fakeComponents{ret: []sbom.ComponentHit{{Component: sbom.Component{Name: "should-not-be-returned"}}}}
+	comps := &fakeComponents{ret: []sbom.ComponentHit{{Name: "should-not-be-returned"}}}
 	// A secret finding has no package identity -> no lookup, empty result.
 	svc := NewService(fakeFindings{finding: finding.Finding{
 		ProjectID: "proj-1",

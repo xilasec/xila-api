@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"testing"
 
 	"github.com/xilasec/xila-api/internal/domain"
@@ -133,7 +134,7 @@ func TestCommentsAndAttachments(t *testing.T) {
 	projectID := seedProject(t, pool)
 	f, _ := repo.Upsert(ctx, sampleFinding(projectID))
 
-	if _, err := repo.AddComment(ctx, "00000000-0000-0000-0000-000000000000", "", "x"); err != finding.ErrNotFound {
+	if _, err := repo.AddComment(ctx, "00000000-0000-0000-0000-000000000000", "", "x"); !errors.Is(err, finding.ErrNotFound) {
 		t.Errorf("comment on a missing finding = %v, want ErrNotFound", err)
 	}
 	c, err := repo.AddComment(ctx, f.ID, "", "first")

@@ -3,6 +3,7 @@ package issuetracker
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -88,7 +89,7 @@ func (c *linearClient) Create(ctx context.Context, is Issue) (Ref, error) {
 		return Ref{}, err
 	}
 	if !out.IssueCreate.Success || out.IssueCreate.Issue.Identifier == "" {
-		return Ref{}, fmt.Errorf("linear: create returned no issue")
+		return Ref{}, errors.New("linear: create returned no issue")
 	}
 	return Ref{ExternalID: out.IssueCreate.Issue.Identifier, URL: out.IssueCreate.Issue.URL}, nil
 }
@@ -119,7 +120,7 @@ func isLinearClosedType(t string) bool { return t == "completed" || t == "cancel
 // states): the linear-solutions integration guide cited above. $teamId is
 // typed ID! there, unlike the plain id arguments above — Linear's own
 // comment: "Use ID! type (not String!) for the teamId variable when
-// filtering by team.id."
+// filtering by team.id.".
 const linearWorkflowStatesQuery = `query($teamId: ID!) {
   workflowStates(filter: { team: { id: { eq: $teamId } } }) { nodes { id type } }
 }`

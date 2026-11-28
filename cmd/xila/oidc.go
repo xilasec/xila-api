@@ -18,8 +18,8 @@ import (
 // secret.
 
 const (
-	grantTokenExchange = "urn:ietf:params:oauth:grant-type:token-exchange"
-	tokenTypeJWT       = "urn:ietf:params:oauth:token-type:jwt"
+	grantTokenExchange = "urn:ietf:params:oauth:grant-type:token-exchange" //nolint:gosec // G101: an OAuth grant-type URN, not a credential
+	tokenTypeJWT       = "urn:ietf:params:oauth:token-type:jwt"            //nolint:gosec // G101: an OAuth token-type URN, not a credential
 )
 
 var errNoIdentity = errors.New("no Xila token and no CI identity token: set XILA_TOKEN, or pass --oidc-token / XILA_OIDC_TOKEN, " +
@@ -54,12 +54,12 @@ func githubIDToken(hc *http.Client, reqURL, reqToken, audience string) (string, 
 		q.Set("audience", audience)
 		u.RawQuery = q.Encode()
 	}
-	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	req, err := http.NewRequest(http.MethodGet, u.String(), nil) //nolint:gosec // G704: the Actions runner's own token endpoint (ACTIONS_ID_TOKEN_REQUEST_URL)
 	if err != nil {
 		return "", err
 	}
 	req.Header.Set("Authorization", "Bearer "+reqToken)
-	resp, err := hc.Do(req)
+	resp, err := hc.Do(req) //nolint:gosec // G704: the Actions runner's own token endpoint (ACTIONS_ID_TOKEN_REQUEST_URL)
 	if err != nil {
 		return "", fmt.Errorf("request GitHub OIDC token: %w", err)
 	}

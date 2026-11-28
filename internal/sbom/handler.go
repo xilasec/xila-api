@@ -461,7 +461,7 @@ func (h *Handler) Graph(c *fiber.Ctx) error {
 
 // GraphPaths handles GET /sboms/{id}/graph/paths?ref=… (or ?component_id=…):
 // the shortest routes from the root down to that package — "why is this here,
-// and which direct dependency pulls it in?"
+// and which direct dependency pulls it in?".
 func (h *Handler) GraphPaths(c *fiber.Ctx) error {
 	g, err := h.graph(c)
 	if err != nil {

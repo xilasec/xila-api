@@ -199,7 +199,7 @@ func firstCWE(ids []string) *int {
 	for _, id := range ids {
 		if n, ok := strings.CutPrefix(strings.ToUpper(id), "CWE-"); ok {
 			if v, err := strconv.Atoi(n); err == nil {
-				return intPtr(v)
+				return new(v)
 			}
 		}
 	}

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"net/http"
 	"sort"
 	"strings"
 	"testing"
@@ -38,7 +39,7 @@ func TestOpenAPICoversEveryRoute(t *testing.T) {
 
 	live := map[string]bool{}
 	for _, r := range app.GetRoutes() {
-		if r.Method == "USE" || r.Method == "HEAD" || r.Method == "OPTIONS" {
+		if r.Method == "USE" || r.Method == http.MethodHead || r.Method == http.MethodOptions {
 			continue
 		}
 		if groupMounts[r.Path] {

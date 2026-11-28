@@ -12,12 +12,10 @@ import (
 	"github.com/xilasec/xila-api/internal/finding"
 )
 
-func intp(n int) *int { return &n }
-
 func TestMatches(t *testing.T) {
 	f := finding.Finding{
 		Scanner: "trivy", Category: domain.CategorySCA, Severity: domain.SeverityLow,
-		RuleID: "CVE-2021-1", CVE: []string{"CVE-2021-1"}, CWE: intp(79),
+		RuleID: "CVE-2021-1", CVE: []string{"CVE-2021-1"}, CWE: new(79),
 		FilePath: "test/app_test.go", PackageName: "lodash",
 	}
 	cases := []struct {
@@ -31,8 +29,8 @@ func TestMatches(t *testing.T) {
 		{"category match", Rule{Category: domain.CategorySCA}, true},
 		{"severity in set", Rule{Severities: []domain.Severity{domain.SeverityLow, domain.SeverityInfo}}, true},
 		{"severity not in set", Rule{Severities: []domain.Severity{domain.SeverityCritical}}, false},
-		{"cwe match", Rule{CWE: intp(79)}, true},
-		{"cwe mismatch", Rule{CWE: intp(89)}, false},
+		{"cwe match", Rule{CWE: new(79)}, true},
+		{"cwe mismatch", Rule{CWE: new(89)}, false},
 		{"rule_id match", Rule{RuleID: "CVE-2021-1"}, true},
 		{"cve_in match", Rule{CVEIn: []string{"CVE-2020-9", "CVE-2021-1"}}, true},
 		{"cve_in miss", Rule{CVEIn: []string{"CVE-2020-9"}}, false},

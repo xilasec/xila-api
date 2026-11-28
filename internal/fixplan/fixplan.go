@@ -99,6 +99,8 @@ var osPurlTypes = map[string]bool{"deb": true, "rpm": true, "apk": true, "alpm":
 //   - anything else with a rule (DAST, infrastructure) → per rule.
 //
 // Findings that fit none (no rule, no file, licence findings) are left out.
+//
+//nolint:gocyclo,nestif // one branch per fix kind; the grouping lives in one place on purpose
 func Changes(cands []finding.FixCandidate, opts Options) ([]Change, NoFix) {
 	type gkey struct {
 		project string

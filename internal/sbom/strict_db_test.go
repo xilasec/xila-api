@@ -69,8 +69,7 @@ func TestIngestStrictDefaultRejectsEvenWithoutQueryParam(t *testing.T) {
 	svc := sbom.NewService(repo, projects, nil, nil).WithStrictValidation(true)
 
 	_, err := svc.Ingest(ctx, sbom.IngestRequest{ProjectID: projectID}, strings.NewReader(invalidCycloneDX))
-	var strictErr *sbom.StrictValidationError
-	if !errors.As(err, &strictErr) {
+	if _, ok := errors.AsType[*sbom.StrictValidationError](err); !ok {
 		t.Fatalf("expected a *StrictValidationError, got %v", err)
 	}
 }

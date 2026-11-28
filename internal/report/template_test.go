@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/xilasec/xila-api/internal/domain"
-	"github.com/xilasec/xila-api/internal/finding"
 )
 
 func TestTemplateValidate(t *testing.T) {
@@ -52,8 +51,8 @@ func TestRenderNeutralizesUnvalidatedTemplate(t *testing.T) {
 			Classification: "<b>Confidential</b>",
 			MaxFindings:    5,
 		},
-		Top: []TopFinding{{Finding: finding.Finding{Title: "IDOR", Severity: domain.SeverityHigh,
-			Metadata: map[string]any{"steps_to_reproduce": "<img src=x onerror=alert(1)>", "impact": 42}}}},
+		Top: []TopFinding{{Title: "IDOR", Severity: domain.SeverityHigh,
+			Metadata: map[string]any{"steps_to_reproduce": "<img src=x onerror=alert(1)>", "impact": 42}}},
 	}
 	var buf bytes.Buffer
 	if err := Render(&buf, rep); err != nil {

@@ -129,8 +129,7 @@ func one(row pgx.Row, what string) (Connector, error) {
 		return Connector{}, ErrNotFound
 	}
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) {
+		if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok {
 			switch pgErr.Code {
 			case "23505":
 				return Connector{}, ErrDuplicate

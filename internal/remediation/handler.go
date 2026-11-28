@@ -285,11 +285,10 @@ func (h *Handler) createIssue(c *fiber.Ctx) error {
 	}
 	l, created, err := h.svc.CreateIssue(c.UserContext(), id)
 	if err != nil {
-		if mapped := mapErr(err); mapped != err {
+		if mapped := mapErr(err); mapped != err { //nolint:errorlint // identity check: did mapErr translate this error
 			return mapped
 		}
-		var r issuetracker.RemoteError
-		if errors.As(err, &r) {
+		if r, ok := errors.AsType[issuetracker.RemoteError](err); ok {
 			msg := err.Error()
 			if !authz.VisibleScope(c).AllAccess {
 				msg = r.Public()

@@ -100,7 +100,7 @@ func Seed(ctx context.Context, pool *pgxpool.Pool, cfg Config, logf Logf) (SeedR
 		}
 	}
 	if len(teamIDs) == 0 {
-		return SeedResult{}, fmt.Errorf("config seeds zero teams")
+		return SeedResult{}, errors.New("config seeds zero teams")
 	}
 
 	criticalities := []domain.Criticality{domain.CriticalityLow, domain.CriticalityMedium, domain.CriticalityMedium, domain.CriticalityHigh, domain.CriticalityCritical}
@@ -183,7 +183,7 @@ func seedProjectComponents(ctx context.Context, repo *sbom.Repository, spec Proj
 	}
 	components := make([]sbom.Component, n)
 	for i := range n {
-		idx := (int(seed)*131 + i) % 50_000
+		idx := (int(seed%50_000)*131 + i) % 50_000
 		direct := i%3 != 0
 		depth := i % 5
 		components[i] = sbom.Component{

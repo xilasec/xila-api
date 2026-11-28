@@ -209,7 +209,7 @@ func (r *Repository) RecordRun(ctx context.Context, scheduleID, status, errMsg s
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer tx.Rollback(ctx) //nolint:errcheck // no-op after commit
 	if _, err := tx.Exec(ctx, `INSERT INTO report_schedule_runs
 		(schedule_id, finished_at, status, error, recipients) VALUES ($1, now(), $2, $3, $4)`,
 		scheduleID, status, errMsg, recipients); err != nil {

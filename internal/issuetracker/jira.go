@@ -3,6 +3,7 @@ package issuetracker
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -48,7 +49,7 @@ func (c *jiraClient) Create(ctx context.Context, is Issue) (Ref, error) {
 		return Ref{}, err
 	}
 	if out.Key == "" {
-		return Ref{}, fmt.Errorf("jira: create returned no issue key")
+		return Ref{}, errors.New("jira: create returned no issue key")
 	}
 	return Ref{ExternalID: out.Key, URL: c.base + "/browse/" + out.Key}, nil
 }

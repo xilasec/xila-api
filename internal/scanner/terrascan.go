@@ -73,7 +73,7 @@ func (Terrascan) Parse(r io.Reader) ([]ParsedFinding, error) {
 			},
 		}
 		if v.Line > 0 {
-			f.Line = intPtr(v.Line)
+			f.Line = new(v.Line)
 		}
 		out = append(out, f)
 	}

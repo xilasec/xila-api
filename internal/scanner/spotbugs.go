@@ -73,8 +73,7 @@ func (SpotBugs) Parse(r io.Reader) ([]ParsedFinding, error) {
 	raw = bytes.TrimPrefix(raw, []byte("\xef\xbb\xbf"))
 	var coll spotBugsCollection
 	if err := xml.Unmarshal(raw, &coll); err != nil {
-		var unexpected xml.UnmarshalError
-		if errors.As(err, &unexpected) {
+		if _, ok := errors.AsType[xml.UnmarshalError](err); ok {
 			return nil, errors.New("decode spotbugs report: no <BugCollection> root — not a SpotBugs XML report")
 		}
 		return nil, fmt.Errorf("decode spotbugs report: %w", err)
@@ -115,7 +114,7 @@ func (SpotBugs) Parse(r io.Reader) ([]ParsedFinding, error) {
 			sl := bug.SourceLines[n-1]
 			f.FilePath = firstNonEmpty(sl.SourcePath, sl.ClassName)
 			if line, err := strconv.Atoi(sl.Start); err == nil && line > 0 {
-				f.Line = intPtr(line)
+				f.Line = new(line)
 			}
 		}
 		out = append(out, f)

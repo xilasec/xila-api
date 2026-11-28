@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"slices"
@@ -279,7 +280,7 @@ func TestPrivateAdvisoryLifecycle(t *testing.T) {
 	if err := repo.Delete(ctx, second.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repo.Get(ctx, second.ID); err != vulnmatch.ErrAdvisoryNotFound {
+	if _, err := repo.Get(ctx, second.ID); !errors.Is(err, vulnmatch.ErrAdvisoryNotFound) {
 		t.Errorf("get after delete = %v, want not found", err)
 	}
 }

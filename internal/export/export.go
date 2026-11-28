@@ -137,9 +137,9 @@ func text(v any) (s string, isText bool) {
 	case string:
 		return x, true
 	case int:
-		return fmt.Sprint(x), false
+		return strconv.Itoa(x), false
 	case int64:
-		return fmt.Sprint(x), false
+		return strconv.FormatInt(x, 10), false
 	case float64:
 		return formatFloat(x), false
 	case bool:

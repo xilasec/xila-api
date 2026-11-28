@@ -80,9 +80,14 @@ func main() {
 		OtherSPDX  []string `json:"other_spdx_license_keys"`
 		Deprecated bool     `json:"is_deprecated"`
 	}
-	fetch(spdxBase+"licenses.json", &lic)
-	fetch(spdxBase+"exceptions.json", &exc)
-	fetch(scancodeURL, &sc)
+	for _, src := range []struct {
+		url  string
+		into any
+	}{{spdxBase + "licenses.json", &lic}, {spdxBase + "exceptions.json", &exc}, {scancodeURL, &sc}} {
+		if err := fetch(src.url, src.into); err != nil {
+			log.Fatal(err)
+		}
+	}
 
 	f := catalogFile{
 		SPDXVersion:  lic.Version,
@@ -126,24 +131,28 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := os.WriteFile(*out, append(data, '\n'), 0o644); err != nil {
+	if err := os.WriteFile(*out, append(data, '\n'), 0o644); err != nil { //nolint:gosec // G306: a generated file committed to the repository
 		log.Fatal(err)
 	}
 	fmt.Printf("SPDX %s: %d licenses, %d exceptions; %d ScanCode categories → %s\n",
 		f.SPDXVersion, len(f.Licenses), len(f.Exceptions), len(f.Categories), *out)
 }
 
-func fetch(url string, into any) {
-	resp, err := http.Get(url) //nolint:gosec // fixed upstream URLs
+// fetchClient bounds each catalog download; the default client never times out.
+var fetchClient = &http.Client{Timeout: 2 * time.Minute}
+
+func fetch(url string, into any) error {
+	resp, err := fetchClient.Get(url)
 	if err != nil {
-		log.Fatalf("GET %s: %v", url, err)
+		return fmt.Errorf("GET %s: %w", url, err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		log.Fatalf("GET %s: %s %s", url, resp.Status, body)
+		return fmt.Errorf("GET %s: %s %s", url, resp.Status, body)
 	}
 	if err := json.NewDecoder(resp.Body).Decode(into); err != nil {
-		log.Fatalf("decode %s: %v", url, err)
+		return fmt.Errorf("decode %s: %w", url, err)
 	}
+	return nil
 }

@@ -438,6 +438,8 @@ func (r *Repository) List(ctx context.Context, f Filter) ([]Finding, error) {
 // listQuery builds the SELECT of cols over the findings f matches, in f.Sort
 // order, without a LIMIT — shared by List and Each so an export is exactly the
 // listing it was taken from.
+//
+//nolint:gocyclo // one clause per list filter; shared by the list, exports and reports so they cannot drift
 func listQuery(f Filter, cols string) (string, []any) {
 	q := `SELECT ` + cols + ` FROM findings WHERE 1 = 1`
 	var args []any

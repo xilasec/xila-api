@@ -91,8 +91,7 @@ func (r *Repository) Create(ctx context.Context, a Asset) (Asset, error) {
 	}
 	out, err := scanAsset(r.db.QueryRow(ctx, q, a.ProjectID, a.Type, a.Name, a.Identifier, metadata))
 
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
+	if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok {
 		switch pgErr.Code {
 		case "23505": // unique_violation
 			return Asset{}, ErrDuplicate

@@ -94,7 +94,7 @@ func (KICS) Parse(r io.Reader) ([]ParsedFinding, error) {
 				},
 			}
 			if loc.Line > 0 {
-				f.Line = intPtr(loc.Line)
+				f.Line = new(loc.Line)
 			}
 			out = append(out, f)
 		}

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"regexp"
 	"strconv"
 	"strings"
@@ -240,17 +241,8 @@ func (h *Handler) record(c *fiber.Ctx, t Token) {
 
 // page reads startIndex (1-based) and count.
 func page(c *fiber.Ctx) (offset, limit, start int) {
-	start = c.QueryInt("startIndex", 1)
-	if start < 1 {
-		start = 1
-	}
-	limit = c.QueryInt("count", 100)
-	if limit < 0 {
-		limit = 0
-	}
-	if limit > maxPage {
-		limit = maxPage
-	}
+	start = max(c.QueryInt("startIndex", 1), 1)
+	limit = min(max(c.QueryInt("count", 100), 0), maxPage)
 	return start - 1, limit, start
 }
 
@@ -279,7 +271,8 @@ func parseFilter(raw string, attrs map[string]string) (attr, value string, ok bo
 }
 
 func location(c *fiber.Ctx, kind, id string) string {
-	return c.BaseURL() + strings.TrimSuffix(c.Path()[:strings.Index(c.Path(), "/scim/v2")], "/") + "/scim/v2/" + kind + "/" + id
+	prefix, _, _ := strings.Cut(c.Path(), "/scim/v2")
+	return c.BaseURL() + strings.TrimSuffix(prefix, "/") + "/scim/v2/" + kind + "/" + id
 }
 
 func meta(c *fiber.Ctx, kind, id string, created, modified time.Time) fiber.Map {
@@ -788,9 +781,7 @@ func (h *Handler) resourceTypes(c *fiber.Ctx) error {
 func attr(name, typ string, required bool, extra fiber.Map) fiber.Map {
 	m := fiber.Map{"name": name, "type": typ, "multiValued": false, "required": required,
 		"caseExact": false, "mutability": "readWrite", "returned": "default", "uniqueness": "none"}
-	for k, v := range extra {
-		m[k] = v
-	}
+	maps.Copy(m, extra)
 	return m
 }
 

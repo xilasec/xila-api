@@ -76,7 +76,7 @@ func (ESLint) Parse(r io.Reader) ([]ParsedFinding, error) {
 				Metadata:    map[string]any{"column": m.Column},
 			}
 			if m.Line > 0 {
-				f.Line = intPtr(m.Line)
+				f.Line = new(m.Line)
 			}
 			if m.EndLine > 0 {
 				f.Metadata["end_line"] = m.EndLine
