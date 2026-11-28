@@ -362,14 +362,7 @@ func (r *Repository) Apply(ctx context.Context, ids []string, c Change, actor st
 	if err != nil {
 		return nil, err
 	}
-	if c.Status != nil && r.carrier != nil {
-		for _, f := range found {
-			if err := r.carrier.Carry(ctx, f, actor); err != nil {
-				return found, fmt.Errorf("carry triage: %w", err)
-			}
-		}
-	}
-	return found, nil
+	return found, r.decided(ctx, found, actor, c.Status != nil, c.Severity != nil)
 }
 
 // applyChange writes c to the findings in ids inside tx (whose actor is

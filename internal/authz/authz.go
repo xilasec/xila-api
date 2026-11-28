@@ -309,7 +309,7 @@ func capabilityFor(path, method string) domain.Capability {
 				return domain.CapUpload
 			}
 			return domain.CapProjectSettings
-		case "sla", "issue-tracker", "versions", "badge-token", "scan-expectations":
+		case "sla", "issue-tracker", "versions", "badge-token", "scan-expectations", "triage-rules", "triage-settings", "vuln-policies":
 			return domain.CapProjectSettings
 		case "risk-acceptances":
 			if last == "approve" || last == "reject" || last == "revoke" {
@@ -462,6 +462,12 @@ func baseScope(path, method string) routeScope {
 		// an SLA: the team working the backlog shouldn't be able to quietly
 		// relax what it's held to report on.
 		if len(segs) >= 3 && segs[2] == "scan-expectations" && !get {
+			s.minRole = domain.TeamOwner
+		}
+		// The project's own triage rules and vulnerability policies, and its
+		// opt-out of global ones, decide what happens to every finding it gets:
+		// owner-level, like its SLA (M13 13.10).
+		if len(segs) >= 3 && (segs[2] == "triage-rules" || segs[2] == "triage-settings" || segs[2] == "vuln-policies") && !get {
 			s.minRole = domain.TeamOwner
 		}
 		return s

@@ -8007,6 +8007,190 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/IssueSyncResult" }
 
+  /projects/{projectID}/triage-rules:
+    get:
+      operationId: listProjectTriageRules
+      tags: [Triage rules]
+      summary: A project's own triage rules
+      description: The rules made for this project, in every state. Global rules aren't listed here.
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rules: { type: array, items: { $ref: "#/components/schemas/TriageRule" } }
+    post:
+      operationId: createProjectTriageRule
+      tags: [Triage rules]
+      summary: Add a rule for this project
+      description: |
+        Project owner (a custom role must not deny `project_settings`). The rule
+        applies to this project only, whatever `project_id` the body carries; with
+        `TRIAGE_RULES_REQUIRE_APPROVAL` an instance admin approves it first.
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TriageRule" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TriageRule" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+  /projects/{projectID}/triage-rules/apply:
+    post:
+      operationId: applyProjectTriageRules
+      tags: [Triage rules]
+      summary: Apply the project's rules to its backlog
+      description: Its own rules and, unless it opted out, the global ones. Project owner.
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  applied: { type: integer }
+  /projects/{projectID}/triage-rules/{ruleID}:
+    patch:
+      operationId: updateProjectTriageRule
+      tags: [Triage rules]
+      summary: Update one of the project's rules
+      description: 404 for a global rule or another project's.
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }, { $ref: "#/components/parameters/RuleID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TriageRule" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TriageRule" }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deleteProjectTriageRule
+      tags: [Triage rules]
+      summary: Delete one of the project's rules
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }, { $ref: "#/components/parameters/RuleID" }]
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Error" }
+  /projects/{projectID}/triage-settings:
+    get:
+      operationId: getProjectTriageSettings
+      tags: [Triage rules]
+      summary: The project's opt-out of global rules
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProjectTriageSettings" }
+    put:
+      operationId: setProjectTriageSettings
+      tags: [Triage rules]
+      summary: Opt the project out of global rules, or back in
+      description: |
+        Project owner. Opting out skips global triage rules and global vulnerability
+        policies (those an admin aimed at the project by id or tag still apply), and
+        needs an instance admin's `allow_skip_global_rules` (403 otherwise); opting
+        back in never does.
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                skip_global_rules: { type: boolean }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProjectTriageSettings" }
+        "403": { $ref: "#/components/responses/Error" }
+  /projects/{projectID}/vuln-policies:
+    get:
+      operationId: listProjectVulnPolicies
+      tags: [Vulnerability policies]
+      summary: A project's own vulnerability policies
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  policies: { type: array, items: { $ref: "#/components/schemas/VulnPolicy" } }
+    post:
+      operationId: createProjectVulnPolicy
+      tags: [Vulnerability policies]
+      summary: Add a policy for this project
+      description: |
+        Project owner. The policy's scope is this project alone, whatever the body
+        says, and the GitOps bundle (`PUT /vuln-policies/bundle`) never replaces it.
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VulnPolicy" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VulnPolicy" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /projects/{projectID}/vuln-policies/{policyID}:
+    patch:
+      operationId: updateProjectVulnPolicy
+      tags: [Vulnerability policies]
+      summary: Update one of the project's policies
+      description: 404 for an admin policy or another project's.
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }, { $ref: "#/components/parameters/PolicyID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VulnPolicy" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VulnPolicy" }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deleteProjectVulnPolicy
+      tags: [Vulnerability policies]
+      summary: Delete one of the project's policies
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }, { $ref: "#/components/parameters/PolicyID" }]
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Error" }
   /triage-rules:
     get:
       operationId: listTriageRules
@@ -8050,6 +8234,35 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/TriageRule" }
         "422": { $ref: "#/components/responses/Error" }
+
+  /triage-rules/settings:
+    get:
+      operationId: getTriageSettings
+      tags: [Triage rules]
+      summary: Instance triage settings
+      description: Instance admin.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TriageSettings" }
+    put:
+      operationId: setTriageSettings
+      tags: [Triage rules]
+      summary: Set the instance triage settings
+      description: Instance admin. Turning `allow_skip_global_rules` off leaves projects' opt-outs stored but makes them stop counting.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TriageSettings" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TriageSettings" }
 
   /triage-rules/{ruleID}:
     get:
@@ -12998,7 +13211,8 @@ components:
           description: Match only dependencies the project never asked for. A finding with no SBOM data never matches.
         action:
           type: string
-          enum: [false_positive, risk_accepted, wont_fix, set_severity, set_custom_field]
+          enum: [false_positive, risk_accepted, wont_fix, set_severity, set_custom_field, none]
+          description: "`none` changes nothing itself: the rule acts through its side actions alone (at least one is required)."
         new_severity: { $ref: "#/components/schemas/Severity" }
         custom_field: { type: string, description: "For `set_custom_field`: the finding custom field's key." }
         custom_value:
@@ -13011,6 +13225,31 @@ components:
         vex_justification: { allOf: [{ $ref: "#/components/schemas/VexJustification" }], description: "Set with a false_positive / wont_fix action; cleared for any other." }
         vex_response: { type: array, items: { $ref: "#/components/schemas/VexResponse" } }
         reason: { type: string, description: Recorded in the finding's audit trail. }
+        assign_user_id:
+          type: [string, "null"]
+          format: uuid
+          description: |
+            Side action: assign the finding to this person. A project rule's assignee
+            must see its project (400 otherwise); a global rule skips projects its
+            assignee can't see. Exclusive with `assign_owner_from`.
+        assign_owner_from: { type: string, enum: ["", project_owner], description: "Side action: assign the finding to an owner of its project (a person, never a service account)." }
+        only_if_unassigned: { type: boolean, default: true, description: "Assign only findings nobody is assigned to yet. Defaults to true when omitted." }
+        add_tags: { type: array, items: { type: string }, description: "Side action: tags to add." }
+        comment: { type: string, description: "Side action: comment posted once per finding, naming the rule." }
+        notify:
+          type: boolean
+          description: |
+            Side action: one `triage.rule` notification per rule and run, listing
+            the findings it newly matched (each finding once).
+        schedule:
+          type: string
+          enum: ["", daily]
+          description: |
+            Also run on a schedule (checked every `TRIAGE_SCHEDULE_INTERVAL`), besides
+            every ingest and every person's status or severity decision: what makes
+            `age_days_gt` take effect without a new scan.
+        schedule_last_run_at: { type: [string, "null"], format: date-time, readOnly: true }
+        age_days_gt: { type: [integer, "null"], minimum: 0, description: "Match findings first seen more than this many days ago." }
         min_epss:
           type: [number, "null"]
           minimum: 0
@@ -13201,6 +13440,16 @@ components:
                     fact: { type: string, description: What the component had, e.g. `license GPL-3.0-only`. }
 
 
+    TriageSettings:
+      type: object
+      properties:
+        allow_skip_global_rules: { type: boolean, description: "Whether project owners may opt their project out of global triage rules and global vulnerability policies." }
+        updated_at: { type: string, format: date-time, readOnly: true }
+    ProjectTriageSettings:
+      type: object
+      properties:
+        skip_global_rules: { type: boolean, description: "The project skips global triage rules and global vulnerability policies (counts only while allow_skip_global_rules is on)." }
+        allow_skip_global_rules: { type: boolean, readOnly: true }
     VulnPolicy:
       type: object
       required: [name, condition, scope, mode]
@@ -13253,6 +13502,7 @@ components:
           type: array
           items: { type: string, format: uuid }
           description: Required (non-empty) when `scope` is `projects`.
+        owner_project_id: { type: [string, "null"], format: uuid, readOnly: true, description: "Set on a policy a project owner made for their project (POST /projects/{projectID}/vuln-policies): scoped to it alone and never part of the GitOps bundle." }
         tag: { type: string, description: Required when `scope` is `tag`. }
         mode:
           type: string

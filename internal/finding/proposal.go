@@ -90,10 +90,5 @@ func (r *Repository) ApplyProposed(ctx context.Context, id string, p Proposed, a
 	if err != nil {
 		return Finding{}, err
 	}
-	if p.Status != nil && r.carrier != nil {
-		if err := r.carrier.Carry(ctx, f, actor); err != nil {
-			return f, fmt.Errorf("carry triage: %w", err)
-		}
-	}
-	return f, nil
+	return f, r.decided(ctx, []Finding{f}, actor, p.Status != nil, p.Severity != nil)
 }

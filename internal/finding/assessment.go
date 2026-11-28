@@ -439,10 +439,8 @@ func (r *Repository) approveAssessment(ctx context.Context, id, approver, note s
 			return Assessment{}, Finding{}, err
 		}
 	}
-	if a.Status != nil && r.carrier != nil {
-		if err := r.carrier.Carry(ctx, f, actor); err != nil {
-			return Assessment{}, Finding{}, fmt.Errorf("carry triage: %w", err)
-		}
+	if err := r.decided(ctx, []Finding{f}, actor, a.Status != nil, a.Severity != nil); err != nil {
+		return Assessment{}, Finding{}, err
 	}
 	return a, f, nil
 }

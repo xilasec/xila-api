@@ -48,6 +48,7 @@ func (h *Handler) Register(r fiber.Router) {
 	r.Post("/vuln-policies/:policyID/preview", h.PreviewStored)
 	r.Patch("/vuln-policies/:policyID", h.Update)
 	r.Delete("/vuln-policies/:policyID", h.Delete)
+	h.registerProject(r)
 }
 
 // validate checks a policy against the project's currently defined custom
@@ -113,6 +114,13 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 		return err
 	}
 	p.ID = id
+	existing, err := h.repo.Get(c.UserContext(), id)
+	if err != nil {
+		return writeError(err)
+	}
+	if existing.OwnerProjectID != nil {
+		pinToOwner(&p, *existing.OwnerProjectID)
+	}
 	if err := h.validate(c.UserContext(), &p); err != nil {
 		return err
 	}
@@ -204,9 +212,10 @@ func (h *Handler) Evaluate(c *fiber.Ctx) error {
 }
 
 // ExportBundle handles GET /vuln-policies/bundle?format=yaml|json (default
-// yaml): every policy as a downloadable GitOps bundle.
+// yaml): every admin policy as a downloadable GitOps bundle (a project
+// owner's policies aren't the bundle's).
 func (h *Handler) ExportBundle(c *fiber.Ctx) error {
-	policies, err := h.repo.List(c.UserContext())
+	policies, err := h.repo.ListAdmin(c.UserContext())
 	if err != nil {
 		return err
 	}

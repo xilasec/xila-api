@@ -70,21 +70,21 @@ func TestAppliesNowValidityWindow(t *testing.T) {
 
 	p := mustPolicy(t, Policy{Name: "n", Enabled: true, Scope: ScopeGlobal, Mode: ModeApply,
 		Condition: "true", Analysis: &Analysis{State: AnalysisNotAffected}, ValidFrom: &from, ValidUntil: &until})
-	if !p.AppliesNow(now, "proj", nil) {
+	if !p.AppliesNow(now, "proj", ProjectFacts{}) {
 		t.Error("expected policy to apply inside its window")
 	}
-	if p.AppliesNow(now.Add(-2*time.Hour), "proj", nil) {
+	if p.AppliesNow(now.Add(-2*time.Hour), "proj", ProjectFacts{}) {
 		t.Error("expected policy not to apply before valid_from")
 	}
-	if p.AppliesNow(now.Add(2*time.Hour), "proj", nil) {
+	if p.AppliesNow(now.Add(2*time.Hour), "proj", ProjectFacts{}) {
 		t.Error("expected policy not to apply after valid_until (exclusive)")
 	}
-	if p.AppliesNow(until, "proj", nil) {
+	if p.AppliesNow(until, "proj", ProjectFacts{}) {
 		t.Error("valid_until should be exclusive")
 	}
 
 	p.Enabled = false
-	if p.AppliesNow(now, "proj", nil) {
+	if p.AppliesNow(now, "proj", ProjectFacts{}) {
 		t.Error("a disabled policy must never apply")
 	}
 }
@@ -93,20 +93,30 @@ func TestAppliesNowScope(t *testing.T) {
 	now := time.Now()
 	global := mustPolicy(t, Policy{Name: "g", Enabled: true, Scope: ScopeGlobal, Mode: ModeApply,
 		Condition: "true", Analysis: &Analysis{State: AnalysisNotAffected}})
-	if !global.AppliesNow(now, "any-project", nil) {
+	if !global.AppliesNow(now, "any-project", ProjectFacts{}) {
 		t.Error("global scope must cover every project")
 	}
 
 	projects := mustPolicy(t, Policy{Name: "p", Enabled: true, Scope: ScopeProjects, ProjectIDs: []string{"p1"}, Mode: ModeApply,
 		Condition: "true", Analysis: &Analysis{State: AnalysisNotAffected}})
-	if !projects.AppliesNow(now, "p1", nil) || projects.AppliesNow(now, "p2", nil) {
+	if !projects.AppliesNow(now, "p1", ProjectFacts{}) || projects.AppliesNow(now, "p2", ProjectFacts{}) {
 		t.Error("projects scope must cover only its listed projects")
 	}
 
 	tagged := mustPolicy(t, Policy{Name: "t", Enabled: true, Scope: ScopeTag, Tag: "pci", Mode: ModeApply,
 		Condition: "true", Analysis: &Analysis{State: AnalysisNotAffected}})
-	if !tagged.AppliesNow(now, "x", []string{"pci", "other"}) || tagged.AppliesNow(now, "x", []string{"other"}) {
+	if !tagged.AppliesNow(now, "x", ProjectFacts{Tags: []string{"pci", "other"}}) || tagged.AppliesNow(now, "x", ProjectFacts{Tags: []string{"other"}}) {
 		t.Error("tag scope must cover only projects carrying that tag")
+	}
+
+	// A project that opted out of global policies (13.10) is outside every
+	// global one, but a policy an admin aimed at it still applies.
+	optedOut := ProjectFacts{Tags: []string{"pci"}, SkipsGlobal: true}
+	if global.AppliesNow(now, "p1", optedOut) {
+		t.Error("an opted-out project must skip global policies")
+	}
+	if !projects.AppliesNow(now, "p1", optedOut) || !tagged.AppliesNow(now, "p1", optedOut) {
+		t.Error("an opt-out must not skip a policy aimed at the project by id or tag")
 	}
 }
 
@@ -128,7 +138,7 @@ func TestElectPriorityResolution(t *testing.T) {
 		Condition: "vulnerability.kev == true", Analysis: &Analysis{State: AnalysisExploitable},
 		CreatedAt: now})
 
-	elected, ok := Elect(context.Background(), []Policy{low, high, logOnly}, now, "p", nil, doc)
+	elected, ok := Elect(context.Background(), []Policy{low, high, logOnly}, now, "p", ProjectFacts{}, doc)
 	if !ok || elected.Name != "high" {
 		t.Fatalf("expected the higher-priority apply-mode policy to win, got %+v ok=%v", elected, ok)
 	}
@@ -137,7 +147,7 @@ func TestElectPriorityResolution(t *testing.T) {
 	older := mustPolicy(t, Policy{Name: "older", Enabled: true, Scope: ScopeGlobal, Mode: ModeApply, Priority: 10,
 		Condition: "vulnerability.kev == true", Analysis: &Analysis{State: AnalysisFalsePositive},
 		CreatedAt: now.Add(-time.Minute)})
-	elected, ok = Elect(context.Background(), []Policy{high, older}, now, "p", nil, doc)
+	elected, ok = Elect(context.Background(), []Policy{high, older}, now, "p", ProjectFacts{}, doc)
 	if !ok || elected.Name != "older" {
 		t.Fatalf("expected the older same-priority policy to win the tie, got %+v ok=%v", elected, ok)
 	}
@@ -145,7 +155,7 @@ func TestElectPriorityResolution(t *testing.T) {
 	// No matching condition: never elected.
 	none := mustPolicy(t, Policy{Name: "none", Enabled: true, Scope: ScopeGlobal, Mode: ModeApply, Priority: 1000,
 		Condition: "vulnerability.kev == false", Analysis: &Analysis{State: AnalysisNotAffected}})
-	if _, ok := Elect(context.Background(), []Policy{none}, now, "p", nil, doc); ok {
+	if _, ok := Elect(context.Background(), []Policy{none}, now, "p", ProjectFacts{}, doc); ok {
 		t.Error("a non-matching policy must never be elected")
 	}
 
@@ -153,7 +163,7 @@ func TestElectPriorityResolution(t *testing.T) {
 	expiredUntil := now.Add(-time.Minute)
 	expired := mustPolicy(t, Policy{Name: "expired", Enabled: true, Scope: ScopeGlobal, Mode: ModeApply, Priority: 1000,
 		Condition: "vulnerability.kev == true", Analysis: &Analysis{State: AnalysisNotAffected}, ValidUntil: &expiredUntil})
-	if _, ok := Elect(context.Background(), []Policy{expired}, now, "p", nil, doc); ok {
+	if _, ok := Elect(context.Background(), []Policy{expired}, now, "p", ProjectFacts{}, doc); ok {
 		t.Error("an expired policy must never be elected")
 	}
 }

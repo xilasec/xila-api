@@ -2696,6 +2696,7 @@ func (e TeamRole) Valid() bool {
 // Defines values for TriageRuleAction.
 const (
 	TriageRuleActionFalsePositive  TriageRuleAction = "false_positive"
+	TriageRuleActionNone           TriageRuleAction = "none"
 	TriageRuleActionRiskAccepted   TriageRuleAction = "risk_accepted"
 	TriageRuleActionSetCustomField TriageRuleAction = "set_custom_field"
 	TriageRuleActionSetSeverity    TriageRuleAction = "set_severity"
@@ -2706,6 +2707,8 @@ const (
 func (e TriageRuleAction) Valid() bool {
 	switch e {
 	case TriageRuleActionFalsePositive:
+		return true
+	case TriageRuleActionNone:
 		return true
 	case TriageRuleActionRiskAccepted:
 		return true
@@ -2741,6 +2744,24 @@ func (e TriageRuleApprovalStatus) Valid() bool {
 	}
 }
 
+// Defines values for TriageRuleAssignOwnerFrom.
+const (
+	TriageRuleAssignOwnerFromEmpty        TriageRuleAssignOwnerFrom = ""
+	TriageRuleAssignOwnerFromProjectOwner TriageRuleAssignOwnerFrom = "project_owner"
+)
+
+// Valid indicates whether the value is a known member of the TriageRuleAssignOwnerFrom enum.
+func (e TriageRuleAssignOwnerFrom) Valid() bool {
+	switch e {
+	case TriageRuleAssignOwnerFromEmpty:
+		return true
+	case TriageRuleAssignOwnerFromProjectOwner:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TriageRuleProjectCriticality.
 const (
 	TriageRuleProjectCriticalityCritical TriageRuleProjectCriticality = "critical"
@@ -2759,6 +2780,24 @@ func (e TriageRuleProjectCriticality) Valid() bool {
 	case TriageRuleProjectCriticalityLow:
 		return true
 	case TriageRuleProjectCriticalityMedium:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TriageRuleSchedule.
+const (
+	TriageRuleScheduleDaily TriageRuleSchedule = "daily"
+	TriageRuleScheduleEmpty TriageRuleSchedule = ""
+)
+
+// Valid indicates whether the value is a known member of the TriageRuleSchedule enum.
+func (e TriageRuleSchedule) Valid() bool {
+	switch e {
+	case TriageRuleScheduleDaily:
+		return true
+	case TriageRuleScheduleEmpty:
 		return true
 	default:
 		return false
@@ -7586,6 +7625,14 @@ type ProjectSummary struct {
 	Sla *SLAStats `json:"sla,omitempty"`
 }
 
+// ProjectTriageSettings defines model for ProjectTriageSettings.
+type ProjectTriageSettings struct {
+	AllowSkipGlobalRules *bool `json:"allow_skip_global_rules,omitempty"`
+
+	// SkipGlobalRules The project skips global triage rules and global vulnerability policies (counts only while allow_skip_global_rules is on).
+	SkipGlobalRules *bool `json:"skip_global_rules,omitempty"`
+}
+
 // ProjectVersion A branch or release of a project.
 type ProjectVersion struct {
 	CreatedAt *time.Time          `json:"created_at,omitempty"`
@@ -8647,7 +8694,14 @@ type TriagePreview struct {
 
 // TriageRule Conditions → action. Unset conditions are ignored; all set conditions must hold.
 type TriageRule struct {
+	// Action `none` changes nothing itself: the rule acts through its side actions alone (at least one is required).
 	Action *TriageRuleAction `json:"action,omitempty"`
+
+	// AddTags Side action: tags to add.
+	AddTags *[]string `json:"add_tags,omitempty"`
+
+	// AgeDaysGt Match findings first seen more than this many days ago.
+	AgeDaysGt *int `json:"age_days_gt,omitempty"`
 
 	// ApprovalStatus Only `approved` rules apply. With `TRIAGE_RULES_REQUIRE_APPROVAL=true`, creating
 	// **or editing** a rule makes it `pending` — so editing an approved rule stops it
@@ -8656,8 +8710,19 @@ type TriageRule struct {
 	ApprovedAt     *time.Time                `json:"approved_at,omitempty"`
 	ApprovedBy     *openapi_types.UUID       `json:"approved_by,omitempty"`
 
+	// AssignOwnerFrom Side action: assign the finding to an owner of its project (a person, never a service account).
+	AssignOwnerFrom *TriageRuleAssignOwnerFrom `json:"assign_owner_from,omitempty"`
+
+	// AssignUserId Side action: assign the finding to this person. A project rule's assignee
+	// must see its project (400 otherwise); a global rule skips projects its
+	// assignee can't see. Exclusive with `assign_owner_from`.
+	AssignUserId *openapi_types.UUID `json:"assign_user_id,omitempty"`
+
 	// Category `cloud` is CSPM, `kubernetes` is KSPM.
 	Category *Category `json:"category,omitempty"`
+
+	// Comment Side action: comment posted once per finding, naming the rule.
+	Comment *string `json:"comment,omitempty"`
 
 	// Continue Chain this rule: after it acts, the rules after it still evaluate, against the
 	// finding as it left it (raise a severity, then act on the raised severity).
@@ -8705,10 +8770,17 @@ type TriageRule struct {
 	LastHitAt *time.Time `json:"last_hit_at,omitempty"`
 
 	// MinEpss Match findings whose EPSS is at least this (inclusive). A finding with no EPSS score never matches.
-	MinEpss      *float32  `json:"min_epss,omitempty"`
-	Name         *string   `json:"name,omitempty"`
-	NewSeverity  *Severity `json:"new_severity,omitempty"`
-	PackageRegex *string   `json:"package_regex,omitempty"`
+	MinEpss     *float32  `json:"min_epss,omitempty"`
+	Name        *string   `json:"name,omitempty"`
+	NewSeverity *Severity `json:"new_severity,omitempty"`
+
+	// Notify Side action: one `triage.rule` notification per rule and run, listing
+	// the findings it newly matched (each finding once).
+	Notify *bool `json:"notify,omitempty"`
+
+	// OnlyIfUnassigned Assign only findings nobody is assigned to yet. Defaults to true when omitted.
+	OnlyIfUnassigned *bool   `json:"only_if_unassigned,omitempty"`
+	PackageRegex     *string `json:"package_regex,omitempty"`
 
 	// PathRegex Example: ^test/
 	PathRegex *string `json:"path_regex,omitempty"`
@@ -8725,7 +8797,13 @@ type TriageRule struct {
 	RejectedBy *openapi_types.UUID `json:"rejected_by,omitempty"`
 	RuleId     *string             `json:"rule_id,omitempty"`
 	Scanner    *string             `json:"scanner,omitempty"`
-	Severities *[]Severity         `json:"severities,omitempty"`
+
+	// Schedule Also run on a schedule (checked every `TRIAGE_SCHEDULE_INTERVAL`), besides
+	// every ingest and every person's status or severity decision: what makes
+	// `age_days_gt` take effect without a new scan.
+	Schedule          *TriageRuleSchedule `json:"schedule,omitempty"`
+	ScheduleLastRunAt *time.Time          `json:"schedule_last_run_at,omitempty"`
+	Severities        *[]Severity         `json:"severities,omitempty"`
 
 	// SortOrder Evaluation order (lowest first). The first match acts.
 	SortOrder *int       `json:"sort_order,omitempty"`
@@ -8739,7 +8817,7 @@ type TriageRule struct {
 	VexResponse      *[]VexResponse    `json:"vex_response,omitempty"`
 }
 
-// TriageRuleAction defines model for TriageRule.Action.
+// TriageRuleAction `none` changes nothing itself: the rule acts through its side actions alone (at least one is required).
 type TriageRuleAction string
 
 // TriageRuleApprovalStatus Only `approved` rules apply. With `TRIAGE_RULES_REQUIRE_APPROVAL=true`, creating
@@ -8747,8 +8825,23 @@ type TriageRuleAction string
 // applying until a different admin re-approves it. Otherwise rules are approved on save.
 type TriageRuleApprovalStatus string
 
+// TriageRuleAssignOwnerFrom Side action: assign the finding to an owner of its project (a person, never a service account).
+type TriageRuleAssignOwnerFrom string
+
 // TriageRuleProjectCriticality defines model for TriageRule.ProjectCriticality.
 type TriageRuleProjectCriticality string
+
+// TriageRuleSchedule Also run on a schedule (checked every `TRIAGE_SCHEDULE_INTERVAL`), besides
+// every ingest and every person's status or severity decision: what makes
+// `age_days_gt` take effect without a new scan.
+type TriageRuleSchedule string
+
+// TriageSettings defines model for TriageSettings.
+type TriageSettings struct {
+	// AllowSkipGlobalRules Whether project owners may opt their project out of global triage rules and global vulnerability policies.
+	AllowSkipGlobalRules *bool      `json:"allow_skip_global_rules,omitempty"`
+	UpdatedAt            *time.Time `json:"updated_at,omitempty"`
+}
 
 // User defines model for User.
 type User struct {
@@ -8937,6 +9030,9 @@ type VulnPolicy struct {
 	// Mode `log`: the condition is still evaluated (see preview) but never mutates a finding and never wins election over an `apply` policy.
 	Mode VulnPolicyMode `json:"mode"`
 	Name string         `json:"name"`
+
+	// OwnerProjectId Set on a policy a project owner made for their project (POST /projects/{projectID}/vuln-policies): scoped to it alone and never part of the GitOps bundle.
+	OwnerProjectId *openapi_types.UUID `json:"owner_project_id,omitempty"`
 
 	// Priority The highest-priority policy whose condition matches a pair wins when several do. Ties break oldest-first.
 	Priority *int `json:"priority,omitempty"`
@@ -11109,6 +11205,11 @@ type GetProjectSummaryParams struct {
 	IncludeChildren *IncludeChildren `form:"include_children,omitempty" json:"include_children,omitempty"`
 }
 
+// SetProjectTriageSettingsJSONBody defines parameters for SetProjectTriageSettings.
+type SetProjectTriageSettingsJSONBody struct {
+	SkipGlobalRules *bool `json:"skip_global_rules,omitempty"`
+}
+
 // UpdateProjectVersionJSONBody defines parameters for UpdateProjectVersion.
 type UpdateProjectVersionJSONBody struct {
 	IsDefault UpdateProjectVersionJSONBodyIsDefault `json:"is_default"`
@@ -11916,11 +12017,26 @@ type PutProjectSlaPolicyJSONRequestBody = SLADays
 // PutProjectTriageCarryJSONRequestBody defines body for PutProjectTriageCarry for application/json ContentType.
 type PutProjectTriageCarryJSONRequestBody = TriageCarrySettings
 
+// CreateProjectTriageRuleJSONRequestBody defines body for CreateProjectTriageRule for application/json ContentType.
+type CreateProjectTriageRuleJSONRequestBody = TriageRule
+
+// UpdateProjectTriageRuleJSONRequestBody defines body for UpdateProjectTriageRule for application/json ContentType.
+type UpdateProjectTriageRuleJSONRequestBody = TriageRule
+
+// SetProjectTriageSettingsJSONRequestBody defines body for SetProjectTriageSettings for application/json ContentType.
+type SetProjectTriageSettingsJSONRequestBody SetProjectTriageSettingsJSONBody
+
 // UpdateProjectVersionJSONRequestBody defines body for UpdateProjectVersion for application/json ContentType.
 type UpdateProjectVersionJSONRequestBody UpdateProjectVersionJSONBody
 
 // ImportProjectVexJSONRequestBody defines body for ImportProjectVex for application/json ContentType.
 type ImportProjectVexJSONRequestBody = ImportProjectVexJSONBody
+
+// CreateProjectVulnPolicyJSONRequestBody defines body for CreateProjectVulnPolicy for application/json ContentType.
+type CreateProjectVulnPolicyJSONRequestBody = VulnPolicy
+
+// UpdateProjectVulnPolicyJSONRequestBody defines body for UpdateProjectVulnPolicy for application/json ContentType.
+type UpdateProjectVulnPolicyJSONRequestBody = VulnPolicy
 
 // CreatePsirtAdvisoryJSONRequestBody defines body for CreatePsirtAdvisory for application/json ContentType.
 type CreatePsirtAdvisoryJSONRequestBody = PSIRTAdvisory
@@ -12020,6 +12136,9 @@ type CreateTriageRuleJSONRequestBody = TriageRule
 
 // PreviewTriageRulesJSONRequestBody defines body for PreviewTriageRules for application/json ContentType.
 type PreviewTriageRulesJSONRequestBody = TriageRule
+
+// SetTriageSettingsJSONRequestBody defines body for SetTriageSettings for application/json ContentType.
+type SetTriageSettingsJSONRequestBody = TriageSettings
 
 // UpdateTriageRuleJSONRequestBody defines body for UpdateTriageRule for application/json ContentType.
 type UpdateTriageRuleJSONRequestBody = TriageRule
@@ -16272,6 +16391,94 @@ type ClientInterface interface {
 	// Corresponds with PUT /projects/{projectID}/triage-carry (the `PutProjectTriageCarry` operationId).
 	PutProjectTriageCarry(ctx context.Context, projectID ProjectID, body PutProjectTriageCarryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListProjectTriageRules A project's own triage rules
+	//
+	// The rules made for this project, in every state. Global rules aren't listed here.
+	//
+	// Corresponds with GET /projects/{projectID}/triage-rules (the `ListProjectTriageRules` operationId).
+	ListProjectTriageRules(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateProjectTriageRuleWithBody Add a rule for this project
+	//
+	// Project owner (a custom role must not deny `project_settings`). The rule
+	// applies to this project only, whatever `project_id` the body carries; with
+	// `TRIAGE_RULES_REQUIRE_APPROVAL` an instance admin approves it first.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /projects/{projectID}/triage-rules (the `CreateProjectTriageRule` operationId).
+	CreateProjectTriageRuleWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateProjectTriageRule Add a rule for this project
+	//
+	// Project owner (a custom role must not deny `project_settings`). The rule
+	// applies to this project only, whatever `project_id` the body carries; with
+	// `TRIAGE_RULES_REQUIRE_APPROVAL` an instance admin approves it first.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /projects/{projectID}/triage-rules (the `CreateProjectTriageRule` operationId).
+	CreateProjectTriageRule(ctx context.Context, projectID ProjectID, body CreateProjectTriageRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ApplyProjectTriageRules Apply the project's rules to its backlog
+	//
+	// Its own rules and, unless it opted out, the global ones. Project owner.
+	//
+	// Corresponds with POST /projects/{projectID}/triage-rules/apply (the `ApplyProjectTriageRules` operationId).
+	ApplyProjectTriageRules(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteProjectTriageRule Delete one of the project's rules
+	//
+	// Corresponds with DELETE /projects/{projectID}/triage-rules/{ruleID} (the `DeleteProjectTriageRule` operationId).
+	DeleteProjectTriageRule(ctx context.Context, projectID ProjectID, ruleID RuleID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateProjectTriageRuleWithBody Update one of the project's rules
+	//
+	// 404 for a global rule or another project's.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /projects/{projectID}/triage-rules/{ruleID} (the `UpdateProjectTriageRule` operationId).
+	UpdateProjectTriageRuleWithBody(ctx context.Context, projectID ProjectID, ruleID RuleID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateProjectTriageRule Update one of the project's rules
+	//
+	// 404 for a global rule or another project's.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PATCH /projects/{projectID}/triage-rules/{ruleID} (the `UpdateProjectTriageRule` operationId).
+	UpdateProjectTriageRule(ctx context.Context, projectID ProjectID, ruleID RuleID, body UpdateProjectTriageRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetProjectTriageSettings The project's opt-out of global rules
+	//
+	// Corresponds with GET /projects/{projectID}/triage-settings (the `GetProjectTriageSettings` operationId).
+	GetProjectTriageSettings(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetProjectTriageSettingsWithBody Opt the project out of global rules, or back in
+	//
+	// Project owner. Opting out skips global triage rules and global vulnerability
+	// policies (those an admin aimed at the project by id or tag still apply), and
+	// needs an instance admin's `allow_skip_global_rules` (403 otherwise); opting
+	// back in never does.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /projects/{projectID}/triage-settings (the `SetProjectTriageSettings` operationId).
+	SetProjectTriageSettingsWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetProjectTriageSettings Opt the project out of global rules, or back in
+	//
+	// Project owner. Opting out skips global triage rules and global vulnerability
+	// policies (those an admin aimed at the project by id or tag still apply), and
+	// needs an instance admin's `allow_skip_global_rules` (403 otherwise); opting
+	// back in never does.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /projects/{projectID}/triage-settings (the `SetProjectTriageSettings` operationId).
+	SetProjectTriageSettings(ctx context.Context, projectID ProjectID, body SetProjectTriageSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListProjectVersions A project's branches and releases
 	//
 	// Every scan, SBOM and finding belongs to one version — a branch (`?branch=` on
@@ -16380,6 +16587,54 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /projects/{projectID}/vex/export (the `ExportProjectVex` operationId).
 	ExportProjectVex(ctx context.Context, projectID ProjectID, params *ExportProjectVexParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListProjectVulnPolicies A project's own vulnerability policies
+	//
+	// Corresponds with GET /projects/{projectID}/vuln-policies (the `ListProjectVulnPolicies` operationId).
+	ListProjectVulnPolicies(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateProjectVulnPolicyWithBody Add a policy for this project
+	//
+	// Project owner. The policy's scope is this project alone, whatever the body
+	// says, and the GitOps bundle (`PUT /vuln-policies/bundle`) never replaces it.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /projects/{projectID}/vuln-policies (the `CreateProjectVulnPolicy` operationId).
+	CreateProjectVulnPolicyWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateProjectVulnPolicy Add a policy for this project
+	//
+	// Project owner. The policy's scope is this project alone, whatever the body
+	// says, and the GitOps bundle (`PUT /vuln-policies/bundle`) never replaces it.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /projects/{projectID}/vuln-policies (the `CreateProjectVulnPolicy` operationId).
+	CreateProjectVulnPolicy(ctx context.Context, projectID ProjectID, body CreateProjectVulnPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteProjectVulnPolicy Delete one of the project's policies
+	//
+	// Corresponds with DELETE /projects/{projectID}/vuln-policies/{policyID} (the `DeleteProjectVulnPolicy` operationId).
+	DeleteProjectVulnPolicy(ctx context.Context, projectID ProjectID, policyID PolicyID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateProjectVulnPolicyWithBody Update one of the project's policies
+	//
+	// 404 for an admin policy or another project's.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /projects/{projectID}/vuln-policies/{policyID} (the `UpdateProjectVulnPolicy` operationId).
+	UpdateProjectVulnPolicyWithBody(ctx context.Context, projectID ProjectID, policyID PolicyID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateProjectVulnPolicy Update one of the project's policies
+	//
+	// 404 for an admin policy or another project's.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PATCH /projects/{projectID}/vuln-policies/{policyID} (the `UpdateProjectVulnPolicy` operationId).
+	UpdateProjectVulnPolicy(ctx context.Context, projectID ProjectID, policyID PolicyID, body UpdateProjectVulnPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UnwatchProject Stop watching this project
 	//
@@ -17695,6 +17950,31 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /triage-rules/preview (the `PreviewTriageRules` operationId).
 	PreviewTriageRules(ctx context.Context, params *PreviewTriageRulesParams, body PreviewTriageRulesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetTriageSettings Instance triage settings
+	//
+	// Instance admin.
+	//
+	// Corresponds with GET /triage-rules/settings (the `GetTriageSettings` operationId).
+	GetTriageSettings(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetTriageSettingsWithBody Set the instance triage settings
+	//
+	// Instance admin. Turning `allow_skip_global_rules` off leaves projects' opt-outs stored but makes them stop counting.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /triage-rules/settings (the `SetTriageSettings` operationId).
+	SetTriageSettingsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetTriageSettings Set the instance triage settings
+	//
+	// Instance admin. Turning `allow_skip_global_rules` off leaves projects' opt-outs stored but makes them stop counting.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /triage-rules/settings (the `SetTriageSettings` operationId).
+	SetTriageSettings(ctx context.Context, body SetTriageSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteTriageRule Delete a triage rule
 	//
@@ -26367,6 +26647,194 @@ func (c *Client) PutProjectTriageCarry(ctx context.Context, projectID ProjectID,
 	return c.Client.Do(req)
 }
 
+// ListProjectTriageRules A project's own triage rules
+//
+// The rules made for this project, in every state. Global rules aren't listed here.
+//
+// Corresponds with GET /projects/{projectID}/triage-rules (the `ListProjectTriageRules` operationId).
+func (c *Client) ListProjectTriageRules(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListProjectTriageRulesRequest(c.Server, projectID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateProjectTriageRuleWithBody Add a rule for this project
+//
+// Project owner (a custom role must not deny `project_settings`). The rule
+// applies to this project only, whatever `project_id` the body carries; with
+// `TRIAGE_RULES_REQUIRE_APPROVAL` an instance admin approves it first.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /projects/{projectID}/triage-rules (the `CreateProjectTriageRule` operationId).
+func (c *Client) CreateProjectTriageRuleWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateProjectTriageRuleRequestWithBody(c.Server, projectID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateProjectTriageRule Add a rule for this project
+//
+// Project owner (a custom role must not deny `project_settings`). The rule
+// applies to this project only, whatever `project_id` the body carries; with
+// `TRIAGE_RULES_REQUIRE_APPROVAL` an instance admin approves it first.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /projects/{projectID}/triage-rules (the `CreateProjectTriageRule` operationId).
+func (c *Client) CreateProjectTriageRule(ctx context.Context, projectID ProjectID, body CreateProjectTriageRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateProjectTriageRuleRequest(c.Server, projectID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ApplyProjectTriageRules Apply the project's rules to its backlog
+//
+// Its own rules and, unless it opted out, the global ones. Project owner.
+//
+// Corresponds with POST /projects/{projectID}/triage-rules/apply (the `ApplyProjectTriageRules` operationId).
+func (c *Client) ApplyProjectTriageRules(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewApplyProjectTriageRulesRequest(c.Server, projectID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteProjectTriageRule Delete one of the project's rules
+//
+// Corresponds with DELETE /projects/{projectID}/triage-rules/{ruleID} (the `DeleteProjectTriageRule` operationId).
+func (c *Client) DeleteProjectTriageRule(ctx context.Context, projectID ProjectID, ruleID RuleID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteProjectTriageRuleRequest(c.Server, projectID, ruleID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateProjectTriageRuleWithBody Update one of the project's rules
+//
+// 404 for a global rule or another project's.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /projects/{projectID}/triage-rules/{ruleID} (the `UpdateProjectTriageRule` operationId).
+func (c *Client) UpdateProjectTriageRuleWithBody(ctx context.Context, projectID ProjectID, ruleID RuleID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateProjectTriageRuleRequestWithBody(c.Server, projectID, ruleID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateProjectTriageRule Update one of the project's rules
+//
+// 404 for a global rule or another project's.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PATCH /projects/{projectID}/triage-rules/{ruleID} (the `UpdateProjectTriageRule` operationId).
+func (c *Client) UpdateProjectTriageRule(ctx context.Context, projectID ProjectID, ruleID RuleID, body UpdateProjectTriageRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateProjectTriageRuleRequest(c.Server, projectID, ruleID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetProjectTriageSettings The project's opt-out of global rules
+//
+// Corresponds with GET /projects/{projectID}/triage-settings (the `GetProjectTriageSettings` operationId).
+func (c *Client) GetProjectTriageSettings(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetProjectTriageSettingsRequest(c.Server, projectID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetProjectTriageSettingsWithBody Opt the project out of global rules, or back in
+//
+// Project owner. Opting out skips global triage rules and global vulnerability
+// policies (those an admin aimed at the project by id or tag still apply), and
+// needs an instance admin's `allow_skip_global_rules` (403 otherwise); opting
+// back in never does.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /projects/{projectID}/triage-settings (the `SetProjectTriageSettings` operationId).
+func (c *Client) SetProjectTriageSettingsWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetProjectTriageSettingsRequestWithBody(c.Server, projectID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetProjectTriageSettings Opt the project out of global rules, or back in
+//
+// Project owner. Opting out skips global triage rules and global vulnerability
+// policies (those an admin aimed at the project by id or tag still apply), and
+// needs an instance admin's `allow_skip_global_rules` (403 otherwise); opting
+// back in never does.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /projects/{projectID}/triage-settings (the `SetProjectTriageSettings` operationId).
+func (c *Client) SetProjectTriageSettings(ctx context.Context, projectID ProjectID, body SetProjectTriageSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetProjectTriageSettingsRequest(c.Server, projectID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListProjectVersions A project's branches and releases
 //
 // Every scan, SBOM and finding belongs to one version — a branch (`?branch=` on
@@ -26546,6 +27014,114 @@ func (c *Client) ImportProjectVex(ctx context.Context, projectID ProjectID, body
 // Corresponds with GET /projects/{projectID}/vex/export (the `ExportProjectVex` operationId).
 func (c *Client) ExportProjectVex(ctx context.Context, projectID ProjectID, params *ExportProjectVexParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewExportProjectVexRequest(c.Server, projectID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListProjectVulnPolicies A project's own vulnerability policies
+//
+// Corresponds with GET /projects/{projectID}/vuln-policies (the `ListProjectVulnPolicies` operationId).
+func (c *Client) ListProjectVulnPolicies(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListProjectVulnPoliciesRequest(c.Server, projectID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateProjectVulnPolicyWithBody Add a policy for this project
+//
+// Project owner. The policy's scope is this project alone, whatever the body
+// says, and the GitOps bundle (`PUT /vuln-policies/bundle`) never replaces it.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /projects/{projectID}/vuln-policies (the `CreateProjectVulnPolicy` operationId).
+func (c *Client) CreateProjectVulnPolicyWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateProjectVulnPolicyRequestWithBody(c.Server, projectID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateProjectVulnPolicy Add a policy for this project
+//
+// Project owner. The policy's scope is this project alone, whatever the body
+// says, and the GitOps bundle (`PUT /vuln-policies/bundle`) never replaces it.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /projects/{projectID}/vuln-policies (the `CreateProjectVulnPolicy` operationId).
+func (c *Client) CreateProjectVulnPolicy(ctx context.Context, projectID ProjectID, body CreateProjectVulnPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateProjectVulnPolicyRequest(c.Server, projectID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteProjectVulnPolicy Delete one of the project's policies
+//
+// Corresponds with DELETE /projects/{projectID}/vuln-policies/{policyID} (the `DeleteProjectVulnPolicy` operationId).
+func (c *Client) DeleteProjectVulnPolicy(ctx context.Context, projectID ProjectID, policyID PolicyID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteProjectVulnPolicyRequest(c.Server, projectID, policyID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateProjectVulnPolicyWithBody Update one of the project's policies
+//
+// 404 for an admin policy or another project's.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /projects/{projectID}/vuln-policies/{policyID} (the `UpdateProjectVulnPolicy` operationId).
+func (c *Client) UpdateProjectVulnPolicyWithBody(ctx context.Context, projectID ProjectID, policyID PolicyID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateProjectVulnPolicyRequestWithBody(c.Server, projectID, policyID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateProjectVulnPolicy Update one of the project's policies
+//
+// 404 for an admin policy or another project's.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PATCH /projects/{projectID}/vuln-policies/{policyID} (the `UpdateProjectVulnPolicy` operationId).
+func (c *Client) UpdateProjectVulnPolicy(ctx context.Context, projectID ProjectID, policyID PolicyID, body UpdateProjectVulnPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateProjectVulnPolicyRequest(c.Server, projectID, policyID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -29331,6 +29907,61 @@ func (c *Client) PreviewTriageRulesWithBody(ctx context.Context, params *Preview
 // Corresponds with POST /triage-rules/preview (the `PreviewTriageRules` operationId).
 func (c *Client) PreviewTriageRules(ctx context.Context, params *PreviewTriageRulesParams, body PreviewTriageRulesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPreviewTriageRulesRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetTriageSettings Instance triage settings
+//
+// Instance admin.
+//
+// Corresponds with GET /triage-rules/settings (the `GetTriageSettings` operationId).
+func (c *Client) GetTriageSettings(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetTriageSettingsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetTriageSettingsWithBody Set the instance triage settings
+//
+// Instance admin. Turning `allow_skip_global_rules` off leaves projects' opt-outs stored but makes them stop counting.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /triage-rules/settings (the `SetTriageSettings` operationId).
+func (c *Client) SetTriageSettingsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetTriageSettingsRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetTriageSettings Set the instance triage settings
+//
+// Instance admin. Turning `allow_skip_global_rules` off leaves projects' opt-outs stored but makes them stop counting.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /triage-rules/settings (the `SetTriageSettings` operationId).
+func (c *Client) SetTriageSettings(ctx context.Context, body SetTriageSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetTriageSettingsRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -46483,6 +47114,297 @@ func NewPutProjectTriageCarryRequestWithBody(server string, projectID ProjectID,
 	return req, nil
 }
 
+// NewListProjectTriageRulesRequest constructs an http.Request for the ListProjectTriageRules method
+func NewListProjectTriageRulesRequest(server string, projectID ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/triage-rules", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateProjectTriageRuleRequest calls the generic CreateProjectTriageRule builder with application/json body
+func NewCreateProjectTriageRuleRequest(server string, projectID ProjectID, body CreateProjectTriageRuleJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateProjectTriageRuleRequestWithBody(server, projectID, "application/json", bodyReader)
+}
+
+// NewCreateProjectTriageRuleRequestWithBody constructs an http.Request for the CreateProjectTriageRule method, with any body, and a specified content type
+func NewCreateProjectTriageRuleRequestWithBody(server string, projectID ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/triage-rules", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewApplyProjectTriageRulesRequest constructs an http.Request for the ApplyProjectTriageRules method
+func NewApplyProjectTriageRulesRequest(server string, projectID ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/triage-rules/apply", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDeleteProjectTriageRuleRequest constructs an http.Request for the DeleteProjectTriageRule method
+func NewDeleteProjectTriageRuleRequest(server string, projectID ProjectID, ruleID RuleID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "ruleID", ruleID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/triage-rules/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateProjectTriageRuleRequest calls the generic UpdateProjectTriageRule builder with application/json body
+func NewUpdateProjectTriageRuleRequest(server string, projectID ProjectID, ruleID RuleID, body UpdateProjectTriageRuleJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateProjectTriageRuleRequestWithBody(server, projectID, ruleID, "application/json", bodyReader)
+}
+
+// NewUpdateProjectTriageRuleRequestWithBody constructs an http.Request for the UpdateProjectTriageRule method, with any body, and a specified content type
+func NewUpdateProjectTriageRuleRequestWithBody(server string, projectID ProjectID, ruleID RuleID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "ruleID", ruleID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/triage-rules/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetProjectTriageSettingsRequest constructs an http.Request for the GetProjectTriageSettings method
+func NewGetProjectTriageSettingsRequest(server string, projectID ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/triage-settings", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSetProjectTriageSettingsRequest calls the generic SetProjectTriageSettings builder with application/json body
+func NewSetProjectTriageSettingsRequest(server string, projectID ProjectID, body SetProjectTriageSettingsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetProjectTriageSettingsRequestWithBody(server, projectID, "application/json", bodyReader)
+}
+
+// NewSetProjectTriageSettingsRequestWithBody constructs an http.Request for the SetProjectTriageSettings method, with any body, and a specified content type
+func NewSetProjectTriageSettingsRequestWithBody(server string, projectID ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/triage-settings", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListProjectVersionsRequest constructs an http.Request for the ListProjectVersions method
 func NewListProjectVersionsRequest(server string, projectID ProjectID) (*http.Request, error) {
 	var err error
@@ -46786,6 +47708,182 @@ func NewExportProjectVexRequest(server string, projectID ProjectID, params *Expo
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewListProjectVulnPoliciesRequest constructs an http.Request for the ListProjectVulnPolicies method
+func NewListProjectVulnPoliciesRequest(server string, projectID ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/vuln-policies", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateProjectVulnPolicyRequest calls the generic CreateProjectVulnPolicy builder with application/json body
+func NewCreateProjectVulnPolicyRequest(server string, projectID ProjectID, body CreateProjectVulnPolicyJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateProjectVulnPolicyRequestWithBody(server, projectID, "application/json", bodyReader)
+}
+
+// NewCreateProjectVulnPolicyRequestWithBody constructs an http.Request for the CreateProjectVulnPolicy method, with any body, and a specified content type
+func NewCreateProjectVulnPolicyRequestWithBody(server string, projectID ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/vuln-policies", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteProjectVulnPolicyRequest constructs an http.Request for the DeleteProjectVulnPolicy method
+func NewDeleteProjectVulnPolicyRequest(server string, projectID ProjectID, policyID PolicyID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "policyID", policyID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/vuln-policies/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateProjectVulnPolicyRequest calls the generic UpdateProjectVulnPolicy builder with application/json body
+func NewUpdateProjectVulnPolicyRequest(server string, projectID ProjectID, policyID PolicyID, body UpdateProjectVulnPolicyJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateProjectVulnPolicyRequestWithBody(server, projectID, policyID, "application/json", bodyReader)
+}
+
+// NewUpdateProjectVulnPolicyRequestWithBody constructs an http.Request for the UpdateProjectVulnPolicy method, with any body, and a specified content type
+func NewUpdateProjectVulnPolicyRequestWithBody(server string, projectID ProjectID, policyID PolicyID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "policyID", policyID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/vuln-policies/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -51893,6 +52991,73 @@ func NewPreviewTriageRulesRequestWithBody(server string, params *PreviewTriageRu
 	}
 
 	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetTriageSettingsRequest constructs an http.Request for the GetTriageSettings method
+func NewGetTriageSettingsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/triage-rules/settings")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSetTriageSettingsRequest calls the generic SetTriageSettings builder with application/json body
+func NewSetTriageSettingsRequest(server string, body SetTriageSettingsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetTriageSettingsRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewSetTriageSettingsRequestWithBody constructs an http.Request for the SetTriageSettings method, with any body, and a specified content type
+func NewSetTriageSettingsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/triage-rules/settings")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -58013,6 +59178,102 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with PUT /projects/{projectID}/triage-carry (the `PutProjectTriageCarry` operationId).
 	PutProjectTriageCarryWithResponse(ctx context.Context, projectID ProjectID, body PutProjectTriageCarryJSONRequestBody, reqEditors ...RequestEditorFn) (*PutProjectTriageCarryResponse, error)
 
+	// ListProjectTriageRulesWithResponse A project's own triage rules
+	//
+	// The rules made for this project, in every state. Global rules aren't listed here.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /projects/{projectID}/triage-rules (the `ListProjectTriageRules` operationId).
+	ListProjectTriageRulesWithResponse(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*ListProjectTriageRulesResponse, error)
+
+	// CreateProjectTriageRuleWithBodyWithResponse Add a rule for this project
+	//
+	// Project owner (a custom role must not deny `project_settings`). The rule
+	// applies to this project only, whatever `project_id` the body carries; with
+	// `TRIAGE_RULES_REQUIRE_APPROVAL` an instance admin approves it first.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /projects/{projectID}/triage-rules (the `CreateProjectTriageRule` operationId).
+	CreateProjectTriageRuleWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProjectTriageRuleResponse, error)
+
+	// CreateProjectTriageRuleWithResponse Add a rule for this project
+	//
+	// Project owner (a custom role must not deny `project_settings`). The rule
+	// applies to this project only, whatever `project_id` the body carries; with
+	// `TRIAGE_RULES_REQUIRE_APPROVAL` an instance admin approves it first.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /projects/{projectID}/triage-rules (the `CreateProjectTriageRule` operationId).
+	CreateProjectTriageRuleWithResponse(ctx context.Context, projectID ProjectID, body CreateProjectTriageRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProjectTriageRuleResponse, error)
+
+	// ApplyProjectTriageRulesWithResponse Apply the project's rules to its backlog
+	//
+	// Its own rules and, unless it opted out, the global ones. Project owner.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /projects/{projectID}/triage-rules/apply (the `ApplyProjectTriageRules` operationId).
+	ApplyProjectTriageRulesWithResponse(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*ApplyProjectTriageRulesResponse, error)
+
+	// DeleteProjectTriageRuleWithResponse Delete one of the project's rules
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /projects/{projectID}/triage-rules/{ruleID} (the `DeleteProjectTriageRule` operationId).
+	DeleteProjectTriageRuleWithResponse(ctx context.Context, projectID ProjectID, ruleID RuleID, reqEditors ...RequestEditorFn) (*DeleteProjectTriageRuleResponse, error)
+
+	// UpdateProjectTriageRuleWithBodyWithResponse Update one of the project's rules
+	//
+	// 404 for a global rule or another project's.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /projects/{projectID}/triage-rules/{ruleID} (the `UpdateProjectTriageRule` operationId).
+	UpdateProjectTriageRuleWithBodyWithResponse(ctx context.Context, projectID ProjectID, ruleID RuleID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateProjectTriageRuleResponse, error)
+
+	// UpdateProjectTriageRuleWithResponse Update one of the project's rules
+	//
+	// 404 for a global rule or another project's.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /projects/{projectID}/triage-rules/{ruleID} (the `UpdateProjectTriageRule` operationId).
+	UpdateProjectTriageRuleWithResponse(ctx context.Context, projectID ProjectID, ruleID RuleID, body UpdateProjectTriageRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectTriageRuleResponse, error)
+
+	// GetProjectTriageSettingsWithResponse The project's opt-out of global rules
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /projects/{projectID}/triage-settings (the `GetProjectTriageSettings` operationId).
+	GetProjectTriageSettingsWithResponse(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*GetProjectTriageSettingsResponse, error)
+
+	// SetProjectTriageSettingsWithBodyWithResponse Opt the project out of global rules, or back in
+	//
+	// Project owner. Opting out skips global triage rules and global vulnerability
+	// policies (those an admin aimed at the project by id or tag still apply), and
+	// needs an instance admin's `allow_skip_global_rules` (403 otherwise); opting
+	// back in never does.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /projects/{projectID}/triage-settings (the `SetProjectTriageSettings` operationId).
+	SetProjectTriageSettingsWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetProjectTriageSettingsResponse, error)
+
+	// SetProjectTriageSettingsWithResponse Opt the project out of global rules, or back in
+	//
+	// Project owner. Opting out skips global triage rules and global vulnerability
+	// policies (those an admin aimed at the project by id or tag still apply), and
+	// needs an instance admin's `allow_skip_global_rules` (403 otherwise); opting
+	// back in never does.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /projects/{projectID}/triage-settings (the `SetProjectTriageSettings` operationId).
+	SetProjectTriageSettingsWithResponse(ctx context.Context, projectID ProjectID, body SetProjectTriageSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*SetProjectTriageSettingsResponse, error)
+
 	// ListProjectVersionsWithResponse A project's branches and releases
 	//
 	// Every scan, SBOM and finding belongs to one version — a branch (`?branch=` on
@@ -58129,6 +59390,58 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /projects/{projectID}/vex/export (the `ExportProjectVex` operationId).
 	ExportProjectVexWithResponse(ctx context.Context, projectID ProjectID, params *ExportProjectVexParams, reqEditors ...RequestEditorFn) (*ExportProjectVexResponse, error)
+
+	// ListProjectVulnPoliciesWithResponse A project's own vulnerability policies
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /projects/{projectID}/vuln-policies (the `ListProjectVulnPolicies` operationId).
+	ListProjectVulnPoliciesWithResponse(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*ListProjectVulnPoliciesResponse, error)
+
+	// CreateProjectVulnPolicyWithBodyWithResponse Add a policy for this project
+	//
+	// Project owner. The policy's scope is this project alone, whatever the body
+	// says, and the GitOps bundle (`PUT /vuln-policies/bundle`) never replaces it.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /projects/{projectID}/vuln-policies (the `CreateProjectVulnPolicy` operationId).
+	CreateProjectVulnPolicyWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProjectVulnPolicyResponse, error)
+
+	// CreateProjectVulnPolicyWithResponse Add a policy for this project
+	//
+	// Project owner. The policy's scope is this project alone, whatever the body
+	// says, and the GitOps bundle (`PUT /vuln-policies/bundle`) never replaces it.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /projects/{projectID}/vuln-policies (the `CreateProjectVulnPolicy` operationId).
+	CreateProjectVulnPolicyWithResponse(ctx context.Context, projectID ProjectID, body CreateProjectVulnPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProjectVulnPolicyResponse, error)
+
+	// DeleteProjectVulnPolicyWithResponse Delete one of the project's policies
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /projects/{projectID}/vuln-policies/{policyID} (the `DeleteProjectVulnPolicy` operationId).
+	DeleteProjectVulnPolicyWithResponse(ctx context.Context, projectID ProjectID, policyID PolicyID, reqEditors ...RequestEditorFn) (*DeleteProjectVulnPolicyResponse, error)
+
+	// UpdateProjectVulnPolicyWithBodyWithResponse Update one of the project's policies
+	//
+	// 404 for an admin policy or another project's.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /projects/{projectID}/vuln-policies/{policyID} (the `UpdateProjectVulnPolicy` operationId).
+	UpdateProjectVulnPolicyWithBodyWithResponse(ctx context.Context, projectID ProjectID, policyID PolicyID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateProjectVulnPolicyResponse, error)
+
+	// UpdateProjectVulnPolicyWithResponse Update one of the project's policies
+	//
+	// 404 for an admin policy or another project's.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /projects/{projectID}/vuln-policies/{policyID} (the `UpdateProjectVulnPolicy` operationId).
+	UpdateProjectVulnPolicyWithResponse(ctx context.Context, projectID ProjectID, policyID PolicyID, body UpdateProjectVulnPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectVulnPolicyResponse, error)
 
 	// UnwatchProjectWithResponse Stop watching this project
 	//
@@ -59606,6 +60919,33 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /triage-rules/preview (the `PreviewTriageRules` operationId).
 	PreviewTriageRulesWithResponse(ctx context.Context, params *PreviewTriageRulesParams, body PreviewTriageRulesJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewTriageRulesResponse, error)
+
+	// GetTriageSettingsWithResponse Instance triage settings
+	//
+	// Instance admin.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /triage-rules/settings (the `GetTriageSettings` operationId).
+	GetTriageSettingsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetTriageSettingsResponse, error)
+
+	// SetTriageSettingsWithBodyWithResponse Set the instance triage settings
+	//
+	// Instance admin. Turning `allow_skip_global_rules` off leaves projects' opt-outs stored but makes them stop counting.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /triage-rules/settings (the `SetTriageSettings` operationId).
+	SetTriageSettingsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetTriageSettingsResponse, error)
+
+	// SetTriageSettingsWithResponse Set the instance triage settings
+	//
+	// Instance admin. Turning `allow_skip_global_rules` off leaves projects' opt-outs stored but makes them stop counting.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /triage-rules/settings (the `SetTriageSettings` operationId).
+	SetTriageSettingsWithResponse(ctx context.Context, body SetTriageSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*SetTriageSettingsResponse, error)
 
 	// DeleteTriageRuleWithResponse Delete a triage rule
 	//
@@ -76494,6 +77834,336 @@ func (r PutProjectTriageCarryResponse) ContentType() string {
 	return ""
 }
 
+type ListProjectTriageRulesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Rules *[]TriageRule `json:"rules,omitempty"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListProjectTriageRulesResponse) GetJSON200() *struct {
+	Rules *[]TriageRule `json:"rules,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ListProjectTriageRulesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListProjectTriageRulesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListProjectTriageRulesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListProjectTriageRulesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateProjectTriageRuleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *TriageRule
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateProjectTriageRuleResponse) GetJSON201() *TriageRule {
+	return r.JSON201
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r CreateProjectTriageRuleResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r CreateProjectTriageRuleResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateProjectTriageRuleResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateProjectTriageRuleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateProjectTriageRuleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateProjectTriageRuleResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ApplyProjectTriageRulesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Applied *int `json:"applied,omitempty"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ApplyProjectTriageRulesResponse) GetJSON200() *struct {
+	Applied *int `json:"applied,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ApplyProjectTriageRulesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ApplyProjectTriageRulesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ApplyProjectTriageRulesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ApplyProjectTriageRulesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteProjectTriageRuleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r DeleteProjectTriageRuleResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteProjectTriageRuleResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteProjectTriageRuleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteProjectTriageRuleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteProjectTriageRuleResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateProjectTriageRuleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *TriageRule
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateProjectTriageRuleResponse) GetJSON200() *TriageRule {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r UpdateProjectTriageRuleResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r UpdateProjectTriageRuleResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateProjectTriageRuleResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateProjectTriageRuleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateProjectTriageRuleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateProjectTriageRuleResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetProjectTriageSettingsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ProjectTriageSettings
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetProjectTriageSettingsResponse) GetJSON200() *ProjectTriageSettings {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r GetProjectTriageSettingsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetProjectTriageSettingsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetProjectTriageSettingsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetProjectTriageSettingsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SetProjectTriageSettingsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ProjectTriageSettings
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SetProjectTriageSettingsResponse) GetJSON200() *ProjectTriageSettings {
+	return r.JSON200
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r SetProjectTriageSettingsResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r SetProjectTriageSettingsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SetProjectTriageSettingsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetProjectTriageSettingsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetProjectTriageSettingsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListProjectVersionsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -76797,6 +78467,209 @@ func (r ExportProjectVexResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ExportProjectVexResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListProjectVulnPoliciesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Policies *[]VulnPolicy `json:"policies,omitempty"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListProjectVulnPoliciesResponse) GetJSON200() *struct {
+	Policies *[]VulnPolicy `json:"policies,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ListProjectVulnPoliciesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListProjectVulnPoliciesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListProjectVulnPoliciesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListProjectVulnPoliciesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateProjectVulnPolicyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *VulnPolicy
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateProjectVulnPolicyResponse) GetJSON201() *VulnPolicy {
+	return r.JSON201
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r CreateProjectVulnPolicyResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r CreateProjectVulnPolicyResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r CreateProjectVulnPolicyResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateProjectVulnPolicyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateProjectVulnPolicyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateProjectVulnPolicyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateProjectVulnPolicyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteProjectVulnPolicyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r DeleteProjectVulnPolicyResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteProjectVulnPolicyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteProjectVulnPolicyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteProjectVulnPolicyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteProjectVulnPolicyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateProjectVulnPolicyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *VulnPolicy
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateProjectVulnPolicyResponse) GetJSON200() *VulnPolicy {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r UpdateProjectVulnPolicyResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r UpdateProjectVulnPolicyResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateProjectVulnPolicyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateProjectVulnPolicyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateProjectVulnPolicyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateProjectVulnPolicyResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -82701,6 +84574,88 @@ func (r PreviewTriageRulesResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r PreviewTriageRulesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetTriageSettingsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *TriageSettings
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetTriageSettingsResponse) GetJSON200() *TriageSettings {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r GetTriageSettingsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetTriageSettingsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetTriageSettingsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetTriageSettingsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SetTriageSettingsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *TriageSettings
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SetTriageSettingsResponse) GetJSON200() *TriageSettings {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r SetTriageSettingsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SetTriageSettingsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetTriageSettingsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetTriageSettingsResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -91789,6 +93744,162 @@ func (c *ClientWithResponses) PutProjectTriageCarryWithResponse(ctx context.Cont
 	return ParsePutProjectTriageCarryResponse(rsp)
 }
 
+// ListProjectTriageRulesWithResponse A project's own triage rules
+//
+// The rules made for this project, in every state. Global rules aren't listed here.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /projects/{projectID}/triage-rules (the `ListProjectTriageRules` operationId).
+func (c *ClientWithResponses) ListProjectTriageRulesWithResponse(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*ListProjectTriageRulesResponse, error) {
+	rsp, err := c.ListProjectTriageRules(ctx, projectID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListProjectTriageRulesResponse(rsp)
+}
+
+// CreateProjectTriageRuleWithBodyWithResponse Add a rule for this project
+//
+// Project owner (a custom role must not deny `project_settings`). The rule
+// applies to this project only, whatever `project_id` the body carries; with
+// `TRIAGE_RULES_REQUIRE_APPROVAL` an instance admin approves it first.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /projects/{projectID}/triage-rules (the `CreateProjectTriageRule` operationId).
+func (c *ClientWithResponses) CreateProjectTriageRuleWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProjectTriageRuleResponse, error) {
+	rsp, err := c.CreateProjectTriageRuleWithBody(ctx, projectID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateProjectTriageRuleResponse(rsp)
+}
+
+// CreateProjectTriageRuleWithResponse Add a rule for this project
+//
+// Project owner (a custom role must not deny `project_settings`). The rule
+// applies to this project only, whatever `project_id` the body carries; with
+// `TRIAGE_RULES_REQUIRE_APPROVAL` an instance admin approves it first.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /projects/{projectID}/triage-rules (the `CreateProjectTriageRule` operationId).
+func (c *ClientWithResponses) CreateProjectTriageRuleWithResponse(ctx context.Context, projectID ProjectID, body CreateProjectTriageRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProjectTriageRuleResponse, error) {
+	rsp, err := c.CreateProjectTriageRule(ctx, projectID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateProjectTriageRuleResponse(rsp)
+}
+
+// ApplyProjectTriageRulesWithResponse Apply the project's rules to its backlog
+//
+// Its own rules and, unless it opted out, the global ones. Project owner.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /projects/{projectID}/triage-rules/apply (the `ApplyProjectTriageRules` operationId).
+func (c *ClientWithResponses) ApplyProjectTriageRulesWithResponse(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*ApplyProjectTriageRulesResponse, error) {
+	rsp, err := c.ApplyProjectTriageRules(ctx, projectID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseApplyProjectTriageRulesResponse(rsp)
+}
+
+// DeleteProjectTriageRuleWithResponse Delete one of the project's rules
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /projects/{projectID}/triage-rules/{ruleID} (the `DeleteProjectTriageRule` operationId).
+func (c *ClientWithResponses) DeleteProjectTriageRuleWithResponse(ctx context.Context, projectID ProjectID, ruleID RuleID, reqEditors ...RequestEditorFn) (*DeleteProjectTriageRuleResponse, error) {
+	rsp, err := c.DeleteProjectTriageRule(ctx, projectID, ruleID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteProjectTriageRuleResponse(rsp)
+}
+
+// UpdateProjectTriageRuleWithBodyWithResponse Update one of the project's rules
+//
+// 404 for a global rule or another project's.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /projects/{projectID}/triage-rules/{ruleID} (the `UpdateProjectTriageRule` operationId).
+func (c *ClientWithResponses) UpdateProjectTriageRuleWithBodyWithResponse(ctx context.Context, projectID ProjectID, ruleID RuleID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateProjectTriageRuleResponse, error) {
+	rsp, err := c.UpdateProjectTriageRuleWithBody(ctx, projectID, ruleID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateProjectTriageRuleResponse(rsp)
+}
+
+// UpdateProjectTriageRuleWithResponse Update one of the project's rules
+//
+// 404 for a global rule or another project's.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /projects/{projectID}/triage-rules/{ruleID} (the `UpdateProjectTriageRule` operationId).
+func (c *ClientWithResponses) UpdateProjectTriageRuleWithResponse(ctx context.Context, projectID ProjectID, ruleID RuleID, body UpdateProjectTriageRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectTriageRuleResponse, error) {
+	rsp, err := c.UpdateProjectTriageRule(ctx, projectID, ruleID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateProjectTriageRuleResponse(rsp)
+}
+
+// GetProjectTriageSettingsWithResponse The project's opt-out of global rules
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /projects/{projectID}/triage-settings (the `GetProjectTriageSettings` operationId).
+func (c *ClientWithResponses) GetProjectTriageSettingsWithResponse(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*GetProjectTriageSettingsResponse, error) {
+	rsp, err := c.GetProjectTriageSettings(ctx, projectID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetProjectTriageSettingsResponse(rsp)
+}
+
+// SetProjectTriageSettingsWithBodyWithResponse Opt the project out of global rules, or back in
+//
+// Project owner. Opting out skips global triage rules and global vulnerability
+// policies (those an admin aimed at the project by id or tag still apply), and
+// needs an instance admin's `allow_skip_global_rules` (403 otherwise); opting
+// back in never does.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /projects/{projectID}/triage-settings (the `SetProjectTriageSettings` operationId).
+func (c *ClientWithResponses) SetProjectTriageSettingsWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetProjectTriageSettingsResponse, error) {
+	rsp, err := c.SetProjectTriageSettingsWithBody(ctx, projectID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetProjectTriageSettingsResponse(rsp)
+}
+
+// SetProjectTriageSettingsWithResponse Opt the project out of global rules, or back in
+//
+// Project owner. Opting out skips global triage rules and global vulnerability
+// policies (those an admin aimed at the project by id or tag still apply), and
+// needs an instance admin's `allow_skip_global_rules` (403 otherwise); opting
+// back in never does.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /projects/{projectID}/triage-settings (the `SetProjectTriageSettings` operationId).
+func (c *ClientWithResponses) SetProjectTriageSettingsWithResponse(ctx context.Context, projectID ProjectID, body SetProjectTriageSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*SetProjectTriageSettingsResponse, error) {
+	rsp, err := c.SetProjectTriageSettings(ctx, projectID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetProjectTriageSettingsResponse(rsp)
+}
+
 // ListProjectVersionsWithResponse A project's branches and releases
 //
 // Every scan, SBOM and finding belongs to one version — a branch (`?branch=` on
@@ -91952,6 +94063,94 @@ func (c *ClientWithResponses) ExportProjectVexWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseExportProjectVexResponse(rsp)
+}
+
+// ListProjectVulnPoliciesWithResponse A project's own vulnerability policies
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /projects/{projectID}/vuln-policies (the `ListProjectVulnPolicies` operationId).
+func (c *ClientWithResponses) ListProjectVulnPoliciesWithResponse(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*ListProjectVulnPoliciesResponse, error) {
+	rsp, err := c.ListProjectVulnPolicies(ctx, projectID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListProjectVulnPoliciesResponse(rsp)
+}
+
+// CreateProjectVulnPolicyWithBodyWithResponse Add a policy for this project
+//
+// Project owner. The policy's scope is this project alone, whatever the body
+// says, and the GitOps bundle (`PUT /vuln-policies/bundle`) never replaces it.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /projects/{projectID}/vuln-policies (the `CreateProjectVulnPolicy` operationId).
+func (c *ClientWithResponses) CreateProjectVulnPolicyWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProjectVulnPolicyResponse, error) {
+	rsp, err := c.CreateProjectVulnPolicyWithBody(ctx, projectID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateProjectVulnPolicyResponse(rsp)
+}
+
+// CreateProjectVulnPolicyWithResponse Add a policy for this project
+//
+// Project owner. The policy's scope is this project alone, whatever the body
+// says, and the GitOps bundle (`PUT /vuln-policies/bundle`) never replaces it.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /projects/{projectID}/vuln-policies (the `CreateProjectVulnPolicy` operationId).
+func (c *ClientWithResponses) CreateProjectVulnPolicyWithResponse(ctx context.Context, projectID ProjectID, body CreateProjectVulnPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProjectVulnPolicyResponse, error) {
+	rsp, err := c.CreateProjectVulnPolicy(ctx, projectID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateProjectVulnPolicyResponse(rsp)
+}
+
+// DeleteProjectVulnPolicyWithResponse Delete one of the project's policies
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /projects/{projectID}/vuln-policies/{policyID} (the `DeleteProjectVulnPolicy` operationId).
+func (c *ClientWithResponses) DeleteProjectVulnPolicyWithResponse(ctx context.Context, projectID ProjectID, policyID PolicyID, reqEditors ...RequestEditorFn) (*DeleteProjectVulnPolicyResponse, error) {
+	rsp, err := c.DeleteProjectVulnPolicy(ctx, projectID, policyID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteProjectVulnPolicyResponse(rsp)
+}
+
+// UpdateProjectVulnPolicyWithBodyWithResponse Update one of the project's policies
+//
+// 404 for an admin policy or another project's.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /projects/{projectID}/vuln-policies/{policyID} (the `UpdateProjectVulnPolicy` operationId).
+func (c *ClientWithResponses) UpdateProjectVulnPolicyWithBodyWithResponse(ctx context.Context, projectID ProjectID, policyID PolicyID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateProjectVulnPolicyResponse, error) {
+	rsp, err := c.UpdateProjectVulnPolicyWithBody(ctx, projectID, policyID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateProjectVulnPolicyResponse(rsp)
+}
+
+// UpdateProjectVulnPolicyWithResponse Update one of the project's policies
+//
+// 404 for an admin policy or another project's.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /projects/{projectID}/vuln-policies/{policyID} (the `UpdateProjectVulnPolicy` operationId).
+func (c *ClientWithResponses) UpdateProjectVulnPolicyWithResponse(ctx context.Context, projectID ProjectID, policyID PolicyID, body UpdateProjectVulnPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectVulnPolicyResponse, error) {
+	rsp, err := c.UpdateProjectVulnPolicy(ctx, projectID, policyID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateProjectVulnPolicyResponse(rsp)
 }
 
 // UnwatchProjectWithResponse Stop watching this project
@@ -94311,6 +96510,51 @@ func (c *ClientWithResponses) PreviewTriageRulesWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParsePreviewTriageRulesResponse(rsp)
+}
+
+// GetTriageSettingsWithResponse Instance triage settings
+//
+// Instance admin.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /triage-rules/settings (the `GetTriageSettings` operationId).
+func (c *ClientWithResponses) GetTriageSettingsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetTriageSettingsResponse, error) {
+	rsp, err := c.GetTriageSettings(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetTriageSettingsResponse(rsp)
+}
+
+// SetTriageSettingsWithBodyWithResponse Set the instance triage settings
+//
+// Instance admin. Turning `allow_skip_global_rules` off leaves projects' opt-outs stored but makes them stop counting.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /triage-rules/settings (the `SetTriageSettings` operationId).
+func (c *ClientWithResponses) SetTriageSettingsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetTriageSettingsResponse, error) {
+	rsp, err := c.SetTriageSettingsWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetTriageSettingsResponse(rsp)
+}
+
+// SetTriageSettingsWithResponse Set the instance triage settings
+//
+// Instance admin. Turning `allow_skip_global_rules` off leaves projects' opt-outs stored but makes them stop counting.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /triage-rules/settings (the `SetTriageSettings` operationId).
+func (c *ClientWithResponses) SetTriageSettingsWithResponse(ctx context.Context, body SetTriageSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*SetTriageSettingsResponse, error) {
+	rsp, err := c.SetTriageSettings(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetTriageSettingsResponse(rsp)
 }
 
 // DeleteTriageRuleWithResponse Delete a triage rule
@@ -106338,6 +108582,230 @@ func ParsePutProjectTriageCarryResponse(rsp *http.Response) (*PutProjectTriageCa
 	return response, nil
 }
 
+// ParseListProjectTriageRulesResponse parses an HTTP response from a ListProjectTriageRulesWithResponse call
+func ParseListProjectTriageRulesResponse(rsp *http.Response) (*ListProjectTriageRulesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListProjectTriageRulesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Rules *[]TriageRule `json:"rules,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateProjectTriageRuleResponse parses an HTTP response from a CreateProjectTriageRuleWithResponse call
+func ParseCreateProjectTriageRuleResponse(rsp *http.Response) (*CreateProjectTriageRuleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateProjectTriageRuleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest TriageRule
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseApplyProjectTriageRulesResponse parses an HTTP response from a ApplyProjectTriageRulesWithResponse call
+func ParseApplyProjectTriageRulesResponse(rsp *http.Response) (*ApplyProjectTriageRulesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ApplyProjectTriageRulesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Applied *int `json:"applied,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteProjectTriageRuleResponse parses an HTTP response from a DeleteProjectTriageRuleWithResponse call
+func ParseDeleteProjectTriageRuleResponse(rsp *http.Response) (*DeleteProjectTriageRuleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteProjectTriageRuleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateProjectTriageRuleResponse parses an HTTP response from a UpdateProjectTriageRuleWithResponse call
+func ParseUpdateProjectTriageRuleResponse(rsp *http.Response) (*UpdateProjectTriageRuleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateProjectTriageRuleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TriageRule
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetProjectTriageSettingsResponse parses an HTTP response from a GetProjectTriageSettingsWithResponse call
+func ParseGetProjectTriageSettingsResponse(rsp *http.Response) (*GetProjectTriageSettingsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetProjectTriageSettingsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectTriageSettings
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetProjectTriageSettingsResponse parses an HTTP response from a SetProjectTriageSettingsWithResponse call
+func ParseSetProjectTriageSettingsResponse(rsp *http.Response) (*SetProjectTriageSettingsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetProjectTriageSettingsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectTriageSettings
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListProjectVersionsResponse parses an HTTP response from a ListProjectVersionsWithResponse call
 func ParseListProjectVersionsResponse(rsp *http.Response) (*ListProjectVersionsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -106533,6 +109001,150 @@ func ParseExportProjectVexResponse(rsp *http.Response) (*ExportProjectVexRespons
 			return nil, err
 		}
 		response.ApplicationvndCyclonedxJSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListProjectVulnPoliciesResponse parses an HTTP response from a ListProjectVulnPoliciesWithResponse call
+func ParseListProjectVulnPoliciesResponse(rsp *http.Response) (*ListProjectVulnPoliciesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListProjectVulnPoliciesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Policies *[]VulnPolicy `json:"policies,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateProjectVulnPolicyResponse parses an HTTP response from a CreateProjectVulnPolicyWithResponse call
+func ParseCreateProjectVulnPolicyResponse(rsp *http.Response) (*CreateProjectVulnPolicyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateProjectVulnPolicyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest VulnPolicy
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteProjectVulnPolicyResponse parses an HTTP response from a DeleteProjectVulnPolicyWithResponse call
+func ParseDeleteProjectVulnPolicyResponse(rsp *http.Response) (*DeleteProjectVulnPolicyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteProjectVulnPolicyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateProjectVulnPolicyResponse parses an HTTP response from a UpdateProjectVulnPolicyWithResponse call
+func ParseUpdateProjectVulnPolicyResponse(rsp *http.Response) (*UpdateProjectVulnPolicyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateProjectVulnPolicyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest VulnPolicy
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest Error
@@ -110695,6 +113307,58 @@ func ParsePreviewTriageRulesResponse(rsp *http.Response) (*PreviewTriageRulesRes
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetTriageSettingsResponse parses an HTTP response from a GetTriageSettingsWithResponse call
+func ParseGetTriageSettingsResponse(rsp *http.Response) (*GetTriageSettingsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetTriageSettingsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TriageSettings
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetTriageSettingsResponse parses an HTTP response from a SetTriageSettingsWithResponse call
+func ParseSetTriageSettingsResponse(rsp *http.Response) (*SetTriageSettingsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetTriageSettingsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TriageSettings
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	}
 

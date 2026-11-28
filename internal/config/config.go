@@ -51,6 +51,7 @@ type Config struct {
 	Policy         Policy
 	VulnPolicy     VulnPolicy
 	ComputedFields ComputedFields
+	TriageSchedule TriageSchedule
 	ReportSchedule ReportSchedule
 	Enrich         Enrich
 	Exploit        ExploitIntel
@@ -254,6 +255,13 @@ type VulnPolicy struct {
 	// leaves the current set untouched.
 	BundleURL      string
 	BundleInterval time.Duration
+}
+
+// TriageSchedule holds how often scheduled triage rules are checked.
+type TriageSchedule struct {
+	// Interval is how often the leader runs the triage rules whose schedule
+	// is due (a "daily" rule runs once a day; 0 = off).
+	Interval time.Duration
 }
 
 // ComputedFields holds the computed-custom-field recompute schedule.
@@ -820,6 +828,9 @@ func Load() (Config, error) {
 		},
 		ComputedFields: ComputedFields{
 			Interval: getdur("COMPUTED_FIELDS_INTERVAL", 15*time.Minute),
+		},
+		TriageSchedule: TriageSchedule{
+			Interval: getdur("TRIAGE_SCHEDULE_INTERVAL", time.Hour),
 		},
 		ReportSchedule: ReportSchedule{
 			Interval: getdur("REPORT_SCHEDULE_INTERVAL", 15*time.Minute),

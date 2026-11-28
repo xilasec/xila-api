@@ -1,4 +1,6 @@
 <script>
+	import TriageSideActions from '#lib/components/TriageSideActions.svelte';
+	import { blankSide, sideBody, sideChips } from '#lib/rules.js';
 	import VexAnalysisFields from '#lib/components/VexAnalysisFields.svelte';
 	import { onMount } from 'svelte';
 	import { api, errorMessage } from '#lib/api.js';
@@ -26,8 +28,26 @@
 		{ id: 'risk_accepted', label: 'triagerules.actRiskAccepted' },
 		{ id: 'wont_fix', label: 'triagerules.actWontFix' },
 		{ id: 'set_severity', label: 'triagerules.actSetSeverity' },
-		{ id: 'set_custom_field', label: 'triagerules.actSetCustomField' }
+		{ id: 'set_custom_field', label: 'triagerules.actSetCustomField' },
+		{ id: 'none', label: 'triagerules.actNone' }
 	];
+	// Whom a global rule may assign to (each project's own access is checked
+	// when it fires), and whether projects may opt out of global rules.
+	let users = $state(/** @type {{ id: string, email: string }[]} */ ([]));
+	let allowSkip = $state(false);
+	$effect(() => {
+		api.listUsers().then((us) => (users = us.map((/** @type {any} */ u) => ({ id: u.id, email: u.email })))).catch(() => (users = []));
+		api.getTriageSettings().then((s) => (allowSkip = s.allow_skip_global_rules)).catch(() => {});
+	});
+	async function saveAllowSkip() {
+		try {
+			const s = await api.setTriageSettings({ allow_skip_global_rules: allowSkip });
+			allowSkip = s.allow_skip_global_rules;
+			notify($t('rules.settingsSaved'), 'success');
+		} catch (err) {
+			notify(errorMessage(err));
+		}
+	}
 	// Finding custom fields a set_custom_field rule can set.
 	let cfFields = $state(/** @type {any[]} */ ([]));
 	$effect(() => {
@@ -58,7 +78,8 @@
 		vex_justification: '',
 		vex_response: /** @type {string[]} */ ([]),
 		sort_order: 0,
-		continue: false
+		continue: false,
+		...blankSide()
 	});
 	let form = $state(blank());
 
@@ -98,7 +119,8 @@
 				.map((s) => s.trim())
 				.filter(Boolean),
 			min_epss: form.min_epss === '' || form.min_epss === null ? null : Number(form.min_epss),
-			sort_order: Number(form.sort_order) || 0
+			sort_order: Number(form.sort_order) || 0,
+			...sideBody(form)
 		};
 		if (body.action !== 'set_severity') delete body.new_severity;
 		if (body.action !== 'false_positive' && body.action !== 'wont_fix') {
@@ -227,6 +249,8 @@
 			: r.action === 'set_custom_field'
 				? $t('triagerules.actionSetCustomField', { field: r.custom_field, value: r.custom_value ?? $t('triagerules.clearOption') })
 				: $t(ACTION_LABEL[r.action]);
+	/** @param {any} r */
+	const thenLabel = (r) => [actionLabel(r), ...sideChips(r, $t)].join(' · ');
 </script>
 
 <div class="flex items-center justify-between mb-2">
@@ -240,6 +264,10 @@
 		{#if applying}<span class="loading loading-spinner loading-xs"></span>{/if}{$t('triagerules.applyBacklog')}
 	</button>
 </div>
+<label class="label cursor-pointer justify-start gap-2 mb-3" title={$t('rules.allowSkipHint')}>
+	<input type="checkbox" class="toggle toggle-sm" bind:checked={allowSkip} onchange={saveAllowSkip} />
+	<span class="label-text">{$t('rules.allowSkip')}</span>
+</label>
 
 <form onsubmit={create} class="bg-base-100 rounded-box shadow-sm p-4 mb-5 grid gap-3 md:grid-cols-2">
 	<Field label={$t('triagerules.nameLabel')} required>
@@ -305,6 +333,7 @@
 			<VexAnalysisFields bind:justification={form.vex_justification} bind:response={form.vex_response} />
 		</div>
 	{/if}
+	<TriageSideActions bind:form {users} />
 
 	<Field label={$t('triagerules.pathRegexLabel')}>
 		<input bind:value={form.path_regex} placeholder="^test/|_test\.go$" class="input input-bordered input-sm w-full font-mono" />
@@ -423,7 +452,7 @@
 						<td class="font-medium"><span class="text-base-content/40 tabular-nums mr-1" title={$t('triagerules.orderLabel')}>{r.sort_order}</span>{r.name}</td>
 						<td class="text-xs text-base-content/60">{conditionSummary(r)}</td>
 						<td>
-							<span class="badge badge-ghost badge-sm">{actionLabel(r)}</span>
+							<span class="badge badge-ghost badge-sm">{thenLabel(r)}</span>
 							{#if r.continue}<span class="badge badge-outline badge-sm ml-1" title={$t('triagerules.continueHint')}>{$t('triagerules.continueBadge')}</span>{/if}
 						</td>
 						<td><span class="badge badge-sm {approvalTone[r.approval_status] ?? 'badge-ghost'}">{approvalLabel[r.approval_status] ? $t(approvalLabel[r.approval_status]) : r.approval_status}</span></td>

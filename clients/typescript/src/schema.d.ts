@@ -6079,6 +6079,140 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{projectID}/triage-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A project's own triage rules
+         * @description The rules made for this project, in every state. Global rules aren't listed here.
+         */
+        get: operations["listProjectTriageRules"];
+        put?: never;
+        /**
+         * Add a rule for this project
+         * @description Project owner (a custom role must not deny `project_settings`). The rule
+         *     applies to this project only, whatever `project_id` the body carries; with
+         *     `TRIAGE_RULES_REQUIRE_APPROVAL` an instance admin approves it first.
+         */
+        post: operations["createProjectTriageRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectID}/triage-rules/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply the project's rules to its backlog
+         * @description Its own rules and, unless it opted out, the global ones. Project owner.
+         */
+        post: operations["applyProjectTriageRules"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectID}/triage-rules/{ruleID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete one of the project's rules */
+        delete: operations["deleteProjectTriageRule"];
+        options?: never;
+        head?: never;
+        /**
+         * Update one of the project's rules
+         * @description 404 for a global rule or another project's.
+         */
+        patch: operations["updateProjectTriageRule"];
+        trace?: never;
+    };
+    "/projects/{projectID}/triage-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The project's opt-out of global rules */
+        get: operations["getProjectTriageSettings"];
+        /**
+         * Opt the project out of global rules, or back in
+         * @description Project owner. Opting out skips global triage rules and global vulnerability
+         *     policies (those an admin aimed at the project by id or tag still apply), and
+         *     needs an instance admin's `allow_skip_global_rules` (403 otherwise); opting
+         *     back in never does.
+         */
+        put: operations["setProjectTriageSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectID}/vuln-policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A project's own vulnerability policies */
+        get: operations["listProjectVulnPolicies"];
+        put?: never;
+        /**
+         * Add a policy for this project
+         * @description Project owner. The policy's scope is this project alone, whatever the body
+         *     says, and the GitOps bundle (`PUT /vuln-policies/bundle`) never replaces it.
+         */
+        post: operations["createProjectVulnPolicy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectID}/vuln-policies/{policyID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete one of the project's policies */
+        delete: operations["deleteProjectVulnPolicy"];
+        options?: never;
+        head?: never;
+        /**
+         * Update one of the project's policies
+         * @description 404 for an admin policy or another project's.
+         */
+        patch: operations["updateProjectVulnPolicy"];
+        trace?: never;
+    };
     "/triage-rules": {
         parameters: {
             query?: never;
@@ -6107,6 +6241,30 @@ export interface paths {
          *     does nothing until a different admin approves it.
          */
         post: operations["createTriageRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/triage-rules/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Instance triage settings
+         * @description Instance admin.
+         */
+        get: operations["getTriageSettings"];
+        /**
+         * Set the instance triage settings
+         * @description Instance admin. Turning `allow_skip_global_rules` off leaves projects' opt-outs stored but makes them stop counting.
+         */
+        put: operations["setTriageSettings"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -10994,8 +11152,11 @@ export interface components {
             dep_scope?: components["schemas"]["DepScope"];
             /** @description Match only dependencies the project never asked for. A finding with no SBOM data never matches. */
             dep_transitive?: boolean;
-            /** @enum {string} */
-            action?: "false_positive" | "risk_accepted" | "wont_fix" | "set_severity" | "set_custom_field";
+            /**
+             * @description `none` changes nothing itself: the rule acts through its side actions alone (at least one is required).
+             * @enum {string}
+             */
+            action?: "false_positive" | "risk_accepted" | "wont_fix" | "set_severity" | "set_custom_field" | "none";
             new_severity?: components["schemas"]["Severity"];
             /** @description For `set_custom_field`: the finding custom field's key. */
             custom_field?: string;
@@ -11011,6 +11172,43 @@ export interface components {
             vex_response?: components["schemas"]["VexResponse"][];
             /** @description Recorded in the finding's audit trail. */
             reason?: string;
+            /**
+             * Format: uuid
+             * @description Side action: assign the finding to this person. A project rule's assignee
+             *     must see its project (400 otherwise); a global rule skips projects its
+             *     assignee can't see. Exclusive with `assign_owner_from`.
+             */
+            assign_user_id?: string | null;
+            /**
+             * @description Side action: assign the finding to an owner of its project (a person, never a service account).
+             * @enum {string}
+             */
+            assign_owner_from?: "" | "project_owner";
+            /**
+             * @description Assign only findings nobody is assigned to yet. Defaults to true when omitted.
+             * @default true
+             */
+            only_if_unassigned: boolean;
+            /** @description Side action: tags to add. */
+            add_tags?: string[];
+            /** @description Side action: comment posted once per finding, naming the rule. */
+            comment?: string;
+            /**
+             * @description Side action: one `triage.rule` notification per rule and run, listing
+             *     the findings it newly matched (each finding once).
+             */
+            notify?: boolean;
+            /**
+             * @description Also run on a schedule (checked every `TRIAGE_SCHEDULE_INTERVAL`), besides
+             *     every ingest and every person's status or severity decision: what makes
+             *     `age_days_gt` take effect without a new scan.
+             * @enum {string}
+             */
+            schedule?: "" | "daily";
+            /** Format: date-time */
+            readonly schedule_last_run_at?: string | null;
+            /** @description Match findings first seen more than this many days ago. */
+            age_days_gt?: number | null;
             /** @description Match findings whose EPSS is at least this (inclusive). A finding with no EPSS score never matches. */
             min_epss?: number | null;
             /** @description When true, match only findings a KEV catalog (CISA, ENISA, VulnCheck) lists. */
@@ -11196,6 +11394,17 @@ export interface components {
                 }[];
             }[];
         };
+        TriageSettings: {
+            /** @description Whether project owners may opt their project out of global triage rules and global vulnerability policies. */
+            allow_skip_global_rules?: boolean;
+            /** Format: date-time */
+            readonly updated_at?: string;
+        };
+        ProjectTriageSettings: {
+            /** @description The project skips global triage rules and global vulnerability policies (counts only while allow_skip_global_rules is on). */
+            skip_global_rules?: boolean;
+            readonly allow_skip_global_rules?: boolean;
+        };
         /**
          * @description A CEL condition over `component` (`name`, `version`, `purl`, `group`, `license`,
          *     `scope`, `direct`), `vulnerability` (`id`, `aliases`, `severity`, `cvss`, `epss`,
@@ -11255,6 +11464,11 @@ export interface components {
             scope: "global" | "projects" | "tag";
             /** @description Required (non-empty) when `scope` is `projects`. */
             project_ids?: string[];
+            /**
+             * Format: uuid
+             * @description Set on a policy a project owner made for their project (POST /projects/{projectID}/vuln-policies): scoped to it alone and never part of the GitOps bundle.
+             */
+            readonly owner_project_id?: string | null;
             /** @description Required when `scope` is `tag`. */
             tag?: string;
             /**
@@ -22446,6 +22660,288 @@ export interface operations {
             };
         };
     };
+    listProjectTriageRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        rules?: components["schemas"]["TriageRule"][];
+                    };
+                };
+            };
+        };
+    };
+    createProjectTriageRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TriageRule"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TriageRule"];
+                };
+            };
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    applyProjectTriageRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        applied?: number;
+                    };
+                };
+            };
+        };
+    };
+    deleteProjectTriageRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+                ruleID: components["parameters"]["RuleID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    updateProjectTriageRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+                ruleID: components["parameters"]["RuleID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TriageRule"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TriageRule"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    getProjectTriageSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectTriageSettings"];
+                };
+            };
+        };
+    };
+    setProjectTriageSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    skip_global_rules?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectTriageSettings"];
+                };
+            };
+            403: components["responses"]["Error"];
+        };
+    };
+    listProjectVulnPolicies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        policies?: components["schemas"]["VulnPolicy"][];
+                    };
+                };
+            };
+        };
+    };
+    createProjectVulnPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VulnPolicy"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VulnPolicy"];
+                };
+            };
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    deleteProjectVulnPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+                policyID: components["parameters"]["PolicyID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    updateProjectVulnPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+                policyID: components["parameters"]["PolicyID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VulnPolicy"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VulnPolicy"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
     listTriageRules: {
         parameters: {
             query?: never;
@@ -22491,6 +22987,50 @@ export interface operations {
                 };
             };
             422: components["responses"]["Error"];
+        };
+    };
+    getTriageSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TriageSettings"];
+                };
+            };
+        };
+    };
+    setTriageSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TriageSettings"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TriageSettings"];
+                };
+            };
         };
     };
     getTriageRule: {

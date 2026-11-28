@@ -457,9 +457,15 @@ calls `triage.Service.ApplyToProject` before the new-critical alert) and via
 `triage_rules` migration + `Rule.Matches` (pure, unit-tested) + `ruleColumns`/
 `scanRule`. To add an action, extend the `Action` enum + the migration CHECK +
 `Service.apply` (and add the finding-repo mutation it needs, like `SetSeverity`).
-Rules are admin-managed (`/triage-rules` is in `authz` `adminOnly`). Keep `apply`
-idempotent. It re-runs on every ingest, so skip findings already in the target
-state.
+Global rules are admin-managed (`/triage-rules` is in `authz` `adminOnly`);
+project owners manage their project's own under `/projects/{id}/triage-rules`
+(owner-level in `parseScope`). Keep `apply` idempotent. It re-runs on every
+ingest, so skip findings already in the target state. Side actions (assign,
+tags, comment, notify) must be idempotent too: a comment or notification is
+claimed in `triage_rule_actions` *before* it is posted (`ClaimAction`), never
+recorded after. The finding-event trigger fires only from a person's decision
+(`finding.Repository.decided`), never from an automated writer, or one VEX
+document would rerun the rules per finding it touched.
 
 **Computed custom fields**: `internal/computed` evaluates a custom field
 definition's CEL `expression` (`customfield.Definition.Computed`) and writes

@@ -52,6 +52,11 @@ const (
 	// of a project-wide audience; only the in-app inbox (internal/inbox) and
 	// an admin channel subscribed to it or "*" act on it.
 	EventMention = "mention"
+
+	// EventTriageRule: an auto-triage rule's notify side action matched one
+	// or more findings in a run — one event per rule per run, never one per
+	// finding (internal/triage).
+	EventTriageRule = "triage.rule"
 	// EventSummary is a channel's scheduled summary (Channel.Summary). It goes
 	// to that channel alone, whatever its event subscription.
 	EventSummary = "summary"

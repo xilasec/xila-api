@@ -937,8 +937,12 @@ Tier 1:
   or weaponized-exploit finding gets the shorter of its severity window and its
   exploit window (and, when enabled, never past CISA's published due date). The
   deadline is still computed in the SQL trigger. Migration 000119.
-- ⬜ 13.5 Triage rules that assign, tag, comment and notify, on schedules and
-  finding events as well as ingest (DefectDojo Pro).
+- ✅ 13.5 Triage rules that assign, tag, comment and notify, on schedules and
+  finding events as well as ingest (DefectDojo Pro). Side actions with action
+  `none` for rules that only route; comments and notifications claimed once
+  per (rule, finding); the event trigger fires on a person's decisions only,
+  once per write, and regroups just those findings; `schedule: daily` +
+  `age_days_gt` via TRIAGE_SCHEDULE_INTERVAL. Migration 000125.
 - ✅ 13.6 CycloneDX XML SBOMs (DT): schema 1.0 to 1.6, parsed into the same
   document as JSON (round-trip tested against the official JSON twin); strict
   mode stays JSON-only.
@@ -962,8 +966,11 @@ Tier 2:
   queue and every decision: designated approvers who can still see the
   project, else owners; custom-role `triage`; token confinement.
   `POST /assessments/approve|reject` for bulk decisions.
-- ⬜ 13.10 Project owners manage their own triage rules and vulnerability
-  policies and may opt out of global ones (SecObserve).
+- ✅ 13.10 Project owners manage their own triage rules and vulnerability
+  policies and may opt out of global ones (SecObserve): owner-level routes
+  under /projects/{id}, owner policies pinned to their project and outside the
+  GitOps bundle, an opt-out an admin allows (and withdraws) instance-wide, one
+  SQL rule (triage.ProjectSkipsGlobalSQL) for both kinds; a project Rules tab.
 - ⬜ 13.11 Internal components and authenticated private registries (DT).
 - ✅ 13.12 Manual concluded-license override that survives re-uploads
   (SecObserve): `/projects/{id}/license-overrides` curates one package's SPDX

@@ -25,6 +25,7 @@ import (
 
 	"github.com/xilasec/xila-api/internal/domain"
 	"github.com/xilasec/xila-api/internal/expr"
+	"github.com/xilasec/xila-api/internal/triage"
 )
 
 // Domain errors.
@@ -138,11 +139,15 @@ type Policy struct {
 	ValidUntil *time.Time `json:"valid_until"`
 	Scope      Scope      `json:"scope"`
 	ProjectIDs []string   `json:"project_ids"`
-	Tag        string     `json:"tag"`
-	Mode       Mode       `json:"mode"`
-	CreatedBy  string     `json:"created_by"`
-	CreatedAt  time.Time  `json:"created_at"`
-	UpdatedAt  time.Time  `json:"updated_at"`
+	// OwnerProjectID is set on a policy a project owner made for their own
+	// project (M13 13.10, read-only through the API): its scope is that
+	// project alone and the GitOps bundle never replaces it.
+	OwnerProjectID *string   `json:"owner_project_id"`
+	Tag            string    `json:"tag"`
+	Mode           Mode      `json:"mode"`
+	CreatedBy      string    `json:"created_by"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 
 	prg    *expr.Program
 	broken bool
@@ -221,9 +226,9 @@ type ValidationError struct{ msg string }
 
 func (e *ValidationError) Error() string { return e.msg }
 
-// AppliesNow reports whether p is in force right now, for a project with
-// these tags: enabled, inside its validity window, and in scope.
-func (p Policy) AppliesNow(now time.Time, projectID string, tags []string) bool {
+// AppliesNow reports whether p is in force right now for a project: enabled,
+// inside its validity window, and in scope.
+func (p Policy) AppliesNow(now time.Time, projectID string, facts ProjectFacts) bool {
 	if !p.Enabled {
 		return false
 	}
@@ -233,19 +238,20 @@ func (p Policy) AppliesNow(now time.Time, projectID string, tags []string) bool 
 	if p.ValidUntil != nil && !now.Before(*p.ValidUntil) {
 		return false
 	}
-	return p.covers(projectID, tags)
+	return p.covers(projectID, facts)
 }
 
-// covers is the scope alone, ignoring enabled/time. inForceSQL is its SQL
-// twin (for the project-facts prefetch) — change them together.
-func (p Policy) covers(projectID string, tags []string) bool {
+// covers is the scope alone, ignoring enabled/time. A project that opted out
+// of global policies (facts.SkipsGlobal) is outside every global one; a
+// policy an admin aimed at it by id or tag still applies.
+func (p Policy) covers(projectID string, facts ProjectFacts) bool {
 	switch p.Scope {
 	case ScopeProjects:
 		return slices.Contains(p.ProjectIDs, projectID)
 	case ScopeTag:
-		return slices.Contains(tags, p.Tag)
+		return slices.Contains(facts.Tags, p.Tag)
 	default:
-		return true
+		return !facts.SkipsGlobal
 	}
 }
 
@@ -263,14 +269,14 @@ func (p Policy) Match(ctx context.Context, doc map[string]any) bool {
 // election is deterministic). Log-mode policies never win — they record
 // nothing and never block an apply-mode policy underneath them. Pure and
 // side-effect free: the unit-tested core of "priority resolution".
-func Elect(ctx context.Context, policies []Policy, now time.Time, projectID string, tags []string, doc map[string]any) (Policy, bool) {
+func Elect(ctx context.Context, policies []Policy, now time.Time, projectID string, facts ProjectFacts, doc map[string]any) (Policy, bool) {
 	var best Policy
 	found := false
 	for _, p := range policies {
 		if p.Mode != ModeApply {
 			continue
 		}
-		if !p.AppliesNow(now, projectID, tags) {
+		if !p.AppliesNow(now, projectID, facts) {
 			continue
 		}
 		if !p.Match(ctx, doc) {
@@ -296,6 +302,7 @@ const policyColumns = `p.id, p.name, p.description, p.enabled, p.condition, p.pr
 	p.analysis_state, p.analysis_justification, p.analysis_details,
 	p.rating_severity, p.rating_cvss_vector, p.rating_cvss_score,
 	p.valid_from, p.valid_until, p.scope, p.tag, p.mode, p.created_by, p.created_at, p.updated_at,
+	p.owner_project_id::text,
 	COALESCE((SELECT array_agg(pp.project_id::text ORDER BY pp.project_id) FROM vuln_policy_projects pp WHERE pp.policy_id = p.id), '{}')`
 
 func scanPolicy(row pgx.Row) (Policy, error) {
@@ -308,7 +315,7 @@ func scanPolicy(row pgx.Row) (Policy, error) {
 	if err := row.Scan(&p.ID, &p.Name, &p.Description, &p.Enabled, &p.Condition, &p.Priority,
 		&analysisState, &justification, &details, &severity, &vector, &score,
 		&p.ValidFrom, &p.ValidUntil, &p.Scope, &p.Tag, &p.Mode, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt,
-		&p.ProjectIDs); err != nil {
+		&p.OwnerProjectID, &p.ProjectIDs); err != nil {
 		return Policy{}, err
 	}
 	if analysisState != "" {
@@ -341,6 +348,16 @@ func (r *Repository) list(ctx context.Context, where string, args ...any) ([]Pol
 // List returns every policy, highest priority first.
 func (r *Repository) List(ctx context.Context) ([]Policy, error) { return r.list(ctx, "") }
 
+// ListAdmin returns the admin policies only: the GitOps bundle's set.
+func (r *Repository) ListAdmin(ctx context.Context) ([]Policy, error) {
+	return r.list(ctx, "WHERE p.owner_project_id IS NULL")
+}
+
+// ListOwned returns the policies a project's owners made for it.
+func (r *Repository) ListOwned(ctx context.Context, projectID string) ([]Policy, error) {
+	return r.list(ctx, "WHERE p.owner_project_id = $1", projectID)
+}
+
 // Enabled returns every enabled policy (time/scope not yet applied).
 func (r *Repository) Enabled(ctx context.Context) ([]Policy, error) {
 	return r.list(ctx, "WHERE p.enabled")
@@ -366,12 +383,12 @@ func (r *Repository) Create(ctx context.Context, p Policy, actor string) (Policy
 			INSERT INTO vuln_policies (name, description, enabled, condition, priority,
 			                           analysis_state, analysis_justification, analysis_details,
 			                           rating_severity, rating_cvss_vector, rating_cvss_score,
-			                           valid_from, valid_until, scope, tag, mode, created_by)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) RETURNING id`,
+			                           valid_from, valid_until, scope, tag, mode, created_by, owner_project_id)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) RETURNING id`,
 			p.Name, p.Description, p.Enabled, p.Condition, p.Priority,
 			analysisStateOf(p), justificationOf(p), detailsOf(p),
 			severityOf(p), vectorOf(p), scoreOf(p),
-			p.ValidFrom, p.ValidUntil, p.Scope, p.Tag, p.Mode, actor).Scan(&id)
+			p.ValidFrom, p.ValidUntil, p.Scope, p.Tag, p.Mode, actor, p.OwnerProjectID).Scan(&id)
 		return id, err
 	}, p)
 }
@@ -472,10 +489,8 @@ func (r *Repository) ReplaceAll(ctx context.Context, ps []Policy, actor string) 
 		return nil, fmt.Errorf("begin: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if _, err := tx.Exec(ctx, `DELETE FROM vuln_policy_projects`); err != nil {
-		return nil, fmt.Errorf("clear vuln policy projects: %w", err)
-	}
-	if _, err := tx.Exec(ctx, `DELETE FROM vuln_policies`); err != nil {
+	// A project owner's policies (owner_project_id) aren't the bundle's: kept.
+	if _, err := tx.Exec(ctx, `DELETE FROM vuln_policies WHERE owner_project_id IS NULL`); err != nil {
 		return nil, fmt.Errorf("clear vuln policies: %w", err)
 	}
 	ids := make([]string, len(ps))
@@ -550,13 +565,17 @@ type ProjectFacts struct {
 	Tags        []string
 	Criticality domain.Criticality
 	Custom      map[string]any
+	// SkipsGlobal: the project opted out of global policies (and an instance
+	// admin allows that; triage.ProjectSkipsGlobalSQL).
+	SkipsGlobal bool
 }
 
 // ProjectFacts returns one project's facts.
 func (r *Repository) ProjectFacts(ctx context.Context, projectID string) (ProjectFacts, error) {
 	var p ProjectFacts
-	err := r.db.QueryRow(ctx, `SELECT name, tags, business_criticality, custom FROM projects WHERE id = $1`, projectID).
-		Scan(&p.Name, &p.Tags, &p.Criticality, &p.Custom)
+	err := r.db.QueryRow(ctx, `SELECT name, tags, business_criticality, custom, `+triage.ProjectSkipsGlobalSQL+`
+		FROM projects WHERE id = $1`, projectID).
+		Scan(&p.Name, &p.Tags, &p.Criticality, &p.Custom, &p.SkipsGlobal)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ProjectFacts{}, ErrNoProject
 	}
