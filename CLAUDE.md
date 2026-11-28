@@ -975,7 +975,8 @@ and `internal/server/smoke_test.go` (missing smoke wiring causes a nil panic in 
   and `release.yml` publishes it after uploading; never publish before the
   files are in. It also refuses a tag not on `main` and an image or chart
   version whose release is published. A failed build is retried by running
-  it by hand with the tag (a re-run replays the old workflow file).
+  it by hand on the tag (`--ref vX.Y.Z`); a run not on the tag's commit is
+  refused, because the provenance names the run's commit.
 - Actions: `uses:` lines are SHA pins only, never tags (`git ls-remote`; peel
   annotated tags with `^{}`; keep the `# vX.Y.Z` comment). Workflows are also
   recorded in `.github/workflows/actions.lock`: after adding or changing a
