@@ -274,17 +274,7 @@ func (s *Service) evaluate(ctx context.Context, projectID, versionID string) (in
 				"project_id", projectID, "version_id", t.VersionID)
 			continue
 		}
-		var found []finding.Finding
-		for _, cp := range policies {
-			if cp.Versions == VersionsDefault && !t.IsDefault {
-				continue
-			}
-			for _, c := range byVersion[t.VersionID] {
-				if matches, ok := cp.evaluate(c, now); ok {
-					found = append(found, toFinding(cp.Policy, c, matches))
-				}
-			}
-		}
+		found := violations(policies, byVersion[t.VersionID], t.IsDefault, now)
 		if len(found) == 0 && !t.HasOpen {
 			continue // nothing to record and nothing to close
 		}
@@ -313,19 +303,17 @@ func (s *Service) components(ctx context.Context, projectIDs []string, versionID
 	if err != nil {
 		return nil, err
 	}
-	seen := map[string]bool{}
 	exprs := map[string]license.Expr{}
 	var (
 		out   []*Component
 		purls []string
 	)
 	for _, ic := range inv {
+		// Every occurrence is kept: one package version can sit in several
+		// artifacts of a version with different facts (an artifact's hashes and
+		// so its integrity, its dependency scope). violations judges each and
+		// reports the package once.
 		c := &Component{InventoryComponent: ic}
-		key := ic.ProjectID + "|" + ic.VersionID + "|" + componentKey(c)
-		if seen[key] {
-			continue
-		}
-		seen[key] = true
 		if e := ic.LicenseExpression; e != "" {
 			expr, ok := exprs[e]
 			if !ok {
@@ -470,6 +458,7 @@ func (s *Service) Preview(ctx context.Context, p Policy, projectIDs []string) (P
 		}
 	}
 	now := s.now()
+	counted, hit := map[string]bool{}, map[string]bool{}
 	for _, c := range comps {
 		if p.Versions == VersionsDefault && !c.IsDefault {
 			continue
@@ -477,11 +466,19 @@ func (s *Service) Preview(ctx context.Context, p Policy, projectIDs []string) (P
 		if tags != nil && !p.covers(c.ProjectID, tags[c.ProjectID]) {
 			continue
 		}
-		out.Components++
+		key := c.ProjectID + "|" + c.VersionID + "|" + componentKey(c)
+		if !counted[key] {
+			counted[key] = true
+			out.Components++
+		}
+		if hit[key] {
+			continue
+		}
 		matches, ok := cp.evaluate(c, now)
 		if !ok {
 			continue
 		}
+		hit[key] = true
 		out.Total++
 		if len(out.Violations) >= previewLimit {
 			out.Truncated = true

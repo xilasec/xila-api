@@ -116,6 +116,33 @@ func violationCategory(matches []Match) domain.Category {
 	return domain.CategoryLicense
 }
 
+// violations is what policies find in one version's components: per policy, a
+// package is reported once (componentKey, which its finding's fingerprint is
+// built from) when any of its occurrences violates. A package can appear in
+// several artifacts of a version with different facts, an artifact's hashes
+// and so its integrity among them; judging only one copy would miss a tampered
+// one depending on row order.
+func violations(policies []compiledPolicy, comps []*Component, isDefault bool, now time.Time) []finding.Finding {
+	var found []finding.Finding
+	for _, cp := range policies {
+		if cp.Versions == VersionsDefault && !isDefault {
+			continue
+		}
+		reported := map[string]bool{}
+		for _, c := range comps {
+			key := componentKey(c)
+			if reported[key] {
+				continue
+			}
+			if matches, ok := cp.evaluate(c, now); ok {
+				found = append(found, toFinding(cp.Policy, c, matches))
+				reported[key] = true
+			}
+		}
+	}
+	return found
+}
+
 // componentKey identifies a component version: its purl, else name@version.
 // Migration 000040 computes the same key for carried-over license findings.
 func componentKey(c *Component) string {
