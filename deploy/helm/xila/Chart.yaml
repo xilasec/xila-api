@@ -8,7 +8,7 @@ type: application
 # Chart version: bump on every chart change.
 version: 0.1.2
 # Default image tag (image.tag overrides it); Release Please keeps it current.
-appVersion: "0.1.0" # x-release-please-version
+appVersion: "0.1.1" # x-release-please-version
 kubeVersion: ">=1.25.0-0"
 keywords: [security, vulnerability-management, sbom, appsec, defectdojo, dependency-track]
 home: https://github.com/xilasec/xila-api
