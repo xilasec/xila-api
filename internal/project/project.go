@@ -139,6 +139,41 @@ func (r *Repository) GetBySlug(ctx context.Context, teamID, slug string) (Projec
 	return p, nil
 }
 
+// FindBySlug returns every live project whose slug case-insensitively
+// matches slug, restricted to teamID when given and to scopeProjectIDs when
+// non-nil (nil = unrestricted, i.e. an instance admin). Teams reuse slugs
+// across an instance, so without teamID more than one project can match —
+// the caller (project.Resolver) treats that as ambiguous, not a pick.
+func (r *Repository) FindBySlug(ctx context.Context, scopeProjectIDs []string, teamID, slug string) ([]Project, error) {
+	q := `SELECT ` + projectColumns + ` FROM projects WHERE` + archive.Only(archive.Project(""), false) + ` AND lower(slug) = lower($1)`
+	args := []any{slug}
+	if teamID != "" {
+		args = append(args, teamID)
+		q += fmt.Sprintf(" AND team_id = $%d", len(args))
+	}
+	if scopeProjectIDs != nil {
+		args = append(args, scopeProjectIDs)
+		q += fmt.Sprintf(" AND id = ANY($%d)", len(args))
+	}
+	q += " ORDER BY name"
+
+	rows, err := r.db.Query(ctx, q, args...)
+	if err != nil {
+		return nil, fmt.Errorf("find project by slug: %w", err)
+	}
+	defer rows.Close()
+
+	projects := []Project{}
+	for rows.Next() {
+		p, err := scanProject(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan project: %w", err)
+		}
+		projects = append(projects, p)
+	}
+	return projects, rows.Err()
+}
+
 // List returns projects, optionally filtered to one team. scopeProjectIDs is the
 // RBAC scope — the ids the actor may see, which is *not* simply "projects in my
 // teams": a user can be granted a role on a single project without joining its

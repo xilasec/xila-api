@@ -2201,6 +2201,97 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/scans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ingest a scanner report into a project named in the query
+         * @description `POST /projects/{projectID}/scans` for CI that knows a project by name.
+         *     No project id in the path: the project is found by name
+         *     (`project_name`, matched against project slugs case-insensitively),
+         *     within `team` (an id or slug) when given, else among every project
+         *     the caller can see; more than one match is a 400 asking for `team`.
+         *     With `auto_create=true` and a `team`, a missing project is created
+         *     there (team editor required, as for `POST /teams/{teamID}/projects`;
+         *     concurrent CI jobs creating the same name share one project).
+         *     The upload needs the same rights as the per-project route: uploader
+         *     or higher on the project, a custom role not denying uploads, and a
+         *     project-scoped token only for its own project (it can never create
+         *     one).
+         *
+         *     Everything else (parameters, body, async mode, backpressure) is the
+         *     per-project route's.
+         */
+        post: operations["createScanByProjectName"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sboms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload an SBOM into a project named in the query
+         * @description `POST /projects/{projectID}/sboms` for CI that knows a project by name.
+         *     No project id in the path: the project is found by name
+         *     (`project_name`, matched against project slugs case-insensitively),
+         *     within `team` (an id or slug) when given, else among every project
+         *     the caller can see; more than one match is a 400 asking for `team`.
+         *     With `auto_create=true` and a `team`, a missing project is created
+         *     there (team editor required, as for `POST /teams/{teamID}/projects`;
+         *     concurrent CI jobs creating the same name share one project).
+         *     The upload needs the same rights as the per-project route: uploader
+         *     or higher on the project, a custom role not denying uploads, and a
+         *     project-scoped token only for its own project (it can never create
+         *     one).
+         *
+         *     Poll `GET /sboms/{id}/status` before gating on the upload.
+         */
+        post: operations["createSbomByProjectName"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sboms/{sbomID}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * An SBOM upload's background processing
+         * @description An upload returns once the snapshot is stored; the advisory match,
+         *     registry metadata lookup, component policy evaluation and reachability
+         *     rescoring finish afterwards. CI should wait for `completed` (or
+         *     `failed`) before running the gate, so it judges the new snapshot. A
+         *     step whose feature is off is never added, so it can't hold this up.
+         */
+        get: operations["getSbomProcessing"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{projectID}/scans": {
         parameters: {
             query?: never;
@@ -4168,7 +4259,7 @@ export interface paths {
         put?: never;
         /**
          * Upload an SBOM
-         * @description CycloneDX or SPDX JSON — the format is detected from the content. Each
+         * @description CycloneDX (JSON or XML) or SPDX JSON: the format is detected from the content. Each
          *     upload is an **immutable snapshot**, so history is preserved rather than
          *     overwritten.
          *
@@ -4180,8 +4271,10 @@ export interface paths {
          *     validates a CycloneDX upload against the official JSON schema for its
          *     own `specVersion` (1.2 through 1.7) before storing it; a failure
          *     returns 400 with up to 50 field-level errors, each with a JSON
-         *     Pointer path. XML CycloneDX is always rejected — upload CycloneDX or
-         *     SPDX JSON instead.
+         *     Pointer path. CycloneDX XML (schema 1.0 and later) is accepted and
+         *     parsed exactly like JSON, but the schema validator only checks JSON:
+         *     `strict` with an XML document is a 400, so an instance with
+         *     `SBOM_STRICT_VALIDATION` on accepts JSON only.
          */
         post: operations["createProjectSbom"];
         delete?: never;
@@ -9748,9 +9841,32 @@ export interface components {
             /** Format: date-time */
             created_at?: string;
         };
+        /**
+         * @description Rolls up the steps: `completed` once every step is, `failed` if any
+         *     failed, `running` once any has started, else `pending`.
+         */
+        SbomProcessing: {
+            /** Format: uuid */
+            sbom_id?: string;
+            /** @enum {string} */
+            status?: "pending" | "running" | "completed" | "failed";
+            /** @description Each enabled step (policy, reachability, vulnmatch, pkgmeta) and its status. */
+            steps?: {
+                [key: string]: "pending" | "running" | "completed" | "failed";
+            };
+            /** @description The public message of the step that last failed. */
+            error?: string;
+            /** Format: date-time */
+            started_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+            /** Format: date-time */
+            completed_at?: string | null;
+        };
         Sbom: {
             /** Format: uuid */
             id?: string;
+            processing?: components["schemas"]["SbomProcessing"];
             /** Format: uuid */
             project_id?: string;
             /**
@@ -11363,6 +11479,70 @@ export interface components {
         OrgID: string;
         TeamID: string;
         ProjectID: string;
+        /** @description The project, by slug (case-insensitive). */
+        UploadProjectName: string;
+        /** @description The project's team, by id or slug. Required with auto_create. */
+        UploadTeam: string;
+        /** @description Create the project in team when none has this name (team editor). */
+        UploadAutoCreate: boolean;
+        /**
+         * @description Native parsers: `trivy`, `grype`, `osv-scanner`, `npm-audit`,
+         *     `dependency-check`, `govulncheck`, `gitleaks`, `trufflehog`, `zap`,
+         *     `nuclei`, `prowler`, `kubescape`, `kubeaudit`, `checkov`, `tfsec`,
+         *     `terrascan`, `scoutsuite`, `clair`, `anchore`, `docker-scout`, `polaris`,
+         *     `kube-bench`, `burp`, `nikto`, `nmap`, `wapiti`, `defectdojo-generic`,
+         *     `secobserve`, `snyk`, `pip-audit`, `safety`, `cargo-audit`, `retirejs`,
+         *     `bundler-audit`, `semgrep`, `bandit`, `gosec`, `brakeman`, `detect-secrets`,
+         *     `ggshield`, `hadolint`, `kics`, `eslint`, `yarn-audit`, `njsscan`, `bearer`,
+         *     `mobsf`, `sonarqube`, `checkmarx`, `veracode`, `mend`, `jfrog-xray`,
+         *     `aws-inspector2`, `aws-security-hub`, `nessus`, `openvas`, `qualys`,
+         *     `acunetix`, `invicti`, `testssl` (see docs/PARSERS.md). Any other tool:
+         *     pass its name here **and** `format=sarif`.
+         */
+        ScanUploadScanner: string;
+        /** @description Selects the parser when the wire format differs from the tool (`sarif`). */
+        ScanUploadFormat: "sarif";
+        /** @description Attribute the scan and its findings to an asset. */
+        ScanUploadAssetId: string;
+        /** @description The branch this scan is of. Its findings live on that branch's version (created on first use). Omit for the default version. */
+        ScanUploadBranch: string;
+        /** @description Instead of a branch, the release this scan is of (e.g. `v1.4.0`). Not both. */
+        ScanUploadRelease: string;
+        ScanUploadCommit: string;
+        /** @description File the scan as a test of one of this project's engagements. Another project's engagement is a 400. */
+        ScanUploadEngagementId: string;
+        /**
+         * @description Treat this scan as the scanner's complete current view of its target
+         *     (`asset_id` + `branch`): anything it previously reported on that same
+         *     target and no longer does is auto-remediated. Findings last reported on
+         *     another asset or branch are never touched. Default true. Set false for
+         *     partial/incremental scans, or you will close findings that simply
+         *     weren't scanned.
+         */
+        ScanUploadCloseMissing: boolean;
+        /**
+         * @description Always run the full pipeline, even if this report's content hash
+         *     matches the target's previous completed scan (bypasses
+         *     `INGEST_SKIP_UNCHANGED`).
+         */
+        ScanUploadForce: boolean;
+        /**
+         * @description File each finding under the host asset of the machine it names (Nessus,
+         *     OpenVAS, Qualys, Nmap, testssl.sh and other infrastructure scanners
+         *     record the host), creating missing host assets. For multi-host network
+         *     scans; not together with `asset_id`.
+         */
+        ScanUploadSplitAssets: boolean;
+        /** @description Overrides the SBOM's own subject name. */
+        SbomUploadArtifact: string;
+        /** @description The artifact's own version (not the project branch). */
+        SbomUploadVersion: string;
+        /** @description The project branch this SBOM describes. Omit for the default version. */
+        SbomUploadBranch: string;
+        /** @description Instead of a branch */
+        SbomUploadRelease: string;
+        /** @description Reject a CycloneDX document that fails the official JSON schema for its specVersion. */
+        SbomUploadStrict: boolean;
         ExpectationID: string;
         OverrideID: string;
         CRACaseID: string;
@@ -11465,7 +11645,15 @@ export interface components {
         /** @description `csv` (default) or `xlsx` (Excel). */
         ExportFormat: "csv" | "xlsx";
     };
-    requestBodies: never;
+    requestBodies: {
+        /** @description The SBOM document, as the tool wrote it. */
+        SbomDocument: {
+            content: {
+                "application/json": Record<string, never>;
+                "application/xml": string;
+            };
+        };
+    };
     headers: never;
     pathItems: never;
 }
@@ -15403,6 +15591,174 @@ export interface operations {
             };
         };
     };
+    createScanByProjectName: {
+        parameters: {
+            query: {
+                /** @description The project, by slug (case-insensitive). */
+                project_name: components["parameters"]["UploadProjectName"];
+                /** @description The project's team, by id or slug. Required with auto_create. */
+                team?: components["parameters"]["UploadTeam"];
+                /** @description Create the project in team when none has this name (team editor). */
+                auto_create?: components["parameters"]["UploadAutoCreate"];
+                /**
+                 * @description Native parsers: `trivy`, `grype`, `osv-scanner`, `npm-audit`,
+                 *     `dependency-check`, `govulncheck`, `gitleaks`, `trufflehog`, `zap`,
+                 *     `nuclei`, `prowler`, `kubescape`, `kubeaudit`, `checkov`, `tfsec`,
+                 *     `terrascan`, `scoutsuite`, `clair`, `anchore`, `docker-scout`, `polaris`,
+                 *     `kube-bench`, `burp`, `nikto`, `nmap`, `wapiti`, `defectdojo-generic`,
+                 *     `secobserve`, `snyk`, `pip-audit`, `safety`, `cargo-audit`, `retirejs`,
+                 *     `bundler-audit`, `semgrep`, `bandit`, `gosec`, `brakeman`, `detect-secrets`,
+                 *     `ggshield`, `hadolint`, `kics`, `eslint`, `yarn-audit`, `njsscan`, `bearer`,
+                 *     `mobsf`, `sonarqube`, `checkmarx`, `veracode`, `mend`, `jfrog-xray`,
+                 *     `aws-inspector2`, `aws-security-hub`, `nessus`, `openvas`, `qualys`,
+                 *     `acunetix`, `invicti`, `testssl` (see docs/PARSERS.md). Any other tool:
+                 *     pass its name here **and** `format=sarif`.
+                 */
+                scanner: components["parameters"]["ScanUploadScanner"];
+                /** @description Selects the parser when the wire format differs from the tool (`sarif`). */
+                format?: components["parameters"]["ScanUploadFormat"];
+                /** @description Attribute the scan and its findings to an asset. */
+                asset_id?: components["parameters"]["ScanUploadAssetId"];
+                /** @description The branch this scan is of. Its findings live on that branch's version (created on first use). Omit for the default version. */
+                branch?: components["parameters"]["ScanUploadBranch"];
+                /** @description Instead of a branch, the release this scan is of (e.g. `v1.4.0`). Not both. */
+                release?: components["parameters"]["ScanUploadRelease"];
+                commit?: components["parameters"]["ScanUploadCommit"];
+                /** @description File the scan as a test of one of this project's engagements. Another project's engagement is a 400. */
+                engagement_id?: components["parameters"]["ScanUploadEngagementId"];
+                /**
+                 * @description Treat this scan as the scanner's complete current view of its target
+                 *     (`asset_id` + `branch`): anything it previously reported on that same
+                 *     target and no longer does is auto-remediated. Findings last reported on
+                 *     another asset or branch are never touched. Default true. Set false for
+                 *     partial/incremental scans, or you will close findings that simply
+                 *     weren't scanned.
+                 */
+                close_missing?: components["parameters"]["ScanUploadCloseMissing"];
+                /**
+                 * @description Always run the full pipeline, even if this report's content hash
+                 *     matches the target's previous completed scan (bypasses
+                 *     `INGEST_SKIP_UNCHANGED`).
+                 */
+                force?: components["parameters"]["ScanUploadForce"];
+                /**
+                 * @description File each finding under the host asset of the machine it names (Nessus,
+                 *     OpenVAS, Qualys, Nmap, testssl.sh and other infrastructure scanners
+                 *     record the host), creating missing host assets. For multi-host network
+                 *     scans; not together with `asset_id`.
+                 */
+                split_assets?: components["parameters"]["ScanUploadSplitAssets"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The raw scanner output. */
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Ingested (synchronous mode), the finished scan */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Scan"];
+                };
+            };
+            /** @description Queued (async mode); poll `GET /scans/{id}` until `completed` */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Scan"];
+                };
+            };
+            400: components["responses"]["Error"];
+            /** @description Not allowed to upload to (or create) this project */
+            403: components["responses"]["Error"];
+            /** @description No visible project has this name */
+            404: components["responses"]["Error"];
+            /** @description The project is a collection, or an archived project of the team holds this name */
+            409: components["responses"]["Error"];
+            /** @description The report could not be parsed */
+            422: components["responses"]["Error"];
+            /** @description The ingest queue is saturated. Respect `Retry-After`. */
+            429: components["responses"]["Error"];
+        };
+    };
+    createSbomByProjectName: {
+        parameters: {
+            query: {
+                /** @description The project, by slug (case-insensitive). */
+                project_name: components["parameters"]["UploadProjectName"];
+                /** @description The project's team, by id or slug. Required with auto_create. */
+                team?: components["parameters"]["UploadTeam"];
+                /** @description Create the project in team when none has this name (team editor). */
+                auto_create?: components["parameters"]["UploadAutoCreate"];
+                /** @description Overrides the SBOM's own subject name. */
+                artifact?: components["parameters"]["SbomUploadArtifact"];
+                /** @description The artifact's own version (not the project branch). */
+                version?: components["parameters"]["SbomUploadVersion"];
+                /** @description The project branch this SBOM describes. Omit for the default version. */
+                branch?: components["parameters"]["SbomUploadBranch"];
+                /** @description Instead of a branch */
+                release?: components["parameters"]["SbomUploadRelease"];
+                /** @description Reject a CycloneDX document that fails the official JSON schema for its specVersion. */
+                strict?: components["parameters"]["SbomUploadStrict"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["SbomDocument"];
+        responses: {
+            /** @description Stored */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Sbom"];
+                };
+            };
+            400: components["responses"]["SbomStrictError"];
+            /** @description Not allowed to upload to (or create) this project */
+            403: components["responses"]["Error"];
+            /** @description No visible project has this name */
+            404: components["responses"]["Error"];
+            /** @description The project is a collection, or an archived project of the team holds this name */
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    getSbomProcessing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sbomID: components["parameters"]["SbomID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SbomProcessing"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
     listProjectScans: {
         parameters: {
             query?: {
@@ -15451,18 +15807,18 @@ export interface operations {
                  *     `acunetix`, `invicti`, `testssl` (see docs/PARSERS.md). Any other tool:
                  *     pass its name here **and** `format=sarif`.
                  */
-                scanner: string;
+                scanner: components["parameters"]["ScanUploadScanner"];
                 /** @description Selects the parser when the wire format differs from the tool (`sarif`). */
-                format?: "sarif";
+                format?: components["parameters"]["ScanUploadFormat"];
                 /** @description Attribute the scan and its findings to an asset. */
-                asset_id?: string;
+                asset_id?: components["parameters"]["ScanUploadAssetId"];
                 /** @description The branch this scan is of. Its findings live on that branch's version (created on first use). Omit for the default version. */
-                branch?: string;
+                branch?: components["parameters"]["ScanUploadBranch"];
                 /** @description Instead of a branch, the release this scan is of (e.g. `v1.4.0`). Not both. */
-                release?: string;
-                commit?: string;
+                release?: components["parameters"]["ScanUploadRelease"];
+                commit?: components["parameters"]["ScanUploadCommit"];
                 /** @description File the scan as a test of one of this project's engagements. Another project's engagement is a 400. */
-                engagement_id?: string;
+                engagement_id?: components["parameters"]["ScanUploadEngagementId"];
                 /**
                  * @description Treat this scan as the scanner's complete current view of its target
                  *     (`asset_id` + `branch`): anything it previously reported on that same
@@ -15471,20 +15827,20 @@ export interface operations {
                  *     partial/incremental scans, or you will close findings that simply
                  *     weren't scanned.
                  */
-                close_missing?: boolean;
+                close_missing?: components["parameters"]["ScanUploadCloseMissing"];
                 /**
                  * @description Always run the full pipeline, even if this report's content hash
                  *     matches the target's previous completed scan (bypasses
                  *     `INGEST_SKIP_UNCHANGED`).
                  */
-                force?: boolean;
+                force?: components["parameters"]["ScanUploadForce"];
                 /**
                  * @description File each finding under the host asset of the machine it names (Nessus,
                  *     OpenVAS, Qualys, Nmap, testssl.sh and other infrastructure scanners
                  *     record the host), creating missing host assets. For multi-host network
                  *     scans; not together with `asset_id`.
                  */
-                split_assets?: boolean;
+                split_assets?: components["parameters"]["ScanUploadSplitAssets"];
             };
             header?: never;
             path: {
@@ -18895,15 +19251,15 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description Overrides the SBOM's own subject name. */
-                artifact?: string;
+                artifact?: components["parameters"]["SbomUploadArtifact"];
                 /** @description The artifact's own version (not the project branch). */
-                version?: string;
+                version?: components["parameters"]["SbomUploadVersion"];
                 /** @description The project branch this SBOM describes. Omit for the default version. */
-                branch?: string;
+                branch?: components["parameters"]["SbomUploadBranch"];
                 /** @description Instead of a branch */
-                release?: string;
+                release?: components["parameters"]["SbomUploadRelease"];
                 /** @description Reject a CycloneDX document that fails the official JSON schema for its specVersion. */
-                strict?: boolean;
+                strict?: components["parameters"]["SbomUploadStrict"];
             };
             header?: never;
             path: {
@@ -18911,11 +19267,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": Record<string, never>;
-            };
-        };
+        requestBody: components["requestBodies"]["SbomDocument"];
         responses: {
             /** @description Stored */
             201: {

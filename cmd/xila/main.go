@@ -31,6 +31,7 @@ const usage = `xila — CI client for the Xila security platform
 
 Usage:
   xila upload --project <id> --scanner <name> [--branch <b> | --release <r>] [flags] <file|->
+  xila upload --project <id> --sbom [--artifact <a> --artifact-version <v>] [flags] <file|->
   xila gate   --project <id> [--branch <b> | --release <r>] [policy flags]
   xila mcp    (stdio MCP server for AI clients; proxies to the server's MCP_ENABLED endpoint)
   xila version
@@ -38,6 +39,13 @@ Usage:
 Findings are tracked per branch / release: upload with --branch so a PR's scan
 never closes or changes main's findings. upload --gate gates the branch it uploaded;
 gate without --branch evaluates the project's default branch.
+
+Instead of --project, CI can name the project: --project-name <slug> [--team
+<id|slug>], plus --create to create it in that team on first upload (team
+editor; a project-scoped token never creates one).
+
+upload --sbom waits for the SBOM's advisory match, policies and reachability
+(--wait, implied by --gate) so the gate judges the new snapshot.
 
 Global flags (or env): --url (XILA_URL, default http://localhost:8080), --token (XILA_TOKEN),
   --oidc-token (XILA_OIDC_TOKEN)
@@ -134,17 +142,86 @@ func globalFlags(fs *flag.FlagSet) (url, token, oidcToken *string) {
 	return url, token, oidcToken
 }
 
+// scanOnlyFlags and sbomOnlyFlags are refused in the other upload mode, so a
+// flag the server would ignore can't look like it took effect.
+var (
+	scanOnlyFlags = []string{"scanner", "format", "commit", "engagement", "force", "split-assets"}
+	sbomOnlyFlags = []string{"artifact-version", "strict"}
+)
+
+// uploadTarget is the project an upload goes to: by id, or by name (in team,
+// created there when create is set).
+type uploadTarget struct {
+	project, name, team string
+	create              bool
+}
+
+// path returns the upload endpoint for kind ("scans" or "sboms"), adding the
+// by-name selectors to q.
+func (t uploadTarget) path(kind string, q neturl.Values) string {
+	if t.project != "" {
+		return "/api/v1/projects/" + neturl.PathEscape(t.project) + "/" + kind
+	}
+	q.Set("project_name", t.name)
+	if t.team != "" {
+		q.Set("team", t.team)
+	}
+	if t.create {
+		q.Set("auto_create", "true")
+	}
+	return "/api/v1/" + kind
+}
+
+// checkUploadFlags returns the usage error in an upload's flags, or "". set
+// holds the names of the flags given on the command line.
+func checkUploadFlags(set map[string]bool, t uploadTarget, sbom bool, scanner string) string {
+	switch {
+	case (t.project == "") == (t.name == ""):
+		return "give --project or --project-name"
+	case t.project != "" && (set["team"] || set["create"]):
+		return "--team and --create go with --project-name"
+	case t.create && t.team == "":
+		return "--create needs --team, the team to create the project in"
+	case set["branch"] && set["release"]:
+		return "give --branch or --release, not both"
+	}
+	if sbom {
+		for _, f := range scanOnlyFlags {
+			if set[f] {
+				return "--" + f + " is for scanner reports, not --sbom"
+			}
+		}
+		return ""
+	}
+	for _, f := range sbomOnlyFlags {
+		if set[f] {
+			return "--" + f + " goes with --sbom"
+		}
+	}
+	if scanner == "" {
+		return "--scanner is required (or --sbom for an SBOM)"
+	}
+	return ""
+}
+
 func cmdUpload(args []string, out, errw io.Writer) int {
 	fs := flag.NewFlagSet("upload", flag.ContinueOnError)
 	fs.SetOutput(errw)
 	url, token, oidcToken := globalFlags(fs)
-	project := fs.String("project", "", "project id (required)")
-	scanner := fs.String("scanner", "", "scanner name, e.g. trivy (required)")
+	var t uploadTarget
+	fs.StringVar(&t.project, "project", "", "project id (or --project-name)")
+	fs.StringVar(&t.name, "project-name", "", "instead of --project: the project's name (slug, case-insensitive)")
+	fs.StringVar(&t.team, "team", "", "with --project-name: the project's team, by id or slug")
+	fs.BoolVar(&t.create, "create", false, "with --project-name and --team: create the project when none has this name (team editor)")
+	sbom := fs.Bool("sbom", false, "the file is an SBOM (CycloneDX JSON or XML, SPDX JSON), not a scanner report")
+	scanner := fs.String("scanner", "", "scanner name, e.g. trivy (required without --sbom)")
 	format := fs.String("format", "", "override format, e.g. sarif")
 	branch := fs.String("branch", "", "source branch (findings are tracked per branch)")
 	release := fs.String("release", "", "instead of --branch: the release this scan is of")
 	commit := fs.String("commit", "", "source commit")
 	artifact := fs.String("artifact", "", "artifact name")
+	artifactVersion := fs.String("artifact-version", "", "with --sbom: the artifact's own version")
+	strict := fs.Bool("strict", false, "with --sbom: validate against the official schema (JSON only)")
 	engagement := fs.String("engagement", "", "engagement id: file the scan as one of its tests")
 	force := fs.Bool("force", false, "process in full even if this report's content hash matches the previous scan (bypasses skip-unchanged)")
 	splitAssets := fs.Bool("split-assets", false, "file each finding under the host asset of the machine it names (multi-host infrastructure scans)")
@@ -159,8 +236,10 @@ func cmdUpload(args []string, out, errw io.Writer) int {
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
-	if *project == "" || *scanner == "" {
-		fmt.Fprintln(errw, "error: --project and --scanner are required")
+	set := map[string]bool{}
+	fs.Visit(func(f *flag.Flag) { set[f.Name] = true })
+	if msg := checkUploadFlags(set, t, *sbom, *scanner); msg != "" {
+		fmt.Fprintln(errw, "error: "+msg)
 		return 2
 	}
 	data, err := readInput(fs.Arg(0))
@@ -169,29 +248,35 @@ func cmdUpload(args []string, out, errw io.Writer) int {
 		return 2
 	}
 
-	if *branch != "" && *release != "" {
-		fmt.Fprintln(errw, "error: give --branch or --release, not both")
-		return 2
+	kind, params := "scans", map[string]string{"scanner": *scanner, "format": *format, "commit": *commit, "engagement_id": *engagement}
+	if *force {
+		params["force"] = "true"
 	}
-	q := neturl.Values{"scanner": {*scanner}}
-	for k, v := range map[string]string{"format": *format, "branch": *branch, "release": *release, "commit": *commit, "artifact": *artifact, "engagement_id": *engagement} {
+	if *splitAssets {
+		params["split_assets"] = "true"
+	}
+	if *sbom {
+		kind, params = "sboms", map[string]string{"version": *artifactVersion}
+		if *strict {
+			params["strict"] = "true"
+		}
+	}
+	params["branch"], params["release"], params["artifact"] = *branch, *release, *artifact
+	q := neturl.Values{}
+	for k, v := range params {
 		if v != "" {
 			q.Set(k, v)
 		}
 	}
-	if *force {
-		q.Set("force", "true")
-	}
-	if *splitAssets {
-		q.Set("split_assets", "true")
-	}
+	path := t.path(kind, q)
+
 	bearer, err := resolveToken(*url, *token, *oidcToken, out)
 	if err != nil {
 		fmt.Fprintf(errw, "error: %v\n", err)
 		return 2
 	}
 	c := newClient(*url, bearer, *retryFor, errw)
-	status, body, err := c.do(http.MethodPost, "/api/v1/projects/"+*project+"/scans", "?"+q.Encode(), data)
+	status, body, err := c.do(http.MethodPost, path, "?"+q.Encode(), data)
 	if err != nil {
 		fmt.Fprintf(errw, "error: upload failed: %v\n", err)
 		return 2
@@ -200,58 +285,76 @@ func cmdUpload(args []string, out, errw io.Writer) int {
 		fmt.Fprintf(errw, "error: upload returned %d: %s\n", status, apiError(body))
 		return 2
 	}
-	var sr struct {
+	var up struct {
 		ID        string `json:"id"`
 		Status    string `json:"status"`
+		ProjectID string `json:"project_id"`
 		VersionID string `json:"version_id"`
 	}
-	_ = json.Unmarshal(body, &sr)
-	fmt.Fprintf(out, "uploaded %s scan to project %s (scan %s)\n", *scanner, *project, sr.ID)
+	_ = json.Unmarshal(body, &up)
+	project := up.ProjectID
+	if project == "" {
+		project = t.project
+	}
 
-	// Async servers return 202 with a "processing" scan; wait for it to finish
-	// before gating (the gate needs the processed backlog).
-	if (*gate || *wait) && sr.Status == "processing" && sr.ID != "" {
-		if code := waitForScan(c, sr.ID, *timeout, out, errw); code != 0 {
-			return code
+	// The gate needs the processed backlog. An async server answers a scan
+	// with 202 and a "processing" scan; an SBOM's advisory match, policies
+	// and reachability always finish after the upload returns.
+	scanID := ""
+	if *sbom {
+		fmt.Fprintf(out, "uploaded SBOM to project %s (sbom %s)\n", project, up.ID)
+		if (*gate || *wait) && up.ID != "" {
+			if code := waitForProcessing(c, "SBOM", "/api/v1/sboms/"+up.ID+"/status", *timeout, out, errw); code != 0 {
+				return code
+			}
+		}
+	} else {
+		scanID = up.ID
+		fmt.Fprintf(out, "uploaded %s scan to project %s (scan %s)\n", *scanner, project, up.ID)
+		if (*gate || *wait) && up.Status == "processing" && up.ID != "" {
+			if code := waitForProcessing(c, "scan", "/api/v1/scans/"+up.ID, *timeout, out, errw); code != 0 {
+				return code
+			}
 		}
 	}
 
 	var result *gateResult
 	code := 0
 	if *gate {
-		// Gate the exact branch/release this scan landed on, not the default one.
-		result, code = evaluateGate(c, *project, versionQuery("", "", sr.VersionID, *baseline), gateBody(nil, *newOnly), out, errw)
+		// Gate the exact branch/release this upload landed on, not the default one.
+		result, code = evaluateGate(c, project, versionQuery("", "", up.VersionID, *baseline), gateBody(nil, *newOnly), out, errw)
 	}
 
 	// The comment and check run are side effects, never a reason to fail a
 	// build: if GitHub is down or the token can't write, the security verdict
 	// still stands.
 	if *comment {
-		if err := postPRComment(c, *url, *project, sr.ID, result, out); err != nil {
+		if err := postPRComment(c, *url, project, scanID, result, out); err != nil {
 			fmt.Fprintf(errw, "warning: could not post PR comment: %v\n", err)
 		}
 	}
 	if *check {
-		if err := postCheckRun(c, *url, *project, sr.ID, result, out); err != nil {
+		if err := postCheckRun(c, *url, project, scanID, result, out); err != nil {
 			fmt.Fprintf(errw, "warning: could not post check run: %v\n", err)
 		}
 	}
 	return code
 }
 
-// postPRComment renders the scan result into the pull request. Silently does
-// nothing outside a PR context — a push to main has no PR to comment on, and that
-// is normal, not an error.
+// postPRComment renders the result into the pull request: the gate verdict and,
+// given a scan, the findings it introduced. Silently does nothing outside a PR
+// context — a push to main has no PR to comment on, and that is normal, not an
+// error.
 func postPRComment(c *client, baseURL, project, scanID string, gate *gateResult, out io.Writer) error {
 	gh, pr, ok := ghFromEnv()
 	if !ok {
 		return nil
 	}
-	findings, total, err := c.newFindings(project, scanID)
+	added, err := c.introducedBy(project, scanID)
 	if err != nil {
 		return err
 	}
-	url, err := gh.UpsertComment(pr, renderComment(baseURL, project, gate, findings, total))
+	url, err := gh.UpsertComment(pr, renderComment(baseURL, project, gate, added))
 	if err != nil {
 		return err
 	}
@@ -270,16 +373,15 @@ func postCheckRun(c *client, baseURL, project, scanID string, gate *gateResult, 
 	if !ok {
 		return nil
 	}
-	var findings []prFinding
-	var total int
-	if scanID != "" {
-		var err error
-		findings, total, err = c.newFindings(project, scanID)
-		if err != nil {
-			return err
-		}
+	added, err := c.introducedBy(project, scanID)
+	if err != nil {
+		return err
 	}
-	summary := renderComment(baseURL, project, gate, findings, total)
+	summary := renderComment(baseURL, project, gate, added)
+	var findings []prFinding
+	if added != nil {
+		findings = added.findings
+	}
 	annotations := buildAnnotations(findings)
 	if capped := countLocatable(findings) - len(annotations); capped > 0 {
 		summary += fmt.Sprintf("\n<sub>⚠️ %d additional findings have a file location but were not annotated (capped at %d annotations).</sub>\n", capped, maxAnnotations)
@@ -292,15 +394,16 @@ func postCheckRun(c *client, baseURL, project, scanID string, gate *gateResult, 
 	return nil
 }
 
-// waitForScan polls a scan until it's completed or failed. Returns 0 on
-// completion, non-zero on failure/timeout.
-func waitForScan(c *client, scanID string, timeout time.Duration, out, errw io.Writer) int {
+// waitForProcessing polls path (a scan, or an SBOM's processing status; both
+// carry status and error) until it's completed or failed. Returns 0 on
+// completion, non-zero on failure or timeout.
+func waitForProcessing(c *client, what, path string, timeout time.Duration, out, errw io.Writer) int {
 	fmt.Fprint(out, "waiting for processing…")
 	deadline := time.Now().Add(timeout)
 	for {
-		status, body, err := c.do(http.MethodGet, "/api/v1/scans/"+scanID, "", nil)
+		status, body, err := c.do(http.MethodGet, path, "", nil)
 		if err != nil || status != http.StatusOK {
-			fmt.Fprintf(errw, "\nerror: scan lookup failed (%d): %v\n", status, err)
+			fmt.Fprintf(errw, "\nerror: %s lookup failed (%d): %v\n", what, status, err)
 			return 2
 		}
 		var s struct{ Status, Error string }
@@ -310,15 +413,15 @@ func waitForScan(c *client, scanID string, timeout time.Duration, out, errw io.W
 			fmt.Fprintln(out, " done")
 			return 0
 		case "failed":
-			fmt.Fprintf(errw, "\nerror: scan processing failed: %s\n", s.Error)
+			fmt.Fprintf(errw, "\nerror: %s processing failed: %s\n", what, s.Error)
 			return 2
 		}
 		if time.Now().After(deadline) {
-			fmt.Fprintln(errw, "\nerror: timed out waiting for scan to process")
+			fmt.Fprintf(errw, "\nerror: timed out waiting for %s to process\n", what)
 			return 2
 		}
 		fmt.Fprint(out, ".")
-		time.Sleep(time.Second)
+		c.sleep(time.Second)
 	}
 }
 

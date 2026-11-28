@@ -923,8 +923,11 @@ Tier 1:
   fingerprint always wins; risk acceptances never carry. Migration 000110.
 - ⬜ 13.2 Structured analysis on manual triage and rules: a VEX justification
   and vendor response, kept in history and exported (SecObserve, DT).
-- ⬜ 13.3 SBOMs from CI: `xila upload --sbom`, a processing status CI can
-  wait on before the gate, and creating a project by name on upload (DT).
+- ✅ 13.3 SBOMs from CI (DT): `xila upload --sbom` waits on
+  `GET /sboms/{id}/status` (per-step background processing) before the gate,
+  and `POST /scans|/sboms?project_name=&team=&auto_create=` uploads by name,
+  creating the project on first upload with the per-project route's
+  authorization. Migration 000123.
 - ✅ 13.4 Exploit-aware SLA (DefectDojo Pro): a per-scope SLA policy adds
   `kev_days` / `exploited_days` windows and a `use_kev_due_date` cap, so a KEV
   or weaponized-exploit finding gets the shorter of its severity window and its
@@ -932,7 +935,9 @@ Tier 1:
   deadline is still computed in the SQL trigger. Migration 000119.
 - ⬜ 13.5 Triage rules that assign, tag, comment and notify, on schedules and
   finding events as well as ingest (DefectDojo Pro).
-- ⬜ 13.6 CycloneDX XML SBOMs (DT).
+- ✅ 13.6 CycloneDX XML SBOMs (DT): schema 1.0 to 1.6, parsed into the same
+  document as JSON (round-trip tested against the official JSON twin); strict
+  mode stays JSON-only.
 - ⬜ 13.7 More notification events, and a stored gate state that alerts when
   it flips, with a "fails gate" filter (all three).
 

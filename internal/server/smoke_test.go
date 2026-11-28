@@ -184,6 +184,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 	federationRepo := federation.NewRepository(pool)
 	federationSvc := federation.NewService(federationRepo, userRepo, authSvc, cfg.ServiceAccounts.TokenTTL)
 	membershipRepo := membership.NewRepository(pool)
+	projectResolver := project.NewResolver(projectRepo, team.NewRepository(pool), membershipRepo)
 	triageRepo := triage.NewRepository(pool)
 	gateRepo := gate.NewRepository(pool)
 	// Custom fields: definitions + validated values; triage rules read and
@@ -319,7 +320,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		Project: project.NewHandler(projectRepo, findingRepo, membershipRepo).WithTagsChanged(func(id string) {
 			policySvc.Reevaluate([]string{id}, false) // tag-scoped policies may now (not) apply
 		}),
-		Scan: scan.NewHandler(scanRepo, ingestSvc, false, nil, nil),
+		Scan: scan.NewHandler(scanRepo, ingestSvc, false, nil, nil).WithProjectByName(projectResolver, membershipRepo),
 		Finding: finding.NewHandler(findingRepo, notifySvc, membershipRepo, cfg.AssessmentRequiresApproval).
 			WithRiskAcceptanceApproval(cfg.RiskAcceptanceRequiresApproval).WithCustomFields(customFieldRepo),
 		AITriage: aitriage.NewHandler(aitriage.NewService(aitriage.NewRepository(pool), findingRepo, aiProvider,
@@ -327,7 +328,8 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 			aitriage.Options{RequireApproval: cfg.AssessmentRequiresApproval, RateLimit: cfg.AI.RateLimit})),
 		Sbom: sbom.NewHandler(sbomRepo, sbom.NewService(sbomRepo, projectRepo, policySvc,
 			correlation.NewReacher(findingRepo, findingRepo)).WithLicenses(license.Resolve).WithStrictValidation(cfg.SBOMStrictValidation).
-			WithLicenseOverrides(func(ctx context.Context) (sbom.LicenseOverrideMatcher, error) { return loadLicenseOverrides(ctx) })),
+			WithLicenseOverrides(func(ctx context.Context) (sbom.LicenseOverrideMatcher, error) { return loadLicenseOverrides(ctx) })).
+			WithProjectByName(projectResolver, membershipRepo),
 		Asset:          asset.NewHandler(assetRepo, assetSvc, membershipRepo),
 		Compliance:     compliance.NewHandler(complianceRepo),
 		Portfolio:      portfolio.NewHandler(portfolio.NewRepository(pool)),

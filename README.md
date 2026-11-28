@@ -1155,8 +1155,8 @@ form, so what is filed matches what is on screen.
 
 ### SBOMs (Dependency-Track style)
 
-Upload a CycloneDX or SPDX JSON BOM to `POST /projects/{id}/sboms`. The format is
-detected from the content. Each upload is stored as an immutable snapshot
+Upload a CycloneDX (JSON, or XML from schema 1.0 on) or SPDX JSON BOM to
+`POST /projects/{id}/sboms`. The format is detected from the content. Each upload is stored as an immutable snapshot
 (`sboms`) with its full component list (`sbom_components`), so history is
 preserved rather than overwritten:
 
@@ -1165,8 +1165,21 @@ checks a CycloneDX upload against the official JSON schema for its own
 `specVersion` (1.2 through 1.7); a failure returns `400` with up to 50 field
 errors, each a JSON Pointer path and message, e.g.
 `{"path": "/components/3/purl", "message": "does not match pattern"}`. Off by
-default, so existing lenient uploads keep working. XML CycloneDX is always
-rejected (upload CycloneDX or SPDX JSON instead), in every mode.
+default, so existing lenient uploads keep working. The schema validator only
+checks JSON, so strict mode refuses a CycloneDX XML upload with a `400`.
+
+The upload returns once the snapshot is stored; the advisory match, registry
+lookup, component policies and reachability finish in the background.
+`GET /sboms/{id}/status` reports each step and an overall `pending` /
+`running` / `completed` / `failed`, so CI can wait before gating
+(`xila upload --sbom` does).
+
+CI that knows a project by name uploads to `POST /sboms` or `POST /scans`
+with `?project_name=` (and `team=`, an id or slug, when names repeat across
+teams). With `auto_create=true` a missing project is created in `team`
+(team editor; concurrent jobs share one project). The upload needs the same
+rights as the per-project route, and a project-scoped token can't name another
+project or create one. An archived project of that name answers `409`.
 
 - History: `GET /projects/{id}/sboms` lists snapshots newest-first (filter
   by `?artifact=`), giving the timeline of a project or artifact's dependencies.
@@ -2383,6 +2396,8 @@ trivy fs --format json . > trivy.json
 xila upload --project "$PROJ" --scanner trivy --gate trivy.json   # upload + gate, exits 1 on violations
 xila upload --project "$PROJ" --scanner trivy --branch "$BRANCH" --gate trivy.json   # track + gate this branch
 xila upload --project "$PROJ" --scanner trivy --release 1.4.0 trivy.json             # a release's findings
+xila upload --project "$PROJ" --sbom --artifact web --artifact-version 1.4.0 --gate bom.cdx.json   # an SBOM; waits for its processing, then gates
+xila upload --project-name web --team core --create --scanner trivy trivy.json      # by name, created on first upload
 xila gate   --project "$PROJ" --max-critical 0 --block-kev        # ad-hoc gate, no stored policy needed
 xila gate   --project "$PROJ" --branch feature/x                  # gate a branch (404 if never uploaded)
 xila gate   --project "$PROJ" --block-sla-breach                 # fail while anything is past its remediation SLA
