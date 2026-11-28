@@ -8660,7 +8660,7 @@ export interface components {
             /** Format: uuid */
             project_id?: string;
             /** @enum {string} */
-            kind?: "dependency-track" | "defectdojo" | "snyk-api" | "github" | "gitlab" | "wiz" | "tenable";
+            kind?: "dependency-track" | "defectdojo" | "snyk-api" | "github" | "gitlab" | "wiz" | "tenable" | "aws-security-hub" | "microsoft-defender" | "qualys" | "trivy-operator";
             name?: string;
             /** @description Server/API root; normalized per kind (e.g. the /api/v1, /api/v2, /api/v3, /api/v4 or /rest suffix is added or stripped as needed). */
             base_url?: string;
@@ -8696,7 +8696,7 @@ export interface components {
              * @description Required when creating; can't change.
              * @enum {string}
              */
-            kind?: "dependency-track" | "defectdojo" | "snyk-api" | "github" | "gitlab" | "wiz" | "tenable";
+            kind?: "dependency-track" | "defectdojo" | "snyk-api" | "github" | "gitlab" | "wiz" | "tenable" | "aws-security-hub" | "microsoft-defender" | "qualys" | "trivy-operator";
             name?: string;
             base_url: string;
             remote_project: string;

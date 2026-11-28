@@ -37,19 +37,24 @@ type Kind string
 // (internal/scanner) already writes findings under scanner "snyk", and a pull
 // connector sharing that name would auto-close the other's findings.
 const (
-	KindDependencyTrack Kind = "dependency-track"
-	KindDefectDojo      Kind = "defectdojo"
-	KindSnyk            Kind = "snyk-api"
-	KindGitHub          Kind = "github"
-	KindGitLab          Kind = "gitlab"
-	KindWiz             Kind = "wiz"
-	KindTenable         Kind = "tenable"
+	KindDependencyTrack   Kind = "dependency-track"
+	KindDefectDojo        Kind = "defectdojo"
+	KindSnyk              Kind = "snyk-api"
+	KindGitHub            Kind = "github"
+	KindGitLab            Kind = "gitlab"
+	KindWiz               Kind = "wiz"
+	KindTenable           Kind = "tenable"
+	KindAWSSecurityHub    Kind = "aws-security-hub"
+	KindMicrosoftDefender Kind = "microsoft-defender"
+	KindQualys            Kind = "qualys"
+	KindTrivyOperator     Kind = "trivy-operator"
 )
 
 // Valid reports whether k is a supported remote.
 func (k Kind) Valid() bool {
 	switch k {
-	case KindDependencyTrack, KindDefectDojo, KindSnyk, KindGitHub, KindGitLab, KindWiz, KindTenable:
+	case KindDependencyTrack, KindDefectDojo, KindSnyk, KindGitHub, KindGitLab, KindWiz, KindTenable,
+		KindAWSSecurityHub, KindMicrosoftDefender, KindQualys, KindTrivyOperator:
 		return true
 	}
 	return false
@@ -67,13 +72,20 @@ type Connector struct {
 	// product id ("42") or engagement id ("engagement:42"); the Snyk org id,
 	// optionally ":<project id>"; the GitHub "owner/repo" or "org:<org>"; the
 	// GitLab project path ("group/project"); a comma-separated list of Wiz
-	// project ids ("" = every project the service account can see); or a
-	// Tenable tag filter ("category=value", "" = the whole instance).
+	// project ids ("" = every project the service account can see); a Tenable
+	// tag filter ("category=value", "" = the whole instance); an optional AWS
+	// Security Hub "product=...,severity=..." filter; or a Trivy Operator
+	// namespace filter ("" = every namespace). Unused by Microsoft Defender
+	// and Qualys.
 	RemoteProject string `json:"remote_project"`
 	HasToken      bool   `json:"has_token"`
-	// AuthURL is the Wiz OAuth token endpoint (its tenants use different
-	// identity providers); every other kind leaves it empty. Not a secret.
+	// AuthURL is the Wiz / Microsoft Defender OAuth token endpoint; every
+	// other kind leaves it empty. Not a secret.
 	AuthURL string `json:"auth_url"`
+	// RoleARN is the AWS Security Hub connector's optional IAM role ARN,
+	// assumed via STS AssumeRole before calling GetFindings; every other kind
+	// leaves it empty. Not a secret, like AuthURL.
+	RoleARN string `json:"role_arn"`
 	// Version is the project version (branch) findings land in; "" = default.
 	Version string `json:"version"`
 	Enabled bool   `json:"enabled"`
@@ -99,12 +111,12 @@ func NewRepository(db *pgxpool.Pool) *Repository {
 	return &Repository{db: db}
 }
 
-const columns = `id, project_id, kind, name, base_url, remote_project, token_enc, auth_url, version, enabled,
+const columns = `id, project_id, kind, name, base_url, remote_project, token_enc, auth_url, role_arn, version, enabled,
 	last_pulled_at, last_success_at, last_error, last_count, last_scan_id, created_at, updated_at`
 
 func scanConnector(row pgx.Row) (Connector, error) {
 	var c Connector
-	err := row.Scan(&c.ID, &c.ProjectID, &c.Kind, &c.Name, &c.BaseURL, &c.RemoteProject, &c.tokenEnc, &c.AuthURL,
+	err := row.Scan(&c.ID, &c.ProjectID, &c.Kind, &c.Name, &c.BaseURL, &c.RemoteProject, &c.tokenEnc, &c.AuthURL, &c.RoleARN,
 		&c.Version, &c.Enabled, &c.LastPulledAt, &c.LastSuccessAt, &c.LastError, &c.LastCount,
 		&c.LastScanID, &c.CreatedAt, &c.UpdatedAt)
 	c.HasToken = len(c.tokenEnc) > 0
@@ -160,20 +172,20 @@ func (r *Repository) Get(ctx context.Context, projectID, id string) (Connector, 
 // Create inserts a connector with its sealed token.
 func (r *Repository) Create(ctx context.Context, c Connector, tokenEnc []byte) (Connector, error) {
 	return one(r.db.QueryRow(ctx, `
-		INSERT INTO connectors (project_id, kind, name, base_url, remote_project, token_enc, auth_url, version, enabled)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO connectors (project_id, kind, name, base_url, remote_project, token_enc, auth_url, role_arn, version, enabled)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		RETURNING `+columns,
-		c.ProjectID, c.Kind, c.Name, c.BaseURL, c.RemoteProject, tokenEnc, c.AuthURL, c.Version, c.Enabled), "create")
+		c.ProjectID, c.Kind, c.Name, c.BaseURL, c.RemoteProject, tokenEnc, c.AuthURL, c.RoleARN, c.Version, c.Enabled), "create")
 }
 
 // Update rewrites a connector's config. A nil tokenEnc keeps the stored token.
 func (r *Repository) Update(ctx context.Context, c Connector, tokenEnc []byte) (Connector, error) {
 	return one(r.db.QueryRow(ctx, `
 		UPDATE connectors SET name = $3, base_url = $4, remote_project = $5,
-		    token_enc = COALESCE($6, token_enc), auth_url = $7, version = $8, enabled = $9, updated_at = now()
+		    token_enc = COALESCE($6, token_enc), auth_url = $7, role_arn = $8, version = $9, enabled = $10, updated_at = now()
 		WHERE project_id = $1 AND id = $2
 		RETURNING `+columns,
-		c.ProjectID, c.ID, c.Name, c.BaseURL, c.RemoteProject, tokenEnc, c.AuthURL, c.Version, c.Enabled), "update")
+		c.ProjectID, c.ID, c.Name, c.BaseURL, c.RemoteProject, tokenEnc, c.AuthURL, c.RoleARN, c.Version, c.Enabled), "update")
 }
 
 // Delete removes a connector. The findings it imported stay.

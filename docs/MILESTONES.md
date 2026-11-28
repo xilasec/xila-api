@@ -990,8 +990,12 @@ Tier 2:
     Migration 000121.
 - ⬜ 13.18 Issue-tracker comments, ticket templates and webhook receivers
   (DefectDojo Pro).
-- ⬜ 13.19 Connectors: AWS Security Hub, Microsoft Defender, Qualys, Trivy
-  Operator (DefectDojo Pro, SecObserve).
+- ✅ 13.19 Connectors: AWS Security Hub, Microsoft Defender, Qualys, Trivy
+  Operator (DefectDojo Pro, SecObserve). Four pull connectors added next to the
+  existing ones: each parses its stored JSON credential, fetches findings over
+  netguard, and maps them into the pipeline as its own scanner. The connectors
+  editor gains the four kinds (credential fields, and Defender's OAuth token
+  URL); the kind enum is in the OpenAPI. Migration 000122.
 - ⬜ 13.20 Dependency-graph functions and scope facts in component-policy CEL
   (DT).
 

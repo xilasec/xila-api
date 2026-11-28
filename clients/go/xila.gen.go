@@ -859,18 +859,24 @@ func (e ComponentKind) Valid() bool {
 
 // Defines values for ConnectorKind.
 const (
-	ConnectorKindDefectdojo      ConnectorKind = "defectdojo"
-	ConnectorKindDependencyTrack ConnectorKind = "dependency-track"
-	ConnectorKindGithub          ConnectorKind = "github"
-	ConnectorKindGitlab          ConnectorKind = "gitlab"
-	ConnectorKindSnykApi         ConnectorKind = "snyk-api"
-	ConnectorKindTenable         ConnectorKind = "tenable"
-	ConnectorKindWiz             ConnectorKind = "wiz"
+	ConnectorKindAwsSecurityHub    ConnectorKind = "aws-security-hub"
+	ConnectorKindDefectdojo        ConnectorKind = "defectdojo"
+	ConnectorKindDependencyTrack   ConnectorKind = "dependency-track"
+	ConnectorKindGithub            ConnectorKind = "github"
+	ConnectorKindGitlab            ConnectorKind = "gitlab"
+	ConnectorKindMicrosoftDefender ConnectorKind = "microsoft-defender"
+	ConnectorKindQualys            ConnectorKind = "qualys"
+	ConnectorKindSnykApi           ConnectorKind = "snyk-api"
+	ConnectorKindTenable           ConnectorKind = "tenable"
+	ConnectorKindTrivyOperator     ConnectorKind = "trivy-operator"
+	ConnectorKindWiz               ConnectorKind = "wiz"
 )
 
 // Valid indicates whether the value is a known member of the ConnectorKind enum.
 func (e ConnectorKind) Valid() bool {
 	switch e {
+	case ConnectorKindAwsSecurityHub:
+		return true
 	case ConnectorKindDefectdojo:
 		return true
 	case ConnectorKindDependencyTrack:
@@ -879,9 +885,15 @@ func (e ConnectorKind) Valid() bool {
 		return true
 	case ConnectorKindGitlab:
 		return true
+	case ConnectorKindMicrosoftDefender:
+		return true
+	case ConnectorKindQualys:
+		return true
 	case ConnectorKindSnykApi:
 		return true
 	case ConnectorKindTenable:
+		return true
+	case ConnectorKindTrivyOperator:
 		return true
 	case ConnectorKindWiz:
 		return true
@@ -892,18 +904,24 @@ func (e ConnectorKind) Valid() bool {
 
 // Defines values for ConnectorInputKind.
 const (
-	ConnectorInputKindDefectdojo      ConnectorInputKind = "defectdojo"
-	ConnectorInputKindDependencyTrack ConnectorInputKind = "dependency-track"
-	ConnectorInputKindGithub          ConnectorInputKind = "github"
-	ConnectorInputKindGitlab          ConnectorInputKind = "gitlab"
-	ConnectorInputKindSnykApi         ConnectorInputKind = "snyk-api"
-	ConnectorInputKindTenable         ConnectorInputKind = "tenable"
-	ConnectorInputKindWiz             ConnectorInputKind = "wiz"
+	ConnectorInputKindAwsSecurityHub    ConnectorInputKind = "aws-security-hub"
+	ConnectorInputKindDefectdojo        ConnectorInputKind = "defectdojo"
+	ConnectorInputKindDependencyTrack   ConnectorInputKind = "dependency-track"
+	ConnectorInputKindGithub            ConnectorInputKind = "github"
+	ConnectorInputKindGitlab            ConnectorInputKind = "gitlab"
+	ConnectorInputKindMicrosoftDefender ConnectorInputKind = "microsoft-defender"
+	ConnectorInputKindQualys            ConnectorInputKind = "qualys"
+	ConnectorInputKindSnykApi           ConnectorInputKind = "snyk-api"
+	ConnectorInputKindTenable           ConnectorInputKind = "tenable"
+	ConnectorInputKindTrivyOperator     ConnectorInputKind = "trivy-operator"
+	ConnectorInputKindWiz               ConnectorInputKind = "wiz"
 )
 
 // Valid indicates whether the value is a known member of the ConnectorInputKind enum.
 func (e ConnectorInputKind) Valid() bool {
 	switch e {
+	case ConnectorInputKindAwsSecurityHub:
+		return true
 	case ConnectorInputKindDefectdojo:
 		return true
 	case ConnectorInputKindDependencyTrack:
@@ -912,9 +930,15 @@ func (e ConnectorInputKind) Valid() bool {
 		return true
 	case ConnectorInputKindGitlab:
 		return true
+	case ConnectorInputKindMicrosoftDefender:
+		return true
+	case ConnectorInputKindQualys:
+		return true
 	case ConnectorInputKindSnykApi:
 		return true
 	case ConnectorInputKindTenable:
+		return true
+	case ConnectorInputKindTrivyOperator:
 		return true
 	case ConnectorInputKindWiz:
 		return true
