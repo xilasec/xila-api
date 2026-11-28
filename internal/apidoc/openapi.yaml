@@ -3266,6 +3266,7 @@ paths:
           in: query
           description: Include each tool's duplicate report instead of one deduplicated issue.
           schema: { type: boolean }
+        - { $ref: "#/components/parameters/FailsGateFilter" }
         - { $ref: "#/components/parameters/ArchivedFilter" }
         - { $ref: "#/components/parameters/SLAFilter" }
         - { $ref: "#/components/parameters/SearchFilter" }
@@ -3323,6 +3324,7 @@ paths:
         - { name: scan_id, in: query, schema: { type: string, format: uuid } }
         - { name: new, in: query, schema: { type: boolean } }
         - { name: include_duplicates, in: query, schema: { type: boolean } }
+        - { $ref: "#/components/parameters/FailsGateFilter" }
         - { $ref: "#/components/parameters/ArchivedFilter" }
         - { $ref: "#/components/parameters/SLAFilter" }
         - { $ref: "#/components/parameters/SearchFilter" }
@@ -4039,6 +4041,7 @@ paths:
         - { name: branch, in: query, description: A version of this project by name (branch or release)., schema: { type: string } }
         - { name: all_versions, in: query, schema: { type: boolean } }
         - { name: include_duplicates, in: query, schema: { type: boolean } }
+        - { $ref: "#/components/parameters/FailsGateFilter" }
         - { $ref: "#/components/parameters/ArchivedFilter" }
         - { name: sort, in: query, schema: { type: string, enum: [priority, sla_due] } }
       responses:
@@ -7608,6 +7611,43 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/GateResult" }
 
+  /projects/{projectID}/gate/status:
+    get:
+      operationId: getGateStatus
+      tags: [Gate]
+      summary: The stored gate result
+      description: |
+        The result of the last re-evaluation under the project's effective policy,
+        not a fresh run: after every ingest, after exploit-intel sweeps, and every
+        `GATE_SWEEP_INTERVAL`. When it flips (pass to fail or back) a
+        `gate.changed` notification is sent, once per flip. `evaluated` is false
+        until the first evaluation. `?branch=`, `?release=` or `?version_id=`
+        selects a version (default: the default version).
+      parameters:
+        - { $ref: "#/components/parameters/ProjectID" }
+        - { name: branch, in: query, schema: { type: string } }
+        - { name: release, in: query, schema: { type: string } }
+        - { name: version_id, in: query, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  evaluated: { type: boolean }
+                  passed: { type: boolean }
+                  violations:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        rule: { type: string }
+                        message: { type: string }
+                  version_id: { type: string, format: uuid }
+                  evaluated_at: { type: string, format: date-time }
+        "404": { $ref: "#/components/responses/Error" }
   /projects/{projectID}/gate/policy:
     get:
       operationId: getProjectGatePolicy
@@ -10330,6 +10370,11 @@ components:
     OrgID: { name: orgID, in: path, required: true, schema: { type: string, format: uuid } }
     TeamID: { name: teamID, in: path, required: true, schema: { type: string, format: uuid } }
     ProjectID: { name: projectID, in: path, required: true, schema: { type: string, format: uuid } }
+    FailsGateFilter:
+      name: fails_gate
+      in: query
+      description: "Only the live default-version backlog of projects whose stored default-version gate result is failing (see GET /projects/{projectID}/gate/status)."
+      schema: { type: boolean }
     UploadProjectName: { name: project_name, in: query, required: true, description: "The project, by slug (case-insensitive).", schema: { type: string } }
     UploadTeam: { name: team, in: query, description: "The project's team, by id or slug. Required with auto_create.", schema: { type: string } }
     UploadAutoCreate: { name: auto_create, in: query, description: "Create the project in team when none has this name (team editor).", schema: { type: boolean, default: false } }
@@ -13734,7 +13779,7 @@ components:
           description: "`*` for everything."
           items:
             type: string
-            enum: ["*", finding.critical, finding.exploitable, finding.assigned, finding.sla_breach, finding.sla_due_soon, risk_acceptance.requested, risk_acceptance.approved, risk_acceptance.expiring, risk_acceptance.expired, policy.violation, exception.expired, ingestion.anomaly, cra.case_opened, cra.deadline_due_soon, cra.deadline_missed]
+            enum: ["*", finding.critical, finding.new, finding.exploitable, finding.assigned, finding.status_changed, finding.sla_breach, finding.sla_due_soon, risk_acceptance.requested, risk_acceptance.approved, risk_acceptance.expiring, risk_acceptance.expired, policy.violation, exception.expired, ingestion.anomaly, cra.case_opened, cra.deadline_due_soon, cra.deadline_missed, sbom.processed, sbom.failed, vex.processed, gate.changed, system.job_failed, mention, triage.rule]
         enabled: { type: boolean }
         created_at: { type: string, format: date-time }
         min_severity:

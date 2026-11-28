@@ -46,6 +46,10 @@ func (f *fakeFindings) ListNewHighSeverity(context.Context, string) ([]finding.F
 	return f.newHigh, nil
 }
 
+func (f *fakeFindings) ListNew(context.Context, string) ([]finding.Finding, error) {
+	return f.newHigh, nil
+}
+
 func (f *fakeFindings) DeduplicateScan(_ context.Context, _, _ string, closedIDs []string) (int, error) {
 	f.dedupCalls++
 	f.dedupClosed = closedIDs
@@ -186,8 +190,10 @@ func TestIngestSkipsCloseWhenDisabled(t *testing.T) {
 	}
 }
 
+// A scan that introduces a critical raises both finding.critical and the
+// any-severity finding.new (13.7), each once.
 func TestIngestNotifiesNewCritical(t *testing.T) {
-	fn := &fakeNotifier{events: make(chan notify.Event, 1)}
+	fn := &fakeNotifier{events: make(chan notify.Event, 4)}
 	ff := &fakeFindings{newHigh: []finding.Finding{
 		{Severity: domain.SeverityCritical, Title: "RCE in pkgA"},
 	}}
@@ -199,16 +205,25 @@ func TestIngestNotifiesNewCritical(t *testing.T) {
 		t.Fatalf("Ingest: %v", err)
 	}
 
-	select {
-	case e := <-fn.events:
-		if e.Type != notify.EventCriticalFinding || e.ProjectID != "proj-1" || e.Severity != "critical" {
-			t.Errorf("event = %+v, want critical-finding/proj-1/critical", e)
+	got := map[string]notify.Event{}
+	deadline := time.After(2 * time.Second)
+	for len(got) < 2 {
+		select {
+		case e := <-fn.events:
+			if _, dup := got[e.Type]; dup {
+				t.Fatalf("event %s sent twice", e.Type)
+			}
+			got[e.Type] = e
+		case <-deadline:
+			t.Fatalf("events = %v, want finding.critical and finding.new", got)
 		}
-		if e.Fields["critical"] != "1" {
-			t.Errorf("critical count = %q, want 1", e.Fields["critical"])
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("expected a new-critical notification")
+	}
+	crit := got[notify.EventCriticalFinding]
+	if crit.ProjectID != "proj-1" || crit.Severity != "critical" || crit.Fields["critical"] != "1" {
+		t.Errorf("critical event = %+v", crit)
+	}
+	if fresh := got[notify.EventNewFinding]; fresh.ProjectID != "proj-1" || fresh.Fields["total"] != "1" || fresh.Fields["scanner"] != "trivy" {
+		t.Errorf("new-finding event = %+v", fresh)
 	}
 }
 

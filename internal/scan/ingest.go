@@ -38,6 +38,8 @@ type findingWriter interface {
 	UpsertBatch(ctx context.Context, fs []finding.Finding, actor string) error
 	CloseMissing(ctx context.Context, projectID, scanner, scanID string) ([]string, error)
 	ListNewHighSeverity(ctx context.Context, scanID string) ([]finding.Finding, error)
+	// ListNew is ListNewHighSeverity without the severity filter (EventNewFinding).
+	ListNew(ctx context.Context, scanID string) ([]finding.Finding, error)
 	DeduplicateScan(ctx context.Context, projectID, scanID string, closedIDs []string) (int, error)
 	// CarryForward moves the target's live findings from a repeated scan onto
 	// the new one that matched its content hash (see Service.runPipeline's
@@ -135,6 +137,22 @@ type Service struct {
 	// match (see WithCustomParsers and resolveParser). Optional: nil skips the
 	// fallback entirely.
 	customParsers customParserResolver
+	// gate re-evaluates and stores a project version's CI gate result after
+	// ingest (internal/gate.Evaluator). Optional.
+	gate gateReevaluator
+}
+
+// gateReevaluator re-evaluates and stores a project version's gate state
+// (internal/gate.Evaluator).
+type gateReevaluator interface {
+	Reevaluate(ctx context.Context, projectID, versionID string) error
+}
+
+// WithGate re-evaluates the ingested scan's gate (its project version) after
+// every finished ingest.
+func (s *Service) WithGate(g gateReevaluator) *Service {
+	s.gate = g
+	return s
 }
 
 // Applier is a post-ingest pass over the findings a scan just reported: auto-
@@ -579,6 +597,12 @@ func (s *Service) finish(ctx context.Context, sc Scan, summary map[string]int, c
 		return Scan{}, err
 	}
 	s.notifyNewCritical(ctx, sc.ProjectID, sc.Scanner, sc.ID)
+	s.notifyNewFindings(ctx, sc.ProjectID, sc.Scanner, sc.ID)
+	if s.gate != nil {
+		if err := s.gate.Reevaluate(ctx, sc.ProjectID, sc.VersionID); err != nil {
+			slog.WarnContext(ctx, "gate re-evaluation failed", "error", err, "project_id", sc.ProjectID)
+		}
+	}
 	return final, nil
 }
 
@@ -616,6 +640,39 @@ func (s *Service) notifyNewCritical(ctx context.Context, projectID, scanner, sca
 			"critical": strconv.Itoa(critical),
 			"total":    strconv.Itoa(len(newHigh)),
 			"scanner":  scanner,
+		},
+	})
+}
+
+// maxNewFindingTitles caps how many titles notifyNewFindings lists inline.
+const maxNewFindingTitles = 10
+
+// notifyNewFindings raises EventNewFinding (best-effort, async) once per
+// scan when it introduced findings of any severity on the default version —
+// unlike notifyNewCritical, which only fires for critical/high.
+func (s *Service) notifyNewFindings(ctx context.Context, projectID, scanner, scanID string) {
+	if s.notifier == nil {
+		return
+	}
+	fresh, err := s.findings.ListNew(ctx, scanID)
+	if err != nil || len(fresh) == 0 {
+		return
+	}
+	titles := make([]string, 0, maxNewFindingTitles)
+	for _, f := range fresh {
+		if len(titles) >= maxNewFindingTitles {
+			break
+		}
+		titles = append(titles, string(f.Severity)+": "+f.Title)
+	}
+	go s.notifier.Notify(context.WithoutCancel(ctx), notify.Event{
+		Type:      notify.EventNewFinding,
+		Title:     fmt.Sprintf("%d new finding(s) from %s", len(fresh), scanner),
+		Text:      strings.Join(titles, "\n"),
+		ProjectID: projectID,
+		Fields: map[string]string{
+			"total":   strconv.Itoa(len(fresh)),
+			"scanner": scanner,
 		},
 	})
 }

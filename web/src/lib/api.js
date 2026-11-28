@@ -275,6 +275,8 @@ export const api = {
 	// --- security gate ---
 	/** @param {string} projectId */
 	gatePolicy: (projectId) => request('GET', `/projects/${projectId}/gate/policy`),
+	/** @param {string} projectId */
+	gateStatus: (projectId) => request('GET', `/projects/${projectId}/gate/status`),
 	/** @param {string} projectId @param {Record<string, any>} policy */
 	setGatePolicy: (projectId, policy) =>
 		request('PUT', `/projects/${projectId}/gate/policy`, { body: policy }),

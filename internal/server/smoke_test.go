@@ -188,20 +188,23 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 	projectResolver := project.NewResolver(projectRepo, team.NewRepository(pool), membershipRepo)
 	triageRepo := triage.NewRepository(pool)
 	gateRepo := gate.NewRepository(pool)
+	// gateEval re-evaluates and stores a project's gate result after ingest
+	// and exploit-intel sweeps (see main.go's wiring comment).
+	gateEval := gate.NewEvaluator(gateRepo, findingRepo, projectRepo, ingesthealth.NewRepository(pool), notifySvc)
 	// Custom fields: definitions + validated values; triage rules read and
 	// set them, component policies read the project's. Computed fields
 	// (internal/computed) recompute their own value from a CEL expression.
 	customFieldRepo := customfield.NewRepository(pool)
 	customFieldSvc := customfield.NewService(customFieldRepo, membershipRepo, findingRepo)
 	triageSvc := triage.NewService(triageRepo, findingRepo, findingRepo).WithCustomFields(customFieldSvc).WithNotifier(notifySvc)
-	findingRepo.WithChangeTrigger(triageSvc.EventTrigger())
+	findingRepo.WithChangeTrigger(triageSvc.EventTrigger(), notifySvc)
 	computedSvc := computed.NewService(customFieldRepo, findingRepo, triageRepo, projectRepo, assetRepo)
 	vexRepo := vex.NewRepository(pool)
 	vexSvc := vex.NewService(vexRepo, findingRepo, projectRepo)
 	vexDocsRepo := vex.NewDocumentRepository(pool, vexRepo)
 	vexDocsSvc := vex.NewDocumentService(vexDocsRepo, membershipRepo, "")
 	vulnPolicyRepo := vulnpolicy.NewRepository(pool)
-	vulnPolicySvc := vulnpolicy.NewService(vulnPolicyRepo, findingRepo, findingRepo)
+	vulnPolicySvc := vulnpolicy.NewService(vulnPolicyRepo, findingRepo, findingRepo).WithNotifier(notifySvc)
 	carryRepo := triagecarry.NewRepository(pool)
 	carrySvc := triagecarry.NewService(carryRepo, projectRepo, findingRepo)
 	findingRepo.WithCarrier(carrySvc)
@@ -227,7 +230,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 	exploitRepo := exploitintel.NewRepository(pool)
 	craRepo := cra.NewRepository(pool)
 	craSvc := cra.NewService(craRepo, notifySvc, cra.Manufacturer{Name: "Acme GmbH", Contact: "psirt@acme.test", MainEstablishment: "DE"}).WithFeatures(features)
-	exploitSvc := exploitintel.NewService(exploitRepo, nil, nil, findingRepo).WithCRA(craSvc)
+	exploitSvc := exploitintel.NewService(exploitRepo, nil, nil, findingRepo).WithCRA(craSvc).WithNotifier(notifySvc).WithGate(gateEval)
 	parsers := scanner.NewRegistry(
 		scanner.NewTrivy(), scanner.NewSarif(),
 		scanner.NewGrype(), scanner.NewOSVScanner(), scanner.NewNpmAudit(),
@@ -257,7 +260,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		[]scan.Applier{correlation.NewReacher(findingRepo, findingRepo), exploitSvc, vexSvc, vulnPolicySvc, carrySvc, triageSvc, computedSvc, assetSvc,
 			connector.NewRemoteTriage(connectorRepo, findingRepo).WithApproval(cfg.RiskAcceptanceRequiresApproval),
 			enrichment.NewNVD(findingRepo, nil)}, scanRepo).WithFollowUps(remediationSvc).WithSkipUnchanged(true).WithHostAssets(assetRepo).
-		WithCustomParsers(customParserSvc)
+		WithCustomParsers(customParserSvc).WithGate(gateEval)
 	// Advisory sources without network: the local OSV mirror + private advisories.
 	osvMirrorRepo := vulnmatch.NewOSVRepository(pool)
 	advisoryRepo := vulnmatch.NewAdvisoryRepository(pool, "")
@@ -335,7 +338,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 			correlation.NewReacher(findingRepo, findingRepo)).WithLicenses(license.Resolve).WithStrictValidation(cfg.SBOMStrictValidation).
 			WithLicenseOverrides(func(ctx context.Context) (sbom.LicenseOverrideMatcher, error) { return loadLicenseOverrides(ctx) }).
 			WithInternalComponents(componentSvc.Current)).
-			WithProjectByName(projectResolver, membershipRepo),
+			WithProjectByName(projectResolver, membershipRepo).WithNotifier(notifySvc),
 		Asset:          asset.NewHandler(assetRepo, assetSvc, membershipRepo),
 		Compliance:     compliance.NewHandler(complianceRepo),
 		Portfolio:      portfolio.NewHandler(portfolio.NewRepository(pool)),
@@ -364,7 +367,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		Triage:       triage.NewHandler(triageRepo, triageSvc, false).WithCustomFields(customFieldRepo),
 		Gate:         gate.NewHandler(gateRepo, findingRepo, projectRepo, ingesthealth.NewRepository(pool)),
 		SLA:          sla.NewHandler(slaRepo, sla.NewService(slaRepo, notifySvc)),
-		Vex:          vex.NewHandler(vexRepo, vexSvc),
+		Vex:          vex.NewHandler(vexRepo, vexSvc).WithNotifier(notifySvc),
 		VexDocuments: vex.NewDocumentHandler(vexDocsSvc),
 		IssueTracker: issuetracker.NewHandler(issueSvc),
 		Connector:    connector.NewHandler(connector.NewService(connectorRepo, ingestSvc, trackerCipher)),

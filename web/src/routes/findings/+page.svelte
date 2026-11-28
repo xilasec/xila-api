@@ -70,6 +70,7 @@
 		reachable: p.get('reachable') === 'true',
 		include_duplicates: p.get('include_duplicates') === 'true',
 		all_versions: p.get('all_versions') === 'true',
+		fails_gate: p.get('fails_gate') === 'true',
 		q: p.get('q') ?? '',
 		tag: p.get('tag') ?? '',
 		sort: p.get('sort') ?? (p.get('q') ? '' : 'priority')
@@ -92,13 +93,13 @@
 	const anyFilter = $derived(
 		filters.severity || filters.status || filters.category || filters.project_id || filters.sla || filters.exploit || filters.assignee ||
 			filters.scanner || filters.rule_id || filters.q || filters.tag ||
-			filters.kev || filters.kev_ransomware || filters.reachable || filters.include_duplicates || filters.all_versions || (cf.key && cf.value)
+			filters.kev || filters.kev_ransomware || filters.reachable || filters.include_duplicates || filters.all_versions || filters.fails_gate || (cf.key && cf.value)
 	);
 	// Filters behind "More filters": the panel opens by itself when a link or
 	// a reload arrives with one of them set, so nothing active is hidden.
 	const moreCount = $derived(
 		[filters.category, filters.sla, filters.exploit, filters.tag, filters.kev_ransomware, filters.reachable,
-			filters.include_duplicates, filters.all_versions, cf.key && cf.value].filter(Boolean).length
+			filters.include_duplicates, filters.all_versions, filters.fails_gate, cf.key && cf.value].filter(Boolean).length
 	);
 	let showMore = $state(untrack(() => moreCount > 0));
 
@@ -108,7 +109,7 @@
 	const matchesFilter = (status) => !filters.status || filters.status === status;
 
 	const TEXT_KEYS = /** @type {const} */ (['severity', 'status', 'category', 'project_id', 'sla', 'exploit', 'assignee', 'scanner', 'rule_id', 'q', 'tag']);
-	const FLAG_KEYS = /** @type {const} */ (['kev', 'kev_ransomware', 'reachable', 'include_duplicates', 'all_versions']);
+	const FLAG_KEYS = /** @type {const} */ (['kev', 'kev_ransomware', 'reachable', 'include_duplicates', 'all_versions', 'fails_gate']);
 
 	// Persist filters into the URL so a reload — or a shared link — keeps them.
 	function syncURL() {
@@ -120,6 +121,7 @@
 		if (filters.reachable) params.set('reachable', 'true');
 		if (filters.include_duplicates) params.set('include_duplicates', 'true');
 		if (filters.all_versions) params.set('all_versions', 'true');
+		if (filters.fails_gate) params.set('fails_gate', 'true');
 		if (cf.key && cf.value) params.set('cf.' + cf.key, cf.value);
 		goto('?' + params.toString(), { shallow: true, replace: true });
 	}
@@ -181,7 +183,7 @@
 		loadFindings();
 	}
 	function clearFilters() {
-		filters = { ...filters, severity: '', status: '', category: '', project_id: '', sla: '', exploit: '', assignee: '', scanner: '', rule_id: '', q: '', tag: '', kev: false, kev_ransomware: false, reachable: false, include_duplicates: false, all_versions: false };
+		filters = { ...filters, severity: '', status: '', category: '', project_id: '', sla: '', exploit: '', assignee: '', scanner: '', rule_id: '', q: '', tag: '', kev: false, kev_ransomware: false, reachable: false, include_duplicates: false, all_versions: false, fails_gate: false };
 		searchText = '';
 		cf = { key: '', value: '' };
 		applyFilters();
@@ -509,6 +511,10 @@
 	<label class="label cursor-pointer gap-2" title={$t('finding.ransomwareTitle')}>
 		<input type="checkbox" bind:checked={filters.kev_ransomware} onchange={applyFilters} class="checkbox checkbox-sm" />
 		<span class="label-text">{$t('findings.ransomwareOnly')}</span>
+	</label>
+	<label class="label cursor-pointer gap-2" title={$t('findings.failsGateTitle')}>
+		<input type="checkbox" bind:checked={filters.fails_gate} onchange={applyFilters} class="checkbox checkbox-sm" />
+		<span class="label-text">{$t('findings.failsGate')}</span>
 	</label>
 	<label class="label cursor-pointer gap-2" title={$t('findings.reachableTitle')}>
 		<input type="checkbox" bind:checked={filters.reachable} onchange={applyFilters} class="checkbox checkbox-sm" />

@@ -181,7 +181,7 @@ type Repository struct {
 	carrier Carrier
 	// trigger re-runs triage rules after a finding write (internal/triage
 	// EventTrigger). Optional; nil means no finding-event trigger.
-	trigger ChangeTrigger
+	triggers []ChangeTrigger
 }
 
 // NewRepository constructs a Repository.
@@ -189,11 +189,11 @@ func NewRepository(db *pgxpool.Pool) *Repository {
 	return &Repository{db: db}
 }
 
-// WithChangeTrigger lets auto-triage rules react to a person's status or
-// severity decision: the finding-event trigger, alongside ingest and the
-// schedule.
-func (r *Repository) WithChangeTrigger(t ChangeTrigger) *Repository {
-	r.trigger = t
+// WithChangeTrigger adds reactions to a person's status or severity
+// decision: the auto-triage rules' finding-event trigger, and the
+// finding.status_changed notification.
+func (r *Repository) WithChangeTrigger(t ...ChangeTrigger) *Repository {
+	r.triggers = append(r.triggers, t...)
 	return r
 }
 
@@ -214,7 +214,7 @@ func (r *Repository) decided(ctx context.Context, found []Finding, actor string,
 			}
 		}
 	}
-	if r.trigger == nil || len(found) == 0 || !(statusChanged || severityChanged) {
+	if len(r.triggers) == 0 || len(found) == 0 || !(statusChanged || severityChanged) {
 		return nil
 	}
 	byProject := map[string][]string{}
@@ -224,7 +224,9 @@ func (r *Repository) decided(ctx context.Context, found []Finding, actor string,
 	tctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), triggerTimeout)
 	defer cancel()
 	for projectID, ids := range byProject {
-		r.trigger.OnFindingsChanged(tctx, projectID, ids, actor)
+		for _, t := range r.triggers {
+			t.OnFindingsChanged(tctx, projectID, ids, actor)
+		}
 	}
 	return nil
 }
@@ -452,6 +454,11 @@ type Filter struct {
 	Custom []customfield.Cond
 	// IncludeDuplicates includes cross-tool duplicate reports; default hides them.
 	IncludeDuplicates bool
+	// FailsGate narrows to the live backlog (open/confirmed, non-duplicate, on
+	// the default version) of projects whose stored default-version gate
+	// result (internal/gate) is failing: everything in it while the gate
+	// fails, nothing while it passes or hasn't been evaluated.
+	FailsGate bool
 	// Archived lists archived findings (their own, their scan's or their
 	// project's archive) instead of live ones.
 	Archived bool
@@ -607,6 +614,15 @@ func listQuery(f Filter, cols string) (string, []any) {
 	}
 	if !f.IncludeDuplicates {
 		q += ` AND duplicate_of IS NULL` // collapse cross-tool duplicates
+	}
+	if f.FailsGate {
+		// Correlated on the finding's own project, so this works for one
+		// project and portfolio-wide alike: the live default-version backlog
+		// of projects whose stored default-version gate result is failing.
+		q += ` AND status IN ('open', 'confirmed') AND duplicate_of IS NULL
+			AND EXISTS (SELECT 1 FROM project_gate_state gs
+				JOIN project_versions pv ON pv.id = gs.version_id AND pv.is_default
+				WHERE gs.project_id = findings.project_id AND gs.version_id = findings.version_id AND NOT gs.passed)`
 	}
 	q += " AND" + archive.Only(archive.Finding(""), f.Archived)
 	if len(f.Tags) > 0 {
@@ -1245,6 +1261,33 @@ func (r *Repository) ListNewHighSeverity(ctx context.Context, scanID string) ([]
 	rows, err := r.db.Query(ctx, q, scanID)
 	if err != nil {
 		return nil, fmt.Errorf("list new high severity: %w", err)
+	}
+	defer rows.Close()
+	findings := []Finding{}
+	for rows.Next() {
+		f, err := scanFinding(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan finding: %w", err)
+		}
+		findings = append(findings, f)
+	}
+	return findings, rows.Err()
+}
+
+// ListNew returns findings of any severity first created by the given scan
+// (first_scan_id) and still live on the default version — notify.EventFindingNew,
+// the "what did this scan introduce" counterpart to ListNewHighSeverity that
+// doesn't filter by severity.
+func (r *Repository) ListNew(ctx context.Context, scanID string) ([]Finding, error) {
+	q := `SELECT ` + findingColumns + ` FROM findings
+		WHERE first_scan_id = $1
+		  AND status IN ('open', 'confirmed')
+		  AND duplicate_of IS NULL
+		  AND` + onDefaultVersion + ` AND` + archive.Finding("") + `
+		ORDER BY priority DESC`
+	rows, err := r.db.Query(ctx, q, scanID)
+	if err != nil {
+		return nil, fmt.Errorf("list new: %w", err)
 	}
 	defer rows.Close()
 	findings := []Finding{}

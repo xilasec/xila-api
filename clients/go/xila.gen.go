@@ -660,14 +660,23 @@ const (
 	ChannelEventsFindingAssigned         ChannelEvents = "finding.assigned"
 	ChannelEventsFindingCritical         ChannelEvents = "finding.critical"
 	ChannelEventsFindingExploitable      ChannelEvents = "finding.exploitable"
+	ChannelEventsFindingNew              ChannelEvents = "finding.new"
 	ChannelEventsFindingSlaBreach        ChannelEvents = "finding.sla_breach"
 	ChannelEventsFindingSlaDueSoon       ChannelEvents = "finding.sla_due_soon"
+	ChannelEventsFindingStatusChanged    ChannelEvents = "finding.status_changed"
+	ChannelEventsGateChanged             ChannelEvents = "gate.changed"
 	ChannelEventsIngestionAnomaly        ChannelEvents = "ingestion.anomaly"
+	ChannelEventsMention                 ChannelEvents = "mention"
 	ChannelEventsPolicyViolation         ChannelEvents = "policy.violation"
 	ChannelEventsRiskAcceptanceApproved  ChannelEvents = "risk_acceptance.approved"
 	ChannelEventsRiskAcceptanceExpired   ChannelEvents = "risk_acceptance.expired"
 	ChannelEventsRiskAcceptanceExpiring  ChannelEvents = "risk_acceptance.expiring"
 	ChannelEventsRiskAcceptanceRequested ChannelEvents = "risk_acceptance.requested"
+	ChannelEventsSbomFailed              ChannelEvents = "sbom.failed"
+	ChannelEventsSbomProcessed           ChannelEvents = "sbom.processed"
+	ChannelEventsSystemJobFailed         ChannelEvents = "system.job_failed"
+	ChannelEventsTriageRule              ChannelEvents = "triage.rule"
+	ChannelEventsVexProcessed            ChannelEvents = "vex.processed"
 )
 
 // Valid indicates whether the value is a known member of the ChannelEvents enum.
@@ -689,11 +698,19 @@ func (e ChannelEvents) Valid() bool {
 		return true
 	case ChannelEventsFindingExploitable:
 		return true
+	case ChannelEventsFindingNew:
+		return true
 	case ChannelEventsFindingSlaBreach:
 		return true
 	case ChannelEventsFindingSlaDueSoon:
 		return true
+	case ChannelEventsFindingStatusChanged:
+		return true
+	case ChannelEventsGateChanged:
+		return true
 	case ChannelEventsIngestionAnomaly:
+		return true
+	case ChannelEventsMention:
 		return true
 	case ChannelEventsPolicyViolation:
 		return true
@@ -704,6 +721,16 @@ func (e ChannelEvents) Valid() bool {
 	case ChannelEventsRiskAcceptanceExpiring:
 		return true
 	case ChannelEventsRiskAcceptanceRequested:
+		return true
+	case ChannelEventsSbomFailed:
+		return true
+	case ChannelEventsSbomProcessed:
+		return true
+	case ChannelEventsSystemJobFailed:
+		return true
+	case ChannelEventsTriageRule:
+		return true
+	case ChannelEventsVexProcessed:
 		return true
 	default:
 		return false
@@ -9318,6 +9345,9 @@ type ExploitFilter string
 // ExportFormat defines model for ExportFormat.
 type ExportFormat string
 
+// FailsGateFilter defines model for FailsGateFilter.
+type FailsGateFilter = bool
+
 // FindingID defines model for FindingID.
 type FindingID = openapi_types.UUID
 
@@ -10162,6 +10192,9 @@ type ListFindingsParams struct {
 	// IncludeDuplicates Include each tool's duplicate report instead of one deduplicated issue.
 	IncludeDuplicates *bool `form:"include_duplicates,omitempty" json:"include_duplicates,omitempty"`
 
+	// FailsGate Only the live default-version backlog of projects whose stored default-version gate result is failing (see GET /projects/{projectID}/gate/status).
+	FailsGate *FailsGateFilter `form:"fails_gate,omitempty" json:"fails_gate,omitempty"`
+
 	// Archived List archived records instead of live ones (requires `owner`; a portfolio-wide list narrows to the projects you own).
 	Archived *ArchivedFilter `form:"archived,omitempty" json:"archived,omitempty"`
 
@@ -10266,6 +10299,9 @@ type ExportFindingsParams struct {
 	ScanId            *openapi_types.UUID         `form:"scan_id,omitempty" json:"scan_id,omitempty"`
 	New               *bool                       `form:"new,omitempty" json:"new,omitempty"`
 	IncludeDuplicates *bool                       `form:"include_duplicates,omitempty" json:"include_duplicates,omitempty"`
+
+	// FailsGate Only the live default-version backlog of projects whose stored default-version gate result is failing (see GET /projects/{projectID}/gate/status).
+	FailsGate *FailsGateFilter `form:"fails_gate,omitempty" json:"fails_gate,omitempty"`
 
 	// Archived List archived records instead of live ones (requires `owner`; a portfolio-wide list narrows to the projects you own).
 	Archived *ArchivedFilter `form:"archived,omitempty" json:"archived,omitempty"`
@@ -11065,6 +11101,9 @@ type ExportProjectFindingsParams struct {
 	AllVersions       *bool   `form:"all_versions,omitempty" json:"all_versions,omitempty"`
 	IncludeDuplicates *bool   `form:"include_duplicates,omitempty" json:"include_duplicates,omitempty"`
 
+	// FailsGate Only the live default-version backlog of projects whose stored default-version gate result is failing (see GET /projects/{projectID}/gate/status).
+	FailsGate *FailsGateFilter `form:"fails_gate,omitempty" json:"fails_gate,omitempty"`
+
 	// Archived List archived records instead of live ones (requires `owner`; a portfolio-wide list narrows to the projects you own).
 	Archived *ArchivedFilter                  `form:"archived,omitempty" json:"archived,omitempty"`
 	Sort     *ExportProjectFindingsParamsSort `form:"sort,omitempty" json:"sort,omitempty"`
@@ -11106,6 +11145,13 @@ type EvaluateProjectGateParams struct {
 
 	// Baseline Compare new_only against this branch/version instead of the stored policy's baseline_branch.
 	Baseline *string `form:"baseline,omitempty" json:"baseline,omitempty"`
+}
+
+// GetGateStatusParams defines parameters for GetGateStatus.
+type GetGateStatusParams struct {
+	Branch    *string             `form:"branch,omitempty" json:"branch,omitempty"`
+	Release   *string             `form:"release,omitempty" json:"release,omitempty"`
+	VersionId *openapi_types.UUID `form:"version_id,omitempty" json:"version_id,omitempty"`
 }
 
 // CreateProjectMemberJSONBody defines parameters for CreateProjectMember.
@@ -15970,6 +16016,18 @@ type ClientInterface interface {
 	//
 	// Corresponds with PUT /projects/{projectID}/gate/policy (the `PutProjectGatePolicy` operationId).
 	PutProjectGatePolicy(ctx context.Context, projectID ProjectID, body PutProjectGatePolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetGateStatus The stored gate result
+	//
+	// The result of the last re-evaluation under the project's effective policy,
+	// not a fresh run: after every ingest, after exploit-intel sweeps, and every
+	// `GATE_SWEEP_INTERVAL`. When it flips (pass to fail or back) a
+	// `gate.changed` notification is sent, once per flip. `evaluated` is false
+	// until the first evaluation. `?branch=`, `?release=` or `?version_id=`
+	// selects a version (default: the default version).
+	//
+	// Corresponds with GET /projects/{projectID}/gate/status (the `GetGateStatus` operationId).
+	GetGateStatus(ctx context.Context, projectID ProjectID, params *GetGateStatusParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteProjectGroup Remove a user group's grant on the project
 	//
@@ -25782,6 +25840,28 @@ func (c *Client) PutProjectGatePolicyWithBody(ctx context.Context, projectID Pro
 // Corresponds with PUT /projects/{projectID}/gate/policy (the `PutProjectGatePolicy` operationId).
 func (c *Client) PutProjectGatePolicy(ctx context.Context, projectID ProjectID, body PutProjectGatePolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPutProjectGatePolicyRequest(c.Server, projectID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetGateStatus The stored gate result
+//
+// The result of the last re-evaluation under the project's effective policy,
+// not a fresh run: after every ingest, after exploit-intel sweeps, and every
+// `GATE_SWEEP_INTERVAL`. When it flips (pass to fail or back) a
+// `gate.changed` notification is sent, once per flip. `evaluated` is false
+// until the first evaluation. `?branch=`, `?release=` or `?version_id=`
+// selects a version (default: the default version).
+//
+// Corresponds with GET /projects/{projectID}/gate/status (the `GetGateStatus` operationId).
+func (c *Client) GetGateStatus(ctx context.Context, projectID ProjectID, params *GetGateStatusParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetGateStatusRequest(c.Server, projectID, params)
 	if err != nil {
 		return nil, err
 	}
@@ -36699,6 +36779,18 @@ func NewListFindingsRequest(server string, params *ListFindingsParams) (*http.Re
 
 		}
 
+		if params.FailsGate != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "fails_gate", *params.FailsGate, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
 		if params.Archived != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "archived", *params.Archived, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
@@ -37201,6 +37293,18 @@ func NewExportFindingsRequest(server string, params *ExportFindingsParams) (*htt
 		if params.IncludeDuplicates != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "include_duplicates", *params.IncludeDuplicates, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.FailsGate != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "fails_gate", *params.FailsGate, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -44933,6 +45037,18 @@ func NewExportProjectFindingsRequest(server string, projectID ProjectID, params 
 
 		}
 
+		if params.FailsGate != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "fails_gate", *params.FailsGate, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
 		if params.Archived != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "archived", *params.Archived, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
@@ -45277,6 +45393,91 @@ func NewPutProjectGatePolicyRequestWithBody(server string, projectID ProjectID, 
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetGateStatusRequest constructs an http.Request for the GetGateStatus method
+func NewGetGateStatusRequest(server string, projectID ProjectID, params *GetGateStatusParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/gate/status", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Branch != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "branch", *params.Branch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Release != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "release", *params.Release, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.VersionId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "version_id", *params.VersionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -59309,6 +59510,20 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with PUT /projects/{projectID}/gate/policy (the `PutProjectGatePolicy` operationId).
 	PutProjectGatePolicyWithResponse(ctx context.Context, projectID ProjectID, body PutProjectGatePolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*PutProjectGatePolicyResponse, error)
+
+	// GetGateStatusWithResponse The stored gate result
+	//
+	// The result of the last re-evaluation under the project's effective policy,
+	// not a fresh run: after every ingest, after exploit-intel sweeps, and every
+	// `GATE_SWEEP_INTERVAL`. When it flips (pass to fail or back) a
+	// `gate.changed` notification is sent, once per flip. `evaluated` is false
+	// until the first evaluation. `?branch=`, `?release=` or `?version_id=`
+	// selects a version (default: the default version).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /projects/{projectID}/gate/status (the `GetGateStatus` operationId).
+	GetGateStatusWithResponse(ctx context.Context, projectID ProjectID, params *GetGateStatusParams, reqEditors ...RequestEditorFn) (*GetGateStatusResponse, error)
 
 	// DeleteProjectGroupWithResponse Remove a user group's grant on the project
 	//
@@ -76545,6 +76760,72 @@ func (r PutProjectGatePolicyResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r PutProjectGatePolicyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetGateStatusResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Evaluated   *bool               `json:"evaluated,omitempty"`
+		EvaluatedAt *time.Time          `json:"evaluated_at,omitempty"`
+		Passed      *bool               `json:"passed,omitempty"`
+		VersionId   *openapi_types.UUID `json:"version_id,omitempty"`
+		Violations  *[]struct {
+			Message *string `json:"message,omitempty"`
+			Rule    *string `json:"rule,omitempty"`
+		} `json:"violations,omitempty"`
+	}
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetGateStatusResponse) GetJSON200() *struct {
+	Evaluated   *bool               `json:"evaluated,omitempty"`
+	EvaluatedAt *time.Time          `json:"evaluated_at,omitempty"`
+	Passed      *bool               `json:"passed,omitempty"`
+	VersionId   *openapi_types.UUID `json:"version_id,omitempty"`
+	Violations  *[]struct {
+		Message *string `json:"message,omitempty"`
+		Rule    *string `json:"rule,omitempty"`
+	} `json:"violations,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r GetGateStatusResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetGateStatusResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetGateStatusResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetGateStatusResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetGateStatusResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -94039,6 +94320,26 @@ func (c *ClientWithResponses) PutProjectGatePolicyWithResponse(ctx context.Conte
 	return ParsePutProjectGatePolicyResponse(rsp)
 }
 
+// GetGateStatusWithResponse The stored gate result
+//
+// The result of the last re-evaluation under the project's effective policy,
+// not a fresh run: after every ingest, after exploit-intel sweeps, and every
+// `GATE_SWEEP_INTERVAL`. When it flips (pass to fail or back) a
+// `gate.changed` notification is sent, once per flip. `evaluated` is false
+// until the first evaluation. `?branch=`, `?release=` or `?version_id=`
+// selects a version (default: the default version).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /projects/{projectID}/gate/status (the `GetGateStatus` operationId).
+func (c *ClientWithResponses) GetGateStatusWithResponse(ctx context.Context, projectID ProjectID, params *GetGateStatusParams, reqEditors ...RequestEditorFn) (*GetGateStatusResponse, error) {
+	rsp, err := c.GetGateStatus(ctx, projectID, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetGateStatusResponse(rsp)
+}
+
 // DeleteProjectGroupWithResponse Remove a user group's grant on the project
 //
 // Returns a wrapper object for the known response body format(s).
@@ -108479,6 +108780,48 @@ func ParsePutProjectGatePolicyResponse(rsp *http.Response) (*PutProjectGatePolic
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetGateStatusResponse parses an HTTP response from a GetGateStatusWithResponse call
+func ParseGetGateStatusResponse(rsp *http.Response) (*GetGateStatusResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetGateStatusResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Evaluated   *bool               `json:"evaluated,omitempty"`
+			EvaluatedAt *time.Time          `json:"evaluated_at,omitempty"`
+			Passed      *bool               `json:"passed,omitempty"`
+			VersionId   *openapi_types.UUID `json:"version_id,omitempty"`
+			Violations  *[]struct {
+				Message *string `json:"message,omitempty"`
+				Rule    *string `json:"rule,omitempty"`
+			} `json:"violations,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	}
 
