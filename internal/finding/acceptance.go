@@ -114,9 +114,15 @@ type RiskAcceptance struct {
 	UpdatedAt    time.Time  `json:"updated_at"`
 	// FindingCount is how many findings it covers — or covered when it ended.
 	FindingCount int `json:"finding_count"`
-	// CanApprove / CanRevoke are whether the caller may (set by the handler).
-	CanApprove bool `json:"can_approve"`
-	CanRevoke  bool `json:"can_revoke"`
+	// PendingExtension is the extension waiting for an owner, if any.
+	PendingExtension *Extension `json:"pending_extension"`
+	// CanApprove / CanRevoke are whether the caller may (set by the handler);
+	// CanExtend whether they may ask for an extension, CanDecideExtension
+	// whether they may decide the pending one.
+	CanApprove         bool `json:"can_approve"`
+	CanRevoke          bool `json:"can_revoke"`
+	CanExtend          bool `json:"can_extend"`
+	CanDecideExtension bool `json:"can_decide_extension"`
 }
 
 const acceptanceColumns = `ra.id, ra.project_id, p.name, ra.title, ra.justification, ra.owner_id,
@@ -124,7 +130,8 @@ const acceptanceColumns = `ra.id, ra.project_id, p.name, ra.title, ra.justificat
 	ra.requested_by, ra.requester, ra.requested_at, ra.approved_by, ra.approver, ra.approved_at, ra.approval_note,
 	ra.closed_by, ra.closer, ra.closed_at, ra.close_note, ra.created_at, ra.updated_at,
 	(SELECT count(*)::int FROM risk_acceptance_findings m
-	 WHERE m.acceptance_id = ra.id AND (m.removed_at IS NULL OR m.removed_at = ra.closed_at))`
+	 WHERE m.acceptance_id = ra.id AND (m.removed_at IS NULL OR m.removed_at = ra.closed_at)),
+	` + pendingExtensionSQL
 
 const acceptanceFrom = ` FROM risk_acceptances ra JOIN projects p ON p.id = ra.project_id`
 
@@ -133,7 +140,7 @@ func scanAcceptance(row pgx.Row) (RiskAcceptance, error) {
 	err := row.Scan(&a.ID, &a.ProjectID, &a.ProjectName, &a.Title, &a.Justification, &a.OwnerID,
 		&a.OwnerEmail, &a.ExpiresAt, &a.State, &a.SourceKey,
 		&a.RequestedBy, &a.Requester, &a.RequestedAt, &a.ApprovedBy, &a.Approver, &a.ApprovedAt, &a.ApprovalNote,
-		&a.ClosedBy, &a.Closer, &a.ClosedAt, &a.CloseNote, &a.CreatedAt, &a.UpdatedAt, &a.FindingCount)
+		&a.ClosedBy, &a.Closer, &a.ClosedAt, &a.CloseNote, &a.CreatedAt, &a.UpdatedAt, &a.FindingCount, &a.PendingExtension)
 	return a, err
 }
 
@@ -320,8 +327,11 @@ type AcceptanceFilter struct {
 	// visible scope); an empty non-nil slice matches nothing.
 	ProjectIDs []string
 	State      AcceptanceState // "" = any
-	// ExcludeRequester drops acceptances this user requested (four-eyes: the
-	// approval queue of someone who can't decide their own requests).
+	// Actionable narrows to what waits for a decision: a requested acceptance,
+	// or an approved one with a pending extension.
+	Actionable bool
+	// ExcludeRequester, with Actionable, drops what this user asked for
+	// (four-eyes: the queue of someone who can't decide their own requests).
 	ExcludeRequester string
 	// OwnerID narrows to acceptances owned by this user.
 	OwnerID string
@@ -349,8 +359,11 @@ func (r *Repository) ListAcceptances(ctx context.Context, f AcceptanceFilter) ([
 	if f.State != "" {
 		add("ra.state = $%d", string(f.State))
 	}
-	if f.ExcludeRequester != "" {
-		add("ra.requested_by IS DISTINCT FROM $%d", f.ExcludeRequester)
+	if f.Actionable {
+		// One placeholder for both arms (an empty user excludes nobody).
+		add(`(ra.state = 'requested' AND ($%[1]d = '' OR ra.requested_by IS DISTINCT FROM NULLIF($%[1]d, '')::uuid)
+		   OR EXISTS (SELECT 1 FROM risk_acceptance_extensions x WHERE x.acceptance_id = ra.id AND x.state = 'pending'
+		              AND ($%[1]d = '' OR x.requested_by IS DISTINCT FROM NULLIF($%[1]d, '')::uuid)))`, f.ExcludeRequester)
 	}
 	if f.OwnerID != "" {
 		add("ra.owner_id = $%d", f.OwnerID)
@@ -497,6 +510,9 @@ func closeTx(ctx context.Context, tx pgx.Tx, a RiskAcceptance, state AcceptanceS
 		    close_note = $4, updated_at = now()
 		WHERE id = $1`, a.ID, string(state), actor, note); err != nil {
 		return fmt.Errorf("close risk acceptance: %w", err)
+	}
+	if err := withdrawExtensionsTx(ctx, tx, a.ID, actor, state); err != nil {
+		return err
 	}
 	rows, err := tx.Query(ctx, `
 		UPDATE risk_acceptance_findings SET removed_at = now(), removed_by = `+labelOf(2)+`, reason = $3

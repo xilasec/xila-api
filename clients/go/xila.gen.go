@@ -652,31 +652,33 @@ func (e Category) Valid() bool {
 
 // Defines values for ChannelEvents.
 const (
-	ChannelEventsAsterisk                ChannelEvents = "*"
-	ChannelEventsCraCaseOpened           ChannelEvents = "cra.case_opened"
-	ChannelEventsCraDeadlineDueSoon      ChannelEvents = "cra.deadline_due_soon"
-	ChannelEventsCraDeadlineMissed       ChannelEvents = "cra.deadline_missed"
-	ChannelEventsExceptionExpired        ChannelEvents = "exception.expired"
-	ChannelEventsFindingAssigned         ChannelEvents = "finding.assigned"
-	ChannelEventsFindingCritical         ChannelEvents = "finding.critical"
-	ChannelEventsFindingExploitable      ChannelEvents = "finding.exploitable"
-	ChannelEventsFindingNew              ChannelEvents = "finding.new"
-	ChannelEventsFindingSlaBreach        ChannelEvents = "finding.sla_breach"
-	ChannelEventsFindingSlaDueSoon       ChannelEvents = "finding.sla_due_soon"
-	ChannelEventsFindingStatusChanged    ChannelEvents = "finding.status_changed"
-	ChannelEventsGateChanged             ChannelEvents = "gate.changed"
-	ChannelEventsIngestionAnomaly        ChannelEvents = "ingestion.anomaly"
-	ChannelEventsMention                 ChannelEvents = "mention"
-	ChannelEventsPolicyViolation         ChannelEvents = "policy.violation"
-	ChannelEventsRiskAcceptanceApproved  ChannelEvents = "risk_acceptance.approved"
-	ChannelEventsRiskAcceptanceExpired   ChannelEvents = "risk_acceptance.expired"
-	ChannelEventsRiskAcceptanceExpiring  ChannelEvents = "risk_acceptance.expiring"
-	ChannelEventsRiskAcceptanceRequested ChannelEvents = "risk_acceptance.requested"
-	ChannelEventsSbomFailed              ChannelEvents = "sbom.failed"
-	ChannelEventsSbomProcessed           ChannelEvents = "sbom.processed"
-	ChannelEventsSystemJobFailed         ChannelEvents = "system.job_failed"
-	ChannelEventsTriageRule              ChannelEvents = "triage.rule"
-	ChannelEventsVexProcessed            ChannelEvents = "vex.processed"
+	ChannelEventsAsterisk                         ChannelEvents = "*"
+	ChannelEventsCraCaseOpened                    ChannelEvents = "cra.case_opened"
+	ChannelEventsCraDeadlineDueSoon               ChannelEvents = "cra.deadline_due_soon"
+	ChannelEventsCraDeadlineMissed                ChannelEvents = "cra.deadline_missed"
+	ChannelEventsExceptionExpired                 ChannelEvents = "exception.expired"
+	ChannelEventsFindingAssigned                  ChannelEvents = "finding.assigned"
+	ChannelEventsFindingCritical                  ChannelEvents = "finding.critical"
+	ChannelEventsFindingExploitable               ChannelEvents = "finding.exploitable"
+	ChannelEventsFindingNew                       ChannelEvents = "finding.new"
+	ChannelEventsFindingSlaBreach                 ChannelEvents = "finding.sla_breach"
+	ChannelEventsFindingSlaDueSoon                ChannelEvents = "finding.sla_due_soon"
+	ChannelEventsFindingStatusChanged             ChannelEvents = "finding.status_changed"
+	ChannelEventsGateChanged                      ChannelEvents = "gate.changed"
+	ChannelEventsIngestionAnomaly                 ChannelEvents = "ingestion.anomaly"
+	ChannelEventsMention                          ChannelEvents = "mention"
+	ChannelEventsPolicyViolation                  ChannelEvents = "policy.violation"
+	ChannelEventsRiskAcceptanceApproved           ChannelEvents = "risk_acceptance.approved"
+	ChannelEventsRiskAcceptanceExpired            ChannelEvents = "risk_acceptance.expired"
+	ChannelEventsRiskAcceptanceExpiring           ChannelEvents = "risk_acceptance.expiring"
+	ChannelEventsRiskAcceptanceExtended           ChannelEvents = "risk_acceptance.extended"
+	ChannelEventsRiskAcceptanceExtensionRequested ChannelEvents = "risk_acceptance.extension_requested"
+	ChannelEventsRiskAcceptanceRequested          ChannelEvents = "risk_acceptance.requested"
+	ChannelEventsSbomFailed                       ChannelEvents = "sbom.failed"
+	ChannelEventsSbomProcessed                    ChannelEvents = "sbom.processed"
+	ChannelEventsSystemJobFailed                  ChannelEvents = "system.job_failed"
+	ChannelEventsTriageRule                       ChannelEvents = "triage.rule"
+	ChannelEventsVexProcessed                     ChannelEvents = "vex.processed"
 )
 
 // Valid indicates whether the value is a known member of the ChannelEvents enum.
@@ -719,6 +721,10 @@ func (e ChannelEvents) Valid() bool {
 	case ChannelEventsRiskAcceptanceExpired:
 		return true
 	case ChannelEventsRiskAcceptanceExpiring:
+		return true
+	case ChannelEventsRiskAcceptanceExtended:
+		return true
+	case ChannelEventsRiskAcceptanceExtensionRequested:
 		return true
 	case ChannelEventsRiskAcceptanceRequested:
 		return true
@@ -1726,19 +1732,19 @@ func (e OrganizationRole) Valid() bool {
 
 // Defines values for PSIRTAdvisoryState.
 const (
-	Draft     PSIRTAdvisoryState = "draft"
-	Published PSIRTAdvisoryState = "published"
-	Withdrawn PSIRTAdvisoryState = "withdrawn"
+	PSIRTAdvisoryStateDraft     PSIRTAdvisoryState = "draft"
+	PSIRTAdvisoryStatePublished PSIRTAdvisoryState = "published"
+	PSIRTAdvisoryStateWithdrawn PSIRTAdvisoryState = "withdrawn"
 )
 
 // Valid indicates whether the value is a known member of the PSIRTAdvisoryState enum.
 func (e PSIRTAdvisoryState) Valid() bool {
 	switch e {
-	case Draft:
+	case PSIRTAdvisoryStateDraft:
 		return true
-	case Published:
+	case PSIRTAdvisoryStatePublished:
 		return true
-	case Withdrawn:
+	case PSIRTAdvisoryStateWithdrawn:
 		return true
 	default:
 		return false
@@ -2375,6 +2381,30 @@ func (e RiskAcceptanceState) Valid() bool {
 	case RiskAcceptanceStateRequested:
 		return true
 	case RiskAcceptanceStateRevoked:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RiskAcceptanceExtensionState.
+const (
+	RiskAcceptanceExtensionStateApproved  RiskAcceptanceExtensionState = "approved"
+	RiskAcceptanceExtensionStatePending   RiskAcceptanceExtensionState = "pending"
+	RiskAcceptanceExtensionStateRejected  RiskAcceptanceExtensionState = "rejected"
+	RiskAcceptanceExtensionStateWithdrawn RiskAcceptanceExtensionState = "withdrawn"
+)
+
+// Valid indicates whether the value is a known member of the RiskAcceptanceExtensionState enum.
+func (e RiskAcceptanceExtensionState) Valid() bool {
+	switch e {
+	case RiskAcceptanceExtensionStateApproved:
+		return true
+	case RiskAcceptanceExtensionStatePending:
+		return true
+	case RiskAcceptanceExtensionStateRejected:
+		return true
+	case RiskAcceptanceExtensionStateWithdrawn:
 		return true
 	default:
 		return false
@@ -6502,9 +6532,16 @@ type Finding struct {
 	KevSources *[]FindingKevSources `json:"kev_sources,omitempty"`
 
 	// LastScanId The latest scan that reported it.
-	LastScanId           *openapi_types.UUID     `json:"last_scan_id,omitempty"`
-	LastSeenAt           *time.Time              `json:"last_seen_at,omitempty"`
-	Line                 *int                    `json:"line,omitempty"`
+	LastScanId *openapi_types.UUID `json:"last_scan_id,omitempty"`
+	LastSeenAt *time.Time          `json:"last_seen_at,omitempty"`
+	Line       *int                `json:"line,omitempty"`
+
+	// Malicious The package version is malware: a `MAL-` advisory (OpenSSF malicious packages,
+	// through OSV) in its rule id, CVEs or aliases. Its severity is raised to critical, its
+	// priority takes the exploitability ceiling without any reachability or exposure
+	// discount, and it fails the gate unless the policy sets `allow_malicious`. The fix is to
+	// remove the package and rotate the secrets of every machine that installed it.
+	Malicious            *bool                   `json:"malicious,omitempty"`
 	Metadata             *map[string]interface{} `json:"metadata,omitempty"`
 	PackageName          *string                 `json:"package_name,omitempty"`
 	PackageVersion       *string                 `json:"package_version,omitempty"`
@@ -6706,6 +6743,9 @@ type Framework struct {
 // GatePolicy Every threshold is optional; unset means "don't check it". `-1` also means
 // unlimited, so a policy can be relaxed without deleting it.
 type GatePolicy struct {
+	// AllowMalicious Let open malicious packages pass. Off by default: a malicious package fails every gate, including a project with no policy.
+	AllowMalicious *bool `json:"allow_malicious,omitempty"`
+
 	// BaselineBranch With new_only, compare against this branch/version instead of the single-scan heuristic — a finding is new only if it isn't already open there (by the same cross-scan identity Upsert/CloseMissing use). Overridable per request with ?baseline=.
 	BaselineBranch *string `json:"baseline_branch,omitempty"`
 
@@ -6771,6 +6811,7 @@ type GateResult struct {
 		OpenKevSources *map[string]int `json:"open_kev_sources,omitempty"`
 		OpenLicense    *int            `json:"open_license,omitempty"`
 		OpenLow        *int            `json:"open_low,omitempty"`
+		OpenMalicious  *int            `json:"open_malicious,omitempty"`
 		OpenMedium     *int            `json:"open_medium,omitempty"`
 
 		// RiskScore Same definition as the project summary's risk_score
@@ -8073,30 +8114,67 @@ type ReportTemplateSections string
 
 // RiskAcceptance defines model for RiskAcceptance.
 type RiskAcceptance struct {
-	ApprovedAt    *time.Time           `json:"approved_at,omitempty"`
-	Approver      *string              `json:"approver,omitempty"`
-	CanApprove    *bool                `json:"can_approve,omitempty"`
-	CanRevoke     *bool                `json:"can_revoke,omitempty"`
-	CloseNote     *string              `json:"close_note,omitempty"`
-	ClosedAt      *time.Time           `json:"closed_at,omitempty"`
-	Closer        *string              `json:"closer,omitempty"`
-	ExpiresAt     *time.Time           `json:"expires_at,omitempty"`
-	FindingCount  *int                 `json:"finding_count,omitempty"`
-	Id            *openapi_types.UUID  `json:"id,omitempty"`
-	Justification *string              `json:"justification,omitempty"`
-	OwnerEmail    *string              `json:"owner_email,omitempty"`
-	OwnerId       *string              `json:"owner_id,omitempty"`
-	ProjectId     *openapi_types.UUID  `json:"project_id,omitempty"`
-	ProjectName   *string              `json:"project_name,omitempty"`
-	RequestedAt   *time.Time           `json:"requested_at,omitempty"`
-	Requester     *string              `json:"requester,omitempty"`
-	SourceKey     *string              `json:"source_key,omitempty"`
-	State         *RiskAcceptanceState `json:"state,omitempty"`
-	Title         *string              `json:"title,omitempty"`
+	ApprovedAt *time.Time `json:"approved_at,omitempty"`
+	Approver   *string    `json:"approver,omitempty"`
+	CanApprove *bool      `json:"can_approve,omitempty"`
+
+	// CanDecideExtension The caller may decide its pending extension.
+	CanDecideExtension *bool `json:"can_decide_extension,omitempty"`
+
+	// CanExtend The caller may ask to extend it (an approved acceptance with an expiry and no pending extension).
+	CanExtend     *bool               `json:"can_extend,omitempty"`
+	CanRevoke     *bool               `json:"can_revoke,omitempty"`
+	CloseNote     *string             `json:"close_note,omitempty"`
+	ClosedAt      *time.Time          `json:"closed_at,omitempty"`
+	Closer        *string             `json:"closer,omitempty"`
+	ExpiresAt     *time.Time          `json:"expires_at,omitempty"`
+	FindingCount  *int                `json:"finding_count,omitempty"`
+	Id            *openapi_types.UUID `json:"id,omitempty"`
+	Justification *string             `json:"justification,omitempty"`
+	OwnerEmail    *string             `json:"owner_email,omitempty"`
+	OwnerId       *string             `json:"owner_id,omitempty"`
+
+	// PendingExtension The extension waiting for an owner, if any.
+	PendingExtension *RiskAcceptanceExtension `json:"pending_extension,omitempty"`
+	ProjectId        *openapi_types.UUID      `json:"project_id,omitempty"`
+	ProjectName      *string                  `json:"project_name,omitempty"`
+	RequestedAt      *time.Time               `json:"requested_at,omitempty"`
+	Requester        *string                  `json:"requester,omitempty"`
+	SourceKey        *string                  `json:"source_key,omitempty"`
+	State            *RiskAcceptanceState     `json:"state,omitempty"`
+	Title            *string                  `json:"title,omitempty"`
 }
 
 // RiskAcceptanceState defines model for RiskAcceptance.State.
 type RiskAcceptanceState string
+
+// RiskAcceptanceExtension defines model for RiskAcceptanceExtension.
+type RiskAcceptanceExtension struct {
+	AcceptanceId  *openapi_types.UUID `json:"acceptance_id,omitempty"`
+	DecidedAt     *time.Time          `json:"decided_at,omitempty"`
+	DecidedBy     *string             `json:"decided_by,omitempty"`
+	Decider       *string             `json:"decider,omitempty"`
+	DecisionNote  *string             `json:"decision_note,omitempty"`
+	FromExpiresAt *time.Time          `json:"from_expires_at,omitempty"`
+	Id            *openapi_types.UUID `json:"id,omitempty"`
+	Reason        *string             `json:"reason,omitempty"`
+	RequestedAt   *time.Time          `json:"requested_at,omitempty"`
+	RequestedBy   *string             `json:"requested_by,omitempty"`
+	Requester     *string             `json:"requester,omitempty"`
+
+	// State `withdrawn`: the acceptance ended before it was decided.
+	State       *RiskAcceptanceExtensionState `json:"state,omitempty"`
+	ToExpiresAt *time.Time                    `json:"to_expires_at,omitempty"`
+}
+
+// RiskAcceptanceExtensionState `withdrawn`: the acceptance ended before it was decided.
+type RiskAcceptanceExtensionState string
+
+// RiskAcceptanceExtensionResult defines model for RiskAcceptanceExtensionResult.
+type RiskAcceptanceExtensionResult struct {
+	Extension      *RiskAcceptanceExtension `json:"extension,omitempty"`
+	RiskAcceptance *RiskAcceptance          `json:"risk_acceptance,omitempty"`
+}
 
 // RiskAcceptanceLedgerEntry defines model for RiskAcceptanceLedgerEntry.
 type RiskAcceptanceLedgerEntry struct {
@@ -10202,6 +10280,9 @@ type ListFindingsParams struct {
 	// KevRansomware Only findings a KEV catalog marks as known to be used in ransomware campaigns.
 	KevRansomware *bool `form:"kev_ransomware,omitempty" json:"kev_ransomware,omitempty"`
 
+	// Malicious Only malicious packages (a `MAL-` advisory).
+	Malicious *bool `form:"malicious,omitempty" json:"malicious,omitempty"`
+
 	// Active Only findings still awaiting a fix (open or confirmed).
 	Active *bool `form:"active,omitempty" json:"active,omitempty"`
 
@@ -11287,6 +11368,22 @@ type ApproveProjectRiskAcceptanceJSONBody struct {
 	Note *string `json:"note,omitempty"`
 }
 
+// ExtendProjectRiskAcceptanceJSONBody defines parameters for ExtendProjectRiskAcceptance.
+type ExtendProjectRiskAcceptanceJSONBody struct {
+	ExpiresAt time.Time `json:"expires_at"`
+	Reason    string    `json:"reason"`
+}
+
+// ApproveProjectRiskAcceptanceExtensionJSONBody defines parameters for ApproveProjectRiskAcceptanceExtension.
+type ApproveProjectRiskAcceptanceExtensionJSONBody struct {
+	Note *string `json:"note,omitempty"`
+}
+
+// RejectProjectRiskAcceptanceExtensionJSONBody defines parameters for RejectProjectRiskAcceptanceExtension.
+type RejectProjectRiskAcceptanceExtensionJSONBody struct {
+	Note *string `json:"note,omitempty"`
+}
+
 // CreateProjectRiskAcceptanceFindingJSONBody defines parameters for CreateProjectRiskAcceptanceFinding.
 type CreateProjectRiskAcceptanceFindingJSONBody struct {
 	FindingIds *[]openapi_types.UUID `json:"finding_ids,omitempty"`
@@ -11490,7 +11587,7 @@ type ListRiskAcceptancesParams struct {
 	State     *ListRiskAcceptancesParamsState `form:"state,omitempty" json:"state,omitempty"`
 	ProjectId *openapi_types.UUID             `form:"project_id,omitempty" json:"project_id,omitempty"`
 
-	// Actionable Only the requests you may approve (projects you own; with four-eyes, not your own requests).
+	// Actionable Only what waits for your decision (projects you own; with four-eyes, not what you asked for) - requested acceptances and approved ones with a pending extension.
 	Actionable *bool `form:"actionable,omitempty" json:"actionable,omitempty"`
 
 	// Owner `me` or a user id: acceptances with that owner.
@@ -12223,6 +12320,15 @@ type UpdateProjectRiskAcceptanceJSONRequestBody UpdateProjectRiskAcceptanceJSONB
 
 // ApproveProjectRiskAcceptanceJSONRequestBody defines body for ApproveProjectRiskAcceptance for application/json ContentType.
 type ApproveProjectRiskAcceptanceJSONRequestBody ApproveProjectRiskAcceptanceJSONBody
+
+// ExtendProjectRiskAcceptanceJSONRequestBody defines body for ExtendProjectRiskAcceptance for application/json ContentType.
+type ExtendProjectRiskAcceptanceJSONRequestBody ExtendProjectRiskAcceptanceJSONBody
+
+// ApproveProjectRiskAcceptanceExtensionJSONRequestBody defines body for ApproveProjectRiskAcceptanceExtension for application/json ContentType.
+type ApproveProjectRiskAcceptanceExtensionJSONRequestBody ApproveProjectRiskAcceptanceExtensionJSONBody
+
+// RejectProjectRiskAcceptanceExtensionJSONRequestBody defines body for RejectProjectRiskAcceptanceExtension for application/json ContentType.
+type RejectProjectRiskAcceptanceExtensionJSONRequestBody RejectProjectRiskAcceptanceExtensionJSONBody
 
 // CreateProjectRiskAcceptanceFindingJSONRequestBody defines body for CreateProjectRiskAcceptanceFinding for application/json ContentType.
 type CreateProjectRiskAcceptanceFindingJSONRequestBody CreateProjectRiskAcceptanceFindingJSONBody
@@ -16489,7 +16595,7 @@ type ClientInterface interface {
 
 	// UpdateProjectRiskAcceptanceWithBody Edit a requested risk acceptance
 	//
-	// Only while `requested`; `expires_at` null = never expires.
+	// Only while `requested`; `expires_at` null = never expires. An approved acceptance's expiry changes only through an extension (409 here).
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -16498,7 +16604,7 @@ type ClientInterface interface {
 
 	// UpdateProjectRiskAcceptance Edit a requested risk acceptance
 	//
-	// Only while `requested`; `expires_at` null = never expires.
+	// Only while `requested`; `expires_at` null = never expires. An approved acceptance's expiry changes only through an extension (409 here).
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -16524,6 +16630,70 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /projects/{projectID}/risk-acceptances/{acceptanceID}/approve (the `ApproveProjectRiskAcceptance` operationId).
 	ApproveProjectRiskAcceptance(ctx context.Context, projectID ProjectID, acceptanceID RiskAcceptanceID, body ApproveProjectRiskAcceptanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ExtendProjectRiskAcceptanceWithBody Extend an approved risk acceptance
+	//
+	// Editor+. Pushes an approved acceptance's expiry out, with a reason; the only way its expiry
+	// changes. A project owner's extension applies at once (200); anyone else's, or an owner's with
+	// `RISK_ACCEPTANCE_REQUIRES_APPROVAL`, waits for an owner (202) while the acceptance stays active
+	// on its current expiry. The new expiry must be later than the current one, which must not have
+	// passed; an acceptance that never expires can't be extended, and only one extension waits at a
+	// time (409).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /projects/{projectID}/risk-acceptances/{acceptanceID}/extend (the `ExtendProjectRiskAcceptance` operationId).
+	ExtendProjectRiskAcceptanceWithBody(ctx context.Context, projectID ProjectID, acceptanceID RiskAcceptanceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ExtendProjectRiskAcceptance Extend an approved risk acceptance
+	//
+	// Editor+. Pushes an approved acceptance's expiry out, with a reason; the only way its expiry
+	// changes. A project owner's extension applies at once (200); anyone else's, or an owner's with
+	// `RISK_ACCEPTANCE_REQUIRES_APPROVAL`, waits for an owner (202) while the acceptance stays active
+	// on its current expiry. The new expiry must be later than the current one, which must not have
+	// passed; an acceptance that never expires can't be extended, and only one extension waits at a
+	// time (409).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /projects/{projectID}/risk-acceptances/{acceptanceID}/extend (the `ExtendProjectRiskAcceptance` operationId).
+	ExtendProjectRiskAcceptance(ctx context.Context, projectID ProjectID, acceptanceID RiskAcceptanceID, body ExtendProjectRiskAcceptanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ApproveProjectRiskAcceptanceExtensionWithBody Approve a pending extension
+	//
+	// Project owner; with four-eyes not the person who asked (403). The acceptance's expiry moves to the extension's. 409 when it lapsed or ended meanwhile.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /projects/{projectID}/risk-acceptances/{acceptanceID}/extensions/{extensionID}/approve (the `ApproveProjectRiskAcceptanceExtension` operationId).
+	ApproveProjectRiskAcceptanceExtensionWithBody(ctx context.Context, projectID ProjectID, acceptanceID RiskAcceptanceID, extensionID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ApproveProjectRiskAcceptanceExtension Approve a pending extension
+	//
+	// Project owner; with four-eyes not the person who asked (403). The acceptance's expiry moves to the extension's. 409 when it lapsed or ended meanwhile.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /projects/{projectID}/risk-acceptances/{acceptanceID}/extensions/{extensionID}/approve (the `ApproveProjectRiskAcceptanceExtension` operationId).
+	ApproveProjectRiskAcceptanceExtension(ctx context.Context, projectID ProjectID, acceptanceID RiskAcceptanceID, extensionID openapi_types.UUID, body ApproveProjectRiskAcceptanceExtensionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RejectProjectRiskAcceptanceExtensionWithBody Reject a pending extension
+	//
+	// Project owner; with four-eyes not the person who asked. The acceptance keeps its expiry.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /projects/{projectID}/risk-acceptances/{acceptanceID}/extensions/{extensionID}/reject (the `RejectProjectRiskAcceptanceExtension` operationId).
+	RejectProjectRiskAcceptanceExtensionWithBody(ctx context.Context, projectID ProjectID, acceptanceID RiskAcceptanceID, extensionID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RejectProjectRiskAcceptanceExtension Reject a pending extension
+	//
+	// Project owner; with four-eyes not the person who asked. The acceptance keeps its expiry.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /projects/{projectID}/risk-acceptances/{acceptanceID}/extensions/{extensionID}/reject (the `RejectProjectRiskAcceptanceExtension` operationId).
+	RejectProjectRiskAcceptanceExtension(ctx context.Context, projectID ProjectID, acceptanceID RiskAcceptanceID, extensionID openapi_types.UUID, body RejectProjectRiskAcceptanceExtensionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateProjectRiskAcceptanceFindingWithBody Add findings to a live risk acceptance
 	//
@@ -26815,7 +26985,7 @@ func (c *Client) GetProjectRiskAcceptance(ctx context.Context, projectID Project
 
 // UpdateProjectRiskAcceptanceWithBody Edit a requested risk acceptance
 //
-// Only while `requested`; `expires_at` null = never expires.
+// Only while `requested`; `expires_at` null = never expires. An approved acceptance's expiry changes only through an extension (409 here).
 //
 // Takes any type of body and a specified content type.
 //
@@ -26834,7 +27004,7 @@ func (c *Client) UpdateProjectRiskAcceptanceWithBody(ctx context.Context, projec
 
 // UpdateProjectRiskAcceptance Edit a requested risk acceptance
 //
-// Only while `requested`; `expires_at` null = never expires.
+// Only while `requested`; `expires_at` null = never expires. An approved acceptance's expiry changes only through an extension (409 here).
 //
 // Takes a body of the `application/json` content type.
 //
@@ -26881,6 +27051,130 @@ func (c *Client) ApproveProjectRiskAcceptanceWithBody(ctx context.Context, proje
 // Corresponds with POST /projects/{projectID}/risk-acceptances/{acceptanceID}/approve (the `ApproveProjectRiskAcceptance` operationId).
 func (c *Client) ApproveProjectRiskAcceptance(ctx context.Context, projectID ProjectID, acceptanceID RiskAcceptanceID, body ApproveProjectRiskAcceptanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewApproveProjectRiskAcceptanceRequest(c.Server, projectID, acceptanceID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ExtendProjectRiskAcceptanceWithBody Extend an approved risk acceptance
+//
+// Editor+. Pushes an approved acceptance's expiry out, with a reason; the only way its expiry
+// changes. A project owner's extension applies at once (200); anyone else's, or an owner's with
+// `RISK_ACCEPTANCE_REQUIRES_APPROVAL`, waits for an owner (202) while the acceptance stays active
+// on its current expiry. The new expiry must be later than the current one, which must not have
+// passed; an acceptance that never expires can't be extended, and only one extension waits at a
+// time (409).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /projects/{projectID}/risk-acceptances/{acceptanceID}/extend (the `ExtendProjectRiskAcceptance` operationId).
+func (c *Client) ExtendProjectRiskAcceptanceWithBody(ctx context.Context, projectID ProjectID, acceptanceID RiskAcceptanceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewExtendProjectRiskAcceptanceRequestWithBody(c.Server, projectID, acceptanceID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ExtendProjectRiskAcceptance Extend an approved risk acceptance
+//
+// Editor+. Pushes an approved acceptance's expiry out, with a reason; the only way its expiry
+// changes. A project owner's extension applies at once (200); anyone else's, or an owner's with
+// `RISK_ACCEPTANCE_REQUIRES_APPROVAL`, waits for an owner (202) while the acceptance stays active
+// on its current expiry. The new expiry must be later than the current one, which must not have
+// passed; an acceptance that never expires can't be extended, and only one extension waits at a
+// time (409).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /projects/{projectID}/risk-acceptances/{acceptanceID}/extend (the `ExtendProjectRiskAcceptance` operationId).
+func (c *Client) ExtendProjectRiskAcceptance(ctx context.Context, projectID ProjectID, acceptanceID RiskAcceptanceID, body ExtendProjectRiskAcceptanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewExtendProjectRiskAcceptanceRequest(c.Server, projectID, acceptanceID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ApproveProjectRiskAcceptanceExtensionWithBody Approve a pending extension
+//
+// Project owner; with four-eyes not the person who asked (403). The acceptance's expiry moves to the extension's. 409 when it lapsed or ended meanwhile.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /projects/{projectID}/risk-acceptances/{acceptanceID}/extensions/{extensionID}/approve (the `ApproveProjectRiskAcceptanceExtension` operationId).
+func (c *Client) ApproveProjectRiskAcceptanceExtensionWithBody(ctx context.Context, projectID ProjectID, acceptanceID RiskAcceptanceID, extensionID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewApproveProjectRiskAcceptanceExtensionRequestWithBody(c.Server, projectID, acceptanceID, extensionID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ApproveProjectRiskAcceptanceExtension Approve a pending extension
+//
+// Project owner; with four-eyes not the person who asked (403). The acceptance's expiry moves to the extension's. 409 when it lapsed or ended meanwhile.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /projects/{projectID}/risk-acceptances/{acceptanceID}/extensions/{extensionID}/approve (the `ApproveProjectRiskAcceptanceExtension` operationId).
+func (c *Client) ApproveProjectRiskAcceptanceExtension(ctx context.Context, projectID ProjectID, acceptanceID RiskAcceptanceID, extensionID openapi_types.UUID, body ApproveProjectRiskAcceptanceExtensionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewApproveProjectRiskAcceptanceExtensionRequest(c.Server, projectID, acceptanceID, extensionID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RejectProjectRiskAcceptanceExtensionWithBody Reject a pending extension
+//
+// Project owner; with four-eyes not the person who asked. The acceptance keeps its expiry.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /projects/{projectID}/risk-acceptances/{acceptanceID}/extensions/{extensionID}/reject (the `RejectProjectRiskAcceptanceExtension` operationId).
+func (c *Client) RejectProjectRiskAcceptanceExtensionWithBody(ctx context.Context, projectID ProjectID, acceptanceID RiskAcceptanceID, extensionID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRejectProjectRiskAcceptanceExtensionRequestWithBody(c.Server, projectID, acceptanceID, extensionID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RejectProjectRiskAcceptanceExtension Reject a pending extension
+//
+// Project owner; with four-eyes not the person who asked. The acceptance keeps its expiry.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /projects/{projectID}/risk-acceptances/{acceptanceID}/extensions/{extensionID}/reject (the `RejectProjectRiskAcceptanceExtension` operationId).
+func (c *Client) RejectProjectRiskAcceptanceExtension(ctx context.Context, projectID ProjectID, acceptanceID RiskAcceptanceID, extensionID openapi_types.UUID, body RejectProjectRiskAcceptanceExtensionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRejectProjectRiskAcceptanceExtensionRequest(c.Server, projectID, acceptanceID, extensionID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -36948,6 +37242,18 @@ func NewListFindingsRequest(server string, params *ListFindingsParams) (*http.Re
 		if params.KevRansomware != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "kev_ransomware", *params.KevRansomware, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Malicious != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "malicious", *params.Malicious, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -47272,6 +47578,182 @@ func NewApproveProjectRiskAcceptanceRequestWithBody(server string, projectID Pro
 	}
 
 	operationPath := fmt.Sprintf("/projects/%s/risk-acceptances/%s/approve", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewExtendProjectRiskAcceptanceRequest calls the generic ExtendProjectRiskAcceptance builder with application/json body
+func NewExtendProjectRiskAcceptanceRequest(server string, projectID ProjectID, acceptanceID RiskAcceptanceID, body ExtendProjectRiskAcceptanceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewExtendProjectRiskAcceptanceRequestWithBody(server, projectID, acceptanceID, "application/json", bodyReader)
+}
+
+// NewExtendProjectRiskAcceptanceRequestWithBody constructs an http.Request for the ExtendProjectRiskAcceptance method, with any body, and a specified content type
+func NewExtendProjectRiskAcceptanceRequestWithBody(server string, projectID ProjectID, acceptanceID RiskAcceptanceID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "acceptanceID", acceptanceID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/risk-acceptances/%s/extend", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewApproveProjectRiskAcceptanceExtensionRequest calls the generic ApproveProjectRiskAcceptanceExtension builder with application/json body
+func NewApproveProjectRiskAcceptanceExtensionRequest(server string, projectID ProjectID, acceptanceID RiskAcceptanceID, extensionID openapi_types.UUID, body ApproveProjectRiskAcceptanceExtensionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewApproveProjectRiskAcceptanceExtensionRequestWithBody(server, projectID, acceptanceID, extensionID, "application/json", bodyReader)
+}
+
+// NewApproveProjectRiskAcceptanceExtensionRequestWithBody constructs an http.Request for the ApproveProjectRiskAcceptanceExtension method, with any body, and a specified content type
+func NewApproveProjectRiskAcceptanceExtensionRequestWithBody(server string, projectID ProjectID, acceptanceID RiskAcceptanceID, extensionID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "acceptanceID", acceptanceID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "extensionID", extensionID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/risk-acceptances/%s/extensions/%s/approve", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewRejectProjectRiskAcceptanceExtensionRequest calls the generic RejectProjectRiskAcceptanceExtension builder with application/json body
+func NewRejectProjectRiskAcceptanceExtensionRequest(server string, projectID ProjectID, acceptanceID RiskAcceptanceID, extensionID openapi_types.UUID, body RejectProjectRiskAcceptanceExtensionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRejectProjectRiskAcceptanceExtensionRequestWithBody(server, projectID, acceptanceID, extensionID, "application/json", bodyReader)
+}
+
+// NewRejectProjectRiskAcceptanceExtensionRequestWithBody constructs an http.Request for the RejectProjectRiskAcceptanceExtension method, with any body, and a specified content type
+func NewRejectProjectRiskAcceptanceExtensionRequestWithBody(server string, projectID ProjectID, acceptanceID RiskAcceptanceID, extensionID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "acceptanceID", acceptanceID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "extensionID", extensionID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/risk-acceptances/%s/extensions/%s/reject", pathParam0, pathParam1, pathParam2)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -60373,7 +60855,7 @@ type ClientWithResponsesInterface interface {
 
 	// UpdateProjectRiskAcceptanceWithBodyWithResponse Edit a requested risk acceptance
 	//
-	// Only while `requested`; `expires_at` null = never expires.
+	// Only while `requested`; `expires_at` null = never expires. An approved acceptance's expiry changes only through an extension (409 here).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -60382,7 +60864,7 @@ type ClientWithResponsesInterface interface {
 
 	// UpdateProjectRiskAcceptanceWithResponse Edit a requested risk acceptance
 	//
-	// Only while `requested`; `expires_at` null = never expires.
+	// Only while `requested`; `expires_at` null = never expires. An approved acceptance's expiry changes only through an extension (409 here).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -60408,6 +60890,70 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /projects/{projectID}/risk-acceptances/{acceptanceID}/approve (the `ApproveProjectRiskAcceptance` operationId).
 	ApproveProjectRiskAcceptanceWithResponse(ctx context.Context, projectID ProjectID, acceptanceID RiskAcceptanceID, body ApproveProjectRiskAcceptanceJSONRequestBody, reqEditors ...RequestEditorFn) (*ApproveProjectRiskAcceptanceResponse, error)
+
+	// ExtendProjectRiskAcceptanceWithBodyWithResponse Extend an approved risk acceptance
+	//
+	// Editor+. Pushes an approved acceptance's expiry out, with a reason; the only way its expiry
+	// changes. A project owner's extension applies at once (200); anyone else's, or an owner's with
+	// `RISK_ACCEPTANCE_REQUIRES_APPROVAL`, waits for an owner (202) while the acceptance stays active
+	// on its current expiry. The new expiry must be later than the current one, which must not have
+	// passed; an acceptance that never expires can't be extended, and only one extension waits at a
+	// time (409).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /projects/{projectID}/risk-acceptances/{acceptanceID}/extend (the `ExtendProjectRiskAcceptance` operationId).
+	ExtendProjectRiskAcceptanceWithBodyWithResponse(ctx context.Context, projectID ProjectID, acceptanceID RiskAcceptanceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ExtendProjectRiskAcceptanceResponse, error)
+
+	// ExtendProjectRiskAcceptanceWithResponse Extend an approved risk acceptance
+	//
+	// Editor+. Pushes an approved acceptance's expiry out, with a reason; the only way its expiry
+	// changes. A project owner's extension applies at once (200); anyone else's, or an owner's with
+	// `RISK_ACCEPTANCE_REQUIRES_APPROVAL`, waits for an owner (202) while the acceptance stays active
+	// on its current expiry. The new expiry must be later than the current one, which must not have
+	// passed; an acceptance that never expires can't be extended, and only one extension waits at a
+	// time (409).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /projects/{projectID}/risk-acceptances/{acceptanceID}/extend (the `ExtendProjectRiskAcceptance` operationId).
+	ExtendProjectRiskAcceptanceWithResponse(ctx context.Context, projectID ProjectID, acceptanceID RiskAcceptanceID, body ExtendProjectRiskAcceptanceJSONRequestBody, reqEditors ...RequestEditorFn) (*ExtendProjectRiskAcceptanceResponse, error)
+
+	// ApproveProjectRiskAcceptanceExtensionWithBodyWithResponse Approve a pending extension
+	//
+	// Project owner; with four-eyes not the person who asked (403). The acceptance's expiry moves to the extension's. 409 when it lapsed or ended meanwhile.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /projects/{projectID}/risk-acceptances/{acceptanceID}/extensions/{extensionID}/approve (the `ApproveProjectRiskAcceptanceExtension` operationId).
+	ApproveProjectRiskAcceptanceExtensionWithBodyWithResponse(ctx context.Context, projectID ProjectID, acceptanceID RiskAcceptanceID, extensionID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApproveProjectRiskAcceptanceExtensionResponse, error)
+
+	// ApproveProjectRiskAcceptanceExtensionWithResponse Approve a pending extension
+	//
+	// Project owner; with four-eyes not the person who asked (403). The acceptance's expiry moves to the extension's. 409 when it lapsed or ended meanwhile.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /projects/{projectID}/risk-acceptances/{acceptanceID}/extensions/{extensionID}/approve (the `ApproveProjectRiskAcceptanceExtension` operationId).
+	ApproveProjectRiskAcceptanceExtensionWithResponse(ctx context.Context, projectID ProjectID, acceptanceID RiskAcceptanceID, extensionID openapi_types.UUID, body ApproveProjectRiskAcceptanceExtensionJSONRequestBody, reqEditors ...RequestEditorFn) (*ApproveProjectRiskAcceptanceExtensionResponse, error)
+
+	// RejectProjectRiskAcceptanceExtensionWithBodyWithResponse Reject a pending extension
+	//
+	// Project owner; with four-eyes not the person who asked. The acceptance keeps its expiry.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /projects/{projectID}/risk-acceptances/{acceptanceID}/extensions/{extensionID}/reject (the `RejectProjectRiskAcceptanceExtension` operationId).
+	RejectProjectRiskAcceptanceExtensionWithBodyWithResponse(ctx context.Context, projectID ProjectID, acceptanceID RiskAcceptanceID, extensionID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RejectProjectRiskAcceptanceExtensionResponse, error)
+
+	// RejectProjectRiskAcceptanceExtensionWithResponse Reject a pending extension
+	//
+	// Project owner; with four-eyes not the person who asked. The acceptance keeps its expiry.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /projects/{projectID}/risk-acceptances/{acceptanceID}/extensions/{extensionID}/reject (the `RejectProjectRiskAcceptanceExtension` operationId).
+	RejectProjectRiskAcceptanceExtensionWithResponse(ctx context.Context, projectID ProjectID, acceptanceID RiskAcceptanceID, extensionID openapi_types.UUID, body RejectProjectRiskAcceptanceExtensionJSONRequestBody, reqEditors ...RequestEditorFn) (*RejectProjectRiskAcceptanceExtensionResponse, error)
 
 	// CreateProjectRiskAcceptanceFindingWithBodyWithResponse Add findings to a live risk acceptance
 	//
@@ -78850,6 +79396,8 @@ type GetProjectRiskAcceptanceResponse struct {
 	HTTPResponse *http.Response
 	// JSON200 the response for an HTTP 200 `application/json` response
 	JSON200 *struct {
+		// Extensions Every extension requested
+		Extensions     *[]RiskAcceptanceExtension   `json:"extensions,omitempty"`
 		Findings       *[]RiskAcceptanceLedgerEntry `json:"findings,omitempty"`
 		RiskAcceptance *RiskAcceptance              `json:"risk_acceptance,omitempty"`
 	}
@@ -78859,6 +79407,8 @@ type GetProjectRiskAcceptanceResponse struct {
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
 func (r GetProjectRiskAcceptanceResponse) GetJSON200() *struct {
+	// Extensions Every extension requested
+	Extensions     *[]RiskAcceptanceExtension   `json:"extensions,omitempty"`
 	Findings       *[]RiskAcceptanceLedgerEntry `json:"findings,omitempty"`
 	RiskAcceptance *RiskAcceptance              `json:"risk_acceptance,omitempty"`
 } {
@@ -79024,6 +79574,206 @@ func (r ApproveProjectRiskAcceptanceResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ApproveProjectRiskAcceptanceResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ExtendProjectRiskAcceptanceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *RiskAcceptanceExtensionResult
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *RiskAcceptanceExtensionResult
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ExtendProjectRiskAcceptanceResponse) GetJSON200() *RiskAcceptanceExtensionResult {
+	return r.JSON200
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r ExtendProjectRiskAcceptanceResponse) GetJSON202() *RiskAcceptanceExtensionResult {
+	return r.JSON202
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r ExtendProjectRiskAcceptanceResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r ExtendProjectRiskAcceptanceResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r ExtendProjectRiskAcceptanceResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r ExtendProjectRiskAcceptanceResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r ExtendProjectRiskAcceptanceResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ExtendProjectRiskAcceptanceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ExtendProjectRiskAcceptanceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ExtendProjectRiskAcceptanceResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ApproveProjectRiskAcceptanceExtensionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *RiskAcceptanceExtensionResult
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ApproveProjectRiskAcceptanceExtensionResponse) GetJSON200() *RiskAcceptanceExtensionResult {
+	return r.JSON200
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r ApproveProjectRiskAcceptanceExtensionResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r ApproveProjectRiskAcceptanceExtensionResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r ApproveProjectRiskAcceptanceExtensionResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r ApproveProjectRiskAcceptanceExtensionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ApproveProjectRiskAcceptanceExtensionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ApproveProjectRiskAcceptanceExtensionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ApproveProjectRiskAcceptanceExtensionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RejectProjectRiskAcceptanceExtensionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *RiskAcceptanceExtensionResult
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RejectProjectRiskAcceptanceExtensionResponse) GetJSON200() *RiskAcceptanceExtensionResult {
+	return r.JSON200
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r RejectProjectRiskAcceptanceExtensionResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r RejectProjectRiskAcceptanceExtensionResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r RejectProjectRiskAcceptanceExtensionResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r RejectProjectRiskAcceptanceExtensionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RejectProjectRiskAcceptanceExtensionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RejectProjectRiskAcceptanceExtensionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RejectProjectRiskAcceptanceExtensionResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -95708,7 +96458,7 @@ func (c *ClientWithResponses) GetProjectRiskAcceptanceWithResponse(ctx context.C
 
 // UpdateProjectRiskAcceptanceWithBodyWithResponse Edit a requested risk acceptance
 //
-// Only while `requested`; `expires_at` null = never expires.
+// Only while `requested`; `expires_at` null = never expires. An approved acceptance's expiry changes only through an extension (409 here).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -95723,7 +96473,7 @@ func (c *ClientWithResponses) UpdateProjectRiskAcceptanceWithBodyWithResponse(ct
 
 // UpdateProjectRiskAcceptanceWithResponse Edit a requested risk acceptance
 //
-// Only while `requested`; `expires_at` null = never expires.
+// Only while `requested`; `expires_at` null = never expires. An approved acceptance's expiry changes only through an extension (409 here).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -95766,6 +96516,106 @@ func (c *ClientWithResponses) ApproveProjectRiskAcceptanceWithResponse(ctx conte
 		return nil, err
 	}
 	return ParseApproveProjectRiskAcceptanceResponse(rsp)
+}
+
+// ExtendProjectRiskAcceptanceWithBodyWithResponse Extend an approved risk acceptance
+//
+// Editor+. Pushes an approved acceptance's expiry out, with a reason; the only way its expiry
+// changes. A project owner's extension applies at once (200); anyone else's, or an owner's with
+// `RISK_ACCEPTANCE_REQUIRES_APPROVAL`, waits for an owner (202) while the acceptance stays active
+// on its current expiry. The new expiry must be later than the current one, which must not have
+// passed; an acceptance that never expires can't be extended, and only one extension waits at a
+// time (409).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /projects/{projectID}/risk-acceptances/{acceptanceID}/extend (the `ExtendProjectRiskAcceptance` operationId).
+func (c *ClientWithResponses) ExtendProjectRiskAcceptanceWithBodyWithResponse(ctx context.Context, projectID ProjectID, acceptanceID RiskAcceptanceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ExtendProjectRiskAcceptanceResponse, error) {
+	rsp, err := c.ExtendProjectRiskAcceptanceWithBody(ctx, projectID, acceptanceID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseExtendProjectRiskAcceptanceResponse(rsp)
+}
+
+// ExtendProjectRiskAcceptanceWithResponse Extend an approved risk acceptance
+//
+// Editor+. Pushes an approved acceptance's expiry out, with a reason; the only way its expiry
+// changes. A project owner's extension applies at once (200); anyone else's, or an owner's with
+// `RISK_ACCEPTANCE_REQUIRES_APPROVAL`, waits for an owner (202) while the acceptance stays active
+// on its current expiry. The new expiry must be later than the current one, which must not have
+// passed; an acceptance that never expires can't be extended, and only one extension waits at a
+// time (409).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /projects/{projectID}/risk-acceptances/{acceptanceID}/extend (the `ExtendProjectRiskAcceptance` operationId).
+func (c *ClientWithResponses) ExtendProjectRiskAcceptanceWithResponse(ctx context.Context, projectID ProjectID, acceptanceID RiskAcceptanceID, body ExtendProjectRiskAcceptanceJSONRequestBody, reqEditors ...RequestEditorFn) (*ExtendProjectRiskAcceptanceResponse, error) {
+	rsp, err := c.ExtendProjectRiskAcceptance(ctx, projectID, acceptanceID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseExtendProjectRiskAcceptanceResponse(rsp)
+}
+
+// ApproveProjectRiskAcceptanceExtensionWithBodyWithResponse Approve a pending extension
+//
+// Project owner; with four-eyes not the person who asked (403). The acceptance's expiry moves to the extension's. 409 when it lapsed or ended meanwhile.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /projects/{projectID}/risk-acceptances/{acceptanceID}/extensions/{extensionID}/approve (the `ApproveProjectRiskAcceptanceExtension` operationId).
+func (c *ClientWithResponses) ApproveProjectRiskAcceptanceExtensionWithBodyWithResponse(ctx context.Context, projectID ProjectID, acceptanceID RiskAcceptanceID, extensionID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApproveProjectRiskAcceptanceExtensionResponse, error) {
+	rsp, err := c.ApproveProjectRiskAcceptanceExtensionWithBody(ctx, projectID, acceptanceID, extensionID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseApproveProjectRiskAcceptanceExtensionResponse(rsp)
+}
+
+// ApproveProjectRiskAcceptanceExtensionWithResponse Approve a pending extension
+//
+// Project owner; with four-eyes not the person who asked (403). The acceptance's expiry moves to the extension's. 409 when it lapsed or ended meanwhile.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /projects/{projectID}/risk-acceptances/{acceptanceID}/extensions/{extensionID}/approve (the `ApproveProjectRiskAcceptanceExtension` operationId).
+func (c *ClientWithResponses) ApproveProjectRiskAcceptanceExtensionWithResponse(ctx context.Context, projectID ProjectID, acceptanceID RiskAcceptanceID, extensionID openapi_types.UUID, body ApproveProjectRiskAcceptanceExtensionJSONRequestBody, reqEditors ...RequestEditorFn) (*ApproveProjectRiskAcceptanceExtensionResponse, error) {
+	rsp, err := c.ApproveProjectRiskAcceptanceExtension(ctx, projectID, acceptanceID, extensionID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseApproveProjectRiskAcceptanceExtensionResponse(rsp)
+}
+
+// RejectProjectRiskAcceptanceExtensionWithBodyWithResponse Reject a pending extension
+//
+// Project owner; with four-eyes not the person who asked. The acceptance keeps its expiry.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /projects/{projectID}/risk-acceptances/{acceptanceID}/extensions/{extensionID}/reject (the `RejectProjectRiskAcceptanceExtension` operationId).
+func (c *ClientWithResponses) RejectProjectRiskAcceptanceExtensionWithBodyWithResponse(ctx context.Context, projectID ProjectID, acceptanceID RiskAcceptanceID, extensionID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RejectProjectRiskAcceptanceExtensionResponse, error) {
+	rsp, err := c.RejectProjectRiskAcceptanceExtensionWithBody(ctx, projectID, acceptanceID, extensionID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRejectProjectRiskAcceptanceExtensionResponse(rsp)
+}
+
+// RejectProjectRiskAcceptanceExtensionWithResponse Reject a pending extension
+//
+// Project owner; with four-eyes not the person who asked. The acceptance keeps its expiry.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /projects/{projectID}/risk-acceptances/{acceptanceID}/extensions/{extensionID}/reject (the `RejectProjectRiskAcceptanceExtension` operationId).
+func (c *ClientWithResponses) RejectProjectRiskAcceptanceExtensionWithResponse(ctx context.Context, projectID ProjectID, acceptanceID RiskAcceptanceID, extensionID openapi_types.UUID, body RejectProjectRiskAcceptanceExtensionJSONRequestBody, reqEditors ...RequestEditorFn) (*RejectProjectRiskAcceptanceExtensionResponse, error) {
+	rsp, err := c.RejectProjectRiskAcceptanceExtension(ctx, projectID, acceptanceID, extensionID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRejectProjectRiskAcceptanceExtensionResponse(rsp)
 }
 
 // CreateProjectRiskAcceptanceFindingWithBodyWithResponse Add findings to a live risk acceptance
@@ -110697,6 +111547,8 @@ func ParseGetProjectRiskAcceptanceResponse(rsp *http.Response) (*GetProjectRiskA
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest struct {
+			// Extensions Every extension requested
+			Extensions     *[]RiskAcceptanceExtension   `json:"extensions,omitempty"`
 			Findings       *[]RiskAcceptanceLedgerEntry `json:"findings,omitempty"`
 			RiskAcceptance *RiskAcceptance              `json:"risk_acceptance,omitempty"`
 		}
@@ -110787,6 +111639,161 @@ func ParseApproveProjectRiskAcceptanceResponse(rsp *http.Response) (*ApproveProj
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest RiskAcceptance
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseExtendProjectRiskAcceptanceResponse parses an HTTP response from a ExtendProjectRiskAcceptanceWithResponse call
+func ParseExtendProjectRiskAcceptanceResponse(rsp *http.Response) (*ExtendProjectRiskAcceptanceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ExtendProjectRiskAcceptanceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RiskAcceptanceExtensionResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest RiskAcceptanceExtensionResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseApproveProjectRiskAcceptanceExtensionResponse parses an HTTP response from a ApproveProjectRiskAcceptanceExtensionWithResponse call
+func ParseApproveProjectRiskAcceptanceExtensionResponse(rsp *http.Response) (*ApproveProjectRiskAcceptanceExtensionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ApproveProjectRiskAcceptanceExtensionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RiskAcceptanceExtensionResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRejectProjectRiskAcceptanceExtensionResponse parses an HTTP response from a RejectProjectRiskAcceptanceExtensionWithResponse call
+func ParseRejectProjectRiskAcceptanceExtensionResponse(rsp *http.Response) (*RejectProjectRiskAcceptanceExtensionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RejectProjectRiskAcceptanceExtensionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RiskAcceptanceExtensionResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

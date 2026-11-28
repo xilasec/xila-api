@@ -464,6 +464,7 @@
 			max_low: policy.max_low ?? null,
 			max_info: policy.max_info ?? null,
 			block_kev: policy.block_kev ?? false,
+			allow_malicious: policy.allow_malicious ?? false,
 			max_epss: policy.max_epss ?? null,
 			block_license: policy.block_license ?? false,
 			block_sla_breach: policy.block_sla_breach ?? false,
@@ -493,6 +494,7 @@
 				body[k] = gatePolicy[k] === '' || gatePolicy[k] === null ? null : Number(gatePolicy[k]);
 			}
 			body.block_kev = gatePolicy.block_kev;
+			body.allow_malicious = gatePolicy.allow_malicious;
 			body.block_license = gatePolicy.block_license;
 			body.block_sla_breach = gatePolicy.block_sla_breach;
 			body.new_only = gatePolicy.new_only;
@@ -1788,6 +1790,10 @@
 					<label class="label cursor-pointer justify-start gap-2 py-1">
 						<input type="checkbox" bind:checked={gatePolicy.block_kev} class="checkbox checkbox-sm" />
 						<span class="label-text">{$t('proj.blockKev')}</span>
+					</label>
+					<label class="label cursor-pointer justify-start gap-2 py-1" title={$t('proj.allowMaliciousHint')}>
+						<input type="checkbox" bind:checked={gatePolicy.allow_malicious} class="checkbox checkbox-sm" />
+						<span class="label-text">{$t('proj.allowMalicious')}</span>
 					</label>
 					<label class="label cursor-pointer justify-start gap-2 py-1">
 						<input type="checkbox" bind:checked={gatePolicy.block_license} class="checkbox checkbox-sm" />

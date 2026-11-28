@@ -77,6 +77,11 @@ func (OSVScanner) Parse(r io.Reader) ([]ParsedFinding, error) {
 					URL:            "https://osv.dev/vulnerability/" + v.ID,
 					Metadata:       map[string]any{"ecosystem": p.Package.Ecosystem},
 				}
+				if len(v.Aliases) > 0 {
+					// Read by KEV matching and malicious-package detection
+					// (a GHSA malware record carries its MAL- id as an alias).
+					f.Metadata["aliases"] = v.Aliases
+				}
 				f.FixedVersion = osvFixedVersion(v.Affected)
 				out = append(out, f)
 			}

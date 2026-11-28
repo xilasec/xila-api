@@ -6648,7 +6648,7 @@ export interface paths {
         head?: never;
         /**
          * Edit a requested risk acceptance
-         * @description Only while `requested`; `expires_at` null = never expires.
+         * @description Only while `requested`; `expires_at` null = never expires. An approved acceptance's expiry changes only through an extension (409 here).
          */
         patch: operations["updateProjectRiskAcceptance"];
         trace?: never;
@@ -6708,6 +6708,71 @@ export interface paths {
          * @description Project owner. An approved acceptance's findings reopen (their SLA clocks resume).
          */
         post: operations["revokeProjectRiskAcceptance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectID}/risk-acceptances/{acceptanceID}/extend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extend an approved risk acceptance
+         * @description Editor+. Pushes an approved acceptance's expiry out, with a reason; the only way its expiry
+         *     changes. A project owner's extension applies at once (200); anyone else's, or an owner's with
+         *     `RISK_ACCEPTANCE_REQUIRES_APPROVAL`, waits for an owner (202) while the acceptance stays active
+         *     on its current expiry. The new expiry must be later than the current one, which must not have
+         *     passed; an acceptance that never expires can't be extended, and only one extension waits at a
+         *     time (409).
+         */
+        post: operations["extendProjectRiskAcceptance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectID}/risk-acceptances/{acceptanceID}/extensions/{extensionID}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve a pending extension
+         * @description Project owner; with four-eyes not the person who asked (403). The acceptance's expiry moves to the extension's. 409 when it lapsed or ended meanwhile.
+         */
+        post: operations["approveProjectRiskAcceptanceExtension"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectID}/risk-acceptances/{acceptanceID}/extensions/{extensionID}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject a pending extension
+         * @description Project owner; with four-eyes not the person who asked. The acceptance keeps its expiry.
+         */
+        post: operations["rejectProjectRiskAcceptanceExtension"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10065,6 +10130,14 @@ export interface components {
              */
             kev_ransomware?: boolean;
             /**
+             * @description The package version is malware: a `MAL-` advisory (OpenSSF malicious packages,
+             *     through OSV) in its rule id, CVEs or aliases. Its severity is raised to critical, its
+             *     priority takes the exploitability ceiling without any reachability or exposure
+             *     discount, and it fails the gate unless the policy sets `allow_malicious`. The fix is to
+             *     remove the package and rotate the secrets of every machine that installed it.
+             */
+            malicious?: boolean;
+            /**
              * @description severity × exploitability × reachability × asset exposure. A KEV
              *     listing triples the weight; EPSS or a public exploit raise it up to
              *     2.5× (Metasploit module) / 1.5× (proof of concept); a dev-only
@@ -10179,8 +10252,43 @@ export interface components {
             closed_at?: string | null;
             close_note?: string;
             finding_count?: number;
+            /** @description The extension waiting for an owner, if any. */
+            pending_extension?: components["schemas"]["RiskAcceptanceExtension"] | null;
             can_approve?: boolean;
             can_revoke?: boolean;
+            /** @description The caller may ask to extend it (an approved acceptance with an expiry and no pending extension). */
+            can_extend?: boolean;
+            /** @description The caller may decide its pending extension. */
+            can_decide_extension?: boolean;
+        };
+        RiskAcceptanceExtension: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            acceptance_id?: string;
+            reason?: string;
+            /** Format: date-time */
+            from_expires_at?: string;
+            /** Format: date-time */
+            to_expires_at?: string;
+            /**
+             * @description `withdrawn`: the acceptance ended before it was decided.
+             * @enum {string}
+             */
+            state?: "pending" | "approved" | "rejected" | "withdrawn";
+            requested_by?: string | null;
+            requester?: string;
+            /** Format: date-time */
+            requested_at?: string;
+            decided_by?: string | null;
+            decider?: string;
+            /** Format: date-time */
+            decided_at?: string | null;
+            decision_note?: string;
+        };
+        RiskAcceptanceExtensionResult: {
+            risk_acceptance?: components["schemas"]["RiskAcceptance"];
+            extension?: components["schemas"]["RiskAcceptanceExtension"];
         };
         RiskAcceptanceLedgerEntry: {
             /** Format: uuid */
@@ -11257,6 +11365,8 @@ export interface components {
             max_info?: number;
             /** @description Fail on any open KEV finding. */
             block_kev?: boolean;
+            /** @description Let open malicious packages pass. Off by default: a malicious package fails every gate, including a project with no policy. */
+            allow_malicious?: boolean;
             /** @description Limit `block_kev` to findings these catalogs assert; empty = any catalog. */
             kev_sources?: ("cisa" | "enisa" | "vulncheck")[];
             /** @description Fail if any open finding's EPSS reaches this (0–1). */
@@ -11317,6 +11427,7 @@ export interface components {
                 open_low?: number;
                 open_info?: number;
                 open_kev?: number;
+                open_malicious?: number;
                 /** @description Open KEV findings by the exact catalog set asserting them, e.g. `cisa,enisa` → 2. */
                 open_kev_sources?: {
                     [key: string]: number;
@@ -11800,7 +11911,7 @@ export interface components {
              */
             project_id?: string | null;
             /** @description `*` for everything. */
-            events?: ("*" | "finding.critical" | "finding.new" | "finding.exploitable" | "finding.assigned" | "finding.status_changed" | "finding.sla_breach" | "finding.sla_due_soon" | "risk_acceptance.requested" | "risk_acceptance.approved" | "risk_acceptance.expiring" | "risk_acceptance.expired" | "policy.violation" | "exception.expired" | "ingestion.anomaly" | "cra.case_opened" | "cra.deadline_due_soon" | "cra.deadline_missed" | "sbom.processed" | "sbom.failed" | "vex.processed" | "gate.changed" | "system.job_failed" | "mention" | "triage.rule")[];
+            events?: ("*" | "finding.critical" | "finding.new" | "finding.exploitable" | "finding.assigned" | "finding.status_changed" | "finding.sla_breach" | "finding.sla_due_soon" | "risk_acceptance.requested" | "risk_acceptance.approved" | "risk_acceptance.expiring" | "risk_acceptance.expired" | "risk_acceptance.extension_requested" | "risk_acceptance.extended" | "policy.violation" | "exception.expired" | "ingestion.anomaly" | "cra.case_opened" | "cra.deadline_due_soon" | "cra.deadline_missed" | "sbom.processed" | "sbom.failed" | "vex.processed" | "gate.changed" | "system.job_failed" | "mention" | "triage.rule")[];
             enabled?: boolean;
             /** Format: date-time */
             created_at?: string;
@@ -16684,6 +16795,8 @@ export interface operations {
                 kev?: boolean;
                 /** @description Only findings a KEV catalog marks as known to be used in ransomware campaigns. */
                 kev_ransomware?: boolean;
+                /** @description Only malicious packages (a `MAL-` advisory). */
+                malicious?: boolean;
                 /** @description Only findings still awaiting a fix (open or confirmed). */
                 active?: boolean;
                 /**
@@ -23834,7 +23947,7 @@ export interface operations {
             query?: {
                 state?: "requested" | "approved" | "expired" | "revoked" | "rejected";
                 project_id?: string;
-                /** @description Only the requests you may approve (projects you own; with four-eyes, not your own requests). */
+                /** @description Only what waits for your decision (projects you own; with four-eyes, not what you asked for) - requested acceptances and approved ones with a pending extension. */
                 actionable?: boolean;
                 /** @description `me` or a user id: acceptances with that owner. */
                 owner?: string;
@@ -23933,6 +24046,8 @@ export interface operations {
                     "application/json": {
                         risk_acceptance?: components["schemas"]["RiskAcceptance"];
                         findings?: components["schemas"]["RiskAcceptanceLedgerEntry"][];
+                        /** @description Every extension requested */
+                        extensions?: components["schemas"]["RiskAcceptanceExtension"][];
                     };
                 };
             };
@@ -24090,6 +24205,116 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RiskAcceptance"];
+                };
+            };
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    extendProjectRiskAcceptance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+                acceptanceID: components["parameters"]["RiskAcceptanceID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    expires_at: string;
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Applied */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskAcceptanceExtensionResult"];
+                };
+            };
+            /** @description Waiting for an owner */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskAcceptanceExtensionResult"];
+                };
+            };
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    approveProjectRiskAcceptanceExtension: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+                acceptanceID: components["parameters"]["RiskAcceptanceID"];
+                extensionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskAcceptanceExtensionResult"];
+                };
+            };
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    rejectProjectRiskAcceptanceExtension: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+                acceptanceID: components["parameters"]["RiskAcceptanceID"];
+                extensionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskAcceptanceExtensionResult"];
                 };
             };
             403: components["responses"]["Error"];

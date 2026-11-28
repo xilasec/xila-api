@@ -3,6 +3,7 @@ package domain
 
 import (
 	"slices"
+	"strings"
 	"time"
 )
 
@@ -329,10 +330,24 @@ type Exploitability struct {
 	EPSS     float64 // FIRST EPSS probability, 0–1
 	KEV      bool    // on any KEV catalog (CISA, ENISA, VulnCheck)
 	Maturity ExploitMaturity
+	// Malicious: the package itself is malware (an OSV MAL- advisory). Its
+	// code runs when it is installed, so it is not a vulnerability waiting
+	// for an attacker: it already is one.
+	Malicious bool
+}
+
+// MaliciousAdvisoryPrefix starts the id of every malicious-package advisory
+// OSV publishes (the OpenSSF malicious-packages feed, which also carries
+// GitHub's malware advisories as MAL- records).
+const MaliciousAdvisoryPrefix = "MAL-"
+
+// IsMaliciousAdvisory reports whether id names a malicious-package advisory.
+func IsMaliciousAdvisory(id string) bool {
+	return len(id) > len(MaliciousAdvisoryPrefix) && strings.EqualFold(id[:len(MaliciousAdvisoryPrefix)], MaliciousAdvisoryPrefix)
 }
 
 // Multiplier scales a severity weight by exploitability, 1× to 3×. A KEV
-// listing (exploited in the wild) is the ceiling. Otherwise the strongest of
+// listing (exploited in the wild) or a malicious package is the ceiling. Otherwise the strongest of
 // the other signals wins — they're evidence of the same thing, so they don't
 // stack: EPSS scales 1 + 2×p; a weaponized exploit counts like EPSS 0.75
 // (2.5×: point-and-shoot, on par with a high EPSS) and a public PoC like EPSS

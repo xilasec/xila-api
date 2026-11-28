@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -67,6 +68,10 @@ type Finding struct {
 	// KEVRansomware is true when a KEV catalog asserting the finding says the
 	// flaw is known to be used in ransomware campaigns.
 	KEVRansomware bool `json:"kev_ransomware"`
+	// Malicious: the package version is malware (a MAL- advisory in its rule
+	// id, CVEs or aliases; see isMalicious). Set on every upsert, which also
+	// raises its severity to critical; a priority input and a gate condition.
+	Malicious bool `json:"malicious"`
 	// KEVDueDate is the earliest required-action due date any configured KEV
 	// catalog publishes for the finding (CISA, VulnCheck), nil when none does
 	// or it isn't KEV. Enrichment-written; a project's sla_policies.use_kev_due_date
@@ -249,7 +254,7 @@ const findingColumns = `id, project_id, version_id, fingerprint, scanner, catego
 	(SELECT exposure FROM assets WHERE assets.id = asset_id),
 	` + acceptanceRefSQL + `,
 	title_manual, severity_manual, planned_remediation_at, archived_at, archived_by,
-	status_decided_at, duplicate_manual`
+	status_decided_at, duplicate_manual, malicious`
 
 // assetExposureSQL reads a finding's asset exposure (table alias-free; ” when
 // unknown or there is no asset) — the fourth domain.Priority input.
@@ -268,7 +273,7 @@ func scanFinding(row pgx.Row, extra ...any) (Finding, error) {
 		&f.SLADays, &f.SLADueAt, &f.Tags, &f.Custom, &f.ExploitMaturity,
 		&f.AssigneeID, &f.AssigneeEmail, &f.AssetExposure, &f.RiskAcceptance,
 		&f.TitleManual, &f.SeverityManual, &f.PlannedRemediationAt, &f.ArchivedAt, &f.ArchivedBy,
-		&f.StatusDecidedAt, &f.DuplicateManual}, extra...)...)
+		&f.StatusDecidedAt, &f.DuplicateManual, &f.Malicious}, extra...)...)
 	if err == nil {
 		f.SLAStatus = domain.SLAStatusAt(f.Status, f.SLADays, f.SLADueAt, f.ResolvedAt, time.Now())
 	}
@@ -333,7 +338,7 @@ const upsertSQL = `
 			project_id, fingerprint, scanner, category, rule_id, title, description,
 			severity, cwe, cve, file_path, line, package_name, package_version,
 			fixed_version, purl, url, metadata, cvss, first_scan_id, last_scan_id, last_seen_at, priority, asset_id,
-			version_id
+			version_id, malicious
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
 			$15, $16, $17, $18, $20, $19, $19, now(),
@@ -344,7 +349,8 @@ const upsertSQL = `
 			COALESCE((SELECT (priority_weights ->> $8::text)::float8 FROM projects WHERE id = $1),
 			         CASE $8 WHEN 'critical' THEN 15 WHEN 'high' THEN 7 WHEN 'medium' THEN 3 WHEN 'low' THEN 1 ELSE 0 END),
 			$21,
-			COALESCE($22::uuid, (SELECT version_id FROM scans WHERE id = $19), project_version($1, NULL, NULL))
+			COALESCE($22::uuid, (SELECT version_id FROM scans WHERE id = $19), project_version($1, NULL, NULL)),
+			$23
 		)
 		ON CONFLICT (version_id, fingerprint) DO UPDATE SET
 			-- A person's title / severity edit sticks until they reset it.
@@ -357,6 +363,7 @@ const upsertSQL = `
 			purl          = EXCLUDED.purl,
 			url           = EXCLUDED.url,
 			metadata      = EXCLUDED.metadata,
+			malicious     = EXCLUDED.malicious,
 			-- A scanner-reported score wins; without one, an NVD-filled score stays
 			-- (cvss_source = 'nvd') rather than flapping to NULL until enrichment.
 			cvss          = CASE WHEN EXCLUDED.cvss IS NULL AND findings.cvss_source = 'nvd'
@@ -388,11 +395,40 @@ func upsertArgs(f Finding) []any {
 	if f.VersionID != "" {
 		version = &f.VersionID
 	}
+	// Malware is critical whatever its advisory states (most state nothing);
+	// a person's severity edit still sticks (severity_manual, in upsertSQL).
+	malicious := isMalicious(f)
+	severity := f.Severity
+	if malicious {
+		severity = domain.SeverityCritical
+	}
 	return []any{
 		f.ProjectID, f.Fingerprint, f.Scanner, f.Category, f.RuleID, f.Title, f.Description,
-		f.Severity, f.CWE, cve, f.FilePath, f.Line, f.PackageName, f.PackageVersion,
-		f.FixedVersion, f.Purl, f.URL, metadata, f.LastScanID, f.CVSS, f.AssetID, version,
+		severity, f.CWE, cve, f.FilePath, f.Line, f.PackageName, f.PackageVersion,
+		f.FixedVersion, f.Purl, f.URL, metadata, f.LastScanID, f.CVSS, f.AssetID, version, malicious,
 	}
+}
+
+// isMalicious reports whether a finding names a malicious-package advisory:
+// as its rule id (OSV-Scanner, Grype, the advisory matcher), among its CVE
+// ids, or among the aliases its producer reported (the matcher keeps a GHSA as
+// the identity and the MAL- id as an alias). Computed on every upsert, the one
+// path every writer takes, so no producer can forget it.
+func isMalicious(f Finding) bool {
+	if f.Malicious || domain.IsMaliciousAdvisory(f.RuleID) || slices.ContainsFunc(f.CVE, domain.IsMaliciousAdvisory) {
+		return true
+	}
+	switch aliases := f.Metadata["aliases"].(type) {
+	case []string:
+		return slices.ContainsFunc(aliases, domain.IsMaliciousAdvisory)
+	case []any:
+		for _, a := range aliases {
+			if s, ok := a.(string); ok && domain.IsMaliciousAdvisory(s) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // Filter narrows a finding listing. Limit defaults to 100 when unset.
@@ -409,6 +445,8 @@ type Filter struct {
 	// RuleID narrows to one rule — e.g. a policy's violations (scanner policy).
 	RuleID  string
 	KEVOnly bool
+	// MaliciousOnly narrows to malicious packages.
+	MaliciousOnly bool
 	// RansomwareOnly narrows to findings a KEV catalog marks as used in
 	// ransomware campaigns.
 	RansomwareOnly bool
@@ -570,6 +608,9 @@ func listQuery(f Filter, cols string) (string, []any) {
 	}
 	if f.KEVOnly {
 		q += ` AND kev`
+	}
+	if f.MaliciousOnly {
+		q += ` AND malicious`
 	}
 	if f.RansomwareOnly {
 		q += ` AND kev_ransomware`
@@ -1506,6 +1547,8 @@ type Enrichable struct {
 	CVE      []string
 	KEV      bool     // current KEV state (to detect a transition)
 	EPSS     *float64 // current EPSS (to detect a transition)
+	// Malicious is kept so the recomputed priority keeps the malware ceiling.
+	Malicious bool
 	// IDs are every vulnerability id the finding is known by, uppercased: its
 	// CVEs, its rule id, the aliases its scanner reported (metadata.aliases)
 	// and those of the advisory its rule id names (local OSV mirror, private
@@ -1535,7 +1578,7 @@ func (e Enrichable) Reachability() domain.Reachability {
 // clears).
 func (r *Repository) ListEnrichable(ctx context.Context) ([]Enrichable, error) {
 	const q = `SELECT f.id, f.severity, f.cve, f.kev, f.epss, f.title, f.project_id, f.dep_direct, f.dep_scope,
-			COALESCE(f.exploit_maturity, ''),
+			COALESCE(f.exploit_maturity, ''), f.malicious,
 			ARRAY(SELECT DISTINCT upper(x) FROM unnest(
 				f.cve || f.rule_id
 				|| COALESCE((SELECT array_agg(a) FROM jsonb_array_elements_text(
@@ -1558,7 +1601,7 @@ func (r *Repository) ListEnrichable(ctx context.Context) ([]Enrichable, error) {
 		var e Enrichable
 		var weights []byte
 		if err := rows.Scan(&e.ID, &e.Severity, &e.CVE, &e.KEV, &e.EPSS, &e.Title, &e.ProjectID,
-			&e.DepDirect, &e.DepScope, &e.ExploitMaturity, &e.IDs, &e.AssetExposure, &weights); err != nil {
+			&e.DepDirect, &e.DepScope, &e.ExploitMaturity, &e.Malicious, &e.IDs, &e.AssetExposure, &weights); err != nil {
 			return nil, fmt.Errorf("scan enrichable: %w", err)
 		}
 		e.Weights = domain.WeightsFromJSON(weights)
@@ -1732,6 +1775,8 @@ type GateStats struct {
 	OpenLow      int `json:"open_low"`
 	OpenInfo     int `json:"open_info"`
 	OpenKEV      int `json:"open_kev"`
+	// OpenMalicious counts open malicious packages (gate: allow_malicious).
+	OpenMalicious int `json:"open_malicious"`
 	// OpenKEVSources counts the open KEV findings by the exact set of catalogs
 	// asserting them (comma-joined, sorted: "cisa,enisa"), so a gate limited to
 	// some catalogs can count the findings any of them asserts.
@@ -1764,7 +1809,7 @@ type GateStats struct {
 //     positive, won't-fix, risk-accepted, remediated) it no longer vouches for
 //     the fingerprint resurfacing on a feature branch.
 var gateStatsQuery = `WITH f AS (
-	SELECT severity, kev, kev_sources, category, epss, sla_due_at
+	SELECT severity, kev, kev_sources, category, epss, sla_due_at, malicious
 	FROM findings fo
 	WHERE fo.project_id = $1 AND fo.status IN ('open', 'confirmed') AND fo.duplicate_of IS NULL AND` + archive.Finding("fo") + `
 	  AND fo.version_id = COALESCE($2::uuid, (SELECT id FROM project_versions WHERE project_id = $1 AND is_default))
@@ -1787,6 +1832,7 @@ SELECT
 	(SELECT COALESCE(jsonb_object_agg(k, n), '{}') FROM
 		(SELECT array_to_string(kev_sources, ',') AS k, count(*) AS n FROM f WHERE kev GROUP BY 1) g),
 	count(*) FILTER (WHERE category = 'license'),
+	count(*) FILTER (WHERE malicious),
 	COALESCE(max(epss), 0),
 	count(*) FILTER (WHERE sla_due_at < now()),
 	(SELECT business_criticality FROM projects WHERE id = $1)
@@ -1809,7 +1855,7 @@ func (r *Repository) ComputeGateStats(ctx context.Context, projectID, versionID 
 	var s GateStats
 	var crit domain.Criticality
 	if err := r.db.QueryRow(ctx, gateStatsQuery, projectID, version, baseline, newOnly).
-		Scan(&s.OpenCritical, &s.OpenHigh, &s.OpenMedium, &s.OpenLow, &s.OpenInfo, &s.OpenKEV, &s.OpenKEVSources, &s.OpenLicense, &s.MaxEPSS, &s.SLABreached, &crit); err != nil {
+		Scan(&s.OpenCritical, &s.OpenHigh, &s.OpenMedium, &s.OpenLow, &s.OpenInfo, &s.OpenKEV, &s.OpenKEVSources, &s.OpenLicense, &s.OpenMalicious, &s.MaxEPSS, &s.SLABreached, &crit); err != nil {
 		return GateStats{}, fmt.Errorf("gate stats: %w", err)
 	}
 	s.RiskScore = domain.SeverityCritical.Weight()*float64(s.OpenCritical) +
@@ -2192,6 +2238,7 @@ type ReachTarget struct {
 	Severity  domain.Severity
 	EPSS      *float64
 	KEV       bool
+	Malicious bool
 	DepDirect *bool
 	DepDepth  *int
 	DepScope  domain.DepScope
@@ -2224,7 +2271,7 @@ func (t ReachTarget) Reachability() domain.Reachability {
 // main) borrows the default version's, which is the best evidence there is.
 func (r *Repository) MatchInventory(ctx context.Context, projectID, scanID string) ([]ReachTarget, error) {
 	const q = `
-		SELECT f.id, f.severity, f.epss, f.kev, c.direct, c.depth, c.scope, COALESCE(f.exploit_maturity, ''),
+		SELECT f.id, f.severity, f.epss, f.kev, f.malicious, c.direct, c.depth, c.scope, COALESCE(f.exploit_maturity, ''),
 			COALESCE((SELECT a.exposure FROM assets a WHERE a.id = f.asset_id), ''),
 			(SELECT priority_weights FROM projects pw WHERE pw.id = f.project_id)
 		FROM findings f
@@ -2267,7 +2314,7 @@ func (r *Repository) MatchInventory(ctx context.Context, projectID, scanID strin
 	for rows.Next() {
 		var t ReachTarget
 		var weights []byte
-		if err := rows.Scan(&t.ID, &t.Severity, &t.EPSS, &t.KEV, &t.DepDirect, &t.DepDepth, &t.DepScope, &t.ExploitMaturity,
+		if err := rows.Scan(&t.ID, &t.Severity, &t.EPSS, &t.KEV, &t.Malicious, &t.DepDirect, &t.DepDepth, &t.DepScope, &t.ExploitMaturity,
 			&t.AssetExposure, &weights); err != nil {
 			return nil, fmt.Errorf("scan reach target: %w", err)
 		}

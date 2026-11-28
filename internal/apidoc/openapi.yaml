@@ -3241,6 +3241,10 @@ paths:
           in: query
           description: Only findings a KEV catalog marks as known to be used in ransomware campaigns.
           schema: { type: boolean }
+        - name: malicious
+          in: query
+          description: Only malicious packages (a `MAL-` advisory).
+          schema: { type: boolean }
         - name: active
           in: query
           description: Only findings still awaiting a fix (open or confirmed).
@@ -8685,7 +8689,7 @@ paths:
         - { name: project_id, in: query, schema: { type: string, format: uuid } }
         - name: actionable
           in: query
-          description: Only the requests you may approve (projects you own; with four-eyes, not your own requests).
+          description: Only what waits for your decision (projects you own; with four-eyes, not what you asked for) - requested acceptances and approved ones with a pending extension.
           schema: { type: boolean }
         - name: owner
           in: query
@@ -8764,12 +8768,13 @@ paths:
                 properties:
                   risk_acceptance: { $ref: "#/components/schemas/RiskAcceptance" }
                   findings: { type: array, items: { $ref: "#/components/schemas/RiskAcceptanceLedgerEntry" } }
+                  extensions: { type: array, items: { $ref: "#/components/schemas/RiskAcceptanceExtension" }, description: Every extension requested, oldest first. }
         "404": { $ref: "#/components/responses/Error" }
     patch:
       operationId: updateProjectRiskAcceptance
       tags: [Findings]
       summary: Edit a requested risk acceptance
-      description: Only while `requested`; `expires_at` null = never expires.
+      description: Only while `requested`; `expires_at` null = never expires. An approved acceptance's expiry changes only through an extension (409 here).
       parameters: [{ $ref: "#/components/parameters/ProjectID" }, { $ref: "#/components/parameters/RiskAcceptanceID" }]
       requestBody: { content: { application/json: { schema: { type: object, properties: { title: { type: string }, justification: { type: string }, owner_id: { type: string, format: uuid }, expires_at: { type: [string, "null"], format: date-time } } } } } }
       responses:
@@ -8830,6 +8835,71 @@ paths:
       requestBody: { content: { application/json: { schema: { type: object, properties: { note: { type: string } } } } } }
       responses:
         "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/RiskAcceptance" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /projects/{projectID}/risk-acceptances/{acceptanceID}/extend:
+    post:
+      operationId: extendProjectRiskAcceptance
+      tags: [Findings]
+      summary: Extend an approved risk acceptance
+      description: |
+        Editor+. Pushes an approved acceptance's expiry out, with a reason; the only way its expiry
+        changes. A project owner's extension applies at once (200); anyone else's, or an owner's with
+        `RISK_ACCEPTANCE_REQUIRES_APPROVAL`, waits for an owner (202) while the acceptance stays active
+        on its current expiry. The new expiry must be later than the current one, which must not have
+        passed; an acceptance that never expires can't be extended, and only one extension waits at a
+        time (409).
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }, { $ref: "#/components/parameters/RiskAcceptanceID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expires_at, reason]
+              properties:
+                expires_at: { type: string, format: date-time }
+                reason: { type: string, maxLength: 2000 }
+      responses:
+        "200": { description: Applied, content: { application/json: { schema: { $ref: "#/components/schemas/RiskAcceptanceExtensionResult" } } } }
+        "202": { description: Waiting for an owner, content: { application/json: { schema: { $ref: "#/components/schemas/RiskAcceptanceExtensionResult" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /projects/{projectID}/risk-acceptances/{acceptanceID}/extensions/{extensionID}/approve:
+    post:
+      operationId: approveProjectRiskAcceptanceExtension
+      tags: [Findings]
+      summary: Approve a pending extension
+      description: Project owner; with four-eyes not the person who asked (403). The acceptance's expiry moves to the extension's. 409 when it lapsed or ended meanwhile.
+      parameters:
+        - { $ref: "#/components/parameters/ProjectID" }
+        - { $ref: "#/components/parameters/RiskAcceptanceID" }
+        - { name: extensionID, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody: { content: { application/json: { schema: { type: object, properties: { note: { type: string } } } } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/RiskAcceptanceExtensionResult" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /projects/{projectID}/risk-acceptances/{acceptanceID}/extensions/{extensionID}/reject:
+    post:
+      operationId: rejectProjectRiskAcceptanceExtension
+      tags: [Findings]
+      summary: Reject a pending extension
+      description: Project owner; with four-eyes not the person who asked. The acceptance keeps its expiry.
+      parameters:
+        - { $ref: "#/components/parameters/ProjectID" }
+        - { $ref: "#/components/parameters/RiskAcceptanceID" }
+        - { name: extensionID, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody: { content: { application/json: { schema: { type: object, properties: { note: { type: string } } } } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/RiskAcceptanceExtensionResult" } } } }
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
@@ -12371,6 +12441,14 @@ components:
           description: |
             A KEV catalog asserting the finding says the flaw is known to be used in
             ransomware campaigns (`knownRansomwareCampaignUse` in CISA KEV and VulnCheck KEV).
+        malicious:
+          type: boolean
+          description: |
+            The package version is malware: a `MAL-` advisory (OpenSSF malicious packages,
+            through OSV) in its rule id, CVEs or aliases. Its severity is raised to critical, its
+            priority takes the exploitability ceiling without any reachability or exposure
+            discount, and it fails the gate unless the policy sets `allow_malicious`. The fix is to
+            remove the package and rotate the secrets of every machine that installed it.
         priority:
           type: number
           description: |
@@ -12460,8 +12538,34 @@ components:
         closed_at: { type: [string, "null"], format: date-time }
         close_note: { type: string }
         finding_count: { type: integer }
+        pending_extension:
+          oneOf: [{ $ref: "#/components/schemas/RiskAcceptanceExtension" }, { type: "null" }]
+          description: The extension waiting for an owner, if any.
         can_approve: { type: boolean }
         can_revoke: { type: boolean }
+        can_extend: { type: boolean, description: The caller may ask to extend it (an approved acceptance with an expiry and no pending extension). }
+        can_decide_extension: { type: boolean, description: The caller may decide its pending extension. }
+    RiskAcceptanceExtension:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        acceptance_id: { type: string, format: uuid }
+        reason: { type: string }
+        from_expires_at: { type: string, format: date-time }
+        to_expires_at: { type: string, format: date-time }
+        state: { type: string, enum: [pending, approved, rejected, withdrawn], description: "`withdrawn`: the acceptance ended before it was decided." }
+        requested_by: { type: [string, "null"] }
+        requester: { type: string }
+        requested_at: { type: string, format: date-time }
+        decided_by: { type: [string, "null"] }
+        decider: { type: string }
+        decided_at: { type: [string, "null"], format: date-time }
+        decision_note: { type: string }
+    RiskAcceptanceExtensionResult:
+      type: object
+      properties:
+        risk_acceptance: { $ref: "#/components/schemas/RiskAcceptance" }
+        extension: { $ref: "#/components/schemas/RiskAcceptanceExtension" }
     RiskAcceptanceLedgerEntry:
       type: object
       properties:
@@ -13416,6 +13520,7 @@ components:
         max_low: { type: integer, description: Fail if open lows exceed this. }
         max_info: { type: integer, description: Fail if open info findings exceed this. }
         block_kev: { type: boolean, description: Fail on any open KEV finding. }
+        allow_malicious: { type: boolean, description: "Let open malicious packages pass. Off by default: a malicious package fails every gate, including a project with no policy." }
         kev_sources:
           type: array
           items: { type: string, enum: [cisa, enisa, vulncheck] }
@@ -13454,6 +13559,7 @@ components:
             open_low: { type: integer }
             open_info: { type: integer }
             open_kev: { type: integer }
+            open_malicious: { type: integer }
             open_kev_sources:
               type: object
               additionalProperties: { type: integer }
@@ -13889,7 +13995,7 @@ components:
           description: "`*` for everything."
           items:
             type: string
-            enum: ["*", finding.critical, finding.new, finding.exploitable, finding.assigned, finding.status_changed, finding.sla_breach, finding.sla_due_soon, risk_acceptance.requested, risk_acceptance.approved, risk_acceptance.expiring, risk_acceptance.expired, policy.violation, exception.expired, ingestion.anomaly, cra.case_opened, cra.deadline_due_soon, cra.deadline_missed, sbom.processed, sbom.failed, vex.processed, gate.changed, system.job_failed, mention, triage.rule]
+            enum: ["*", finding.critical, finding.new, finding.exploitable, finding.assigned, finding.status_changed, finding.sla_breach, finding.sla_due_soon, risk_acceptance.requested, risk_acceptance.approved, risk_acceptance.expiring, risk_acceptance.expired, risk_acceptance.extension_requested, risk_acceptance.extended, policy.violation, exception.expired, ingestion.anomaly, cra.case_opened, cra.deadline_due_soon, cra.deadline_missed, sbom.processed, sbom.failed, vex.processed, gate.changed, system.job_failed, mention, triage.rule]
         enabled: { type: boolean }
         created_at: { type: string, format: date-time }
         min_severity:

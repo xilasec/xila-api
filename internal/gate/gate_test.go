@@ -78,3 +78,16 @@ func TestEvaluateRequireExpectedScans(t *testing.T) {
 		t.Errorf("the flag off should ignore missing expectations, got %+v", r.Violations)
 	}
 }
+
+// A malicious package fails every gate, a project with no policy included
+// (the zero Policy), unless the policy allows it explicitly.
+func TestEvaluateMalicious(t *testing.T) {
+	stats := finding.GateStats{OpenMalicious: 1, OpenCritical: 1}
+	r := Evaluate(Policy{}, stats, nil)
+	if r.Passed || len(r.Violations) != 1 || r.Violations[0].Rule != "malicious" {
+		t.Fatalf("no policy with a malicious package = %+v, want one malicious violation", r)
+	}
+	if r := Evaluate(Policy{AllowMalicious: true}, stats, nil); !r.Passed {
+		t.Errorf("allow_malicious still failed: %+v", r.Violations)
+	}
+}

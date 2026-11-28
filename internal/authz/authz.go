@@ -444,6 +444,12 @@ func baseScope(path, method string) routeScope {
 			(segs[4] == "approve" || segs[4] == "reject" || segs[4] == "revoke") {
 			s.minRole = domain.TeamOwner
 		}
+		// So is deciding an extension (…/extensions/{eid}/approve|reject);
+		// asking for one (…/extend) is an editor's, like requesting.
+		if len(segs) == 7 && segs[2] == "risk-acceptances" && segs[4] == "extensions" && !get &&
+			(segs[6] == "approve" || segs[6] == "reject") {
+			s.minRole = domain.TeamOwner
+		}
 		// A badge token publishes the project's numbers to anyone holding it.
 		if len(segs) >= 3 && segs[2] == "badge-token" && !get {
 			s.minRole = domain.TeamOwner

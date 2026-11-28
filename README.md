@@ -328,10 +328,12 @@ roles, and password login can optionally be turned off. See [Single sign-on](#si
 | GET/DELETE | `/api/v1/findings/{id}/attachments/{attachmentID}` | Download (always as a file) / delete (uploader or project owner) |
 | GET    | `/api/v1/findings/{id}/exceptions`  | False positive / won't fix exception audit history |
 | GET    | `/api/v1/findings/{id}/risk-acceptances` | The finding's risk-acceptance ledger (every acceptance it was in; when and why it joined / left) |
-| GET    | `/api/v1/risk-acceptances`          | Risk acceptances across visible projects (`?state=requested` = the approval queue; `?actionable=true` = requests you may approve; `?owner=me&expires_within_days=30` = yours that need renewing) |
+| GET    | `/api/v1/risk-acceptances`          | Risk acceptances across visible projects (`?state=requested` = the approval queue; `?actionable=true` = requests and extensions you may decide; `?owner=me&expires_within_days=30` = yours that need renewing) |
 | GET/POST | `/api/v1/projects/{id}/risk-acceptances` | List / request risk acceptances (`title`, `justification`, `owner_id`, `expires_at`, `finding_ids`) |
 | GET/PATCH/DELETE | `/api/v1/projects/{id}/risk-acceptances/{aid}` | One acceptance + its ledger; edit or withdraw while requested |
 | POST   | `/api/v1/projects/{id}/risk-acceptances/{aid}/{approve,reject,revoke}` | Decide (project owner; four-eyes with `RISK_ACCEPTANCE_REQUIRES_APPROVAL`) |
+| POST   | `/api/v1/projects/{id}/risk-acceptances/{aid}/extend` | Extend an approved acceptance (`expires_at`, `reason`): applied at once for an owner, else waits for one (202) |
+| POST   | `/api/v1/projects/{id}/risk-acceptances/{aid}/extensions/{eid}/{approve,reject}` | Decide a pending extension (project owner; four-eyes) |
 | POST/DELETE | `/api/v1/projects/{id}/risk-acceptances/{aid}/findings[/{fid}]` | Add findings / remove one (`?reason=`) |
 | GET    | `/api/v1/findings/{id}/duplicates`  | Other scanners' reports collapsed under this one |
 | POST   | `/api/v1/findings/expire-exceptions`| Reopen false positive / won't fix findings whose exception lapsed (also runs in the background) |
@@ -658,6 +660,18 @@ project. Imported verdicts (DefectDojo, SecObserve…) are grouped into one acce
 reason and expiry, held as requests under four-eyes. Events:
 `risk_acceptance.requested`, `.approved`, `.expiring`
 (`RISK_ACCEPTANCE_EXPIRY_WARNING`, default 7 days ahead) and `.expired`.
+
+An approved acceptance's expiry changes only through an extension
+(`POST …/risk-acceptances/{aid}/extend` with the new expiry and a reason), so it
+never has to be revoked and requested again, which would reopen its findings in
+between. A project owner's extension applies at once; anyone else's, or an
+owner's under four-eyes, waits for an owner while the acceptance stays active on
+its current expiry. The new expiry must be later than the current one, an
+acceptance that never expires can't be extended, and only one extension waits at
+a time. An acceptance that ends first withdraws its pending extension. The
+expiring warning re-arms for the new date, and the approval queue lists pending
+extensions next to requests. Events: `risk_acceptance.extension_requested` and
+`.extended`.
 
 Ingestion health. A quiet project may be one whose scans stopped arriving.
 `GET /ingestion-health` (and a banner on the dashboard) lists the following for the projects you
@@ -1114,6 +1128,7 @@ Security gates (break the build): a per-project (or global-default) policy
 that CI evaluates to fail a pipeline on unacceptable risk. `POST /projects/{id}/gate`
 checks the deduped, triaged backlog against these thresholds: `max_critical`,
 `max_high`, `max_medium`, `max_low`, `max_info`, `block_kev` (optionally only for the catalogs in `kev_sources`),
+`allow_malicious` (off: malicious packages always fail, see below),
 `max_epss`, `block_license`, `max_risk_score` (the same business-weighted risk
 score the project summary shows, scoped to the gated version). It returns
 200 when it passes and 422 when it fails, both with the full result (violations
@@ -1207,6 +1222,21 @@ ransomware campaigns (`knownRansomwareCampaignUse`). A finding a catalog marks
 that way has `kev_ransomware: true`, a Ransomware badge, a findings filter
 (`?kev_ransomware=true`) and the `kev_ransomware` fact in triage rule and
 notification expressions. Like the KEV ids, the flag survives a failed download.
+
+Malicious packages. OSV publishes the OpenSSF malicious-packages feed as `MAL-`
+advisories (GitHub's malware advisories included). They name no CVE and usually
+no severity, so they would otherwise rank like an average vulnerability. A
+finding with a `MAL-` id as its rule id, among its CVEs or among its aliases
+(from any scanner or the advisory matcher) has `malicious: true`, set on every
+upsert. Its severity is raised to critical (a person's severity edit still
+sticks), and its priority takes the exploitability ceiling, like a KEV listing,
+without any reachability or exposure discount: install scripts run for dev and
+transitive dependencies too, on internal machines as well. It fails every gate,
+a project with no policy included, unless the policy sets `allow_malicious`.
+It shows a Malicious badge and a remediation banner, and has a findings filter
+(`?malicious=true`) and a `malicious` fact in triage rule expressions. The fix
+is not an upgrade: remove the package and rotate the secrets of every machine
+that installed it.
 
 ### Engagements, manual findings & templates (DefectDojo workflow)
 
@@ -1767,7 +1797,7 @@ max_severity_rank 5–0, kev, kev_sources, epss, cwes), `pkg` (known, latest, ou
 versions_behind, age_days), `model` (suppliers, task, architecture_family,
 datasets; empty / null when unknown) and `project` (name, version, default_version, custom). Triage
 rules see `finding` (scanner, category, rule_id, title, severity, status, cve, cwe,
-cvss, epss, kev, kev_sources, kev_ransomware, package, version, fixed_version, purl, file_path, url, tags,
+cvss, epss, kev, kev_sources, kev_ransomware, malicious, package, version, fixed_version, purl, file_path, url, tags,
 dep_direct, dep_depth, dep_scope, custom) and `project` (criticality, custom). `custom.<key>`
 is a defined custom field. A misspelled or undefined one is refused on save. An unset
 one is absent and does not match; `has(finding.custom.team)` tests for it. An unknown fact is
