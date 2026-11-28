@@ -72,6 +72,11 @@ export default {
 	"triage.reasonPlaceholder": "z. B. kompensierende Maßnahme vorhanden; erfasst in JIRA-123",
 	"triage.expires": "Läuft ab",
 	"triage.expiresHint": "(optional – leer = dauerhaft)",
+	// Idle sign-out (M13 13.16)
+	"session.warnTitle": "Noch da?",
+	"session.warnText": "Sie werden in {time} wegen Inaktivität abgemeldet.",
+	"session.stay": "Angemeldet bleiben",
+	"session.signedOutIdle": "Sie wurden nach einer Zeit der Inaktivität abgemeldet.",
 	// Internal components and private registries (M13 13.11)
 	"nav.internalComponents": "Interne Komponenten",
 	"settings.desc.internalComponents": "Eigene Pakete, die nicht an öffentliche Registries und Online-Advisory-Quellen gehen, und Ihre privaten Registries.",

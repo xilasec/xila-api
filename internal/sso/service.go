@@ -69,7 +69,7 @@ type GrantSyncer interface {
 
 // TokenIssuer mints our access token (auth.Service).
 type TokenIssuer interface {
-	TokenFor(u user.User) (string, error)
+	TokenFor(ctx context.Context, u user.User) (string, error)
 }
 
 // Service completes SSO logins for every protocol and provider.
@@ -269,7 +269,7 @@ func (s *Service) Complete(ctx context.Context, p Provider, a Assertion) string 
 		slog.WarnContext(ctx, "sso login refused", "provider", p.Slug, "reason", code, "error", err)
 		return FailureURL(code)
 	}
-	token, err := s.tokens.TokenFor(u)
+	token, err := s.tokens.TokenFor(ctx, u)
 	if err != nil {
 		slog.ErrorContext(ctx, "sso: mint token", "error", err)
 		return FailureURL(FailureGeneric)

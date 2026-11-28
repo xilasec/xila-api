@@ -2645,6 +2645,13 @@ agent a service account (or a project-scoped token) with the narrowest role
 that does the job. Tool results quote scanner output; the tool descriptions tell
 the model that titles, descriptions and file contents are data, not instructions.
 
+Tool results carry no personal data by default (`MCP_REDACT_PERSONAL_DATA`):
+every email address, including one inside a comment or reason, and every name
+field (author, actor, requester, approver, assignee email...) becomes a
+pseudonym such as `person-2`. One person gets the same pseudonym throughout a
+result, so the model can still tell reviewers apart. Opaque ids stay, and
+automated actors (`system`, `triage-rule:...`) are kept as they are.
+
 Desktop clients that launch a stdio server use the CLI as a bridge:
 
 ```json
@@ -2834,6 +2841,8 @@ a warning, and the running keys stay.
 | `JWT_SECRET`                  | dev-only fallback    | **Must be a strong value in production (boot fails otherwise).** |
 | `JWT_TTL`                     | `24h`                | Go duration                             |
 | `REAUTH_WINDOW`               | `10m`                | how recently a session must have signed in to create an API token (`0` = no check) |
+| `SESSION_IDLE_TIMEOUT`        | `0` (off)            | sign a browser session out after this long without a request; the UI warns first |
+| `SESSION_MAX_AGE`             | `JWT_TTL`            | absolute browser-session lifetime from sign-in (only a value below `JWT_TTL` adds anything) |
 | `CORS_ALLOWED_ORIGINS`        | `*` dev / none prod  | comma-separated allow-list              |
 | `TRUSTED_PROXIES`             | (none)               | proxy IPs/CIDRs to trust for `X-Forwarded-*` |
 | `COOKIE_SECURE`               | `true` in prod       | `Secure` flag on auth cookies           |
@@ -2846,6 +2855,7 @@ a warning, and the running keys stay.
 | `OUTBOUND_ALLOW_LOOPBACK`     | `true` dev / `false` prod | let them reach 127.0.0.0/8 and ::1 (warns in production) |
 | `OUTBOUND_ALLOWED_HOSTS`      | (none)               | hostnames exempt from the two rules above, e.g. `jira.internal,localhost` |
 | `MCP_ENABLED`                 | `false`              | serve the MCP server for AI agents at `POST /api/v1/mcp` (see *AI agents*); off = 404 |
+| `MCP_REDACT_PERSONAL_DATA`    | `true`               | replace emails and people's names in MCP tool results with pseudonyms |
 | `AI_TRIAGE_ENABLED`           | `false`              | opt-in AI-assisted triage (see *AI-assisted triage*); off = its routes return 404 and the panel is hidden |
 | `AI_PROVIDER`                 | `openai-compatible`  | `openai-compatible` (POST `{AI_BASE_URL}/chat/completions`) or `anthropic` (POST `{AI_BASE_URL}/v1/messages`) |
 | `AI_BASE_URL`                 | (none; `https://api.anthropic.com` for anthropic) | the provider's API root, e.g. `https://api.openai.com/v1`; required for openai-compatible |
@@ -3131,6 +3141,12 @@ config at boot:
   (JWTs carry a version checked on every request). With `SMTP_*` + `PUBLIC_URL`
   set, users can reset forgotten passwords themselves. Otherwise an admin gives
   them a single-use link.
+- Idle sign-out: `SESSION_IDLE_TIMEOUT` ends a browser session (password, SSO
+  or LDAP) after that long without a request; the UI warns two minutes before
+  and offers to stay signed in. `SESSION_MAX_AGE` caps a session's lifetime
+  from sign-in ("sign out everywhere" does not extend it). API tokens and
+  service-account sessions are exempt. An expired session stays expired:
+  retrying does not revive it.
 
 Behind a load balancer, set `TRUSTED_PROXIES` so client IP and scheme come from
 `X-Forwarded-*`. The connection pool and HTTP timeouts can be tuned through environment variables (`DB_MAX_CONNS`,

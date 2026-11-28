@@ -177,6 +177,10 @@ type Handlers struct {
 	// Sessions, if set, rejects JWTs revoked by a password change, "sign out
 	// everywhere" or deactivation (user.Repository).
 	Sessions auth.SessionValidator
+	// IdleSessions, if set, enforces SESSION_IDLE_TIMEOUT / SESSION_MAX_AGE
+	// on tokens that carry a session id (auth.SessionStore). Nil disables the
+	// check even for such a token.
+	IdleSessions auth.IdleChecker
 
 	// Ready, if set, backs the /ready probe (e.g. a database ping). A nil Ready
 	// reports ready unconditionally.
@@ -311,7 +315,7 @@ func New(cfg config.Config, h Handlers) *Server {
 
 	// Everything else requires a valid access token (JWT or API token). Every
 	// mutation is audited — before authorization, so a refused one is too.
-	secured := v1.Group("", auth.Middleware(h.JWTKeys, h.TokenAuth, h.Sessions),
+	secured := v1.Group("", auth.Middleware(h.JWTKeys, h.TokenAuth, h.Sessions, h.IdleSessions, cfg.JWT.IdleTimeout, cfg.JWT.MaxAge),
 		h.AuditLog.Middleware(), h.Features.Middleware(), authz.Middleware(h.Membership))
 	h.Account.Register(secured)
 	h.Features.Register(secured)

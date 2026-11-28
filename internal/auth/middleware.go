@@ -2,6 +2,8 @@ package auth
 
 import (
 	"context"
+	"errors"
+	"strconv"
 	"strings"
 	"time"
 
@@ -44,12 +46,34 @@ type SessionValidator interface {
 	SessionValid(ctx context.Context, userID string, tokenVersion int) (bool, error)
 }
 
+// HeaderIdleTimeout carries, on every response to a tracked session, the
+// idle timeout in seconds, so the UI can warn before the sign-out.
+const HeaderIdleTimeout = "X-Session-Idle-Timeout"
+
+// IdleChecker reports whether a tracked session (claims.SessionID) is still
+// within its idle timeout and absolute lifetime, refreshing its activity
+// clock (auth.SessionStore). Implemented by *SessionStore; nil (no tracking
+// configured) skips the check even for a token that carries a session id.
+type IdleChecker interface {
+	Touch(ctx context.Context, sessionID string, idleTimeout, maxAge time.Duration, active bool) error
+}
+
+// HeaderBackground marks a request the client made on its own (polling), not
+// for the user: it is authenticated as usual but does not count as activity
+// for the idle timeout.
+const HeaderBackground = "X-Background-Request"
+
 // Middleware authenticates a request via JWT (humans) or, when a validator is
 // supplied, an API token (CI). It stores the actor on the request context.
 // With sessions set, a JWT is also checked against the user's current token
 // version, so a password change, "sign out everywhere" or deactivation takes
-// effect immediately instead of when the token expires.
-func Middleware(keys *Keys, tokens TokenValidator, sessions SessionValidator) fiber.Handler {
+// effect immediately instead of when the token expires. With idle set and the
+// token carrying a session id, it is also refused once it has been idle past
+// idleTimeout or alive past maxAge (SESSION_IDLE_TIMEOUT / SESSION_MAX_AGE) —
+// a distinct message from a plain expired/revoked token, so the UI can tell
+// an inactivity sign-out from the rest. API tokens and service-account /
+// project-scoped sessions never carry a session id, so they are exempt.
+func Middleware(keys *Keys, tokens TokenValidator, sessions SessionValidator, idle IdleChecker, idleTimeout, maxAge time.Duration) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		raw, ok := strings.CutPrefix(c.Get(fiber.HeaderAuthorization), "Bearer ")
 		if !ok || raw == "" {
@@ -80,6 +104,21 @@ func Middleware(keys *Keys, tokens TokenValidator, sessions SessionValidator) fi
 			}
 			if !ok {
 				return fiber.NewError(fiber.StatusUnauthorized, "session revoked — sign in again")
+			}
+		}
+		if idle != nil && claims.SessionID != "" {
+			active := c.Get(HeaderBackground) != "true"
+			switch err := idle.Touch(c.UserContext(), claims.SessionID, idleTimeout, maxAge, active); {
+			case errors.Is(err, ErrSessionIdle):
+				return fiber.NewError(fiber.StatusUnauthorized, "session idle timeout — sign in again")
+			case errors.Is(err, ErrSessionExpired), errors.Is(err, ErrSessionNotFound):
+				return fiber.NewError(fiber.StatusUnauthorized, "session expired — sign in again")
+			case err != nil:
+				return err
+			}
+			if idleTimeout > 0 {
+				// Tells the UI how long until an idle sign-out (its warning).
+				c.Set(HeaderIdleTimeout, strconv.Itoa(int(idleTimeout.Seconds())))
 			}
 		}
 		actor := Actor{UserID: claims.Subject, IsAdmin: claims.IsAdmin,

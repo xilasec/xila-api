@@ -9,7 +9,7 @@ import (
 
 func TestGenerateAndParseToken(t *testing.T) {
 	keys := NewKeys("test-secret", nil)
-	token, err := generateToken(keys, "user-123", false, 0, time.Hour, time.Now())
+	token, err := generateToken(keys, "user-123", false, 0, time.Hour, time.Now(), "")
 	if err != nil {
 		t.Fatalf("generateToken: %v", err)
 	}
@@ -24,7 +24,7 @@ func TestGenerateAndParseToken(t *testing.T) {
 }
 
 func TestParseTokenRejectsWrongSecret(t *testing.T) {
-	token, err := generateToken(NewKeys("right-secret", nil), "user-123", false, 0, time.Hour, time.Now())
+	token, err := generateToken(NewKeys("right-secret", nil), "user-123", false, 0, time.Hour, time.Now(), "")
 	if err != nil {
 		t.Fatalf("generateToken: %v", err)
 	}
@@ -35,7 +35,7 @@ func TestParseTokenRejectsWrongSecret(t *testing.T) {
 
 func TestParseTokenRejectsExpired(t *testing.T) {
 	keys := NewKeys("test-secret", nil)
-	token, err := generateToken(keys, "user-123", false, 0, -time.Minute, time.Now())
+	token, err := generateToken(keys, "user-123", false, 0, -time.Minute, time.Now(), "")
 	if err != nil {
 		t.Fatalf("generateToken: %v", err)
 	}
@@ -63,7 +63,7 @@ func TestParseTokenRejectsWrongSigningMethod(t *testing.T) {
 // existed) is still accepted against the current secret.
 func TestParseTokenByKid(t *testing.T) {
 	keys := NewKeys("current-secret", []string{"old-secret-1", "old-secret-2"})
-	token, err := generateToken(keys, "user-123", false, 0, time.Hour, time.Now())
+	token, err := generateToken(keys, "user-123", false, 0, time.Hour, time.Now(), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +88,7 @@ func TestParseTokenByKid(t *testing.T) {
 // secret is removed from the ring entirely.
 func TestParseTokenVerifiesWithPreviousSecret(t *testing.T) {
 	old := NewKeys("secret-a", nil)
-	token, err := generateToken(old, "user-123", false, 0, time.Hour, time.Now())
+	token, err := generateToken(old, "user-123", false, 0, time.Hour, time.Now(), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +109,7 @@ func TestParseTokenVerifiesWithPreviousSecret(t *testing.T) {
 // nor previous) is refused outright, never tried against every key.
 func TestParseTokenRejectsUnknownKid(t *testing.T) {
 	signed := NewKeys("secret-a", nil)
-	token, err := generateToken(signed, "user-123", false, 0, time.Hour, time.Now())
+	token, err := generateToken(signed, "user-123", false, 0, time.Hour, time.Now(), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,12 +123,12 @@ func TestParseTokenRejectsUnknownKid(t *testing.T) {
 // both keep verifying as long as the old secret stays in Previous.
 func TestKeysUpdateSwapsAtomically(t *testing.T) {
 	keys := NewKeys("secret-a", nil)
-	before, err := generateToken(keys, "user-123", false, 0, time.Hour, time.Now())
+	before, err := generateToken(keys, "user-123", false, 0, time.Hour, time.Now(), "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	keys.Update("secret-b", []string{"secret-a"})
-	after, err := generateToken(keys, "user-456", false, 0, time.Hour, time.Now())
+	after, err := generateToken(keys, "user-456", false, 0, time.Hour, time.Now(), "")
 	if err != nil {
 		t.Fatal(err)
 	}

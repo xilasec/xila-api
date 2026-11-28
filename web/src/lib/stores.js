@@ -1,3 +1,4 @@
+import { idleSignedOut } from '#lib/session.js';
 import { writable } from 'svelte/store';
 import { api, ApiError, getToken, setToken } from './api.js';
 
@@ -14,7 +15,10 @@ captureSSOToken();
 
 /** Auth token, persisted to localStorage. */
 export const token = writable(getToken());
-token.subscribe((v) => setToken(v));
+token.subscribe((v) => {
+	setToken(v);
+	if (v) idleSignedOut.set(false); // a new sign-in clears the inactivity notice
+});
 
 /**
  * @typedef {object} User

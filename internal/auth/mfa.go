@@ -292,7 +292,7 @@ func (s *Service) VerifyMFA(ctx context.Context, challenge, code string) (string
 	if err := s.checkCode(ctx, u.ID, code); err != nil {
 		return "", user.User{}, err
 	}
-	token, err := s.TokenFor(u)
+	token, err := s.TokenFor(ctx, u)
 	return token, u, err
 }
 
@@ -302,7 +302,7 @@ func (s *Service) signedIn(ctx context.Context, u user.User) (string, user.User,
 	if s.mfaRequired(ctx, u) {
 		return "", u, s.challenge(u)
 	}
-	token, err := s.TokenFor(u)
+	token, err := s.TokenFor(ctx, u)
 	if err != nil {
 		return "", user.User{}, err
 	}

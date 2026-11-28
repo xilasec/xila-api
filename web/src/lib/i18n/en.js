@@ -174,6 +174,11 @@ export default {
 	"intcomp.addRegistry": "Add registry",
 	"intcomp.saved": "Saved",
 	"intcomp.credentialSet": "credential set",
+	// Idle sign-out (M13 13.16)
+	"session.warnTitle": "Still there?",
+	"session.warnText": "You'll be signed out in {time} because of inactivity.",
+	"session.stay": "Stay signed in",
+	"session.signedOutIdle": "You were signed out after a period of inactivity.",
 	// App shell: layout, navigation, command palette
 	"nav.projects": "Projects",
 	"nav.findings": "Findings",

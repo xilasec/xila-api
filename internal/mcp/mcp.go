@@ -31,6 +31,17 @@ type Handler struct {
 	enabled bool
 	version string
 	app     func() fasthttp.RequestHandler
+	// keepPersonal turns the personal-data filter off
+	// (MCP_REDACT_PERSONAL_DATA=false): results then name people as the API does.
+	keepPersonal bool
+}
+
+// WithPersonalData controls the personal-data filter: with redact (the
+// default) every tool result has emails and people's names replaced by
+// pseudonyms before it reaches the AI client.
+func (h *Handler) WithPersonalData(redact bool) *Handler {
+	h.keepPersonal = !redact
+	return h
 }
 
 // NewHandler constructs a Handler; disabled, the endpoint answers 404.
@@ -166,10 +177,15 @@ func (h *Handler) call(c *fiber.Ctx, params json.RawMessage) (any, *rpcError) {
 		return toolError(err.Error()), nil
 	}
 	var results []any
+	pseud := newPseudonymizer()
 	for _, sub := range calls {
 		status, body := h.dispatch(c, p.Name, sub)
 		if !sub.ok(status) {
-			return toolError(errorText(status, body)), nil
+			msg := errorText(status, body)
+			if !h.keepPersonal {
+				msg = pseud.text(msg)
+			}
+			return toolError(msg), nil
 		}
 		var v any
 		if json.Unmarshal(body, &v) != nil {
@@ -180,6 +196,9 @@ func (h *Handler) call(c *fiber.Ctx, params json.RawMessage) (any, *rpcError) {
 	out := results[len(results)-1]
 	if len(results) > 1 {
 		out = map[string]any{"steps": results}
+	}
+	if !h.keepPersonal {
+		out = pseud.value(out)
 	}
 	text, _ := json.Marshal(out)
 	result := map[string]any{"content": []map[string]any{{"type": "text", "text": string(text)}}, "isError": false}
