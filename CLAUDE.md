@@ -976,7 +976,9 @@ and `internal/server/smoke_test.go` (missing smoke wiring causes a nil panic in 
   files are in. It also refuses a tag not on `main` and an image or chart
   version whose release is published. A failed build is retried by running
   it by hand on the tag (`--ref vX.Y.Z`); a run not on the tag's commit is
-  refused, because the provenance names the run's commit.
+  refused, because the provenance names the run's commit. Release builds
+  run without caches, and every image in the Dockerfile (and its `# syntax`
+  frontend) is pinned `tag@sha256:…`; keep new ones pinned the same way.
 - Actions: `uses:` lines are SHA pins only, never tags (`git ls-remote`; peel
   annotated tags with `^{}`; keep the `# vX.Y.Z` comment). Workflows are also
   recorded in `.github/workflows/actions.lock`: after adding or changing a
