@@ -13,7 +13,13 @@ workflows:
         - 'golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a'
         - 'pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115'
     '.github/workflows/dependabot-automerge.yml': []
+    '.github/workflows/pr-title.yml':
+        - 'amannn/action-semantic-pull-request@66e72920af32222769c386d81f89656ebcb6d6d5'
+    '.github/workflows/release-please.yml':
+        - 'googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7'
     '.github/workflows/release.yml':
+        - 'actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8'
+        - 'actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e'
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5'
         - 'actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1'
@@ -28,6 +34,30 @@ workflows:
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'github/codeql-action@915412ff23e8b7659517e607487dbeae018f2934'
 dependencies:
+    'actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8':
+        ref: 'v4.2.2'
+        commit: 'sha1-4d101475d8b20a2381f78447822ac1eab6504dd8'
+        owner_id: 44036562
+        repo_id: 760702757
+        uses:
+            - 'actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d'
+    'actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e':
+        ref: 'v4.1.0'
+        commit: 'sha1-c604332985a26aa8cf1bdc465b92731239ec6b9e'
+        owner_id: 44036562
+        repo_id: 760703431
+        uses:
+            - 'actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26'
+    'actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d':
+        ref: 'v4.2.1'
+        commit: 'sha1-508db95dd578ae2727ebd6217d5ba78e4fbda05d'
+        owner_id: 44036562
+        repo_id: 760701061
+    'actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26':
+        ref: 'v4.1.0'
+        commit: 'sha1-59d89421af93a897026c735860bf21b6eb4f7b26'
+        owner_id: 44036562
+        repo_id: 760701061
     'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1':
         ref: 'v7.0.1'
         commit: 'sha1-3d3c42e5aac5ba805825da76410c181273ba90b1'
@@ -43,6 +73,11 @@ dependencies:
         commit: 'sha1-949feb2413d6458794dcd2491c4babbbce0c15c1'
         owner_id: 44036562
         repo_id: 189476904
+    'amannn/action-semantic-pull-request@66e72920af32222769c386d81f89656ebcb6d6d5':
+        ref: 'v6.1.4'
+        commit: 'sha1-66e72920af32222769c386d81f89656ebcb6d6d5'
+        owner_id: 4038316
+        repo_id: 220418983
     'anchore/sbom-action@dfcb83b97731532d72be422cbc51ee64adb6fd56':
         ref: 'v0.24.4'
         commit: 'sha1-dfcb83b97731532d72be422cbc51ee64adb6fd56'
@@ -83,6 +118,11 @@ dependencies:
         commit: 'sha1-ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a'
         owner_id: 35628013
         repo_id: 232539879
+    'googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7':
+        ref: 'v5.0.0'
+        commit: 'sha1-45996ed1f6d02564a971a2fa1b5860e934307cf7'
+        owner_id: 16785467
+        repo_id: 262236530
     'pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115':
         ref: 'v6.1.1'
         commit: 'sha1-73e46992e05b19abd31f2f3c20e0e7370d762115'

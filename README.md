@@ -3263,6 +3263,9 @@ kubectl -n xila port-forward svc/xila 8080:80
 helm test xila -n xila
 ```
 
+Releases ship the image as `ghcr.io/xilasec/xila-api:<version>` and the chart as
+`oci://ghcr.io/xilasec/charts/xila` (`helm install xila oci://ghcr.io/xilasec/charts/xila --version <version>`).
+
 For production, disable the bundled database and point `database.*` at a managed
 PostgreSQL 15+, enable `ingress`, and set `publicUrl` / `trustedProxies`. Any
 setting in the configuration table can be passed through `config` (or
@@ -3334,6 +3337,39 @@ Pushing a tag `vX.Y.Z` (or `vX.Y.Z-rc.N`, published as a pre-release) runs
 
 Both binaries report their version (`xila-api version`, `xila version`), and the
 server logs it at startup.
+
+## Releases and verifying them
+
+Releases are automatic. Every merge to `main` updates one release PR (Release
+Please) with the next version and its changelog entry, computed from the
+conventional-commit titles of the squash-merged PRs (`feat:` a minor version,
+`fix:` a patch, `feat!:` a breaking change; minor while below 1.0). A PR title
+check enforces the format. Merging the release PR tags `vX.Y.Z`, creates the
+GitHub release with those notes, and runs the release build: the CI gate and the
+security scans, then the multi-arch image, the Helm chart, and the server and
+CLI binaries with `SHA256SUMS` and an SPDX SBOM of the source tree. A
+pre-release is a hand-pushed tag (`v1.2.3-rc.1`).
+
+Every artifact carries signed attestations (GitHub artifact attestations,
+Sigstore, keyless): SLSA build provenance, which names the workflow, commit and
+run that built it, and an SPDX SBOM. The image's SBOM lists what is in the
+image; the chart and the binaries carry the SBOM of the source tree they were
+built from. Check them before deploying:
+
+```bash
+# The image, by digest: who built it, from which commit, and what is in it
+gh attestation verify oci://ghcr.io/xilasec/xila-api:0.1.0 --owner xilasec
+gh attestation verify oci://ghcr.io/xilasec/xila-api:0.1.0 --owner xilasec \
+  --predicate-type https://spdx.dev/Document/v2.3
+# The chart
+gh attestation verify oci://ghcr.io/xilasec/charts/xila:0.1.0 --owner xilasec
+# A downloaded binary or the chart package
+gh release download v0.1.0 -R xilasec/xila-api -p 'xila_v0.1.0_linux_amd64'
+gh attestation verify xila_v0.1.0_linux_amd64 --owner xilasec
+```
+
+`--signer-workflow xilasec/xila-api/.github/workflows/release.yml` additionally
+pins the workflow that must have built the artifact.
 
 ## Single sign-on (OIDC + SAML)
 
