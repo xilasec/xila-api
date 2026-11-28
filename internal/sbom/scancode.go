@@ -49,6 +49,8 @@ type scancodePackage struct {
 	SHA256                        string   `json:"sha256"`
 	SHA512                        string   `json:"sha512"`
 	DatafilePaths                 []string `json:"datafile_paths"`
+	Copyright                     string   `json:"copyright"`
+	HomepageURL                   string   `json:"homepage_url"`
 }
 
 type scancodeDependency struct {
@@ -119,13 +121,15 @@ func parseScanCodeIO(r io.Reader) (Document, error) {
 			continue
 		}
 		c := Component{
-			BomRef:  cmp.Or(p.PackageUID, p.Purl),
-			Type:    "library",
-			Group:   p.Namespace,
-			Name:    p.Name,
-			Version: p.Version,
-			Purl:    p.Purl,
-			Hashes:  map[string]string{},
+			BomRef:    cmp.Or(p.PackageUID, p.Purl),
+			Type:      "library",
+			Group:     p.Namespace,
+			Name:      p.Name,
+			Version:   p.Version,
+			Purl:      p.Purl,
+			Hashes:    map[string]string{},
+			Copyright: cleanCopyright(p.Copyright),
+			Homepage:  cleanHomepage(p.HomepageURL),
 		}
 		if lic := cmp.Or(p.DeclaredLicenseExpressionSPDX, p.OtherLicenseExpressionSPDX); lic != "" {
 			c.License, c.LicenseTerms = lic, []string{lic}

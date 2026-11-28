@@ -5953,15 +5953,21 @@ type Component struct {
 	Artifact *string `json:"artifact,omitempty"`
 
 	// BomRef This component's node id in the SBOM's dependency graph.
-	BomRef    *string    `json:"bom_ref,omitempty"`
+	BomRef *string `json:"bom_ref,omitempty"`
+
+	// Copyright The copyright notice the SBOM states (CycloneDX copyright, SPDX copyrightText, ScanCode.io copyright); empty when it doesn't.
+	Copyright *string    `json:"copyright,omitempty"`
 	Cpe       *string    `json:"cpe,omitempty"`
 	CreatedAt *time.Time `json:"created_at,omitempty"`
 	Depth     *int       `json:"depth,omitempty"`
 	Direct    *bool      `json:"direct,omitempty"`
 
 	// FilePath Where the component was found (e.g. `package-lock.json`).
-	FilePath *string             `json:"file_path,omitempty"`
-	Group    *string             `json:"group,omitempty"`
+	FilePath *string `json:"file_path,omitempty"`
+	Group    *string `json:"group,omitempty"`
+
+	// Homepage The homepage it states (CycloneDX website reference, SPDX homepage, ScanCode.io homepage_url); only an absolute http(s) URL is kept.
+	Homepage *string             `json:"homepage,omitempty"`
 	Id       *openapi_types.UUID `json:"id,omitempty"`
 
 	// Integrity The component's SBOM hashes against the digests its registry publishes
@@ -7083,6 +7089,18 @@ type License struct {
 	Id          *string `json:"id,omitempty"`
 	Name        *string `json:"name,omitempty"`
 	OsiApproved *bool   `json:"osi_approved,omitempty"`
+
+	// Terms What the license permits, requires and limits (choosealicense.com tags); null when it doesn't describe the license.
+	Terms *struct {
+		// Conditions Example: ["include-copyright"]
+		Conditions *[]string `json:"conditions,omitempty"`
+
+		// Limitations Example: ["liability","warranty"]
+		Limitations *[]string `json:"limitations,omitempty"`
+
+		// Permissions Example: ["commercial-use","modifications","distribution","private-use"]
+		Permissions *[]string `json:"permissions,omitempty"`
+	} `json:"terms,omitempty"`
 }
 
 // LicenseDetail defines model for LicenseDetail.
@@ -7103,6 +7121,18 @@ type LicenseDetail struct {
 	Kind        *LicenseDetailKind `json:"kind,omitempty"`
 	Name        *string            `json:"name,omitempty"`
 	OsiApproved *bool              `json:"osi_approved,omitempty"`
+
+	// Terms What the license permits, requires and limits (choosealicense.com tags); null when it doesn't describe the license.
+	Terms *struct {
+		// Conditions Example: ["include-copyright"]
+		Conditions *[]string `json:"conditions,omitempty"`
+
+		// Limitations Example: ["liability","warranty"]
+		Limitations *[]string `json:"limitations,omitempty"`
+
+		// Permissions Example: ["commercial-use","modifications","distribution","private-use"]
+		Permissions *[]string `json:"permissions,omitempty"`
+	} `json:"terms,omitempty"`
 }
 
 // LicenseDetailKind defines model for LicenseDetail.Kind.
@@ -8584,6 +8614,18 @@ type Sbom struct {
 	// Format Example: CycloneDX
 	Format *string             `json:"format,omitempty"`
 	Id     *openapi_types.UUID `json:"id,omitempty"`
+
+	// OriginalMediaType Its media type.
+	OriginalMediaType *string `json:"original_media_type,omitempty"`
+
+	// OriginalSha256 SHA-256 (hex) of the document as uploaded; recorded for every upload.
+	OriginalSha256 *string `json:"original_sha256,omitempty"`
+
+	// OriginalSize Its size in bytes.
+	OriginalSize *int `json:"original_size,omitempty"`
+
+	// OriginalStored The bytes were kept: `GET /sboms/{sbomID}/original` serves them.
+	OriginalStored *bool `json:"original_stored,omitempty"`
 
 	// Processing Rolls up the steps: `completed` once every step is, `failed` if any
 	// failed, `running` once any has started, else `pending`.
@@ -11299,6 +11341,13 @@ type GetProjectMetricsTrendsParams struct {
 
 	// Days Window length in days, today (UTC) included. Capped at 365.
 	Days *TrendDays `form:"days,omitempty" json:"days,omitempty"`
+}
+
+// GetProjectNoticesParams defines parameters for GetProjectNotices.
+type GetProjectNoticesParams struct {
+	// IncludeChildren Roll up the project and all its descendants. Default true for a
+	// collection project, false otherwise. Ignored for a project-scoped token.
+	IncludeChildren *IncludeChildren `form:"include_children,omitempty" json:"include_children,omitempty"`
 }
 
 // ListProjectPoliciesParams defines parameters for ListProjectPolicies.
@@ -16441,6 +16490,17 @@ type ClientInterface interface {
 	// Corresponds with GET /projects/{projectID}/metrics/trends (the `GetProjectMetricsTrends` operationId).
 	GetProjectMetricsTrends(ctx context.Context, projectID ProjectID, params *GetProjectMetricsTrendsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetProjectNotices Third-party notices for the project's components
+	//
+	// A Markdown notices file for the components of the latest SBOM of each artifact (the same
+	// query as the component list with `latest=true`, so the same filters apply): each distinct
+	// package once, with its license, every copyright notice its SBOMs state and its homepage
+	// ("not stated" when a document says nothing), then what each license requires
+	// (choosealicense.com conditions such as `include-copyright`). Up to 100,000 components.
+	//
+	// Corresponds with GET /projects/{projectID}/notices (the `GetProjectNotices` operationId).
+	GetProjectNotices(ctx context.Context, projectID ProjectID, params *GetProjectNoticesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListProjectPolicies Policies in force on a project
 	//
 	// The enabled policies applying to the project, each with its open violations on the default version.
@@ -17703,6 +17763,17 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /sboms/{sbomID}/graph/paths (the `ListSbomGraphPaths` operationId).
 	ListSbomGraphPaths(ctx context.Context, sbomID SbomID, params *ListSbomGraphPathsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetSbomOriginal Download the SBOM exactly as uploaded
+	//
+	// The uploaded document byte for byte (supply-chain evidence), with its media type
+	// (`application/vnd.cyclonedx+json`, `application/vnd.cyclonedx+xml`, `application/spdx+json`,
+	// `application/json`) and its SHA-256 in `Repr-Digest` (RFC 9530), matching the snapshot's
+	// `original_sha256`. 404 when the bytes weren't kept (`SBOM_KEEP_ORIGINAL=false` at upload, or
+	// uploaded before Xila kept them).
+	//
+	// Corresponds with GET /sboms/{sbomID}/original (the `GetSbomOriginal` operationId).
+	GetSbomOriginal(ctx context.Context, sbomID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListSbomServices The services one snapshot declares
 	//
@@ -26671,6 +26742,27 @@ func (c *Client) GetProjectMetricsTrends(ctx context.Context, projectID ProjectI
 	return c.Client.Do(req)
 }
 
+// GetProjectNotices Third-party notices for the project's components
+//
+// A Markdown notices file for the components of the latest SBOM of each artifact (the same
+// query as the component list with `latest=true`, so the same filters apply): each distinct
+// package once, with its license, every copyright notice its SBOMs state and its homepage
+// ("not stated" when a document says nothing), then what each license requires
+// (choosealicense.com conditions such as `include-copyright`). Up to 100,000 components.
+//
+// Corresponds with GET /projects/{projectID}/notices (the `GetProjectNotices` operationId).
+func (c *Client) GetProjectNotices(ctx context.Context, projectID ProjectID, params *GetProjectNoticesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetProjectNoticesRequest(c.Server, projectID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListProjectPolicies Policies in force on a project
 //
 // The enabled policies applying to the project, each with its open violations on the default version.
@@ -29244,6 +29336,27 @@ func (c *Client) GetSbomGraph(ctx context.Context, sbomID SbomID, reqEditors ...
 // Corresponds with GET /sboms/{sbomID}/graph/paths (the `ListSbomGraphPaths` operationId).
 func (c *Client) ListSbomGraphPaths(ctx context.Context, sbomID SbomID, params *ListSbomGraphPathsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListSbomGraphPathsRequest(c.Server, sbomID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetSbomOriginal Download the SBOM exactly as uploaded
+//
+// The uploaded document byte for byte (supply-chain evidence), with its media type
+// (`application/vnd.cyclonedx+json`, `application/vnd.cyclonedx+xml`, `application/spdx+json`,
+// `application/json`) and its SHA-256 in `Repr-Digest` (RFC 9530), matching the snapshot's
+// `original_sha256`. 404 when the bytes weren't kept (`SBOM_KEEP_ORIGINAL=false` at upload, or
+// uploaded before Xila kept them).
+//
+// Corresponds with GET /sboms/{sbomID}/original (the `GetSbomOriginal` operationId).
+func (c *Client) GetSbomOriginal(ctx context.Context, sbomID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetSbomOriginalRequest(c.Server, sbomID)
 	if err != nil {
 		return nil, err
 	}
@@ -46814,6 +46927,67 @@ func NewGetProjectMetricsTrendsRequest(server string, projectID ProjectID, param
 	return req, nil
 }
 
+// NewGetProjectNoticesRequest constructs an http.Request for the GetProjectNotices method
+func NewGetProjectNoticesRequest(server string, projectID ProjectID, params *GetProjectNoticesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/notices", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.IncludeChildren != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "include_children", *params.IncludeChildren, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListProjectPoliciesRequest constructs an http.Request for the ListProjectPolicies method
 func NewListProjectPoliciesRequest(server string, projectID ProjectID, params *ListProjectPoliciesParams) (*http.Request, error) {
 	var err error
@@ -52013,6 +52187,40 @@ func NewListSbomGraphPathsRequest(server string, sbomID SbomID, params *ListSbom
 			rawQueryFragments = append(rawQueryFragments, encoded)
 		}
 		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetSbomOriginalRequest constructs an http.Request for the GetSbomOriginal method
+func NewGetSbomOriginalRequest(server string, sbomID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "sbomID", sbomID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sboms/%s/original", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -60681,6 +60889,19 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /projects/{projectID}/metrics/trends (the `GetProjectMetricsTrends` operationId).
 	GetProjectMetricsTrendsWithResponse(ctx context.Context, projectID ProjectID, params *GetProjectMetricsTrendsParams, reqEditors ...RequestEditorFn) (*GetProjectMetricsTrendsResponse, error)
 
+	// GetProjectNoticesWithResponse Third-party notices for the project's components
+	//
+	// A Markdown notices file for the components of the latest SBOM of each artifact (the same
+	// query as the component list with `latest=true`, so the same filters apply): each distinct
+	// package once, with its license, every copyright notice its SBOMs state and its homepage
+	// ("not stated" when a document says nothing), then what each license requires
+	// (choosealicense.com conditions such as `include-copyright`). Up to 100,000 components.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /projects/{projectID}/notices (the `GetProjectNotices` operationId).
+	GetProjectNoticesWithResponse(ctx context.Context, projectID ProjectID, params *GetProjectNoticesParams, reqEditors ...RequestEditorFn) (*GetProjectNoticesResponse, error)
+
 	// ListProjectPoliciesWithResponse Policies in force on a project
 	//
 	// The enabled policies applying to the project, each with its open violations on the default version.
@@ -62075,6 +62296,19 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /sboms/{sbomID}/graph/paths (the `ListSbomGraphPaths` operationId).
 	ListSbomGraphPathsWithResponse(ctx context.Context, sbomID SbomID, params *ListSbomGraphPathsParams, reqEditors ...RequestEditorFn) (*ListSbomGraphPathsResponse, error)
+
+	// GetSbomOriginalWithResponse Download the SBOM exactly as uploaded
+	//
+	// The uploaded document byte for byte (supply-chain evidence), with its media type
+	// (`application/vnd.cyclonedx+json`, `application/vnd.cyclonedx+xml`, `application/spdx+json`,
+	// `application/json`) and its SHA-256 in `Repr-Digest` (RFC 9530), matching the snapshot's
+	// `original_sha256`. 404 when the bytes weren't kept (`SBOM_KEEP_ORIGINAL=false` at upload, or
+	// uploaded before Xila kept them).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /sboms/{sbomID}/original (the `GetSbomOriginal` operationId).
+	GetSbomOriginalWithResponse(ctx context.Context, sbomID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetSbomOriginalResponse, error)
 
 	// ListSbomServicesWithResponse The services one snapshot declares
 	//
@@ -78780,6 +79014,47 @@ func (r GetProjectMetricsTrendsResponse) ContentType() string {
 	return ""
 }
 
+type GetProjectNoticesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r GetProjectNoticesResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetProjectNoticesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetProjectNoticesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetProjectNoticesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetProjectNoticesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListProjectPoliciesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -84052,6 +84327,75 @@ func (r ListSbomGraphPathsResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ListSbomGraphPathsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// GetSbomOriginalResponse200Headers the declared response headers of an HTTP 200 response for GetSbomOriginal
+type GetSbomOriginalResponse200Headers struct {
+	ReprDigest *string
+}
+
+type GetSbomOriginalResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *openapi_types.File
+	// ApplicationspdxJSON200 the response for an HTTP 200 `application/spdx+json` response
+	ApplicationspdxJSON200 *openapi_types.File
+	// ApplicationvndCyclonedxJSON200 the response for an HTTP 200 `application/vnd.cyclonedx+json` response
+	ApplicationvndCyclonedxJSON200 *openapi_types.File
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *GetSbomOriginalResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetSbomOriginalResponse) GetJSON200() *openapi_types.File {
+	return r.JSON200
+}
+
+// GetApplicationspdxJSON200 returns the response for an HTTP 200 `application/spdx+json` response
+func (r GetSbomOriginalResponse) GetApplicationspdxJSON200() *openapi_types.File {
+	return r.ApplicationspdxJSON200
+}
+
+// GetApplicationvndCyclonedxJSON200 returns the response for an HTTP 200 `application/vnd.cyclonedx+json` response
+func (r GetSbomOriginalResponse) GetApplicationvndCyclonedxJSON200() *openapi_types.File {
+	return r.ApplicationvndCyclonedxJSON200
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r GetSbomOriginalResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetSbomOriginalResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetSbomOriginalResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetSbomOriginalResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetSbomOriginalResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -96188,6 +96532,25 @@ func (c *ClientWithResponses) GetProjectMetricsTrendsWithResponse(ctx context.Co
 	return ParseGetProjectMetricsTrendsResponse(rsp)
 }
 
+// GetProjectNoticesWithResponse Third-party notices for the project's components
+//
+// A Markdown notices file for the components of the latest SBOM of each artifact (the same
+// query as the component list with `latest=true`, so the same filters apply): each distinct
+// package once, with its license, every copyright notice its SBOMs state and its homepage
+// ("not stated" when a document says nothing), then what each license requires
+// (choosealicense.com conditions such as `include-copyright`). Up to 100,000 components.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /projects/{projectID}/notices (the `GetProjectNotices` operationId).
+func (c *ClientWithResponses) GetProjectNoticesWithResponse(ctx context.Context, projectID ProjectID, params *GetProjectNoticesParams, reqEditors ...RequestEditorFn) (*GetProjectNoticesResponse, error) {
+	rsp, err := c.GetProjectNotices(ctx, projectID, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetProjectNoticesResponse(rsp)
+}
+
 // ListProjectPoliciesWithResponse Policies in force on a project
 //
 // The enabled policies applying to the project, each with its open violations on the default version.
@@ -98373,6 +98736,25 @@ func (c *ClientWithResponses) ListSbomGraphPathsWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseListSbomGraphPathsResponse(rsp)
+}
+
+// GetSbomOriginalWithResponse Download the SBOM exactly as uploaded
+//
+// The uploaded document byte for byte (supply-chain evidence), with its media type
+// (`application/vnd.cyclonedx+json`, `application/vnd.cyclonedx+xml`, `application/spdx+json`,
+// `application/json`) and its SHA-256 in `Repr-Digest` (RFC 9530), matching the snapshot's
+// `original_sha256`. 404 when the bytes weren't kept (`SBOM_KEEP_ORIGINAL=false` at upload, or
+// uploaded before Xila kept them).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /sboms/{sbomID}/original (the `GetSbomOriginal` operationId).
+func (c *ClientWithResponses) GetSbomOriginalWithResponse(ctx context.Context, sbomID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetSbomOriginalResponse, error) {
+	rsp, err := c.GetSbomOriginal(ctx, sbomID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetSbomOriginalResponse(rsp)
 }
 
 // ListSbomServicesWithResponse The services one snapshot declares
@@ -111101,6 +111483,32 @@ func ParseGetProjectMetricsTrendsResponse(rsp *http.Response) (*GetProjectMetric
 	return response, nil
 }
 
+// ParseGetProjectNoticesResponse parses an HTTP response from a GetProjectNoticesWithResponse call
+func ParseGetProjectNoticesResponse(rsp *http.Response) (*GetProjectNoticesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetProjectNoticesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListProjectPoliciesResponse parses an HTTP response from a ListProjectPoliciesWithResponse call
 func ParseListProjectPoliciesResponse(rsp *http.Response) (*ListProjectPoliciesResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -114817,6 +115225,69 @@ func ParseListSbomGraphPathsResponse(rsp *http.Response) (*ListSbomGraphPathsRes
 		}
 		response.JSON404 = &dest
 
+	}
+
+	return response, nil
+}
+
+// ParseGetSbomOriginalResponse parses an HTTP response from a GetSbomOriginalWithResponse call
+func ParseGetSbomOriginalResponse(rsp *http.Response) (*GetSbomOriginalResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetSbomOriginalResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 200:
+		var dest openapi_types.File
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/spdx+json" && rsp.StatusCode == 200:
+		var dest openapi_types.File
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationspdxJSON200 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/vnd.cyclonedx+json" && rsp.StatusCode == 200:
+		var dest openapi_types.File
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationvndCyclonedxJSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case rsp.StatusCode == 200:
+		// Content-type (application/vnd.cyclonedx+xml) unsupported
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers GetSbomOriginalResponse200Headers
+		if values := rsp.Header.Values("Repr-Digest"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Repr-Digest", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ReprDigest = &value
+		}
+		response.Headers200 = &headers
 	}
 
 	return response, nil

@@ -71,6 +71,7 @@ type cycloneComponent struct {
 	Cpe        string            `json:"cpe"`
 	Licenses   []cycloneLicense  `json:"licenses"`
 	Hashes     []cycloneHash     `json:"hashes"`
+	Copyright  string            `json:"copyright"`
 	Evidence   cycloneEvidence   `json:"evidence"`
 	Properties []cycloneProperty `json:"properties"`
 
@@ -192,6 +193,8 @@ func buildCycloneDocument(doc cycloneDoc) (Document, error) {
 			Hashes:       hashMap(c.Hashes),
 			Scope:        cycloneScope(c),
 			Kind:         componentKind(c.Type),
+			Copyright:    cleanCopyright(c.Copyright),
+			Homepage:     websiteOf(c.ExternalReferences),
 		}
 		if IsAIKind(comp.Kind) {
 			comp.ML = mlFacts(c, names)

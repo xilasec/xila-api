@@ -2,6 +2,8 @@ package sbom
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -88,6 +90,28 @@ type Service struct {
 	loadOverrides func(ctx context.Context) (LicenseOverrideMatcher, error) // optional: a project's curated concluded licenses
 	internal      InternalMatcher                                           // optional: nil leaves every component external
 	strictDefault bool                                                      // SBOM_STRICT_VALIDATION: every upload is strict, not only ?strict=true ones
+	keepOriginal  bool                                                      // SBOM_KEEP_ORIGINAL: store the uploaded bytes
+}
+
+// WithOriginals keeps every upload's document as uploaded (SBOM_KEEP_ORIGINAL),
+// downloadable from GET /sboms/{id}/original. Its digest, size and media type
+// are recorded either way.
+func (s *Service) WithOriginals(keep bool) *Service {
+	s.keepOriginal = keep
+	return s
+}
+
+// mediaType is the media type of the document doc was parsed from.
+func mediaType(doc Document) string {
+	switch {
+	case doc.Format == "CycloneDX" && doc.XML:
+		return "application/vnd.cyclonedx+xml"
+	case doc.Format == "CycloneDX":
+		return "application/vnd.cyclonedx+json"
+	case doc.Format == "SPDX":
+		return "application/spdx+json"
+	}
+	return "application/json" // Syft and ScanCode.io native JSON
 }
 
 // NewService wires the ingestion dependencies. evaluator and rescorer may be nil.
@@ -172,6 +196,14 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest, raw io.Reader) 
 		RootRef:      doc.RootRef,
 		VersionName:  req.Branch,
 		VersionKind:  "branch",
+		// The upload exactly as received: the parsed rows are an
+		// interpretation, the bytes are the evidence.
+		OriginalSHA256:    sha256Hex(data),
+		OriginalSize:      int64(len(data)),
+		OriginalMediaType: mediaType(doc),
+	}
+	if s.keepOriginal {
+		record.original = data
 	}
 	if req.Release != "" {
 		record.VersionName, record.VersionKind = req.Release, "release"
@@ -293,4 +325,9 @@ func (s *Service) markStep(ctx context.Context, sbomID, step, status, errMsg str
 	if _, err := s.store.MarkStep(ctx, sbomID, step, status, errMsg); err != nil {
 		slog.WarnContext(ctx, "sbom processing step update failed", "error", err, "sbom_id", sbomID, "step", step)
 	}
+}
+
+func sha256Hex(b []byte) string {
+	sum := sha256.Sum256(b)
+	return hex.EncodeToString(sum[:])
 }

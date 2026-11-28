@@ -254,6 +254,7 @@ func cdxServices(svcs []BomService, used map[string]bool) []cdxService {
 // supplier, pedigree…), which only AI components carry.
 type cdxBOMComponent struct {
 	vex.CDXComponent
+	Copyright          string             `json:"copyright,omitempty"`
 	Supplier           *cdxOrg            `json:"supplier,omitempty"`
 	Manufacturer       *cdxOrg            `json:"manufacturer,omitempty"`
 	Publisher          string             `json:"publisher,omitempty"`
@@ -332,7 +333,10 @@ func cdxFormats(fs []string) []cdxFormat {
 // cdxComponent renders a stored component; an AI component's ML facts become
 // its supplier, publisher, pedigree, external references, data and model card.
 func cdxComponent(c Component, ref string) cdxBOMComponent {
-	out := cdxBOMComponent{CDXComponent: cdxComponentCore(c, ref)}
+	out := cdxBOMComponent{CDXComponent: cdxComponentCore(c, ref), Copyright: c.Copyright}
+	if c.Homepage != "" {
+		out.ExternalReferences = []ExternalRef{{Type: "website", URL: c.Homepage}}
+	}
 	m := c.ML
 	if m == nil {
 		return out
@@ -343,7 +347,12 @@ func cdxComponent(c Component, ref string) cdxBOMComponent {
 	if m.Manufacturer != "" {
 		out.Manufacturer = &cdxOrg{Name: m.Manufacturer}
 	}
-	out.Publisher, out.Description, out.ExternalReferences = m.Publisher, m.Description, m.ExternalRefs
+	out.Publisher, out.Description = m.Publisher, m.Description
+	if websiteOf(m.ExternalRefs) != "" || c.Homepage == "" {
+		out.ExternalReferences = m.ExternalRefs // the model card's own refs carry the website already
+	} else {
+		out.ExternalReferences = slices.Concat(m.ExternalRefs, out.ExternalReferences)
+	}
 	if len(m.Ancestors) > 0 {
 		out.Pedigree = &cdxPedigree{Ancestors: m.Ancestors}
 	}

@@ -933,6 +933,12 @@ export const api = {
 	// The snapshot as a CycloneDX BOM (with vulnerabilities + analysis); spec 1.6 or 1.7.
 	/** @param {string} id @param {string} filename @param {string} [spec] */
 	exportSbom: (id, filename, spec = '1.6') => download(`/sboms/${id}/export?format=cyclonedx&spec=${spec}`, filename),
+	// The document exactly as uploaded (404 when it wasn't kept).
+	/** @param {string} id @param {string} filename */
+	downloadSbomOriginal: (id, filename) => download(`/sboms/${id}/original`, filename),
+	// A Markdown third-party notices file for the project's current components.
+	/** @param {string} projectId */
+	downloadNotices: (projectId) => download(`/projects/${projectId}/notices`, 'THIRD-PARTY-NOTICES.md'),
 	/** @param {string} vulnId */
 	vulnerabilityTimeline: (vulnId) =>
 		request('GET', `/vulnerabilities/${encodeURIComponent(vulnId)}/sboms`),

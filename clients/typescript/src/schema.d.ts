@@ -4484,6 +4484,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/sboms/{sbomID}/original": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download the SBOM exactly as uploaded
+         * @description The uploaded document byte for byte (supply-chain evidence), with its media type
+         *     (`application/vnd.cyclonedx+json`, `application/vnd.cyclonedx+xml`, `application/spdx+json`,
+         *     `application/json`) and its SHA-256 in `Repr-Digest` (RFC 9530), matching the snapshot's
+         *     `original_sha256`. 404 when the bytes weren't kept (`SBOM_KEEP_ORIGINAL=false` at upload, or
+         *     uploaded before Xila kept them).
+         */
+        get: operations["getSbomOriginal"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/sboms/{sbomID}/export": {
         parameters: {
             query?: never;
@@ -4639,6 +4663,30 @@ export interface paths {
          *     Flags as in `/sboms/{sbomID}/services`, judged per snapshot.
          */
         get: operations["listProjectServices"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectID}/notices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Third-party notices for the project's components
+         * @description A Markdown notices file for the components of the latest SBOM of each artifact (the same
+         *     query as the component list with `latest=true`, so the same filters apply): each distinct
+         *     package once, with its license, every copyright notice its SBOMs state and its homepage
+         *     ("not stated" when a document says nothing), then what each license requires
+         *     (choosealicense.com conditions such as `include-copyright`). Up to 100,000 components.
+         */
+        get: operations["getProjectNotices"];
         put?: never;
         post?: never;
         delete?: never;
@@ -10471,6 +10519,14 @@ export interface components {
             created_at?: string;
             /** @description The dependency graph's root node (CycloneDX metadata.component bom-ref / SPDX described package). */
             root_ref?: string;
+            /** @description SHA-256 (hex) of the document as uploaded; recorded for every upload. */
+            original_sha256?: string;
+            /** @description Its size in bytes. */
+            original_size?: number;
+            /** @description Its media type. */
+            original_media_type?: string;
+            /** @description The bytes were kept: `GET /sboms/{sbomID}/original` serves them. */
+            original_stored?: boolean;
         };
         /** @description One CycloneDX schema violation from a strict upload. */
         SbomFieldError: {
@@ -10549,6 +10605,10 @@ export interface components {
             kind?: "software" | "model" | "dataset" | "ai-service";
             /** @description An AI component's model-card essentials; null for software. */
             ml?: components["schemas"]["MLFacts"] | null;
+            /** @description The copyright notice the SBOM states (CycloneDX copyright, SPDX copyrightText, ScanCode.io copyright); empty when it doesn't. */
+            copyright?: string;
+            /** @description The homepage it states (CycloneDX website reference, SPDX homepage, ScanCode.io homepage_url); only an absolute http(s) URL is kept. */
+            homepage?: string;
             group?: string;
             name?: string;
             version?: string;
@@ -10673,6 +10733,31 @@ export interface components {
             deprecated?: boolean;
             /** @description ScanCode LicenseDB category (`Permissive`, `Copyleft`, …); empty when unknown. */
             category?: string;
+            /** @description What the license permits, requires and limits (choosealicense.com tags); null when it doesn't describe the license. */
+            terms?: {
+                /**
+                 * @example [
+                 *       "commercial-use",
+                 *       "modifications",
+                 *       "distribution",
+                 *       "private-use"
+                 *     ]
+                 */
+                permissions?: string[];
+                /**
+                 * @example [
+                 *       "include-copyright"
+                 *     ]
+                 */
+                conditions?: string[];
+                /**
+                 * @example [
+                 *       "liability",
+                 *       "warranty"
+                 *     ]
+                 */
+                limitations?: string[];
+            } | null;
         };
         LicenseDetail: components["schemas"]["License"] & {
             /** @enum {string} */
@@ -20362,6 +20447,34 @@ export interface operations {
             404: components["responses"]["Error"];
         };
     };
+    getSbomOriginal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sbomID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The document */
+            200: {
+                headers: {
+                    /** @description sha-256=:<base64>: of the body */
+                    "Repr-Digest"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.cyclonedx+json": string;
+                    "application/vnd.cyclonedx+xml": string;
+                    "application/spdx+json": string;
+                    "application/json": string;
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
     exportSbom: {
         parameters: {
             query?: {
@@ -20588,6 +20701,35 @@ export interface operations {
                 };
             };
             400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    getProjectNotices: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Roll up the project and all its descendants. Default true for a
+                 *     collection project, false otherwise. Ignored for a project-scoped token.
+                 */
+                include_children?: components["parameters"]["IncludeChildren"];
+            };
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The notices file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/markdown": string;
+                };
+            };
             404: components["responses"]["Error"];
         };
     };

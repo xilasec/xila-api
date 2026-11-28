@@ -25,7 +25,7 @@ Third-party material
 
 Dependencies keep their own licenses (go.mod / go.sum, web/package.json and
 web/pnpm-lock.yaml). The following data is bundled in this repository, and the
-first three are embedded in the xila-api binary:
+first four are embedded in the xila-api binary:
 
 - SPDX License List data (internal/license/data/catalog.json),
   https://github.com/spdx/license-list-data, CC0-1.0.
@@ -34,6 +34,11 @@ first three are embedded in the xila-api binary:
   https://scancode-licensedb.aboutcode.org, Copyright (c) nexB Inc. and
   others, licensed CC-BY-4.0 (https://creativecommons.org/licenses/by/4.0/).
   The data was reduced to license keys and their categories.
+
+- choosealicense.com license terms (internal/license/data/catalog.json),
+  https://github.com/github/choosealicense.com, Copyright (c) 2013-2026
+  GitHub, Inc. and contributors, licensed MIT. The data was reduced to each
+  license's permissions, conditions and limitations.
 
 - CycloneDX JSON schemas, specification versions 1.2 through 1.7, plus the
   spdx, jsf-0.82 and cryptography-defs schemas they reference

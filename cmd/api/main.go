@@ -436,7 +436,7 @@ func run() error {
 		slog.WarnContext(rootCtx, "component patterns: initial load failed; retried on the next upload", "error", err)
 	}
 	sbomSvc := sbom.NewService(sbomRepo, projectRepo, policySvc, reacher).
-		WithLicenses(license.Resolve).WithStrictValidation(cfg.SBOMStrictValidation).
+		WithLicenses(license.Resolve).WithStrictValidation(cfg.SBOMStrictValidation).WithOriginals(cfg.SBOMKeepOriginal).
 		WithLicenseOverrides(func(ctx context.Context) (sbom.LicenseOverrideMatcher, error) { return loadLicenseOverrides(ctx) }).
 		WithInternalComponents(componentSvc.Current)
 	licenseOverrideHandler := license.NewOverrideHandler(licenseOverrideRepo,
@@ -600,7 +600,8 @@ func run() error {
 		AITriage: aitriage.NewHandler(aitriage.NewService(aitriage.NewRepository(db), findingRepo, aiProvider,
 			ratelimit.New(db, ratelimit.Limits{}), notifySvc,
 			aitriage.Options{RequireApproval: cfg.AssessmentRequiresApproval, RateLimit: cfg.AI.RateLimit})),
-		Sbom:           sbom.NewHandler(sbomRepo, sbomSvc).WithProjectByName(projectResolver, membershipRepo).WithNotifier(notifySvc),
+		Sbom: sbom.NewHandler(sbomRepo, sbomSvc).WithProjectByName(projectResolver, membershipRepo).WithNotifier(notifySvc).
+			WithLicenseConditions(license.Conditions),
 		Asset:          asset.NewHandler(assetRepo, assetSvc, membershipRepo),
 		Compliance:     compliance.NewHandler(complianceRepo),
 		Portfolio:      portfolio.NewHandler(portfolioRepo),

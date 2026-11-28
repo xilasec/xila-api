@@ -153,6 +153,7 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 		Otel: config.Otel{ServiceName: "xila-api-test"},
 
 		PasswordLoginEnabled: true,
+		SBOMKeepOriginal:     true, // the production default
 		// The same key trackerCipher is built from below (MFA availability
 		// follows it, as in main).
 		IntegrationSecretKey: "c21va2UtaW50ZWdyYXRpb24ta2V5LTMyLWJ5dGVzISE=", // gitleaks:allow -- fake test key (base64 of the cipher key below)
@@ -338,10 +339,10 @@ func newTestAppOn(t *testing.T, pool *pgxpool.Pool, opts ...func(*config.Config)
 			ratelimit.New(pool, ratelimit.Limits{}), notifySvc,
 			aitriage.Options{RequireApproval: cfg.AssessmentRequiresApproval, RateLimit: cfg.AI.RateLimit})),
 		Sbom: sbom.NewHandler(sbomRepo, sbom.NewService(sbomRepo, projectRepo, policySvc,
-			correlation.NewReacher(findingRepo, findingRepo)).WithLicenses(license.Resolve).WithStrictValidation(cfg.SBOMStrictValidation).
+			correlation.NewReacher(findingRepo, findingRepo)).WithLicenses(license.Resolve).WithStrictValidation(cfg.SBOMStrictValidation).WithOriginals(cfg.SBOMKeepOriginal).
 			WithLicenseOverrides(func(ctx context.Context) (sbom.LicenseOverrideMatcher, error) { return loadLicenseOverrides(ctx) }).
 			WithInternalComponents(componentSvc.Current)).
-			WithProjectByName(projectResolver, membershipRepo).WithNotifier(notifySvc),
+			WithProjectByName(projectResolver, membershipRepo).WithNotifier(notifySvc).WithLicenseConditions(license.Conditions),
 		Asset:          asset.NewHandler(assetRepo, assetSvc, membershipRepo),
 		Compliance:     compliance.NewHandler(complianceRepo),
 		Portfolio:      portfolio.NewHandler(portfolio.NewRepository(pool)),
