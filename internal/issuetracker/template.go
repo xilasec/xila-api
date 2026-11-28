@@ -5,7 +5,7 @@ import (
 	"errors"
 	"strconv"
 	"strings"
-	"text/template"
+	"text/template" // nosemgrep: go.lang.security.audit.xss.import-text-template.import-text-template -- renders plain issue text sent as JSON to tracker APIs, never served as HTML; html/template would put &amp; / &#39; into every ticket
 
 	"github.com/xilasec/xila-api/internal/finding"
 )
