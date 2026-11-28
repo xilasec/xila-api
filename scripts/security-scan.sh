@@ -30,6 +30,31 @@ cd "$ROOT"
 SARIF_DIR="${SARIF_DIR:-}"
 [[ -n "$SARIF_DIR" ]] && mkdir -p "$SARIF_DIR"
 
+# sarif_clean makes each report match what its gate enforces before it is
+# published to code scanning: GitHub ignores SARIF `suppressions`, so results
+# already reviewed in source (`nosemgrep: <rule> -- why`) would show as open
+# alerts, and KICS's informational results sit below the Low gate. Runs on exit
+# so a failing gate still uploads; bash keeps the gate's exit status.
+sarif_clean() {
+	[[ -n "$SARIF_DIR" ]] || return 0
+	command -v jq >/dev/null 2>&1 || { echo "warning: jq not found; SARIF left unfiltered" >&2; return 0; }
+	local f info
+	for f in "$SARIF_DIR"/*.sarif; do
+		[[ -f "$f" ]] || continue
+		info=false
+		[[ "$(basename "$f")" == kics.sarif ]] && info=true
+		jq --argjson dropinfo "$info" '
+			.runs |= map(
+				(reduce (.tool.driver.rules // [])[] as $r ({}; .[$r.id] = ($r.defaultConfiguration.level // "warning"))) as $lvl
+				| .results |= map(select(
+					((.suppressions // []) | length) == 0
+					and (($dropinfo | not) or ((.level // $lvl[.ruleId] // "warning") != "none"))
+				))
+			)' "$f" >"$f.tmp" && mv "$f.tmp" "$f"
+	done
+}
+trap sarif_clean EXIT
+
 engine() {
 	if command -v docker >/dev/null 2>&1; then echo docker
 	elif command -v podman >/dev/null 2>&1; then echo podman
