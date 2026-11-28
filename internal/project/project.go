@@ -50,6 +50,11 @@ type Project struct {
 	// AITriageOptOut keeps the project's findings away from the AI triage
 	// model (AI_TRIAGE_ENABLED): nothing of it is ever sent.
 	AITriageOptOut bool `json:"ai_triage_opt_out"`
+	// AssessmentApproval overrides the instance-wide ASSESSMENT_REQUIRES_APPROVAL
+	// default for this project's manual assessments (inherit/required/off;
+	// M13 13.9). Its designated approvers are managed separately
+	// (GET/PUT /projects/{id}/assessment-approvers, internal/finding).
+	AssessmentApproval domain.ApprovalSetting `json:"assessment_approval"`
 	// Custom holds the project's custom-field values (internal/customfield).
 	Custom    map[string]any `json:"custom"`
 	CreatedAt time.Time      `json:"created_at"`
@@ -70,12 +75,12 @@ func NewRepository(db *pgxpool.Pool) *Repository {
 }
 
 const projectColumns = `id, team_id, parent_id, is_collection, slug, name, description, repo_url,
-	business_criticality, tags, ai_triage_opt_out, custom, created_at, updated_at, archived_at, archived_by`
+	business_criticality, tags, ai_triage_opt_out, assessment_approval, custom, created_at, updated_at, archived_at, archived_by`
 
 func scanProject(row pgx.Row) (Project, error) {
 	var p Project
 	err := row.Scan(&p.ID, &p.TeamID, &p.ParentID, &p.IsCollection, &p.Slug, &p.Name, &p.Description, &p.RepoURL,
-		&p.BusinessCriticality, &p.Tags, &p.AITriageOptOut, &p.Custom, &p.CreatedAt, &p.UpdatedAt, &p.ArchivedAt, &p.ArchivedBy)
+		&p.BusinessCriticality, &p.Tags, &p.AITriageOptOut, &p.AssessmentApproval, &p.Custom, &p.CreatedAt, &p.UpdatedAt, &p.ArchivedAt, &p.ArchivedBy)
 	return p, err
 }
 
@@ -213,11 +218,12 @@ func (r *Repository) Update(ctx context.Context, id string, p UpdateFields) (Pro
 		    parent_id            = CASE WHEN $7 THEN $8::uuid ELSE parent_id END,
 		    is_collection        = COALESCE($9, is_collection),
 		    ai_triage_opt_out    = COALESCE($10, ai_triage_opt_out),
+		    assessment_approval  = COALESCE($11, assessment_approval),
 		    updated_at           = now()
 		WHERE id = $1
 		RETURNING ` + projectColumns
 	out, err := scanProject(r.db.QueryRow(ctx, q,
-		id, p.Name, p.Description, p.RepoURL, p.BusinessCriticality, p.Tags, p.SetParent, p.ParentID, p.IsCollection, p.AITriageOptOut))
+		id, p.Name, p.Description, p.RepoURL, p.BusinessCriticality, p.Tags, p.SetParent, p.ParentID, p.IsCollection, p.AITriageOptOut, p.AssessmentApproval))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Project{}, ErrNotFound
 	}
@@ -238,6 +244,9 @@ type UpdateFields struct {
 	BusinessCriticality *domain.Criticality
 	Tags                []string
 	AITriageOptOut      *bool
+	// AssessmentApproval overrides ASSESSMENT_REQUIRES_APPROVAL for this
+	// project (inherit/required/off; M13 13.9).
+	AssessmentApproval *domain.ApprovalSetting
 	// SetParent moves the project under ParentID; a nil ParentID makes it a root.
 	SetParent    bool
 	ParentID     *string

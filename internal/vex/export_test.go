@@ -28,8 +28,9 @@ func TestVerdictNeverInventsAJustification(t *testing.T) {
 	if v := VerdictFor(Triaged{Status: domain.FindingFalsePositive, Reason: "mine", By: "bob"}, stmt); v.Justification != "" {
 		t.Errorf("human triage borrowed the statement's justification: %+v", v)
 	}
-	// Triaged by VEX: the statement's CycloneDX code is carried over, translated.
-	if v := VerdictFor(Triaged{Status: domain.FindingFalsePositive, By: vexActor}, stmt); v.Justification != "vulnerable_code_not_in_execute_path" || v.Impact != "d" {
+	// Triaged by VEX: the statement's code is carried over as recorded (each
+	// format translates it; see TestExportRestatesTheRecordedJustification).
+	if v := VerdictFor(Triaged{Status: domain.FindingFalsePositive, By: vexActor}, stmt); v.Justification != "code_not_reachable" || v.Impact != "d" {
 		t.Errorf("VEX triage = %+v", v)
 	}
 	// A free-text justification stays prose.
@@ -208,5 +209,82 @@ func TestCSAFSatisfiesVEXProfile(t *testing.T) {
 	if cve1 := doc.Vulnerabilities[0]; cve1.CVE != "CVE-1" || len(cve1.ProductStatus["known_not_affected"]) != 2 ||
 		len(cve1.ProductStatus["known_affected"]) != 1 {
 		t.Errorf("CVE-1 product status = %v, want 2 not affected (finding + stored) and 1 affected", cve1.ProductStatus)
+	}
+}
+
+// A stored analysis (M13 13.2) comes out of each format in that format's own
+// vocabulary: CycloneDX restates its nine codes exactly (not folded through
+// OpenVEX's five), OpenVEX and CSAF translate. A justification explains
+// not_affected only, so a wont_fix one appears in no document.
+func TestExportRestatesTheRecordedJustification(t *testing.T) {
+	fp := exportFinding("CVE-1", "pkg:npm/a@1", domain.FindingFalsePositive, "bob")
+	fp.VexJustification = domain.VexJustificationProtectedAtRuntime
+	fp.VexResponse = []domain.VexResponse{domain.VexResponseWorkaroundAvailable}
+	wf := exportFinding("CVE-2", "pkg:npm/a@1", domain.FindingWontFix, "bob")
+	wf.VexJustification = domain.VexJustificationCodeNotPresent
+	stmts := BuildStatements(exportScope, []ExportFinding{fp, wf}, nil)
+	now := time.Now()
+
+	var cdx struct {
+		Vulnerabilities []struct {
+			ID       string
+			Analysis struct {
+				State, Justification string
+				Response             []string
+			}
+		}
+	}
+	raw, _ := json.Marshal(CycloneDXVEX(exportScope, stmts, "urn:uuid:1", "1.6", now))
+	if err := json.Unmarshal(raw, &cdx); err != nil {
+		t.Fatal(err)
+	}
+	cdxJust := map[string]string{}
+	for _, v := range cdx.Vulnerabilities {
+		cdxJust[v.ID] = v.Analysis.Justification
+		if v.ID == "CVE-1" && !slices.Equal(v.Analysis.Response, []string{"workaround_available"}) {
+			t.Errorf("CycloneDX CVE-1 response = %v", v.Analysis.Response)
+		}
+	}
+	if cdxJust["CVE-1"] != "protected_at_runtime" || cdxJust["CVE-2"] != "" {
+		t.Errorf("CycloneDX justifications = %v, want CVE-1 protected_at_runtime and none for the wont_fix", cdxJust)
+	}
+
+	var ov struct {
+		Statements []struct {
+			Vulnerability struct{ Name string }
+			Justification string
+		}
+	}
+	raw, _ = json.Marshal(OpenVEX(exportScope, stmts, now))
+	if err := json.Unmarshal(raw, &ov); err != nil {
+		t.Fatal(err)
+	}
+	ovJust := map[string]string{}
+	for _, s := range ov.Statements {
+		ovJust[s.Vulnerability.Name] = s.Justification
+	}
+	if ovJust["CVE-1"] != "inline_mitigations_already_exist" || ovJust["CVE-2"] != "" {
+		t.Errorf("OpenVEX justifications = %v", ovJust)
+	}
+
+	var csaf struct {
+		Vulnerabilities []struct {
+			CVE   string
+			Flags []struct{ Label string }
+		}
+	}
+	raw, _ = json.Marshal(CSAFVEX(exportScope, stmts, now))
+	if err := json.Unmarshal(raw, &csaf); err != nil {
+		t.Fatal(err)
+	}
+	for _, v := range csaf.Vulnerabilities {
+		var labels []string
+		for _, f := range v.Flags {
+			labels = append(labels, f.Label)
+		}
+		want := map[string][]string{"CVE-1": {"inline_mitigations_already_exist"}}[v.CVE]
+		if !slices.Equal(labels, want) {
+			t.Errorf("CSAF %s flags = %v, want %v", v.CVE, labels, want)
+		}
 	}
 }

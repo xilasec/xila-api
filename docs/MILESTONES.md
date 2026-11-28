@@ -921,8 +921,12 @@ Tier 1:
   fingerprint a later scan creates (an ingest applier, after VEX and
   vulnerability policies, before the triage rules). The newest decision per
   fingerprint always wins; risk acceptances never carry. Migration 000110.
-- ⬜ 13.2 Structured analysis on manual triage and rules: a VEX justification
-  and vendor response, kept in history and exported (SecObserve, DT).
+- ✅ 13.2 Structured analysis on manual triage and rules (SecObserve, DT): a
+  CycloneDX `vex_justification` and `vex_response` on findings, pending
+  assessments, triage rules and carried decisions, set by hand, in bulk, by
+  rules, vulnerability policies and imported VEX; `vex` history events; each
+  export format restates the recorded code in its own vocabulary (CycloneDX
+  exactly, not folded through OpenVEX's five). Migration 000124.
 - ⬜ 13.3 SBOMs from CI: `xila upload --sbom`, a processing status CI can
   wait on before the gate, and creating a project by name on upload (DT).
 - ✅ 13.4 Exploit-aware SLA (DefectDojo Pro): a per-scope SLA policy adds
@@ -946,8 +950,13 @@ Tier 2:
   in (user_notification_prefs.muted_events) and re-checked for visibility on
   every read. GET/POST /me/inbox(/count,/read); a header bell component and
   an /inbox page (nav entry); retention via INBOX_RETENTION.
-- ⬜ 13.9 Assessment approval per project with designated approvers, and bulk
-  approval (SecObserve).
+- ✅ 13.9 Assessment approval per project with designated approvers, and bulk
+  approval (SecObserve): `projects.assessment_approval` (inherit/required/off)
+  and `/projects/{id}/assessment-approvers` (users, groups; validated against
+  project access and the org). One rule, `mayDecide`, decides both the
+  queue and every decision: designated approvers who can still see the
+  project, else owners; custom-role `triage`; token confinement.
+  `POST /assessments/approve|reject` for bulk decisions.
 - ⬜ 13.10 Project owners manage their own triage rules and vulnerability
   policies and may opt out of global ones (SecObserve).
 - ⬜ 13.11 Internal components and authenticated private registries (DT).

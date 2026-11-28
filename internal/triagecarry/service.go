@@ -120,6 +120,7 @@ func (s *Service) Carry(ctx context.Context, f finding.Finding, actor string) er
 	d := Decision{
 		ProjectID: f.ProjectID, Fingerprint: f.Fingerprint, Status: f.Status,
 		Reason: f.ExceptionReason, ExpiresAt: f.ExceptionExpiresAt, Actor: actor,
+		VexJustification: f.VexJustification, VexResponse: f.VexResponse,
 		SourceFindingID: f.ID, SourceVersionID: f.VersionID,
 		SourceBranch: sc.versions[f.VersionID], DecidedAt: decidedAt,
 	}
@@ -159,6 +160,7 @@ func (s *Service) applyDecision(ctx context.Context, target finding.Finding, d D
 	note := "carried from " + d.SourceBranch
 	if _, err := s.findings.SetStatusCarried(ctx, target.ID, finding.Triage{
 		Status: d.Status, Reason: d.Reason, ExpiresAt: d.ExpiresAt, Actor: d.Actor,
+		VexJustification: d.VexJustification, VexResponse: d.VexResponse,
 	}, d.DecidedAt, note); err != nil {
 		return false, err
 	}

@@ -4,8 +4,9 @@
 	// the user cancels — callers never apply an exception without one.
 	import { t, labelOf } from '#lib/i18n.js';
 	import { releaseFocus } from '#lib/keyboard.js';
+	import VexAnalysisFields from '#lib/components/VexAnalysisFields.svelte';
 
-	/** @typedef {{ reason: string, expires_at?: string }} TriageOptions */
+	/** @typedef {{ reason: string, expires_at?: string, vex_justification?: string, vex_response?: string[] }} TriageOptions */
 
 	/** @type {HTMLDialogElement} */
 	let dialog;
@@ -13,6 +14,10 @@
 	let count = $state(1);
 	let reason = $state('');
 	let expires = $state('');
+	let justification = $state('');
+	let response = $state(/** @type {string[]} */ ([]));
+	// The statuses a structured analysis describes (false positive, won't fix).
+	const analysed = $derived(status === 'false_positive' || status === 'wont_fix');
 	/** @type {((v: TriageOptions | null) => void) | null} */
 	let resolve = null;
 
@@ -27,6 +32,8 @@
 		count = n;
 		reason = '';
 		expires = '';
+		justification = '';
+		response = [];
 		dialog.showModal();
 		return new Promise((r) => (resolve = r));
 	}
@@ -48,6 +55,8 @@
 		/** @type {TriageOptions} */
 		const opts = { reason: text };
 		if (expires) opts.expires_at = new Date(expires).toISOString();
+		if (analysed && justification) opts.vex_justification = justification;
+		if (analysed && response.length) opts.vex_response = response;
 		finish(opts);
 	}
 </script>
@@ -77,6 +86,9 @@
 				<span class="label-text mb-1">{$t('triage.expires')} <span class="text-base-content/40">{$t('triage.expiresHint')}</span></span>
 				<input type="date" bind:value={expires} name="expires" class="input input-bordered w-full" />
 			</label>
+			{#if analysed}
+				<VexAnalysisFields bind:justification bind:response />
+			{/if}
 			<div class="modal-action">
 				<button type="button" class="btn btn-ghost" onclick={() => finish(null)}>{$t('common.cancel')}</button>
 				<button class="btn btn-primary" disabled={!reason.trim()}>{$t('common.confirm')}</button>

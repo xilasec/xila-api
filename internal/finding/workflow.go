@@ -269,12 +269,16 @@ func (r *Repository) DeleteAttachment(ctx context.Context, findingID, attachment
 }
 
 // Change is a bulk edit: any of status (with exception reason / expiry),
-// severity and assignee, applied to many findings at once.
+// severity and assignee, applied to many findings at once. VexJustification /
+// VexResponse accompany a status moved to false_positive or wont_fix; any
+// other status clears them regardless of what is given.
 type Change struct {
-	Status    *domain.FindingStatus
-	Reason    string
-	ExpiresAt *time.Time
-	Severity  *domain.Severity
+	Status           *domain.FindingStatus
+	Reason           string
+	ExpiresAt        *time.Time
+	VexJustification domain.VexJustification
+	VexResponse      []domain.VexResponse
+	Severity         *domain.Severity
 	// SetAssignee applies AssigneeID (nil = unassign); false leaves it alone.
 	SetAssignee bool
 	AssigneeID  *string
@@ -327,8 +331,13 @@ func NormalizeTags(in []string) ([]string, error) {
 // attributed to actor in each finding's history. It mirrors SetStatus /
 // SetSeverity exactly (resolved_at, exception fields + audit row, base
 // priority) and returns the updated findings. The caller regroups duplicates
-// afterwards when severity changed — severity elects a group's primary.
+// afterwards when severity changed — severity elects a group's primary. No
+// ids (a bulk edit whose every finding became a pending assessment) changes
+// nothing.
 func (r *Repository) Apply(ctx context.Context, ids []string, c Change, actor string) ([]Finding, error) {
+	if len(ids) == 0 {
+		return []Finding{}, nil
+	}
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("begin: %w", err)
@@ -375,8 +384,11 @@ func applyChange(ctx context.Context, tx pgx.Tx, ids []string, c Change, actor s
 		}
 		reason, by := "", ""
 		var expires *time.Time
+		justification := domain.VexJustification("")
+		var response []domain.VexResponse
 		if isExceptionStatus(*c.Status) {
 			reason, by, expires = c.Reason, actor, c.ExpiresAt
+			justification, response = c.VexJustification, c.VexResponse
 		}
 		// status_decided_at is stamped here because this branch is reached only
 		// from Apply (a person's bulk edit); a triage-carry propagation later
@@ -388,9 +400,9 @@ func applyChange(ctx context.Context, tx pgx.Tx, ids []string, c Change, actor s
 			    resolved_at = CASE WHEN $2 IN ('false_positive', 'remediated', 'wont_fix')
 			                       THEN now() ELSE NULL END,
 			    exception_reason = $3, exception_by = $4, exception_expires_at = $5,
-			    status_decided_at = now(), updated_at = now()
+			    status_decided_at = now(), vex_justification = $6, vex_response = $7, updated_at = now()
 			WHERE id = ANY($1) AND status IS DISTINCT FROM $2`,
-			ids, *c.Status, reason, by, expires); err != nil {
+			ids, *c.Status, reason, by, expires, justification, vexResponseStrings(response)); err != nil {
 			return fmt.Errorf("bulk status: %w", err)
 		}
 		if isExceptionStatus(*c.Status) {

@@ -1,10 +1,11 @@
 <script>
-	// The manual-assessment review queue (ASSESSMENT_REQUIRES_APPROVAL): status /
-	// severity changes analysts asked for, waiting for a second person.
+	// The manual-assessment review queue (a project's assessment_approval, or
+	// ASSESSMENT_REQUIRES_APPROVAL): status / severity changes analysts asked
+	// for, waiting for a second person.
 	import { onMount } from 'svelte';
 	import { api, ApiError, errorMessage } from '#lib/api.js';
 	import { notify } from '#lib/stores.js';
-	import { t } from '#lib/i18n.js';
+	import { t, labelOf } from '#lib/i18n.js';
 	import { fmtDate, prettyStatus } from '#lib/format.js';
 	import Badge from '#lib/components/Badge.svelte';
 	import State from '#lib/components/State.svelte';
@@ -103,6 +104,8 @@
 							{#if a.status}<div>{$t('finding.reqStatus', { status: prettyStatus(a.status) })}</div>{/if}
 							{#if a.severity}<div>{$t('finding.reqSeverity', { severity: a.severity })}</div>{/if}
 							{#if a.expires_at}<div class="text-xs text-base-content/50">{$t('finding.expires', { date: fmtDate(a.expires_at) })}</div>{/if}
+							{#if a.vex_justification}<div class="text-xs text-base-content/50">{$labelOf('vexJustification', a.vex_justification)}</div>{/if}
+							{#if a.vex_response?.length}<div class="text-xs text-base-content/50">{a.vex_response.map((/** @type {string} */ r) => $labelOf('vexResponse', r)).join(', ')}</div>{/if}
 						</td>
 						<td class="text-sm max-w-xs truncate" title={a.reason}>{a.reason || '—'}</td>
 						<td class="text-xs whitespace-nowrap">{a.requester || '—'}<div class="text-base-content/50">{fmtDate(a.created_at)}</div></td>

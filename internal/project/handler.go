@@ -229,6 +229,9 @@ type updateRequest struct {
 	BusinessCriticality *domain.Criticality `json:"business_criticality"`
 	Tags                []string            `json:"tags"`
 	AITriageOptOut      *bool               `json:"ai_triage_opt_out"`
+	// AssessmentApproval overrides ASSESSMENT_REQUIRES_APPROVAL for this
+	// project (inherit/required/off; M13 13.9).
+	AssessmentApproval *domain.ApprovalSetting `json:"assessment_approval"`
 	// ParentID distinguishes absent (leave alone) from null (make it a root).
 	ParentID     json.RawMessage `json:"parent_id"`
 	IsCollection *bool           `json:"is_collection"`
@@ -246,6 +249,9 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 	if body.BusinessCriticality != nil && !body.BusinessCriticality.Valid() {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid business_criticality")
 	}
+	if body.AssessmentApproval != nil && !body.AssessmentApproval.Valid() {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid assessment_approval")
+	}
 	fields := UpdateFields{
 		Name:                body.Name,
 		Description:         body.Description,
@@ -253,6 +259,7 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 		BusinessCriticality: body.BusinessCriticality,
 		Tags:                body.Tags,
 		AITriageOptOut:      body.AITriageOptOut,
+		AssessmentApproval:  body.AssessmentApproval,
 		IsCollection:        body.IsCollection,
 	}
 	if len(body.ParentID) > 0 {

@@ -2,7 +2,9 @@ package finding
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
+	"slices"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -13,24 +15,32 @@ import (
 	"github.com/xilasec/xila-api/internal/httpx"
 )
 
+// uniqueNonEmpty sorts, deduplicates and drops "" from ids.
+func uniqueNonEmpty(ids []string) []string {
+	out := slices.DeleteFunc(slices.Clone(ids), func(s string) bool { return s == "" })
+	slices.Sort(out)
+	return slices.Compact(out)
+}
+
 // markDecidable sets CanDecide on each pending assessment the caller may
-// approve or reject: an owner of its project (or instance admin) who isn't
-// the requester.
+// approve or reject (mayDecide: an owner of its project, or one of its
+// designated approvers when it has any, or instance admin) who isn't the
+// requester.
 func (h *Handler) markDecidable(c *fiber.Ctx, as []Assessment) error {
 	uid := auth.UserID(c)
-	owner := map[string]bool{}
+	decidable := map[string]bool{}
 	for i := range as {
 		a := &as[i]
 		if a.State != AssessmentPending || (a.RequestedBy != nil && *a.RequestedBy == uid) {
 			continue
 		}
-		ok, seen := owner[a.ProjectID]
+		ok, seen := decidable[a.ProjectID]
 		if !seen {
 			var err error
-			if ok, err = h.can(c, uid, a.ProjectID, domain.TeamOwner); err != nil {
+			if ok, err = h.mayDecide(c, uid, a.ProjectID); err != nil {
 				return err
 			}
-			owner[a.ProjectID] = ok
+			decidable[a.ProjectID] = ok
 		}
 		a.CanDecide = ok
 	}
@@ -39,8 +49,8 @@ func (h *Handler) markDecidable(c *fiber.Ctx, as []Assessment) error {
 
 // ListAssessments handles GET /assessments?state=pending — the review queue
 // across every project the caller can see (?project_id= narrows it).
-// ?actionable=true keeps only what the caller may decide: pending
-// assessments of projects they own that someone else requested.
+// ?actionable=true keeps only what the caller may decide (mayDecide):
+// pending assessments someone else requested.
 func (h *Handler) ListAssessments(c *fiber.Ctx) error {
 	filter := AssessmentFilter{State: AssessmentState(c.Query("state")), ProjectID: c.Query("project_id")}
 	if filter.State != "" && !filter.State.Valid() {
@@ -57,7 +67,7 @@ func (h *Handler) ListAssessments(c *fiber.Ctx) error {
 	}
 	if c.QueryBool("actionable") {
 		uid := auth.UserID(c)
-		ids, err := h.decidableProjects(c, uid, filter.ProjectIDs, domain.CapTriage)
+		ids, err := h.decidableAssessmentProjects(c, uid, filter.ProjectIDs)
 		if err != nil {
 			return err
 		}
@@ -101,9 +111,8 @@ type decisionRequest struct {
 }
 
 // decision loads the assessment a decision targets and checks the caller may
-// make it. authz already required project owner (or instance admin); this
-// re-checks that and the four-eyes rule, so the answer doesn't hinge on
-// route-level wiring.
+// make it (mayDecide); authz already allows down to viewer here, so this is
+// the real check, not just a re-check. Also refuses the requester (four-eyes).
 func (h *Handler) decision(c *fiber.Ctx) (string, decisionRequest, error) {
 	var body decisionRequest
 	id, err := httpx.ID(c, "assessmentID")
@@ -126,12 +135,12 @@ func (h *Handler) decision(c *fiber.Ctx) (string, decisionRequest, error) {
 	if a.RequestedBy != nil && *a.RequestedBy == uid {
 		return "", body, fiber.NewError(fiber.StatusForbidden, ErrSelfApproval.Error())
 	}
-	ok, err := h.can(c, uid, a.ProjectID, domain.TeamOwner)
+	ok, err := h.mayDecide(c, uid, a.ProjectID)
 	if err != nil {
 		return "", body, err
 	}
 	if !ok {
-		return "", body, fiber.NewError(fiber.StatusForbidden, "requires an owner of the finding's project")
+		return "", body, fiber.NewError(fiber.StatusForbidden, "requires an owner or a designated approver of the finding's project")
 	}
 	return id, body, nil
 }
@@ -183,4 +192,128 @@ func (h *Handler) RejectAssessment(c *fiber.Ctx) error {
 		return decisionError(err)
 	}
 	return c.JSON(a)
+}
+
+// bulkAssessmentRequest is the body of POST /assessments/approve|reject.
+type bulkAssessmentRequest struct {
+	IDs  []string `json:"ids"`
+	Note string   `json:"note"`
+	// VexJustification / VexResponse: "approve with edits" — overrides every
+	// approved assessment's own stored analysis with this one. Omit to apply
+	// each exactly as requested. Meaningless for reject.
+	VexJustification *domain.VexJustification `json:"vex_justification"`
+	VexResponse      []domain.VexResponse     `json:"vex_response"`
+}
+
+// authorizeAssessments splits ids into those uid may decide (mayDecide, and
+// isn't the requester of), and the rest, recorded in failed with why. One in
+// a project the caller can't see is "not found", like a missing id, so the
+// answer never confirms it exists.
+func (h *Handler) authorizeAssessments(c *fiber.Ctx, uid string, ids []string) (allowed []string, failed []BulkFailure, err error) {
+	for _, id := range ids {
+		a, aerr := h.repo.Assessment(c.UserContext(), id)
+		if errors.Is(aerr, ErrAssessmentNotFound) {
+			failed = append(failed, BulkFailure{ID: id, Error: "assessment not found"})
+			continue
+		}
+		if aerr != nil {
+			return nil, nil, aerr
+		}
+		if a.RequestedBy != nil && *a.RequestedBy == uid {
+			failed = append(failed, BulkFailure{ID: id, Error: ErrSelfApproval.Error()})
+			continue
+		}
+		ok, aerr := h.mayDecide(c, uid, a.ProjectID)
+		if aerr != nil {
+			return nil, nil, aerr
+		}
+		if !ok {
+			visible, verr := h.can(c, uid, a.ProjectID, domain.TeamViewer)
+			if verr != nil {
+				return nil, nil, verr
+			}
+			msg := "requires an owner or a designated approver of the finding's project"
+			if !visible {
+				msg = "assessment not found"
+			}
+			failed = append(failed, BulkFailure{ID: id, Error: msg})
+			continue
+		}
+		allowed = append(allowed, id)
+	}
+	return allowed, failed, nil
+}
+
+// BulkApproveAssessments handles POST /assessments/approve: approves many
+// pending assessments at once (ids, up to MaxBulk), each authorized on its
+// own finding's project like POST /findings/bulk — one the caller may not
+// decide, or that doesn't exist, is reported in `failed` and left untouched.
+// "approve with edits" (vex_justification / vex_response) overrides every
+// approved assessment's own stored analysis with the one given.
+func (h *Handler) BulkApproveAssessments(c *fiber.Ctx) error {
+	var body bulkAssessmentRequest
+	if err := httpx.Parse(c, &body); err != nil {
+		return err
+	}
+	ids := uniqueNonEmpty(body.IDs)
+	if len(ids) == 0 || len(ids) > MaxBulk {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Sprintf("ids must list 1–%d assessments", MaxBulk))
+	}
+	if body.VexJustification != nil && !body.VexJustification.Valid() {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid vex_justification")
+	}
+	if !domain.ValidVexResponses(body.VexResponse) {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid vex_response")
+	}
+	uid := auth.UserID(c)
+	allowed, failed, err := h.authorizeAssessments(c, uid, ids)
+	if err != nil {
+		return err
+	}
+	approved, findings, more, err := h.repo.ApproveAssessments(c.UserContext(), allowed, uid, body.Note, body.VexJustification, body.VexResponse)
+	if err != nil {
+		return err
+	}
+	failed = append(failed, more...)
+	touched := map[string]bool{}
+	for _, f := range findings {
+		if touched[f.ProjectID] {
+			continue
+		}
+		touched[f.ProjectID] = true
+		if _, err := h.repo.Deduplicate(c.UserContext(), f.ProjectID); err != nil {
+			slog.WarnContext(c.UserContext(), "dedup after bulk assessment approval failed", "project_id", f.ProjectID, "error", err)
+		}
+	}
+	return c.JSON(fiber.Map{"approved": orEmpty(approved), "failed": orEmpty(failed)})
+}
+
+// BulkRejectAssessments handles POST /assessments/reject: same shape as
+// BulkApproveAssessments, leaving every finding as it is.
+func (h *Handler) BulkRejectAssessments(c *fiber.Ctx) error {
+	var body bulkAssessmentRequest
+	if err := httpx.Parse(c, &body); err != nil {
+		return err
+	}
+	ids := uniqueNonEmpty(body.IDs)
+	if len(ids) == 0 || len(ids) > MaxBulk {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Sprintf("ids must list 1–%d assessments", MaxBulk))
+	}
+	uid := auth.UserID(c)
+	allowed, failed, err := h.authorizeAssessments(c, uid, ids)
+	if err != nil {
+		return err
+	}
+	rejected, more := h.repo.RejectAssessments(c.UserContext(), allowed, uid, body.Note)
+	failed = append(failed, more...)
+	return c.JSON(fiber.Map{"rejected": orEmpty(rejected), "failed": orEmpty(failed)})
+}
+
+// orEmpty is s, or an empty slice when s is nil: an API list serializes as
+// [], never null.
+func orEmpty[T any](s []T) []T {
+	if s == nil {
+		return []T{}
+	}
+	return s
 }

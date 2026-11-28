@@ -1,4 +1,5 @@
 <script>
+	import VexAnalysisFields from '#lib/components/VexAnalysisFields.svelte';
 	import { page } from '$app/state';
 	import { api, ApiError, errorMessage } from '#lib/api.js';
 	import { notify, features, isOn } from '#lib/stores.js';
@@ -85,10 +86,12 @@
 	// Statuses that are "exceptions" — accepting them prompts for a justification
 	// and optional expiry (after which the sweep reopens the finding).
 	const EXCEPTION_STATES = ['risk_accepted', 'false_positive', 'wont_fix'];
+	// The statuses a structured VEX analysis describes.
+	const analysed = (/** @type {string} */ s) => s === 'false_positive' || s === 'wont_fix';
 
 	let statusSelect = $state('');
 	let pendingStatus = $state('');
-	let exForm = $state({ reason: '', expires: '' });
+	let exForm = $state({ reason: '', expires: '', justification: '', response: /** @type {string[]} */ ([]) });
 	/** @type {HTMLDialogElement} */
 	let exDialog;
 
@@ -152,14 +155,14 @@
 		const s = statusSelect;
 		if (EXCEPTION_STATES.includes(s)) {
 			pendingStatus = s;
-			exForm = { reason: '', expires: '' };
+			exForm = { reason: '', expires: '', justification: '', response: [] };
 			exDialog.showModal();
 		} else {
 			applyStatus(s, {});
 		}
 	}
 
-	/** @param {string} status @param {{ reason?: string, expires_at?: string }} opts */
+	/** @param {string} status @param {{ reason?: string, expires_at?: string, vex_justification?: string, vex_response?: string[] }} opts */
 	async function applyStatus(status, opts) {
 		saving = true;
 		try {
@@ -225,9 +228,11 @@
 	/** @param {SubmitEvent} e */
 	async function submitException(e) {
 		e.preventDefault();
-		/** @type {{ reason: string, expires_at?: string }} */
+		/** @type {{ reason: string, expires_at?: string, vex_justification?: string, vex_response?: string[] }} */
 		const opts = { reason: exForm.reason };
 		if (exForm.expires) opts.expires_at = new Date(exForm.expires).toISOString();
+		if (analysed(pendingStatus) && exForm.justification) opts.vex_justification = exForm.justification;
+		if (analysed(pendingStatus) && exForm.response.length) opts.vex_response = exForm.response;
 		exDialog.close();
 		await applyStatus(pendingStatus, opts);
 	}
@@ -323,6 +328,8 @@
 					{#if pendingAssessment.expires_at}· {$t('finding.acceptanceExpires', { date: fmtDate(pendingAssessment.expires_at) })}{/if}
 				</div>
 				{#if pendingAssessment.reason}<div class="mt-1">“{pendingAssessment.reason}”</div>{/if}
+				{#if pendingAssessment.vex_justification}<div class="mt-1 text-xs">{$t('vex.justification')}: {$labelOf('vexJustification', pendingAssessment.vex_justification)}</div>{/if}
+				{#if pendingAssessment.vex_response?.length}<div class="text-xs">{$t('vex.response')}: {pendingAssessment.vex_response.map((/** @type {string} */ r) => $labelOf('vexResponse', r)).join(', ')}</div>{/if}
 			</div>
 			{#if pendingAssessment.can_decide}
 				<div class="flex gap-2">
@@ -364,6 +371,12 @@
 					{#if finding.exception_by}{$t('finding.acceptedBy', { who: finding.exception_by })}{/if}
 					{#if finding.exception_expires_at}· {$t('finding.expires', { date: fmtDate(finding.exception_expires_at) })}{:else}· {$t('finding.noExpiry')}{/if}
 				</div>
+				{#if finding.vex_justification || finding.vex_response?.length}
+					<div class="text-xs mt-0.5">
+						{#if finding.vex_justification}{$t('vex.justification')}: {$labelOf('vexJustification', finding.vex_justification)}{/if}
+						{#if finding.vex_response?.length}· {$t('vex.response')}: {finding.vex_response.map((/** @type {string} */ r) => $labelOf('vexResponse', r)).join(', ')}{/if}
+					</div>
+				{/if}
 			</div>
 		</div>
 	{/if}
@@ -584,6 +597,9 @@
 				<span class="label-text mb-1">{$t('triage.expires')} <span class="text-base-content/40">{$t('triage.expiresHint')}</span></span>
 				<input type="date" bind:value={exForm.expires} class="input input-bordered" />
 			</label>
+			{#if analysed(pendingStatus)}
+				<VexAnalysisFields bind:justification={exForm.justification} bind:response={exForm.response} />
+			{/if}
 			<div class="modal-action">
 				<button type="button" class="btn btn-ghost" onclick={cancelException}>{$t('common.cancel')}</button>
 				<button class="btn btn-primary" disabled={saving}>

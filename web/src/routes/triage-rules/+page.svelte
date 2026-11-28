@@ -1,4 +1,5 @@
 <script>
+	import VexAnalysisFields from '#lib/components/VexAnalysisFields.svelte';
 	import { onMount } from 'svelte';
 	import { api, errorMessage } from '#lib/api.js';
 	import { notify } from '#lib/stores.js';
@@ -54,6 +55,8 @@
 		project_criticality: /** @type {string[]} */ ([]),
 		expression: '',
 		reason: '',
+		vex_justification: '',
+		vex_response: /** @type {string[]} */ ([]),
 		sort_order: 0,
 		continue: false
 	});
@@ -98,6 +101,10 @@
 			sort_order: Number(form.sort_order) || 0
 		};
 		if (body.action !== 'set_severity') delete body.new_severity;
+		if (body.action !== 'false_positive' && body.action !== 'wont_fix') {
+			delete body.vex_justification;
+			delete body.vex_response;
+		}
 		if (body.action !== 'set_custom_field') {
 			delete body.custom_field;
 			delete body.custom_value;
@@ -293,6 +300,11 @@
 	<Field label={$t('triagerules.reasonLabel')}>
 		<input bind:value={form.reason} placeholder={$t('triagerules.reasonPlaceholder')} class="input input-bordered input-sm w-full" />
 	</Field>
+	{#if form.action === 'false_positive' || form.action === 'wont_fix'}
+		<div class="flex flex-col gap-2">
+			<VexAnalysisFields bind:justification={form.vex_justification} bind:response={form.vex_response} />
+		</div>
+	{/if}
 
 	<Field label={$t('triagerules.pathRegexLabel')}>
 		<input bind:value={form.path_regex} placeholder="^test/|_test\.go$" class="input input-bordered input-sm w-full font-mono" />

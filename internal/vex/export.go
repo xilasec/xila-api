@@ -105,15 +105,18 @@ type ExportFinding struct {
 // Verdict is the VEX reading of a triage decision.
 type Verdict struct {
 	Status Status
-	// Justification is an OpenVEX / CSAF justification code, or "" when none is
-	// known. Never invented: it only comes from a VEX statement.
+	// Justification is the not_affected justification code as recorded
+	// (CycloneDX or OpenVEX/CSAF vocabulary; knownJustification), or "" when
+	// none is known. Never invented: it only comes from a VEX statement or a
+	// stored vex_justification (M13 13.2). Each format translates it on
+	// output, so a CycloneDX export restates a CycloneDX code exactly.
 	Justification string
 	// Impact explains a not_affected verdict (OpenVEX impact_statement).
 	Impact string
 	// Action says what is being done about an affected verdict.
 	Action string
-	// Response is the CycloneDX analysis response ("" = none).
-	Response string
+	// Response is the CycloneDX analysis response codes (nil = none).
+	Response []string
 	// Remediation is the CSAF remediation category for affected verdicts.
 	Remediation string
 	Timestamp   time.Time
@@ -126,12 +129,33 @@ type Triaged struct {
 	By           string
 	ExpiresAt    *time.Time
 	FixedVersion string
-	At           time.Time
+	// VexJustification / VexResponse: the finding's own stored structured
+	// analysis (M13 13.2), set directly by an analyst, a triage rule or a
+	// vulnerability policy — not only through a VEX statement. "" / nil means
+	// none was recorded.
+	VexJustification domain.VexJustification
+	VexResponse      []domain.VexResponse
+	At               time.Time
+}
+
+// vexResponseStrings converts to the plain []string CycloneAnalysis emits.
+func vexResponseStrings(rs []domain.VexResponse) []string {
+	if len(rs) == 0 {
+		return nil
+	}
+	out := make([]string, len(rs))
+	for i, r := range rs {
+		out[i] = string(r)
+	}
+	return out
 }
 
 // VerdictFor maps a finding's triage onto a VEX verdict. stmt is the stored
 // statement that matches the finding (nil = none); it is only trusted as the
-// source of the verdict when the finding was triaged by the VEX engine.
+// source of the verdict when the finding was triaged by the VEX engine. A
+// stored vex_justification / vex_response (set directly on the finding) is
+// always honored when present, VEX-triaged or not — it was never invented,
+// an analyst (or rule, or policy) put it there.
 //
 //	false_positive                       → not_affected (fixed, if VEX said fixed)
 //	remediated                           → fixed
@@ -148,7 +172,7 @@ func VerdictFor(t Triaged, stmt *Statement) Verdict {
 				v.Status = StatusFixed
 				return v
 			}
-			v.Justification = openVEXJustification(stmt.Justification)
+			v.Justification = knownJustification(stmt.Justification)
 			if v.Justification == "" && stmt.Justification != "" {
 				// A free-text justification is kept as prose, not coerced into a code.
 				v.Impact = joinNonEmpty(": ", stmt.Justification, stmt.Detail)
@@ -164,6 +188,8 @@ func VerdictFor(t Triaged, stmt *Statement) Verdict {
 				v.Impact += " by " + t.By
 			}
 		}
+		v.Justification = knownJustification(string(t.VexJustification))
+		v.Response = vexResponseStrings(t.VexResponse)
 	case domain.FindingRemediated:
 		v.Status = StatusFixed
 	case domain.FindingConfirmed:
@@ -173,7 +199,7 @@ func VerdictFor(t Triaged, stmt *Statement) Verdict {
 		}
 		if t.FixedVersion != "" {
 			v.Action = joinNonEmpty(" ", v.Action, "Upgrade to "+t.FixedVersion+".")
-			v.Response, v.Remediation = "update", "vendor_fix"
+			v.Response, v.Remediation = []string{"update"}, "vendor_fix"
 		} else {
 			v.Action = cmp.Or(v.Action, "Confirmed affected; no fix is available yet.")
 			v.Remediation = "none_available"
@@ -181,11 +207,16 @@ func VerdictFor(t Triaged, stmt *Statement) Verdict {
 	case domain.FindingRiskAccepted:
 		v.Status = StatusAffected
 		v.Action = "Risk accepted" + until(t.ExpiresAt) + reasonSuffix(t.Reason)
-		v.Response, v.Remediation = "will_not_fix", "no_fix_planned"
+		v.Response, v.Remediation = []string{"will_not_fix"}, "no_fix_planned"
 	case domain.FindingWontFix:
 		v.Status = StatusAffected
 		v.Action = "Will not fix" + reasonSuffix(t.Reason)
-		v.Response, v.Remediation = "will_not_fix", "no_fix_planned"
+		v.Response, v.Remediation = []string{"will_not_fix"}, "no_fix_planned"
+		// A justification explains a not_affected verdict only; on an affected
+		// one every format would misstate it, so it stays in the history.
+		if len(t.VexResponse) > 0 {
+			v.Response = vexResponseStrings(t.VexResponse)
+		}
 	default:
 		v.Status = StatusUnderInvestigation
 	}
@@ -216,7 +247,7 @@ func statementVerdict(st Statement) Verdict {
 	v := Verdict{Status: st.Status, Timestamp: st.UpdatedAt}
 	switch st.Status {
 	case StatusNotAffected:
-		v.Justification = openVEXJustification(st.Justification)
+		v.Justification = knownJustification(st.Justification)
 		if v.Justification == "" {
 			v.Impact = joinNonEmpty(": ", st.Justification, st.Detail)
 		} else {
@@ -260,6 +291,16 @@ func Combine(a, b Verdict) Verdict {
 	}
 	out.Timestamp = ts
 	return out
+}
+
+// knownJustification is j normalized when it is a justification code of
+// either vocabulary (CycloneDX or OpenVEX/CSAF), else "".
+func knownJustification(j string) string {
+	j = strings.ToLower(strings.TrimSpace(j))
+	if openVEXJustification(j) == "" {
+		return ""
+	}
+	return j
 }
 
 // openVEXJustification normalizes a stored justification (OpenVEX or CycloneDX
@@ -317,11 +358,11 @@ func CycloneAnalysis(v Verdict) CDXAnalysis {
 		a.State = "resolved"
 	case StatusAffected:
 		a.State, a.Detail = "exploitable", v.Action
-		if v.Response != "" {
-			a.Response = []string{v.Response}
-		}
 	default:
 		a.State = "in_triage"
+	}
+	if len(v.Response) > 0 {
+		a.Response = v.Response
 	}
 	if !v.Timestamp.IsZero() {
 		a.LastUpdated = v.Timestamp.UTC().Format(time.RFC3339)
@@ -409,7 +450,8 @@ func BuildStatements(scope ExportScope, findings []ExportFinding, stmts []Statem
 				stmt = &stmts[i]
 			}
 			v := VerdictFor(Triaged{Status: f.Status, Reason: f.ExceptionReason, By: f.ExceptionBy,
-				ExpiresAt: f.ExceptionExpiresAt, FixedVersion: f.FixedVersion, At: ef.TriagedAt}, stmt)
+				ExpiresAt: f.ExceptionExpiresAt, FixedVersion: f.FixedVersion, At: ef.TriagedAt,
+				VexJustification: f.VexJustification, VexResponse: f.VexResponse}, stmt)
 			k := key{strings.ToUpper(id), product}
 			if cur := byKey[k]; cur != nil {
 				cur.Verdict = Combine(cur.Verdict, v)
@@ -589,7 +631,7 @@ func OpenVEX(scope ExportScope, stmts []ExportStatement, now time.Time) any {
 		}
 		switch s.Status {
 		case StatusNotAffected:
-			o.Justification, o.ImpactStatement = s.Justification, s.Impact
+			o.Justification, o.ImpactStatement = openVEXJustification(s.Justification), s.Impact
 		case StatusAffected:
 			o.ActionStatement, o.ActionTimestamp = s.Action, o.Timestamp
 		}
@@ -1013,10 +1055,11 @@ func CSAFVEX(scope ExportScope, stmts []ExportStatement, now time.Time) any {
 			switch s.Status {
 			case StatusNotAffected:
 				v.ProductStatus.KnownNotAffected = append(v.ProductStatus.KnownNotAffected, pid)
-				if s.Justification != "" {
-					flags[s.Justification] = append(flags[s.Justification], pid)
+				j := openVEXJustification(s.Justification)
+				if j != "" {
+					flags[j] = append(flags[j], pid)
 				}
-				if s.Impact != "" || s.Justification == "" {
+				if s.Impact != "" || j == "" {
 					details := cmp.Or(s.Impact, "Not affected.")
 					threats[details] = append(threats[details], pid)
 				}

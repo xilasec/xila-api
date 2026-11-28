@@ -1459,6 +1459,55 @@ paths:
           description: No user with that email
           $ref: "#/components/responses/Error"
 
+  /projects/{projectID}/assessment-approvers:
+    get:
+      operationId: listAssessmentApprovers
+      tags: [Projects]
+      summary: Who decides this project's assessments
+      description: The designated approvers as stored (users and groups); empty means any owner decides.
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  approvers: { type: array, items: { $ref: "#/components/schemas/AssessmentApprover" } }
+    put:
+      operationId: setAssessmentApprovers
+      tags: [Projects]
+      summary: Designate who decides this project's assessments
+      description: |
+        Replaces the designated approvers with exactly these users and groups;
+        both empty restores "any owner decides". While any are designated,
+        only they decide (owners included only if designated). Every user
+        must have access to the project and every group must belong to its
+        organization (400 names the rest); a group's members decide only
+        while they can see the project themselves. Project owner, and a custom
+        role must not deny `manage_members`.
+      parameters: [{ $ref: "#/components/parameters/ProjectID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_ids: { type: array, items: { type: string, format: uuid } }
+                group_ids: { type: array, items: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The approvers now designated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  approvers: { type: array, items: { $ref: "#/components/schemas/AssessmentApprover" } }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
   /projects/{projectID}/assignees:
     get:
       operationId: listProjectAssignees
@@ -2635,6 +2684,7 @@ paths:
                 ai_triage_opt_out:
                   type: boolean
                   description: Keep this project's findings away from the AI triage model (nothing is ever sent).
+                assessment_approval: { type: string, enum: [inherit, required, "off"] }
                 parent_id: { type: [string, "null"], format: uuid }
                 is_collection: { type: boolean }
       responses:
@@ -4375,6 +4425,8 @@ paths:
                   type: string
                   format: date-time
                   description: For `risk_accepted` — the finding reopens when this passes.
+                vex_justification: { $ref: "#/components/schemas/VexJustification" }
+                vex_response: { type: array, items: { $ref: "#/components/schemas/VexResponse" } }
       responses:
         "200":
           description: OK
@@ -5171,6 +5223,8 @@ paths:
                 status: { $ref: "#/components/schemas/FindingStatus" }
                 reason: { type: string }
                 expires_at: { type: string, format: date-time }
+                vex_justification: { $ref: "#/components/schemas/VexJustification" }
+                vex_response: { type: array, items: { $ref: "#/components/schemas/VexResponse" } }
                 severity: { $ref: "#/components/schemas/Severity" }
                 assignee_id: { type: string, format: uuid, nullable: true }
                 add_tags: { type: array, items: { type: string }, description: Tags to add to each finding. }
@@ -8287,8 +8341,9 @@ paths:
       tags: [Findings]
       summary: The manual-assessment review queue
       description: |
-        Assessments across every project you can see, newest first. With
-        `ASSESSMENT_REQUIRES_APPROVAL=true`, status / severity changes made through
+        Assessments across every project you can see, newest first. Where a
+        project requires approval (its `assessment_approval`, `inherit` following
+        `ASSESSMENT_REQUIRES_APPROVAL`), status / severity changes made through
         `PATCH /findings/{findingID}` and `POST /findings/bulk` land here as
         `pending` until approved.
       parameters:
@@ -8296,7 +8351,7 @@ paths:
         - { name: project_id, in: query, schema: { type: string, format: uuid } }
         - name: actionable
           in: query
-          description: Only what you may decide - pending assessments of projects you own that someone else requested.
+          description: Only what you may decide (see `can_decide`) and someone else requested.
           schema: { type: boolean }
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Offset" }
@@ -8312,14 +8367,79 @@ paths:
                   pagination: { $ref: "#/components/schemas/Pagination" }
         "400": { $ref: "#/components/responses/Error" }
 
+  /assessments/approve:
+    post:
+      operationId: approveAssessments
+      tags: [Findings]
+      summary: Approve many pending assessments
+      description: |
+        Each id is authorized like `POST /assessments/{assessmentID}/approve`;
+        one the caller may not decide is listed in `failed` and left as it is
+        (one in a project they can't see as "assessment not found"). With
+        `vex_justification` / `vex_response`, every approved assessment applies
+        that analysis instead of its own ("approve with edits").
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids: { type: array, items: { type: string, format: uuid }, maxItems: 5000 }
+                note: { type: string }
+                vex_justification: { $ref: "#/components/schemas/VexJustification" }
+                vex_response: { type: array, items: { $ref: "#/components/schemas/VexResponse" } }
+      responses:
+        "200":
+          description: Decided
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  approved: { type: array, items: { $ref: "#/components/schemas/Assessment" } }
+                  failed: { type: array, items: { type: object, properties: { id: { type: string }, error: { type: string } } } }
+        "400": { $ref: "#/components/responses/Error" }
+
+  /assessments/reject:
+    post:
+      operationId: rejectAssessments
+      tags: [Findings]
+      summary: Reject many pending assessments
+      description: Same authorization and `failed` reporting as bulk approve; every finding stays as it is.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids: { type: array, items: { type: string, format: uuid }, maxItems: 5000 }
+                note: { type: string }
+      responses:
+        "200":
+          description: Decided
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rejected: { type: array, items: { $ref: "#/components/schemas/Assessment" } }
+                  failed: { type: array, items: { type: object, properties: { id: { type: string }, error: { type: string } } } }
+        "400": { $ref: "#/components/responses/Error" }
+
   /assessments/{assessmentID}/approve:
     post:
       operationId: approveAssessment
       tags: [Findings]
       summary: Approve a pending assessment
       description: |
-        Needs `owner` on the finding's project (or instance admin), and four-eyes:
-        the requester can't approve their own (403). Applies the requested status /
+        Needs one of the project's designated approvers who can still see it
+        (any role), or, with none designated, `owner` (or instance admin); a
+        custom role denying `triage` refuses it. Four-eyes: the requester can't
+        approve their own (403). Applies the requested status /
         severity exactly as a direct change would (resolved_at, exception audit row,
         dedup regroup), attributed in the history to the requester with their
         reason; the approval is recorded as an `assessment` event by the approver.
@@ -10609,6 +10729,7 @@ components:
         archived_at: { type: [string, "null"], format: date-time, readOnly: true, description: Set while archived. }
         archived_by: { type: [string, "null"], format: uuid, readOnly: true }
         ai_triage_opt_out: { type: boolean, description: "The project opted out of AI triage." }
+        assessment_approval: { type: string, enum: [inherit, required, "off"], description: "Whether manual status / severity changes need a second person's approval; inherit follows ASSESSMENT_REQUIRES_APPROVAL." }
         created_at: { type: string, format: date-time }
 
     AIProposal:
@@ -11616,6 +11737,8 @@ components:
         exception_reason: { type: string }
         exception_by: { type: string }
         exception_expires_at: { type: [string, "null"], format: date-time }
+        vex_justification: { $ref: "#/components/schemas/VexJustification" }
+        vex_response: { type: array, items: { $ref: "#/components/schemas/VexResponse" } }
         risk_acceptance: { type: [object, "null"], description: The live risk acceptance covering the finding (id, title, state, justification, approver, expires_at) }
         first_seen_at: { type: string, format: date-time }
         last_seen_at: { type: string, format: date-time }
@@ -11685,11 +11808,32 @@ components:
         removed_at: { type: [string, "null"], format: date-time }
         removed_by: { type: string }
         reason: { type: string }
+    VexJustification:
+      type: string
+      description: |
+        Why a false_positive (not_affected) verdict holds, in CycloneDX's
+        vocabulary; "" when none was recorded. Exports restate it in each
+        format's own terms (OpenVEX / CSAF translate it) and only for a
+        not_affected verdict: a wont_fix one stays in the finding's history.
+      enum: ["", code_not_present, code_not_reachable, requires_configuration, requires_dependency, requires_environment, protected_by_compiler, protected_at_runtime, protected_at_perimeter, protected_by_mitigating_control]
+    VexResponse:
+      type: string
+      description: What is being done about the finding (CycloneDX analysis response).
+      enum: [can_not_fix, will_not_fix, update, rollback, workaround_available]
+    AssessmentApprover:
+      type: object
+      description: One designated approver, a user or a group (exactly one of the two).
+      properties:
+        user_id: { type: string, format: uuid }
+        email: { type: string }
+        group_id: { type: string, format: uuid }
+        group_name: { type: string }
     Assessment:
       type: object
       description: |
         A manual status and/or severity change held for a second person's approval
-        (`ASSESSMENT_REQUIRES_APPROVAL=true`). At most one is `pending` per finding.
+        (the project's `assessment_approval`, `inherit` following
+        `ASSESSMENT_REQUIRES_APPROVAL`). At most one is `pending` per finding.
       properties:
         id: { type: string, format: uuid }
         finding_id: { type: string, format: uuid }
@@ -11700,6 +11844,8 @@ components:
         severity: { oneOf: [{ $ref: "#/components/schemas/Severity" }, { type: "null" }], description: "The requested severity, if any." }
         reason: { type: string }
         expires_at: { type: string, format: date-time, nullable: true }
+        vex_justification: { $ref: "#/components/schemas/VexJustification" }
+        vex_response: { type: array, items: { $ref: "#/components/schemas/VexResponse" } }
         state: { type: string, enum: [pending, approved, rejected] }
         decided_by: { type: string, format: uuid, nullable: true }
         decider: { type: string }
@@ -11710,7 +11856,7 @@ components:
         current_status: { $ref: "#/components/schemas/FindingStatus" }
         current_severity: { $ref: "#/components/schemas/Severity" }
         project_name: { type: string }
-        can_decide: { type: boolean, description: Whether the caller may approve or reject it (a project owner or instance admin who isn't the requester). }
+        can_decide: { type: boolean, description: "Whether the caller may approve or reject it: not the requester, and an instance admin, a designated approver of the project, or (with none designated) an owner." }
 
     BulkResult:
       type: object
@@ -12204,6 +12350,7 @@ components:
           enum: [not_affected, affected, fixed, under_investigation]
         justification: { type: string, examples: [vulnerable_code_not_in_execute_path] }
         detail: { type: string }
+        response: { type: array, items: { type: string }, description: "The CycloneDX analysis response codes an imported document carried; empty for OpenVEX and CSAF." }
         source: { type: string, enum: [openvex, cyclonedx] }
         created_at: { type: string, format: date-time }
 
@@ -12671,6 +12818,8 @@ components:
             saved (`null` clears the field). A finding already holding it is left alone; a value
             not valid for a finding (a field scoped to another organization, a user who can't
             see the project) skips that finding.
+        vex_justification: { allOf: [{ $ref: "#/components/schemas/VexJustification" }], description: "Set with a false_positive / wont_fix action; cleared for any other." }
+        vex_response: { type: array, items: { $ref: "#/components/schemas/VexResponse" } }
         reason: { type: string, description: Recorded in the finding's audit trail. }
         min_epss:
           type: [number, "null"]

@@ -669,6 +669,13 @@ export const api = {
 
 	/** @param {string} projectId */
 	getTriageCarry: (projectId) => request('GET', `/projects/${projectId}/triage-carry`),
+	/** @param {string} projectId */
+	getAssessmentApprovers: (projectId) =>
+		request('GET', `/projects/${projectId}/assessment-approvers`).then((d) => d.approvers ?? []),
+	/** @param {string} projectId @param {string[]} userIds @param {string[]} groupIds */
+	setAssessmentApprovers: (projectId, userIds, groupIds) =>
+		request('PUT', `/projects/${projectId}/assessment-approvers`, { body: { user_ids: userIds, group_ids: groupIds } })
+			.then((d) => d.approvers ?? []),
 	/** @param {string} projectId @param {{enabled: boolean, branch_regex: string}} data */
 	setTriageCarry: (projectId, data) => request('PUT', `/projects/${projectId}/triage-carry`, { body: data }),
 	/** @param {string} findingId @param {string} primaryId */
