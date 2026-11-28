@@ -94,17 +94,36 @@ func TestIngestStrictAcceptsValidDocument(t *testing.T) {
 	}
 }
 
-func TestIngestRejectsXML(t *testing.T) {
+// CycloneDX XML ingests like JSON, but the schema validator only checks JSON:
+// strict mode, asked for per request or instance-wide, refuses XML with a
+// clear error and stores nothing rather than skipping validation.
+func TestIngestXML(t *testing.T) {
 	pool := pgtest.Pool(t)
 	repo := sbom.NewRepository(pool)
 	projects := project.NewRepository(pool)
 	ctx := context.Background()
-	projectID := seedProject(t, pool, "xml-rejected")
+	projectID := seedProject(t, pool, "xml")
+	xml := `<?xml version="1.0"?><bom xmlns="http://cyclonedx.org/schema/bom/1.6"><components>
+		<component type="library"><name>left-pad</name><version>1.0.0</version><purl>pkg:npm/left-pad@1.0.0</purl></component>
+	</components></bom>`
 
-	svc := sbom.NewService(repo, projects, nil, nil)
-	xml := `<?xml version="1.0"?><bom xmlns="http://cyclonedx.org/schema/bom/1.6"></bom>`
-	_, err := svc.Ingest(ctx, sbom.IngestRequest{ProjectID: projectID}, strings.NewReader(xml))
-	if err == nil || !strings.Contains(err.Error(), "XML") {
-		t.Fatalf("expected a clear XML-not-supported error, got %v", err)
+	lenient := sbom.NewService(repo, projects, nil, nil)
+	if _, err := lenient.Ingest(ctx, sbom.IngestRequest{ProjectID: projectID, Strict: true}, strings.NewReader(xml)); !errors.Is(err, sbom.ErrStrictXMLUnsupported) {
+		t.Errorf("?strict=true with XML = %v, want ErrStrictXMLUnsupported", err)
+	}
+	strict := sbom.NewService(repo, projects, nil, nil).WithStrictValidation(true)
+	if _, err := strict.Ingest(ctx, sbom.IngestRequest{ProjectID: projectID}, strings.NewReader(xml)); !errors.Is(err, sbom.ErrStrictXMLUnsupported) {
+		t.Errorf("SBOM_STRICT_VALIDATION with XML = %v, want ErrStrictXMLUnsupported", err)
+	}
+	if got, err := repo.ListByProject(ctx, projectID, ""); err != nil || len(got) != 0 {
+		t.Fatalf("a refused upload stored %d snapshots (err %v)", len(got), err)
+	}
+
+	stored, err := lenient.Ingest(ctx, sbom.IngestRequest{ProjectID: projectID}, strings.NewReader(xml))
+	if err != nil {
+		t.Fatalf("lenient XML upload: %v", err)
+	}
+	if stored.ComponentCount != 1 {
+		t.Errorf("components = %d, want 1", stored.ComponentCount)
 	}
 }
