@@ -3356,7 +3356,10 @@ setting): their files and tag can't be replaced. A ruleset stops anyone moving
 or deleting a `v*` tag. The build refuses a tag that isn't a semver tag on a
 commit of `main`, and refuses to push an image or chart version whose release
 is published (GHCR can't lock a tag itself); `:X.Y` and `:latest` move on
-purpose. A build that failed before publishing is retried on the tag:
+purpose. Release builds use no caches (Docker layers, Go modules,
+the pnpm store): they start from the tag and the Dockerfile's images, which are
+pinned by digest (the BuildKit frontend too) and kept current by Dependabot. A
+build that failed before publishing is retried on the tag:
 `gh workflow run release.yml --ref vX.Y.Z -f tag=vX.Y.Z` (the run must start on
 the tag's commit, so that the provenance names it).
 
